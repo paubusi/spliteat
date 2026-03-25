@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://js.stripe.com/v3/"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -246,16 +247,6 @@
           <option value="">— Sin restaurante —</option>
         </select>
       </div>
-      <div class="field">
-        <label>Propina por defecto</label>
-        <select id="create-tip">
-          <option value="0">Sin propina</option>
-          <option value="5">5%</option>
-          <option value="10" selected>10%</option>
-          <option value="15">15%</option>
-          <option value="20">20%</option>
-        </select>
-      </div>
       <button class="btn btn-primary mt" onclick="createRoom()">Crear sala →</button>
       <div id="create-err" class="notice notice-err" style="display:none"></div>
     </div>
@@ -340,7 +331,21 @@
         <div class="empty-icon">🥘</div>
         <div class="empty-text">Aún no hay platos.<br>Añádelos desde la Carta.</div>
       </div>
-      <button class="btn btn-primary mt" onclick="go('s4-summary')">Ver resumen →</button>
+
+      <!-- BOTÓN ENVIAR A COCINA -->
+      <div id="kitchen-send-area" style="display:none;margin-top:1rem">
+        <div style="background:#FAEEDA;border-radius:var(--r-sm);padding:.65rem 1rem;font-size:13px;color:#633806;margin-bottom:.65rem;line-height:1.5">
+          Cuando hayas decidido todos tus platos, envíalos a cocina. Podrás seguir añadiendo más después.
+        </div>
+        <button class="btn btn-accent" onclick="sendToKitchen()" id="btn-send-kitchen">
+          🍳 Enviar pedido a cocina
+        </button>
+        <div id="kitchen-sent-msg" style="display:none;background:var(--brand-light);border-radius:var(--r-sm);padding:.65rem 1rem;font-size:13px;color:var(--brand-dark);margin-top:.65rem">
+          ✓ Pedido enviado. Cocina lo está preparando.
+        </div>
+      </div>
+
+      <button class="btn btn-secondary mt" onclick="go('s4-summary')" style="margin-top:.65rem">Ver resumen →</button>
     </div>
 
     <!-- MODAL: CONFIRMAR PLATO -->
@@ -392,11 +397,7 @@
         <div class="gl">Total mesa</div>
         <div class="gv" id="grand-total">—</div>
       </div>
-      <div class="field" style="margin-top:1rem">
-        <label>Propina (%)</label>
-        <input id="tip-input" type="number" min="0" max="30" value="10" oninput="buildSummary()">
-      </div>
-      <button class="btn btn-primary" onclick="go('s5-pay')">Pagar →</button>
+      <button class="btn btn-primary" style="margin-top:1rem" onclick="go('s5-pay')">Continuar al pago →</button>
     </div>
   </div>
 
@@ -409,6 +410,22 @@
       <div class="logo">split<em>eat</em></div>
     </div>
     <div class="body">
+      <!-- TIP SECTION - optional, friendly -->
+      <div style="background:var(--bg2);border-radius:var(--r);padding:1rem 1.1rem;margin-bottom:1rem;border:1px solid var(--bd)">
+        <div style="font-size:13px;font-weight:500;margin-bottom:.25rem">¿El servicio ha sido bueno? 😊</div>
+        <div style="font-size:12px;color:var(--t2);margin-bottom:.75rem;line-height:1.5">Si quieres dejar propina, elige cuánto. Si no, ningún problema — es totalmente opcional.</div>
+        <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+          <button class="tip-opt" data-tip="0" onclick="selectTip(0)"
+            style="padding:7px 14px;border-radius:var(--r-full);border:1px solid var(--bd2);background:var(--brand);color:#fff;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s">Sin propina</button>
+          <button class="tip-opt" data-tip="5" onclick="selectTip(5)"
+            style="padding:7px 14px;border-radius:var(--r-full);border:1px solid var(--bd2);background:var(--card);color:var(--t1);font-size:13px;cursor:pointer;font-family:inherit;transition:all .15s">5%</button>
+          <button class="tip-opt" data-tip="10" onclick="selectTip(10)"
+            style="padding:7px 14px;border-radius:var(--r-full);border:1px solid var(--bd2);background:var(--card);color:var(--t1);font-size:13px;cursor:pointer;font-family:inherit;transition:all .15s">10%</button>
+          <button class="tip-opt" data-tip="15" onclick="selectTip(15)"
+            style="padding:7px 14px;border-radius:var(--r-full);border:1px solid var(--bd2);background:var(--card);color:var(--t1);font-size:13px;cursor:pointer;font-family:inherit;transition:all .15s">15%</button>
+        </div>
+      </div>
+
       <div class="sec-label">Tu parte</div>
       <div class="grand-bar">
         <div class="gl" id="pay-name-label">—</div>
@@ -530,6 +547,7 @@
       <button class="tab on" onclick="showAdminTab('carta')">Carta</button>
       <button class="tab" onclick="showAdminTab('mesas')">Mesas</button>
       <button class="tab" onclick="showAdminTab('cocina')">Cocina</button>
+      <button class="tab" onclick="showAdminTab('pagos')">Pagos</button>
     </div>
 
     <!-- TAB CARTA -->
@@ -590,7 +608,48 @@
         <div class="empty-text">No hay pedidos pendientes.</div>
       </div>
     </div>
+
+    <!-- TAB PAGOS (admin) — Stripe Connect -->
+    <div id="atab-pagos" class="body" style="display:none">
+      <div id="stripe-not-enabled" style="display:block">
+        <div class="notice" style="margin-bottom:1rem">
+          <strong>Pagos online — Próximamente</strong><br>
+          Cuando actives Stripe Connect, tus comensales podrán pagar directamente desde el móvil. El dinero llega a tu cuenta bancaria en 2 días. spliteat retiene una pequeña comisión del 0,8%.
+        </div>
+        <div class="card" style="margin-bottom:.75rem">
+          <div style="font-size:13px;font-weight:500;margin-bottom:.35rem">¿Cómo funciona?</div>
+          <div style="font-size:12px;color:var(--t2);line-height:1.7">
+            1. Conectas tu cuenta bancaria una vez (10 min)<br>
+            2. Los comensales ven el botón "Pagar con tarjeta"<br>
+            3. El dinero llega a tu cuenta en 2 días<br>
+            4. spliteat descuenta el 0,8% automáticamente
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:.75rem">
+          <div style="font-size:13px;font-weight:500;margin-bottom:.25rem">Coste para el restaurante</div>
+          <div style="font-size:12px;color:var(--t2);line-height:1.7">
+            Stripe: 1,4% + 0,25€ por transacción (tarjeta europea)<br>
+            spliteat: 0,8%<br>
+            <strong style="color:var(--t1)">Total: ~2,2% + 0,25€</strong> — similar a tu datáfono actual
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="startStripeOnboarding()" id="btn-stripe-connect" disabled>
+          Conectar cuenta bancaria →
+        </button>
+        <div style="font-size:12px;color:var(--t3);margin-top:.5rem;text-align:center">
+          Disponible próximamente — estamos activando los pagos
+        </div>
+      </div>
+
+      <div id="stripe-enabled" style="display:none">
+        <div id="stripe-status-card" class="card" style="margin-bottom:.75rem"></div>
+        <div class="notice">
+          Los pagos online están activos. Tus comensales pueden pagar con tarjeta, Apple Pay o Google Pay directamente desde la mesa.
+        </div>
+      </div>
+    </div>
   </div>
+
 
 </div><!-- end #app -->
 
@@ -604,12 +663,46 @@ const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
 const BASE_URL = window.location.origin + window.location.pathname;
 
 // ══════════════════════════════════════════════════════
+// STRIPE CONFIG
+// ══════════════════════════════════════════════════════
+// 🔴 MODO TEST — pagos reales desactivados
+// Para activar pagos reales:
+//   1. Crea cuenta en stripe.com y activa Connect
+//   2. Cambia STRIPE_ENABLED a true
+//   3. Pon tu clave pública de Stripe en STRIPE_PUBLIC_KEY
+//   4. Despliega la Edge Function en Supabase
+// ══════════════════════════════════════════════════════
+const STRIPE_ENABLED = false; // ← cambiar a true cuando tengas cuenta Stripe
+const STRIPE_PUBLIC_KEY = 'pk_test_XXXXXXXXXX'; // ← poner tu clave pública aquí
+const STRIPE_COMMISSION_PCT = 0.8; // % que se queda spliteat
+
+// Inicializar Stripe solo si está habilitado
+let stripeInstance = null;
+if (STRIPE_ENABLED && typeof Stripe !== 'undefined') {
+  stripeInstance = Stripe(STRIPE_PUBLIC_KEY);
+}
+
+// Llama a la Edge Function de Supabase
+async function callStripeFunction(action, params) {
+  const res = await fetch(`${SUPA_URL}/functions/v1/stripe-payment`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${SUPA_KEY}`
+    },
+    body: JSON.stringify({ action, ...params })
+  });
+  if (!res.ok) throw new Error(`Error ${res.status}: ${await res.text()}`);
+  return res.json();
+}
+
+// ══════════════════════════════════════════════════════
 // STATE
 // ══════════════════════════════════════════════════════
 let state = {
   myName: '', myGuestId: null,
   roomId: null, roomCode: null, restaurantName: '',
-  tipPercent: 10,
+  tipPercent: 0,
   guests: [], dishes: [], participants: {},
   menuItems: [], restaurantId: null,
   adminRestaurantId: null, adminRestaurantName: '',
@@ -653,7 +746,7 @@ function go(screenId) {
 function resetState() {
   state.realtimeSubs.forEach(s => { try { sb.removeChannel(s); } catch(e){} });
   state = { ...state, myName:'', myGuestId:null, roomId:null, roomCode:null,
-    restaurantName:'', tipPercent:10, guests:[], dishes:[], participants:{},
+    restaurantName:'', tipPercent:0, guests:[], dishes:[], participants:{},
     menuItems:[], restaurantId:null, realtimeSubs:[], payments:[] };
 }
 
@@ -661,32 +754,49 @@ function resetState() {
 // ROOM: CREATE
 // ══════════════════════════════════════════════════════
 async function createRoom() {
-  const name = document.getElementById('create-name').value.trim();
+  const nameEl = document.getElementById('create-name');
   const restSelect = document.getElementById('create-rest');
-  const selectedRestId = restSelect.value || null;
-  const selectedRestName = selectedRestId ? restSelect.options[restSelect.selectedIndex].text : '';
-  const tip = parseInt(document.getElementById('create-tip').value);
   const errEl = document.getElementById('create-err');
   errEl.style.display = 'none';
+
+  const name = (nameEl ? nameEl.value : '').trim();
   if (!name) { errEl.textContent = 'Escribe tu nombre primero.'; errEl.style.display = 'block'; return; }
 
+  // Safely read restaurant select — avoid null/undefined serialization issues
+  let selectedRestId = null;
+  let selectedRestName = '';
+  try {
+    if (restSelect && restSelect.value) {
+      selectedRestId = String(restSelect.value);
+      selectedRestName = String(restSelect.options[restSelect.selectedIndex].text);
+    }
+  } catch(e) { selectedRestId = null; selectedRestName = ''; }
+
   const code = String(Math.floor(1000 + Math.random() * 9000));
-  const { data: room, error: re } = await sb.from('rooms').insert({
-    code,
-    restaurant_name: selectedRestName || null,
-    tip_percent: tip,
-    restaurant_id: selectedRestId
-  }).select().single();
+
+  // Build insert payload with only plain serializable values
+  const roomPayload = {
+    code: code,
+    tip_percent: 0
+  };
+  if (selectedRestName) roomPayload.restaurant_name = selectedRestName;
+  if (selectedRestId) roomPayload.restaurant_id = selectedRestId;
+
+  const { data: room, error: re } = await sb.from('rooms').insert(roomPayload).select().single();
   if (re) { errEl.textContent = 'Error al crear la sala: ' + re.message; errEl.style.display = 'block'; return; }
+
   const { data: guest, error: ge } = await sb.from('guests').insert({
-    room_id: room.id, name
+    room_id: String(room.id), name: name
   }).select().single();
   if (ge) { errEl.textContent = 'Error al unirte: ' + ge.message; errEl.style.display = 'block'; return; }
-  state.roomId = room.id; state.roomCode = code;
-  state.myName = name; state.myGuestId = guest.id;
+
+  state.roomId = room.id;
+  state.roomCode = code;
+  state.myName = name;
+  state.myGuestId = guest.id;
   state.restaurantName = selectedRestName;
   state.restaurantId = selectedRestId;
-  state.tipPercent = tip;
+  state.tipPercent = 0;
   state.guests = [guest];
   renderRoomScreen();
   subscribeRealtime();
@@ -770,6 +880,7 @@ function subscribeRealtime() {
       state.dishes = data || [];
       await loadParticipants();
       renderMesaDishes();
+      renderCarta(); // also refresh carta so count badges update in real time
       if (document.getElementById('s4-summary').classList.contains('active')) buildSummary();
     }).subscribe();
 
@@ -777,6 +888,7 @@ function subscribeRealtime() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'dish_participants' }, async () => {
       await loadParticipants();
       renderMesaDishes();
+      renderCarta();
       if (document.getElementById('s4-summary').classList.contains('active')) buildSummary();
     }).subscribe();
 
@@ -947,7 +1059,9 @@ async function removeDishFromCarta(menuItemId) {
 function renderMesaDishes() {
   const el = document.getElementById('mesa-dishes-list');
   const empty = document.getElementById('mesa-empty');
-  if (!state.dishes.length) { el.innerHTML = ''; empty.style.display = 'block'; } else {
+  if (!state.dishes.length) {
+    el.innerHTML = ''; empty.style.display = 'block';
+  } else {
     empty.style.display = 'none';
     el.innerHTML = state.dishes.map(d => renderDishCard(d)).join('');
   }
@@ -957,6 +1071,22 @@ function renderMesaDishes() {
     badge.style.display = state.dishes.length > 0 ? 'inline' : 'none';
     badge.textContent = state.dishes.length;
   }
+  // Show/hide send-to-kitchen area
+  const kitchenArea = document.getElementById('kitchen-send-area');
+  const sentMsg = document.getElementById('kitchen-sent-msg');
+  const sendBtn = document.getElementById('btn-send-kitchen');
+  if (kitchenArea) {
+    const unsentDishes = state.dishes.filter(d =>
+      !d.kitchen_status || d.kitchen_status === 'new'
+    );
+    const allSentOrConfirmed = state.dishes.length > 0 && unsentDishes.length === 0;
+    kitchenArea.style.display = state.dishes.length > 0 ? 'block' : 'none';
+    if (sentMsg) sentMsg.style.display = allSentOrConfirmed ? 'block' : 'none';
+    if (sendBtn) {
+      sendBtn.style.display = unsentDishes.length > 0 ? 'block' : 'none';
+      sendBtn.textContent = `🍳 Enviar ${unsentDishes.length} plato${unsentDishes.length !== 1 ? 's' : ''} a cocina`;
+    }
+  }
 }
 
 function renderDishCard(dish) {
@@ -964,13 +1094,22 @@ function renderDishCard(dish) {
   const parts = state.participants[dish.id] || [];
   const nParts = Math.max(1, parts.length);
   const perPerson = parseFloat(dish.price) / nParts;
-  const isMyDish = dish.assignee_id === state.myGuestId;
+  const ks = dish.kitchen_status || 'new';
+  const isConfirmed = ks === 'making' || ks === 'ready';
+  const isSent = ks === 'sent' || isConfirmed;
+
+  // Kitchen status badge
+  const ksBadge = isSent
+    ? `<span style="font-size:11px;padding:2px 8px;border-radius:99px;font-weight:500;background:${ks==='ready'?'#EAF3DE':ks==='making'?'#FAEEDA':'#E6F1FB'};color:${ks==='ready'?'#3B6D11':ks==='making'?'#854F0B':'#0C447C'}">
+        ${ks==='ready'?'✓ Listo':ks==='making'?'🍳 En preparación':'📨 Enviado'}
+      </span>` : '';
 
   let bodyHtml = '';
   if (isShared) {
     const chips = state.guests.map((g, i) => {
       const inPart = parts.includes(g.id);
-      return `<span class="part-chip ${inPart ? 'in' : 'out'}" onclick="toggleParticipant('${dish.id}','${g.id}',${!inPart})">
+      const canToggle = !isConfirmed;
+      return `<span class="part-chip ${inPart ? 'in' : 'out'}" ${canToggle ? `onclick="toggleParticipant('${dish.id}','${g.id}',${!inPart})"` : ''} style="${!canToggle?'cursor:default;':''}">
         ${avEl(g.name, i, 20)}${g.name}
       </span>`;
     }).join('');
@@ -978,32 +1117,38 @@ function renderDishCard(dish) {
       <div class="participants">${chips}</div>
       <div class="share-line">÷ ${nParts} persona${nParts !== 1 ? 's' : ''} = <strong>${fmt(perPerson)}</strong> c/u</div>`;
   } else {
-    const assignee = state.guests.find(g => g.id === dish.assignee_id);
     const soloChips = state.guests.map((g, i) => {
       const isSel = dish.assignee_id === g.id;
-      return `<span class="part-chip ${isSel ? 'in' : ''}" onclick="assignSolo('${dish.id}','${g.id}')">
+      const canChange = !isConfirmed;
+      return `<span class="part-chip ${isSel ? 'in' : ''}" ${canChange ? `onclick="assignSolo('${dish.id}','${g.id}')"` : ''} style="${!canChange?'cursor:default;':''}">
         ${avEl(g.name, i, 20)}${g.name}
       </span>`;
     }).join('');
     bodyHtml = `<div class="participants">${soloChips}</div>`;
   }
 
-  return `<div class="dish-card" id="dc-${dish.id}">
-    <div class="dish-card-top">
-      <div class="dish-name">${dish.name}</div>
-      <div class="dish-price">${fmt(parseFloat(dish.price))}</div>
-    </div>
-    <div class="dish-body">${bodyHtml}</div>
+  const actionBtns = !isConfirmed ? `
     <div style="display:flex;gap:.5rem;margin-top:.65rem">
       <button onclick="toggleDishType('${dish.id}')"
         style="flex:1;padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:${isShared ? 'var(--blue-l)' : 'var(--amber-l)'};color:${isShared ? 'var(--blue)' : 'var(--amber)'};font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
-        ${isShared ? '🤝 Compartido — cambiar a mío' : '👤 Solo mío — cambiar a compartido'}
+        ${isShared ? '🤝 Compartido' : '👤 Solo mío'} — cambiar
       </button>
       <button onclick="deleteDish('${dish.id}')"
         style="padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit">
         Quitar
       </button>
+    </div>` : `<div style="font-size:12px;color:var(--t2);margin-top:.5rem;font-style:italic">No se puede modificar — cocina ya lo está preparando.</div>`;
+
+  return `<div class="dish-card${isConfirmed?' confirmed':''}" id="dc-${dish.id}" style="${isConfirmed?'opacity:.85;':''}">
+    <div class="dish-card-top">
+      <div class="dish-name">${dish.name}</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        ${ksBadge}
+        <div class="dish-price">${fmt(parseFloat(dish.price))}</div>
+      </div>
     </div>
+    <div class="dish-body">${bodyHtml}</div>
+    ${actionBtns}
   </div>`;
 }
 
@@ -1054,18 +1199,38 @@ async function toggleDishType(dishId) {
   dish.type = newType;
   dish.assignee_id = newType === 'solo' ? state.myGuestId : null;
   if (newType === 'shared') {
-    // Add all guests as participants
     const parts = state.guests.map(g => ({ dish_id: dishId, guest_id: g.id }));
     await sb.from('dish_participants').upsert(parts, { onConflict: 'dish_id,guest_id' });
     state.participants[dishId] = state.guests.map(g => g.id);
   } else {
-    // Remove all participants
     await sb.from('dish_participants').delete().eq('dish_id', dishId);
     state.participants[dishId] = [];
   }
   flashCard(dishId);
   renderMesaDishes();
   renderCarta();
+}
+
+// ══════════════════════════════════════════════════════
+// SEND TO KITCHEN
+// ══════════════════════════════════════════════════════
+async function sendToKitchen() {
+  const unsentDishes = state.dishes.filter(d =>
+    !d.kitchen_status || d.kitchen_status === 'new'
+  );
+  if (!unsentDishes.length) return;
+
+  const btn = document.getElementById('btn-send-kitchen');
+  if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
+
+  // Mark all unsent dishes as 'sent'
+  for (const dish of unsentDishes) {
+    await sb.from('dishes').update({ kitchen_status: 'sent' }).eq('id', dish.id);
+    dish.kitchen_status = 'sent';
+  }
+
+  if (btn) btn.disabled = false;
+  renderMesaDishes();
 }
 
 function flashCard(dishId) {
@@ -1076,10 +1241,25 @@ function flashCard(dishId) {
 }
 
 // ══════════════════════════════════════════════════════
+// TIP SELECTION
+// ══════════════════════════════════════════════════════
+function selectTip(pct) {
+  state.tipPercent = pct;
+  document.querySelectorAll('.tip-opt').forEach(btn => {
+    const isSelected = parseInt(btn.dataset.tip) === pct;
+    btn.style.background = isSelected ? 'var(--brand)' : 'var(--card)';
+    btn.style.color = isSelected ? '#fff' : 'var(--t1)';
+    btn.style.borderColor = isSelected ? 'var(--brand)' : 'var(--bd2)';
+    btn.style.fontWeight = isSelected ? '500' : '400';
+  });
+  buildPayScreen();
+}
+
+// ══════════════════════════════════════════════════════
 // SUMMARY
 // ══════════════════════════════════════════════════════
 function calcTotals() {
-  const tip = (parseFloat(document.getElementById('tip-input')?.value || state.tipPercent) || 0) / 100;
+  const tip = (state.tipPercent || 0) / 100;
   return state.guests.map(g => {
     let soloAmt = 0, sharedAmt = 0, soloItems = [], sharedItems = [];
     state.dishes.forEach(d => {
@@ -1104,9 +1284,6 @@ function buildSummary() {
   const totals = calcTotals();
   const grand = totals.reduce((a, t) => a + t.total, 0);
   document.getElementById('grand-total').textContent = fmt(grand);
-  if (document.getElementById('tip-input'))
-    document.getElementById('tip-input').value = state.tipPercent;
-
   const el = document.getElementById('summary-list');
   el.innerHTML = totals.map((t, i) => {
     const isMe = t.g.id === state.myGuestId;
@@ -1118,10 +1295,6 @@ function buildSummary() {
     t.sharedItems.forEach(({ d, share, nP }) => {
       lines += `<div class="sum-line shared"><span class="lbl" style="color:var(--blue)">↳ ${d.name} ÷${nP}</span><span class="val">${fmt(share)}</span></div>`;
     });
-    if (t.tipAmt > 0 && lines) {
-      const tip = parseFloat(document.getElementById('tip-input')?.value || state.tipPercent);
-      lines += `<hr><div class="sum-line"><span class="lbl">Propina (${tip}%)</span><span class="val">${fmt(t.tipAmt)}</span></div>`;
-    }
     return `<div class="sum-card ${isMe ? 'me' : ''}">
       <div class="sum-hdr">
         ${avEl(t.g.name, i, 34)}
@@ -1159,15 +1332,99 @@ async function confirmPay(method) {
   const totals = calcTotals();
   const me = totals.find(t => t.g.id === state.myGuestId);
   if (!me) return;
+
+  // ── MODO STRIPE ACTIVO ──────────────────────────────
+  if (STRIPE_ENABLED && stripeInstance && method !== 'Efectivo') {
+    await payWithStripe(me, method);
+    return;
+  }
+
+  // ── MODO MANUAL (sin Stripe o efectivo) ─────────────
+  await registerManualPayment(me, method);
+}
+
+async function registerManualPayment(me, method) {
   await sb.from('payments').insert({
-    room_id: state.roomId, guest_id: state.myGuestId,
-    amount: me.total, method
+    room_id: state.roomId,
+    guest_id: state.myGuestId,
+    amount: me.total,
+    method,
+    stripe_status: 'manual'
   });
-  const { data } = await sb.from('payments').select('*').eq('room_id', state.roomId);
-  state.payments = data || [];
-  const allPaid = state.guests.every(g => state.payments.find(p => p.guest_id === g.id));
-  if (allPaid) { go('s6-done'); return; }
+  state.payments.push({ guest_id: state.myGuestId, method, amount: me.total });
   buildPayScreen();
+  // Check if everyone paid
+  const allPaid = state.guests.every(g => state.payments.find(p => p.guest_id === g.id));
+  if (allPaid) setTimeout(() => go('s6-done'), 800);
+}
+
+async function payWithStripe(me, method) {
+  // Get restaurant's Stripe account
+  const { data: rest } = await sb.from('restaurants')
+    .select('stripe_account_id, stripe_charges_enabled')
+    .eq('id', state.restaurantId)
+    .single();
+
+  if (!rest?.stripe_account_id || !rest?.stripe_charges_enabled) {
+    // Restaurant not set up with Stripe — fall back to manual
+    alert('Este restaurante aún no tiene pagos online activados. Paga directamente al camarero.');
+    await registerManualPayment(me, method);
+    return;
+  }
+
+  try {
+    // Show loading state
+    const payBtn = document.querySelector('.pay-main-btn, .pay-sub-btn');
+    if (payBtn) payBtn.disabled = true;
+
+    // Create PaymentIntent via Edge Function
+    const { clientSecret, paymentIntentId } = await callStripeFunction('create_payment_intent', {
+      amount: me.total,
+      currency: 'eur',
+      restaurantStripeId: rest.stripe_account_id,
+      guestId: state.myGuestId,
+      roomId: state.roomId
+    });
+
+    // Confirm payment with Stripe.js
+    const paymentMethod = method === 'Apple Pay' ? 'apple_pay'
+      : method === 'Google Pay' ? 'google_pay'
+      : 'card';
+
+    const { error, paymentIntent } = await stripeInstance.confirmPayment({
+      clientSecret,
+      confirmParams: {
+        return_url: window.location.href,
+        payment_method_data: { type: 'card' }
+      },
+      redirect: 'if_required'
+    });
+
+    if (error) {
+      alert('Error en el pago: ' + error.message);
+      if (payBtn) payBtn.disabled = false;
+      return;
+    }
+
+    // Payment succeeded — register in DB
+    await sb.from('payments').insert({
+      room_id: state.roomId,
+      guest_id: state.myGuestId,
+      amount: me.total,
+      method,
+      stripe_payment_intent_id: paymentIntentId,
+      stripe_status: 'succeeded'
+    });
+
+    state.payments.push({ guest_id: state.myGuestId, method, amount: me.total });
+    buildPayScreen();
+    const allPaid = state.guests.every(g => state.payments.find(p => p.guest_id === g.id));
+    if (allPaid) setTimeout(() => go('s6-done'), 800);
+
+  } catch (err) {
+    console.error('Stripe error:', err);
+    alert('Error procesando el pago. Inténtalo de nuevo o paga en efectivo.');
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -1271,14 +1528,15 @@ function adminLogout() {
 // ADMIN TABS
 // ══════════════════════════════════════════════════════
 function showAdminTab(name) {
-  ['carta','mesas','cocina'].forEach(t => {
+  ['carta','mesas','cocina','pagos'].forEach(t => {
     document.getElementById('atab-' + t).style.display = t === name ? 'block' : 'none';
   });
   document.querySelectorAll('#s-admin .tab').forEach((tab, i) => {
-    tab.classList.toggle('on', ['carta','mesas','cocina'][i] === name);
+    tab.classList.toggle('on', ['carta','mesas','cocina','pagos'][i] === name);
   });
   if (name === 'mesas') loadAdminTables();
   if (name === 'cocina') loadAdminOrders();
+  if (name === 'pagos') loadStripeStatus();
 }
 
 // ══════════════════════════════════════════════════════
@@ -1449,33 +1707,183 @@ async function loadAdminOrders() {
     return;
   }
   const roomIds = rooms.map(r => r.id);
-  const { data: dishes } = await sb.from('dishes').select('*').in('room_id', roomIds).neq('kitchen_status', 'ready');
+  // Only show dishes that have been sent to kitchen (not 'new' and not 'ready')
+  const { data: dishes } = await sb.from('dishes')
+    .select('*')
+    .in('room_id', roomIds)
+    .in('kitchen_status', ['sent', 'making'])
+    .order('created_at');
+
   const el = document.getElementById('admin-orders');
   const emptyEl = document.getElementById('admin-orders-empty');
+
   if (!dishes || !dishes.length) {
     el.innerHTML = ''; emptyEl.style.display = 'block'; return;
   }
   emptyEl.style.display = 'none';
-  el.innerHTML = dishes.map(d => {
-    const st = d.kitchen_status || 'new';
-    return `<div class="order-card ${st}">
-      <div style="flex:1">
-        <div class="order-item">${d.name}</div>
-        <div class="order-who">${fmt(parseFloat(d.price))} · ${d.type === 'shared' ? 'Compartido' : 'Individual'}</div>
-        <div class="status-row">
-          <button class="status-btn ${st==='new'?'active-new':''}" onclick="setOrderStatus('${d.id}','new')">Nuevo</button>
-          <button class="status-btn ${st==='making'?'active-making':''}" onclick="setOrderStatus('${d.id}','making')">Preparando</button>
-          <button class="status-btn ${st==='ready'?'active-ready':''}" onclick="setOrderStatus('${d.id}','ready')">Listo ✓</button>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
 
-  // Subscribe to realtime for admin orders
-  const sub = sb.channel('admin-orders-' + state.adminRestaurantId)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'dishes' }, () => loadAdminOrders())
-    .subscribe();
-  state.realtimeSubs.push(sub);
+  // Group: pending confirmation first, then making
+  const pending = dishes.filter(d => d.kitchen_status === 'sent');
+  const making = dishes.filter(d => d.kitchen_status === 'making');
+
+  let html = '';
+  if (pending.length) {
+    html += `<div style="font-size:11px;font-weight:500;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem">⚡ Nuevos pedidos (${pending.length})</div>`;
+    html += pending.map(d => `
+      <div class="order-card new" style="flex-direction:column;align-items:stretch">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:.5rem">
+          <div style="flex:1">
+            <div class="order-item">${d.name}</div>
+            <div class="order-who">${fmt(parseFloat(d.price))} · ${d.type === 'shared' ? '🤝 Compartido' : '👤 Individual'}</div>
+          </div>
+          <span style="font-size:11px;background:#E6F1FB;color:#0C447C;padding:2px 8px;border-radius:99px;font-weight:500">📨 Nuevo</span>
+        </div>
+        <div style="display:flex;gap:.5rem">
+          <button onclick="setOrderStatus('${d.id}','making')"
+            style="flex:1;padding:9px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">
+            ✓ Confirmar — En preparación
+          </button>
+          <button onclick="setOrderStatus('${d.id}','new')"
+            style="padding:9px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:12px;cursor:pointer;font-family:inherit">
+            Rechazar
+          </button>
+        </div>
+      </div>`).join('');
+  }
+
+  if (making.length) {
+    html += `<div style="font-size:11px;font-weight:500;color:var(--amber);text-transform:uppercase;letter-spacing:.06em;margin:1rem 0 .5rem">🍳 En preparación (${making.length})</div>`;
+    html += making.map(d => `
+      <div class="order-card making" style="flex-direction:column;align-items:stretch">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:.5rem">
+          <div style="flex:1">
+            <div class="order-item">${d.name}</div>
+            <div class="order-who">${fmt(parseFloat(d.price))} · ${d.type === 'shared' ? '🤝 Compartido' : '👤 Individual'}</div>
+          </div>
+          <span style="font-size:11px;background:#FAEEDA;color:#854F0B;padding:2px 8px;border-radius:99px;font-weight:500">🍳 Prep.</span>
+        </div>
+        <button onclick="setOrderStatus('${d.id}','ready')"
+          style="width:100%;padding:9px;border-radius:var(--r-sm);border:none;background:#EAF3DE;color:#3B6D11;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">
+          ✓ Marcar como listo
+        </button>
+      </div>`).join('');
+  }
+
+  el.innerHTML = html;
+
+  // Subscribe realtime (only subscribe once)
+  if (!state._kitchenSubActive) {
+    state._kitchenSubActive = true;
+    const sub = sb.channel('admin-orders-' + state.adminRestaurantId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dishes' }, () => loadAdminOrders())
+      .subscribe();
+    state.realtimeSubs.push(sub);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// STRIPE CONNECT — ADMIN
+// ══════════════════════════════════════════════════════
+async function loadStripeStatus() {
+  if (!STRIPE_ENABLED) return; // no-op when Stripe not enabled
+
+  const { data: rest } = await sb.from('restaurants')
+    .select('stripe_account_id, stripe_charges_enabled, stripe_onboarding_done')
+    .eq('id', state.adminRestaurantId)
+    .single();
+
+  const notEnabled = document.getElementById('stripe-not-enabled');
+  const enabled = document.getElementById('stripe-enabled');
+  const statusCard = document.getElementById('stripe-status-card');
+
+  if (!rest?.stripe_account_id) {
+    notEnabled.style.display = 'block';
+    enabled.style.display = 'none';
+    document.getElementById('btn-stripe-connect').disabled = false;
+    document.querySelector('#btn-stripe-connect + div').style.display = 'none';
+    return;
+  }
+
+  // Account exists — check status
+  try {
+    const status = await callStripeFunction('check_account_status', {
+      stripeAccountId: rest.stripe_account_id
+    });
+
+    if (status.chargesEnabled) {
+      notEnabled.style.display = 'none';
+      enabled.style.display = 'block';
+      statusCard.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:10px;height:10px;border-radius:50%;background:var(--brand)"></div>
+          <div>
+            <div style="font-size:14px;font-weight:500">Pagos activos ✓</div>
+            <div style="font-size:12px;color:var(--t2)">Cuenta: ${rest.stripe_account_id}</div>
+          </div>
+        </div>`;
+      // Update DB
+      await sb.from('restaurants').update({
+        stripe_charges_enabled: true,
+        payments_enabled: true
+      }).eq('id', state.adminRestaurantId);
+    } else {
+      notEnabled.style.display = 'block';
+      enabled.style.display = 'none';
+      document.getElementById('btn-stripe-connect').disabled = false;
+      document.getElementById('btn-stripe-connect').textContent = 'Continuar configuración →';
+    }
+  } catch(e) {
+    console.error('Error checking Stripe status:', e);
+  }
+}
+
+async function startStripeOnboarding() {
+  if (!STRIPE_ENABLED) {
+    alert('Los pagos online se activarán próximamente. Por ahora los comensales confirman el pago manualmente.');
+    return;
+  }
+
+  const btn = document.getElementById('btn-stripe-connect');
+  btn.disabled = true;
+  btn.textContent = 'Preparando...';
+
+  try {
+    const appUrl = window.location.origin + window.location.pathname;
+    const result = await callStripeFunction('create_onboarding_link', {
+      restaurantId: state.adminRestaurantId,
+      restaurantName: state.adminRestaurantName,
+      returnUrl: appUrl + '?stripe_return=1',
+      refreshUrl: appUrl + '?stripe_refresh=1'
+    });
+
+    // Save account ID before redirect
+    await sb.from('restaurants').update({
+      stripe_account_id: result.accountId,
+      stripe_onboarding_done: false
+    }).eq('id', state.adminRestaurantId);
+
+    // Redirect to Stripe onboarding
+    window.location.href = result.onboardingUrl;
+
+  } catch(e) {
+    alert('Error iniciando la conexión con Stripe: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = 'Conectar cuenta bancaria →';
+  }
+}
+
+// Handle return from Stripe onboarding
+function handleStripeReturn() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('stripe_return')) {
+    // Clean URL
+    window.history.replaceState({}, '', window.location.pathname);
+    // Show success message if admin is logged in
+    if (state.adminRestaurantId) {
+      showAdminTab('pagos');
+      loadStripeStatus();
+    }
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -1542,6 +1950,7 @@ async function handleQRUrl() {
 // INIT
 // ══════════════════════════════════════════════════════
 handleQRUrl();
+handleStripeReturn();
 loadRestaurantsIntoSelect();
 </script>
 </body>
