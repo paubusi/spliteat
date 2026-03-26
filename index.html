@@ -904,12 +904,104 @@ async function loadParticipants() {
 }
 
 // ══════════════════════════════════════════════════════
-// NOTIFICACIONES — Sonido + Browser Notification
+// NOTIFICACIONES — Service Worker + Web Push
 // ══════════════════════════════════════════════════════
-function requestNotificationPermission() {
-  if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission();
+
+// Clave pública VAPID — generada con web-push generate-vapid-keys
+// IMPORTANTE: reemplaza esto con tus propias claves VAPID
+// Instrucciones en push_setup.sql
+const VAPID_PUBLIC_KEY = 'BN2s3nrYmXDYPIqeaJdtp9Sy2HA8oRnzcXJFAL4TAgX8GCKuZcTjwy_dM2mLgP9tKJK4TuBfZ72_HuLjl43LgZE';
+
+async function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return null;
+  try {
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    return reg;
+  } catch(e) {
+    console.warn('SW no disponible:', e);
+    return null;
   }
+}
+
+async function subscribeToPush(guestId, roomId) {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    if (!reg.pushManager) return;
+
+    // Pedir permiso
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') return;
+
+    // Suscribirse al push
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
+
+    const subJson = sub.toJSON();
+
+    // Guardar suscripción en Supabase
+    await sb.from('push_subscriptions').upsert({
+      guest_id: guestId,
+      room_id: roomId,
+      endpoint: subJson.endpoint,
+      p256dh: subJson.keys.p256dh,
+      auth: subJson.keys.auth
+    }, { onConflict: 'guest_id,endpoint' });
+
+    console.log('✓ Push subscription guardada');
+  } catch(e) {
+    console.warn('Push subscription falló:', e);
+  }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+// Enviar push a todos los comensales de la sala cuando cambia estado
+async function sendPushToGuests(roomId, dishName, newStatus) {
+  const title = newStatus === 'making'
+    ? '🍳 En preparación'
+    : '🛎 ¡Tu plato está listo!';
+  const body = newStatus === 'making'
+    ? `"${dishName}" ya está en la cocina.`
+    : `"${dishName}" llega en breve a tu mesa.`;
+
+  // Obtener todas las suscripciones de la sala
+  const { data: subs } = await sb.from('push_subscriptions')
+    .select('*').eq('room_id', roomId);
+
+  if (!subs || !subs.length) return;
+
+  // Enviar via Edge Function
+  await Promise.allSettled(subs.map(sub =>
+    fetch(`${SUPA_URL}/functions/v1/send-push`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPA_KEY}`
+      },
+      body: JSON.stringify({
+        subscription: {
+          endpoint: sub.endpoint,
+          keys: { p256dh: sub.p256dh, auth: sub.auth }
+        },
+        title, body,
+        tag: 'spliteat-kitchen'
+      })
+    })
+  ));
+}
+
+function requestNotificationPermission() {
+  // La solicitud de permiso ahora va por subscribeToPush
+  // Esta función se llama al entrar en la sala
 }
 
 function playGuestSound(type) {
@@ -990,8 +1082,10 @@ function showToast(title, body) {
 // REALTIME SUBSCRIPTIONS
 // ══════════════════════════════════════════════════════
 function subscribeRealtime() {
-  // Pedir permiso de notificaciones al suscribirse
-  requestNotificationPermission();
+  // Registrar SW y suscribirse a push al entrar en la sala
+  registerServiceWorker().then(() => {
+    subscribeToPush(state.myGuestId, state.roomId);
+  });
 
   const guestSub = sb.channel('guests-' + state.roomId)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'guests', filter: 'room_id=eq.' + state.roomId }, async () => {
@@ -1018,10 +1112,13 @@ function subscribeRealtime() {
         if (prev.kitchen_status !== 'making' && newDish.kitchen_status === 'making') {
           playGuestSound('making');
           showGuestNotification('🍳 En preparación', `"${newDish.name}" ya está en la cocina.`);
+          // Push a todos aunque la app esté cerrada (lo gestiona el servidor)
+          sendPushToGuests(state.roomId, newDish.name, 'making').catch(() => {});
         }
         if (prev.kitchen_status !== 'ready' && newDish.kitchen_status === 'ready') {
           playGuestSound('ready');
           showGuestNotification('🛎 ¡Tu plato está listo!', `"${newDish.name}" llega en breve a tu mesa.`);
+          sendPushToGuests(state.roomId, newDish.name, 'ready').catch(() => {});
         }
       });
 
