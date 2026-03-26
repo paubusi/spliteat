@@ -867,6 +867,7 @@ function go(screenId) {
 
 function resetState() {
   state.realtimeSubs.forEach(s => { try { sb.removeChannel(s); } catch(e){} });
+  clearSession();
   state = { ...state, myName:'', myGuestId:null, roomId:null, roomCode:null,
     restaurantName:'', tipPercent:0, guests:[], dishes:[], participants:{},
     menuItems:[], restaurantId:null, realtimeSubs:[], payments:[] };
@@ -1112,13 +1113,12 @@ function subscribeRealtime() {
         if (prev.kitchen_status !== 'making' && newDish.kitchen_status === 'making') {
           playGuestSound('making');
           showGuestNotification('🍳 En preparación', `"${newDish.name}" ya está en la cocina.`);
-          // Push a todos aunque la app esté cerrada (lo gestiona el servidor)
-          sendPushToGuests(state.roomId, newDish.name, 'making').catch(() => {});
+          // Push ya lo envía el servidor desde setOrderStatus
         }
         if (prev.kitchen_status !== 'ready' && newDish.kitchen_status === 'ready') {
           playGuestSound('ready');
           showGuestNotification('🛎 ¡Tu plato está listo!', `"${newDish.name}" llega en breve a tu mesa.`);
-          sendPushToGuests(state.roomId, newDish.name, 'ready').catch(() => {});
+          // Push ya lo envía el servidor desde setOrderStatus
         }
       });
 
@@ -1200,14 +1200,24 @@ function renderCarta() {
     itemDishes[d.menu_item_id].push(d);
   });
 
-  // Helper: get initials bubble for a guest
+  // Helper: get initials bubble for a guest — colores vivos que contrastan sobre fondo verde
+  const VIVID_COLORS = [
+    ['#D85A30','#fff'], // naranja
+    ['#185FA5','#fff'], // azul
+    ['#7B3FA0','#fff'], // morado
+    ['#C0392B','#fff'], // rojo
+    ['#117A65','#fff'], // verde oscuro
+    ['#B7770D','#fff'], // dorado
+    ['#1A5276','#fff'], // azul marino
+    ['#6E2C00','#fff'], // marrón
+  ];
   const getInitial = (guestId) => {
     const gIdx = state.guests.findIndex(g => g.id === guestId);
     const guest = state.guests.find(g => g.id === guestId);
     if (!guest) return '';
-    const [bg, tc] = avColor(gIdx);
+    const [bg, tc] = VIVID_COLORS[gIdx % VIVID_COLORS.length];
     const initial = guest.name.trim()[0]?.toUpperCase() || '?';
-    return `<div style="width:18px;height:18px;border-radius:50%;background:${bg};color:${tc};font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initial}</div>`;
+    return `<div style="width:20px;height:20px;border-radius:50%;background:${bg};color:${tc};font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.2)">${initial}</div>`;
   };
 
   let html = '';
@@ -1769,6 +1779,7 @@ async function registerManualPayment(me, method) {
   const allPaid = state.guests.every(g => state.payments.find(p => p.guest_id === g.id));
   if (allPaid) {
     await sb.from('rooms').update({ closed: true }).eq('id', state.roomId);
+    clearSession(); // limpiar sesión al cerrar mesa
     setTimeout(() => go('s6-done'), 800);
   }
 }
@@ -1899,8 +1910,33 @@ function renderKitchenOrders(dishes) {
 }
 
 async function setOrderStatus(dishId, status) {
+  // Obtener datos del plato antes de actualizar
+  const { data: dish } = await sb.from('dishes').select('*').eq('id', dishId).single();
   await sb.from('dishes').update({ kitchen_status: status }).eq('id', dishId);
-  await loadKitchenOrders();
+  loadAdminOrders();
+
+  // Enviar push desde servidor cuando cambia a making o ready
+  if (dish && (status === 'making' || status === 'ready')) {
+    const title = status === 'making' ? '🍳 En preparación' : '🛎 ¡Tu plato está listo!';
+    const body = status === 'making'
+      ? `"${dish.name}" ya está en la cocina.`
+      : `"${dish.name}" llega en breve a tu mesa.`;
+
+    // Llamar Edge Function — ella busca los suscriptores y envía
+    fetch(`${SUPA_URL}/functions/v1/send-push`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPA_KEY}`
+      },
+      body: JSON.stringify({
+        roomId: dish.room_id, // Edge Function buscará suscriptores de esta sala
+        title,
+        body,
+        tag: 'spliteat-kitchen'
+      })
+    }).catch(() => {}); // silencioso — no bloquear la UI
+  }
 }
 
 function subscribeKitchenRealtime() {
@@ -2847,6 +2883,7 @@ async function enterMesa() {
     await loadParticipants();
     renderRoomScreen();
     subscribeRealtime();
+    saveSession(); // guardar sesión para restaurar si recarga
     go('s2-room');
 
   } catch(err) {
@@ -2858,10 +2895,98 @@ async function enterMesa() {
 }
 
 // ══════════════════════════════════════════════════════
+// SESIÓN PERSISTENTE — localStorage
+// Guarda la sesión del comensal para que al recargar
+// vuelva a su mesa automáticamente sin crear un nuevo invitado
+// ══════════════════════════════════════════════════════
+const SESSION_KEY = 'spliteat_session';
+
+function saveSession() {
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      roomId: state.roomId,
+      myGuestId: state.myGuestId,
+      myName: state.myName,
+      restaurantId: state.restaurantId,
+      restaurantName: state.restaurantName,
+      savedAt: Date.now()
+    }));
+  } catch(e) {}
+}
+
+function clearSession() {
+  try { localStorage.removeItem(SESSION_KEY); } catch(e) {}
+}
+
+async function restoreSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return false;
+
+    const session = JSON.parse(raw);
+
+    // Sesión expira tras 8 horas (una noche fuera)
+    if (Date.now() - session.savedAt > 8 * 60 * 60 * 1000) {
+      clearSession();
+      return false;
+    }
+
+    if (!session.roomId || !session.myGuestId) return false;
+
+    // Verificar que la sala sigue abierta
+    const { data: room } = await sb.from('rooms')
+      .select('*').eq('id', session.roomId).maybeSingle();
+    if (!room || room.closed) {
+      clearSession();
+      return false;
+    }
+
+    // Verificar que el guest sigue existiendo
+    const { data: guest } = await sb.from('guests')
+      .select('*').eq('id', session.myGuestId).maybeSingle();
+    if (!guest) {
+      clearSession();
+      return false;
+    }
+
+    // Restaurar estado
+    const { data: guests } = await sb.from('guests').select('*').eq('room_id', room.id);
+    const { data: dishes } = await sb.from('dishes').select('*').eq('room_id', room.id);
+    const { data: payments } = await sb.from('payments').select('*').eq('room_id', room.id);
+
+    state.roomId = room.id;
+    state.roomCode = room.code;
+    state.myName = session.myName;
+    state.myGuestId = session.myGuestId;
+    state.restaurantName = room.restaurant_name || '';
+    state.restaurantId = room.restaurant_id || session.restaurantId;
+    state.tipPercent = 0;
+    state.guests = guests || [];
+    state.dishes = dishes || [];
+    state.payments = payments || [];
+    await loadParticipants();
+    renderRoomScreen();
+    subscribeRealtime();
+    go('s3-dishes'); // volver directamente a los platos
+    showDishTab('mesa');
+
+    return true;
+  } catch(e) {
+    console.warn('restoreSession error:', e);
+    clearSession();
+    return false;
+  }
+}
+
+// ══════════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════════
-handleQRUrl();
 handleStripeReturn();
+
+// Primero intentar restaurar sesión, luego manejar QR
+restoreSession().then(restored => {
+  if (!restored) handleQRUrl();
+});
 </script>
 </body>
 </html>
