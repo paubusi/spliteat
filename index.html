@@ -527,6 +527,7 @@
       <button class="tab on" onclick="showAdminTab('carta')">Carta</button>
       <button class="tab" onclick="showAdminTab('mesas')">Mesas</button>
       <button class="tab" onclick="showAdminTab('cocina')">Cocina</button>
+      <button class="tab" onclick="showAdminTab('historial')">Historial</button>
       <button class="tab" onclick="showAdminTab('pagos')">Pagos</button>
     </div>
 
@@ -579,13 +580,43 @@
       </div>
     </div>
 
-    <!-- TAB COCINA (admin) -->
-    <div id="atab-cocina" class="body" style="display:none">
-      <div class="live-badge" style="margin-bottom:.75rem"><div class="live-dot"></div><span>Pedidos en tiempo real</span></div>
-      <div id="admin-orders"></div>
-      <div id="admin-orders-empty" class="empty" style="display:none">
-        <div class="empty-icon">✅</div>
-        <div class="empty-text">No hay pedidos pendientes.</div>
+    <!-- TAB COCINA (admin) — Kanban 3 columnas -->
+    <div id="atab-cocina" style="display:none;flex-direction:column;height:calc(100vh - 120px)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem .5rem;border-bottom:1px solid var(--bd)">
+        <div class="live-badge"><div class="live-dot"></div><span>Tiempo real</span></div>
+        <button onclick="loadAdminOrders()" style="font-size:12px;color:var(--t2);background:none;border:none;cursor:pointer;font-family:inherit">↻ Actualizar</button>
+      </div>
+
+      <!-- Kanban board -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;flex:1;overflow:hidden">
+
+        <!-- COLUMNA 1: NUEVOS -->
+        <div style="border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden">
+          <div style="padding:.6rem .75rem;background:#FCEBEB;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+            <span style="font-size:11px;font-weight:500;color:#A32D2D;text-transform:uppercase;letter-spacing:.05em">Nuevos</span>
+            <span id="k-count-new" style="font-size:11px;font-weight:700;color:#A32D2D;background:#fff;border-radius:99px;padding:1px 7px">0</span>
+          </div>
+          <div id="k-col-new" style="flex:1;overflow-y:auto;padding:.5rem"></div>
+        </div>
+
+        <!-- COLUMNA 2: EN PREPARACIÓN -->
+        <div style="border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden">
+          <div style="padding:.6rem .75rem;background:#FAEEDA;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+            <span style="font-size:11px;font-weight:500;color:#854F0B;text-transform:uppercase;letter-spacing:.05em">Prep.</span>
+            <span id="k-count-making" style="font-size:11px;font-weight:700;color:#854F0B;background:#fff;border-radius:99px;padding:1px 7px">0</span>
+          </div>
+          <div id="k-col-making" style="flex:1;overflow-y:auto;padding:.5rem"></div>
+        </div>
+
+        <!-- COLUMNA 3: LISTOS -->
+        <div style="display:flex;flex-direction:column;overflow:hidden">
+          <div style="padding:.6rem .75rem;background:#EAF3DE;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+            <span style="font-size:11px;font-weight:500;color:#3B6D11;text-transform:uppercase;letter-spacing:.05em">Listos</span>
+            <span id="k-count-ready" style="font-size:11px;font-weight:700;color:#3B6D11;background:#fff;border-radius:99px;padding:1px 7px">0</span>
+          </div>
+          <div id="k-col-ready" style="flex:1;overflow-y:auto;padding:.5rem"></div>
+        </div>
+
       </div>
     </div>
 
@@ -628,10 +659,59 @@
         </div>
       </div>
     </div>
+
+    <!-- TAB HISTORIAL -->
+    <div id="atab-historial" class="body" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+        <div class="sec-label" style="margin:0">Registro de mesas</div>
+        <select id="historial-filter" onchange="loadHistorial()" style="font-size:12px;padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-family:inherit">
+          <option value="7">Últimos 7 días</option>
+          <option value="30">Últimos 30 días</option>
+          <option value="90">Últimos 3 meses</option>
+          <option value="all">Todo</option>
+        </select>
+      </div>
+
+      <!-- Resumen stats -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.4rem;margin-bottom:1rem">
+        <div style="background:var(--bg2);border-radius:var(--r-sm);padding:.65rem .75rem;text-align:center">
+          <div id="hist-stat-mesas" style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--brand-d)">—</div>
+          <div style="font-size:11px;color:var(--t2)">Mesas</div>
+        </div>
+        <div style="background:var(--bg2);border-radius:var(--r-sm);padding:.65rem .75rem;text-align:center">
+          <div id="hist-stat-comensales" style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--brand-d)">—</div>
+          <div style="font-size:11px;color:var(--t2)">Comensales</div>
+        </div>
+        <div style="background:var(--bg2);border-radius:var(--r-sm);padding:.65rem .75rem;text-align:center">
+          <div id="hist-stat-total" style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--brand-d)">—</div>
+          <div style="font-size:11px;color:var(--t2)">Facturado</div>
+        </div>
+      </div>
+
+      <div id="historial-list"></div>
+      <div id="historial-empty" class="empty" style="display:none">
+        <div class="empty-icon">📋</div>
+        <div class="empty-text">No hay mesas registradas aún.</div>
+      </div>
+
+      <!-- Modal factura -->
+      <div id="factura-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;overflow-y:auto;padding:1rem">
+        <div style="background:var(--card);border-radius:var(--r-lg);max-width:430px;margin:0 auto;padding:1.5rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
+            <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--brand-d)">Factura</div>
+            <button onclick="document.getElementById('factura-modal').style.display='none'"
+              style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+          </div>
+          <div id="factura-content"></div>
+          <div style="display:flex;gap:.5rem;margin-top:1.25rem">
+            <button class="btn btn-primary" onclick="downloadFactura()" style="flex:1">Descargar PDF</button>
+            <button class="btn btn-secondary" onclick="document.getElementById('factura-modal').style.display='none'" style="flex:1">Cerrar</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
-
-</div><!-- end #app -->
 
 <script>
 // ══════════════════════════════════════════════════════
@@ -964,12 +1044,26 @@ async function removeDishFromCarta(menuItemId) {
 function renderMesaDishes() {
   const el = document.getElementById('mesa-dishes-list');
   const empty = document.getElementById('mesa-empty');
+
   if (!state.dishes.length) {
     el.innerHTML = ''; empty.style.display = 'block';
   } else {
     empty.style.display = 'none';
-    el.innerHTML = state.dishes.map(d => renderDishCard(d)).join('');
+
+    // Banner si hay platos listos
+    const readyDishes = state.dishes.filter(d => d.kitchen_status === 'ready');
+    let bannerHtml = '';
+    if (readyDishes.length) {
+      const names = readyDishes.map(d => d.name).join(', ');
+      bannerHtml = `<div style="background:#EAF3DE;border-radius:var(--r);padding:.85rem 1.1rem;margin-bottom:.75rem;border:1px solid #A8D5A2;animation:fadeUp .3s ease">
+        <div style="font-size:15px;font-weight:500;color:#1E5C1E;margin-bottom:.2rem">🛎 ¡Tu plato está listo!</div>
+        <div style="font-size:13px;color:#2E7D2E;line-height:1.5">${names}<br>El camarero lo trae a la mesa en breve.</div>
+      </div>`;
+    }
+
+    el.innerHTML = bannerHtml + state.dishes.map(d => renderDishCard(d)).join('');
   }
+
   // Update badge on Carta tab
   const badge = document.getElementById('mesa-count-badge');
   if (badge) {
@@ -1005,8 +1099,16 @@ function renderDishCard(dish) {
 
   // Kitchen status badge
   const ksBadge = isSent
-    ? `<span style="font-size:11px;padding:2px 8px;border-radius:99px;font-weight:500;background:${ks==='ready'?'#EAF3DE':ks==='making'?'#FAEEDA':'#E6F1FB'};color:${ks==='ready'?'#3B6D11':ks==='making'?'#854F0B':'#0C447C'}">
-        ${ks==='ready'?'✓ Listo':ks==='making'?'🍳 En preparación':'📨 Enviado'}
+    ? `<span style="font-size:11px;padding:3px 10px;border-radius:99px;font-weight:500;background:${
+        ks==='ready'  ? '#EAF3DE' :
+        ks==='making' ? '#FAEEDA' : '#E6F1FB'
+      };color:${
+        ks==='ready'  ? '#3B6D11' :
+        ks==='making' ? '#854F0B' : '#0C447C'
+      }">
+        ${ks==='ready'  ? '🛎 ¡Listo! El camarero lo trae en breve' :
+          ks==='making' ? '🍳 En preparación...' :
+                          '📨 Enviado a cocina'}
       </span>` : '';
 
   let bodyHtml = '';
@@ -1459,14 +1561,20 @@ function adminLogout() {
 // ADMIN TABS
 // ══════════════════════════════════════════════════════
 function showAdminTab(name) {
-  ['carta','mesas','cocina','pagos'].forEach(t => {
-    document.getElementById('atab-' + t).style.display = t === name ? 'block' : 'none';
+  ['carta','mesas','cocina','historial','pagos'].forEach(t => {
+    const el = document.getElementById('atab-' + t);
+    if (t === name) {
+      el.style.display = t === 'cocina' ? 'flex' : 'block';
+    } else {
+      el.style.display = 'none';
+    }
   });
   document.querySelectorAll('#s-admin .tab').forEach((tab, i) => {
-    tab.classList.toggle('on', ['carta','mesas','cocina','pagos'][i] === name);
+    tab.classList.toggle('on', ['carta','mesas','cocina','historial','pagos'][i] === name);
   });
   if (name === 'mesas') loadAdminTables();
   if (name === 'cocina') loadAdminOrders();
+  if (name === 'historial') loadHistorial();
   if (name === 'pagos') loadStripeStatus();
 }
 
@@ -1665,82 +1773,164 @@ function downloadQR() {
 }
 
 // ══════════════════════════════════════════════════════
-// ADMIN ORDERS (COCINA)
+// ADMIN ORDERS (COCINA) — Kanban por mesa + sonido
 // ══════════════════════════════════════════════════════
+let _prevNewCount = 0; // para detectar pedidos nuevos y reproducir sonido
+
+function playKitchenSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Doble ping — dos notas cortas
+    [0, 0.18].forEach((delay, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = i === 0 ? 880 : 1100;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+      gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + delay + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.25);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + 0.3);
+    });
+  } catch(e) {} // silenciar si el navegador bloquea audio
+}
+
 async function loadAdminOrders() {
-  const { data: rooms } = await sb.from('rooms').select('id')
+  const { data: rooms } = await sb.from('rooms').select('id, table_id')
     .eq('restaurant_id', state.adminRestaurantId);
   if (!rooms || !rooms.length) {
-    document.getElementById('admin-orders').innerHTML = '';
-    document.getElementById('admin-orders-empty').style.display = 'block';
+    ['new','making','ready'].forEach(s => {
+      document.getElementById('k-col-' + s).innerHTML =
+        `<div style="text-align:center;padding:1.5rem .5rem;color:var(--t3);font-size:12px">Sin pedidos</div>`;
+      document.getElementById('k-count-' + s).textContent = '0';
+    });
     return;
   }
+
   const roomIds = rooms.map(r => r.id);
-  // Only show dishes that have been sent to kitchen (not 'new' and not 'ready')
+  const roomTableMap = {};
+  rooms.forEach(r => { roomTableMap[r.id] = r.table_id; });
+
+  // Load dishes
   const { data: dishes } = await sb.from('dishes')
     .select('*')
     .in('room_id', roomIds)
-    .in('kitchen_status', ['sent', 'making'])
+    .in('kitchen_status', ['sent', 'making', 'ready'])
     .order('created_at');
 
-  const el = document.getElementById('admin-orders');
-  const emptyEl = document.getElementById('admin-orders-empty');
+  // Load tables
+  const { data: tables } = await sb.from('tables')
+    .select('*').eq('restaurant_id', state.adminRestaurantId);
+  const tablesById = {};
+  (tables || []).forEach(t => { tablesById[t.id] = t; });
 
-  if (!dishes || !dishes.length) {
-    el.innerHTML = ''; emptyEl.style.display = 'block'; return;
+  const grouped = { sent: [], making: [], ready: [] };
+  (dishes || []).forEach(d => {
+    if (grouped[d.kitchen_status]) grouped[d.kitchen_status].push(d);
+  });
+
+  // Sound if new orders arrived
+  if (grouped.sent.length > _prevNewCount && _prevNewCount >= 0) {
+    playKitchenSound();
   }
-  emptyEl.style.display = 'none';
+  _prevNewCount = grouped.sent.length;
 
-  // Group: pending confirmation first, then making
-  const pending = dishes.filter(d => d.kitchen_status === 'sent');
-  const making = dishes.filter(d => d.kitchen_status === 'making');
-
-  let html = '';
-  if (pending.length) {
-    html += `<div style="font-size:11px;font-weight:500;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem">⚡ Nuevos pedidos (${pending.length})</div>`;
-    html += pending.map(d => `
-      <div class="order-card new" style="flex-direction:column;align-items:stretch">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:.5rem">
-          <div style="flex:1">
-            <div class="order-item">${d.name}</div>
-            <div class="order-who">${fmt(parseFloat(d.price))} · ${d.type === 'shared' ? '🤝 Compartido' : '👤 Individual'}</div>
-          </div>
-          <span style="font-size:11px;background:#E6F1FB;color:#0C447C;padding:2px 8px;border-radius:99px;font-weight:500">📨 Nuevo</span>
-        </div>
-        <div style="display:flex;gap:.5rem">
-          <button onclick="setOrderStatus('${d.id}','making')"
-            style="flex:1;padding:9px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">
-            ✓ Confirmar — En preparación
-          </button>
-          <button onclick="setOrderStatus('${d.id}','new')"
-            style="padding:9px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:12px;cursor:pointer;font-family:inherit">
-            Rechazar
-          </button>
-        </div>
-      </div>`).join('');
+  // Group dishes by room (mesa)
+  function groupByMesa(dishList) {
+    const byRoom = {};
+    dishList.forEach(d => {
+      if (!byRoom[d.room_id]) byRoom[d.room_id] = [];
+      byRoom[d.room_id].push(d);
+    });
+    return Object.entries(byRoom).map(([roomId, dishes]) => {
+      const tableId = roomTableMap[roomId];
+      const table = tableId ? tablesById[tableId] : null;
+      return { roomId, dishes, table };
+    });
   }
 
-  if (making.length) {
-    html += `<div style="font-size:11px;font-weight:500;color:var(--amber);text-transform:uppercase;letter-spacing:.06em;margin:1rem 0 .5rem">🍳 En preparación (${making.length})</div>`;
-    html += making.map(d => `
-      <div class="order-card making" style="flex-direction:column;align-items:stretch">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:.5rem">
-          <div style="flex:1">
-            <div class="order-item">${d.name}</div>
-            <div class="order-who">${fmt(parseFloat(d.price))} · ${d.type === 'shared' ? '🤝 Compartido' : '👤 Individual'}</div>
-          </div>
-          <span style="font-size:11px;background:#FAEEDA;color:#854F0B;padding:2px 8px;border-radius:99px;font-weight:500">🍳 Prep.</span>
+  // Render a mesa group card
+  function renderMesaCard(group, fromStatus) {
+    const { roomId, dishes, table } = group;
+    const tableLabel = table
+      ? `Mesa ${table.number}${table.label ? ' — ' + table.label : ''}`
+      : 'Mesa sin asignar';
+
+    const dishRows = dishes.map(d => {
+      let btn = '';
+      if (fromStatus === 'sent') {
+        btn = `<button onclick="setOrderStatus('${d.id}','making');event.stopPropagation()"
+          style="padding:3px 10px;border-radius:99px;border:none;background:var(--brand);color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">
+          → Prep.
+        </button>`;
+      } else if (fromStatus === 'making') {
+        btn = `<button onclick="setOrderStatus('${d.id}','ready');event.stopPropagation()"
+          style="padding:3px 10px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">
+          ✓ Listo
+        </button>`;
+      } else {
+        btn = `<span style="font-size:11px;color:#3B6D11;font-weight:500">✓</span>`;
+      }
+
+      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--bd)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.name}</div>
+          <div style="font-size:11px;color:var(--t2)">${d.type === 'shared' ? '🤝' : '👤'} ${parseFloat(d.price).toFixed(2)}€</div>
         </div>
-        <button onclick="setOrderStatus('${d.id}','ready')"
-          style="width:100%;padding:9px;border-radius:var(--r-sm);border:none;background:#EAF3DE;color:#3B6D11;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">
-          ✓ Marcar como listo
-        </button>
-      </div>`).join('');
+        ${btn}
+      </div>`;
+    }).join('');
+
+    // "Confirmar todo" button for sent column
+    let confirmAllBtn = '';
+    if (fromStatus === 'sent' && dishes.length > 1) {
+      const ids = dishes.map(d => `'${d.id}'`).join(',');
+      confirmAllBtn = `<button onclick="setAllOrderStatus([${ids}],'making')"
+        style="width:100%;margin-top:.5rem;padding:7px;border-radius:6px;border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
+        → Confirmar mesa completa
+      </button>`;
+    } else if (fromStatus === 'making' && dishes.length > 1) {
+      const ids = dishes.map(d => `'${d.id}'`).join(',');
+      confirmAllBtn = `<button onclick="setAllOrderStatus([${ids}],'ready')"
+        style="width:100%;margin-top:.5rem;padding:7px;border-radius:6px;border:none;background:#3B6D11;color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
+        ✓ Todo listo
+      </button>`;
+    }
+
+    const bgColor = fromStatus === 'sent' ? '#fff5f5' : fromStatus === 'making' ? '#fffbf5' : '#f5fff7';
+
+    return `<div style="background:${bgColor};border-radius:8px;padding:.65rem .75rem;margin-bottom:.5rem;border:1px solid var(--bd)">
+      <div style="font-size:12px;font-weight:500;color:var(--t1);margin-bottom:.35rem;display:flex;align-items:center;justify-content:space-between">
+        <span>${tableLabel}</span>
+        <span style="font-size:11px;color:var(--t3)">${dishes.length} plato${dishes.length !== 1 ? 's' : ''}</span>
+      </div>
+      ${dishRows}
+      ${confirmAllBtn}
+    </div>`;
   }
 
-  el.innerHTML = html;
+  // Render columns
+  const newGroups = groupByMesa(grouped.sent);
+  const makingGroups = groupByMesa(grouped.making);
+  const readyGroups = groupByMesa(grouped.ready).reverse().slice(0, 10);
 
-  // Subscribe realtime (only subscribe once)
+  document.getElementById('k-col-new').innerHTML = newGroups.length
+    ? newGroups.map(g => renderMesaCard(g, 'sent')).join('')
+    : `<div style="text-align:center;padding:1.5rem .5rem;color:var(--t3);font-size:12px">Sin pedidos nuevos</div>`;
+  document.getElementById('k-count-new').textContent = grouped.sent.length;
+
+  document.getElementById('k-col-making').innerHTML = makingGroups.length
+    ? makingGroups.map(g => renderMesaCard(g, 'making')).join('')
+    : `<div style="text-align:center;padding:1.5rem .5rem;color:var(--t3);font-size:12px">Vacío</div>`;
+  document.getElementById('k-count-making').textContent = grouped.making.length;
+
+  document.getElementById('k-col-ready').innerHTML = readyGroups.length
+    ? readyGroups.map(g => renderMesaCard(g, 'ready')).join('')
+    : `<div style="text-align:center;padding:1.5rem .5rem;color:var(--t3);font-size:12px">Sin listos aún</div>`;
+  document.getElementById('k-count-ready').textContent = grouped.ready.length;
+
+  // Subscribe realtime (only once)
   if (!state._kitchenSubActive) {
     state._kitchenSubActive = true;
     const sub = sb.channel('admin-orders-' + state.adminRestaurantId)
@@ -1748,6 +1938,239 @@ async function loadAdminOrders() {
       .subscribe();
     state.realtimeSubs.push(sub);
   }
+}
+
+// Confirmar/marcar como listo todos los platos de una mesa de golpe
+async function setAllOrderStatus(dishIds, status) {
+  await Promise.all(dishIds.map(id =>
+    sb.from('dishes').update({ kitchen_status: status }).eq('id', id)
+  ));
+  loadAdminOrders();
+}
+
+// ══════════════════════════════════════════════════════
+// HISTORIAL DE MESAS
+// ══════════════════════════════════════════════════════
+let _historialData = []; // cache for PDF generation
+
+async function loadHistorial() {
+  const filterDays = document.getElementById('historial-filter')?.value || '7';
+  const el = document.getElementById('historial-list');
+  const emptyEl = document.getElementById('historial-empty');
+  el.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3);font-size:14px">Cargando...</div>';
+
+  // Build date filter
+  let dateFilter = null;
+  if (filterDays !== 'all') {
+    const d = new Date();
+    d.setDate(d.getDate() - parseInt(filterDays));
+    dateFilter = d.toISOString();
+  }
+
+  // Load rooms for this restaurant
+  let query = sb.from('rooms').select('*')
+    .eq('restaurant_id', state.adminRestaurantId)
+    .order('created_at', { ascending: false });
+  if (dateFilter) query = query.gte('created_at', dateFilter);
+
+  const { data: rooms } = await query;
+  if (!rooms || !rooms.length) {
+    el.innerHTML = '';
+    emptyEl.style.display = 'block';
+    document.getElementById('hist-stat-mesas').textContent = '0';
+    document.getElementById('hist-stat-comensales').textContent = '0';
+    document.getElementById('hist-stat-total').textContent = '0,00 €';
+    return;
+  }
+  emptyEl.style.display = 'none';
+
+  // Load all data for these rooms in parallel
+  const roomIds = rooms.map(r => r.id);
+  const [{ data: allGuests }, { data: allDishes }, { data: allPayments }, { data: allTables }] = await Promise.all([
+    sb.from('guests').select('*').in('room_id', roomIds),
+    sb.from('dishes').select('*').in('room_id', roomIds),
+    sb.from('payments').select('*').in('room_id', roomIds),
+    sb.from('tables').select('*').eq('restaurant_id', state.adminRestaurantId)
+  ]);
+
+  // Group by room
+  const guestsByRoom = {}, dishesByRoom = {}, paymentsByRoom = {};
+  (allGuests || []).forEach(g => { if (!guestsByRoom[g.room_id]) guestsByRoom[g.room_id] = []; guestsByRoom[g.room_id].push(g); });
+  (allDishes || []).forEach(d => { if (!dishesByRoom[d.room_id]) dishesByRoom[d.room_id] = []; dishesByRoom[d.room_id].push(d); });
+  (allPayments || []).forEach(p => { if (!paymentsByRoom[p.room_id]) paymentsByRoom[p.room_id] = []; paymentsByRoom[p.room_id].push(p); });
+  const tablesById = {};
+  (allTables || []).forEach(t => { tablesById[t.id] = t; });
+
+  // Calculate stats
+  let totalComensales = 0, totalFacturado = 0;
+  rooms.forEach(r => {
+    const guests = guestsByRoom[r.id] || [];
+    const dishes = dishesByRoom[r.id] || [];
+    totalComensales += guests.length;
+    totalFacturado += dishes.reduce((s, d) => s + parseFloat(d.price || 0), 0);
+  });
+
+  document.getElementById('hist-stat-mesas').textContent = rooms.length;
+  document.getElementById('hist-stat-comensales').textContent = totalComensales;
+  document.getElementById('hist-stat-total').textContent = totalFacturado.toFixed(2) + '€';
+
+  // Store for PDF
+  _historialData = rooms.map(r => ({
+    room: r,
+    table: r.table_id ? tablesById[r.table_id] : null,
+    guests: guestsByRoom[r.id] || [],
+    dishes: dishesByRoom[r.id] || [],
+    payments: paymentsByRoom[r.id] || []
+  }));
+
+  // Render list
+  el.innerHTML = _historialData.map((entry, idx) => {
+    const { room, table, guests, dishes, payments } = entry;
+    const total = dishes.reduce((s, d) => s + parseFloat(d.price || 0), 0);
+    const openedAt = new Date(room.created_at);
+    const tableLabel = table ? `Mesa ${table.number}${table.label ? ' — ' + table.label : ''}` : 'Mesa sin asignar';
+    const isClosed = room.closed;
+    const allPaid = guests.length > 0 && guests.every(g => payments.find(p => p.guest_id === g.id));
+    const closedBy = allPaid ? 'Pago completado' : 'Cerrada manualmente';
+
+    return `<div class="card" style="margin-bottom:.65rem">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.5rem">
+        <div>
+          <div style="font-size:14px;font-weight:500">${tableLabel}</div>
+          <div style="font-size:12px;color:var(--t2);margin-top:1px">
+            ${openedAt.toLocaleDateString('es-ES', {day:'2-digit',month:'short',year:'numeric'})}
+            · ${openedAt.toLocaleTimeString('es-ES', {hour:'2-digit',minute:'2-digit'})}
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:var(--brand-d)">${total.toFixed(2)}€</div>
+          <span style="font-size:10px;padding:2px 7px;border-radius:99px;font-weight:500;background:${isClosed ? '#EAF3DE' : '#FAEEDA'};color:${isClosed ? '#3B6D11' : '#854F0B'}">
+            ${isClosed ? closedBy : '● Abierta'}
+          </span>
+        </div>
+      </div>
+      <div style="display:flex;gap:1rem;font-size:12px;color:var(--t2);margin-bottom:.65rem">
+        <span>👥 ${guests.length} comensales</span>
+        <span>🍽 ${dishes.length} platos</span>
+        <span>💳 ${payments.length}/${guests.length} pagados</span>
+      </div>
+      <button onclick="showFactura(${idx})"
+        style="width:100%;padding:8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg2);color:var(--t1);font-size:13px;cursor:pointer;font-family:inherit">
+        Ver factura →
+      </button>
+    </div>`;
+  }).join('');
+}
+
+// ── FACTURA ──────────────────────────────────────────
+let _facturaIdx = null;
+
+function showFactura(idx) {
+  _facturaIdx = idx;
+  const entry = _historialData[idx];
+  if (!entry) return;
+
+  const { room, table, guests, dishes, payments } = entry;
+  const tableLabel = table ? `Mesa ${table.number}${table.label ? ' — ' + table.label : ''}` : 'Mesa';
+  const openedAt = new Date(room.created_at);
+  const total = dishes.reduce((s, d) => s + parseFloat(d.price || 0), 0);
+
+  // Build per-guest breakdown
+  const participantsCache = {};
+  // We need participants — load them async
+  loadFacturaParticipants(entry).then(parts => {
+    const guestTotals = guests.map(g => {
+      let amt = 0;
+      dishes.forEach(d => {
+        if (d.type === 'solo' && d.assignee_id === g.id) {
+          amt += parseFloat(d.price || 0);
+        } else if (d.type === 'shared') {
+          const pp = parts[d.id] || [];
+          if (pp.includes(g.id)) amt += parseFloat(d.price || 0) / Math.max(1, pp.length);
+        }
+      });
+      const payment = payments.find(p => p.guest_id === g.id);
+      return { guest: g, amount: amt, payment };
+    });
+
+    const html = `
+      <div id="factura-printable">
+        <div style="text-align:center;margin-bottom:1.25rem">
+          <div style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:var(--brand-d)">split<span style="color:var(--accent)">eat</span></div>
+          <div style="font-size:13px;color:var(--t2);margin-top:.25rem">${state.adminRestaurantName}</div>
+          <div style="font-size:12px;color:var(--t3)">${tableLabel} · ${openedAt.toLocaleDateString('es-ES', {day:'2-digit',month:'long',year:'numeric'})} ${openedAt.toLocaleTimeString('es-ES', {hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+
+        <div style="border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);padding:.75rem 0;margin-bottom:1rem">
+          <div style="font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem">Platos pedidos</div>
+          ${dishes.map(d => `
+            <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0">
+              <span style="color:var(--t1)">${d.name} <span style="color:var(--t3);font-size:11px">${d.type === 'shared' ? '🤝' : '👤'}</span></span>
+              <span style="font-weight:500">${parseFloat(d.price).toFixed(2)}€</span>
+            </div>`).join('')}
+          <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:500;padding-top:.65rem;margin-top:.35rem;border-top:1px solid var(--bd)">
+            <span>Total</span>
+            <span style="font-family:'Fraunces',serif;font-size:18px;color:var(--brand-d)">${total.toFixed(2)}€</span>
+          </div>
+        </div>
+
+        <div style="font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem">Desglose por comensal</div>
+        ${guestTotals.map((gt, i) => `
+          <div style="background:var(--bg2);border-radius:var(--r-sm);padding:.65rem .85rem;margin-bottom:.4rem">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="font-size:13px;font-weight:500">${gt.guest.name}</div>
+              <div style="font-size:14px;font-weight:500;color:var(--brand-d)">${gt.amount.toFixed(2)}€</div>
+            </div>
+            ${gt.payment ? `<div style="font-size:11px;color:var(--brand);margin-top:2px">✓ Pagado · ${gt.payment.method}</div>` :
+              `<div style="font-size:11px;color:var(--accent);margin-top:2px">⏳ Pendiente</div>`}
+          </div>`).join('')}
+      </div>`;
+
+    document.getElementById('factura-content').innerHTML = html;
+    document.getElementById('factura-modal').style.display = 'block';
+  });
+}
+
+async function loadFacturaParticipants(entry) {
+  const dishIds = entry.dishes.map(d => d.id);
+  if (!dishIds.length) return {};
+  const { data } = await sb.from('dish_participants').select('*').in('dish_id', dishIds);
+  const parts = {};
+  (data || []).forEach(p => {
+    if (!parts[p.dish_id]) parts[p.dish_id] = [];
+    parts[p.dish_id].push(p.guest_id);
+  });
+  return parts;
+}
+
+function downloadFactura() {
+  const content = document.getElementById('factura-printable');
+  if (!content) return;
+
+  // Use browser print as PDF
+  const entry = _historialData[_facturaIdx];
+  const table = entry?.table;
+  const tableLabel = table ? `Mesa_${table.number}` : 'Mesa';
+  const date = new Date(entry?.room?.created_at).toLocaleDateString('es-ES').replace(/\//g, '-');
+
+  const printWindow = window.open('', '_blank');
+  printWindow.document.write(`
+    <!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>Factura spliteat — ${tableLabel} ${date}</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Fraunces:wght@700&display=swap" rel="stylesheet">
+    <style>
+      body { font-family: 'DM Sans', sans-serif; max-width: 400px; margin: 2rem auto; padding: 1rem; color: #1a1a18; }
+      * { box-sizing: border-box; }
+      :root { --brand-d: #085041; --accent: #D85A30; --t2: #5f5e5a; --t3: #9c9a92; --bg2: #f5f5f3; --bd: rgba(0,0,0,0.1); --brand: #1D9E75; --r-sm: 8px; }
+      @media print { @page { margin: 1cm; } }
+    </style>
+    </head><body>
+    ${content.innerHTML}
+    <script>window.onload = () => { window.print(); window.close(); }<\/script>
+    </body></html>
+  `);
+  printWindow.document.close();
 }
 
 // ══════════════════════════════════════════════════════
