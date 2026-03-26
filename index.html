@@ -25,6 +25,31 @@
   html, body { height: 100%; background: var(--bg); color: var(--t1); font-family: 'DM Sans', sans-serif; font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
   #app { max-width: 430px; margin: 0 auto; min-height: 100vh; position: relative; background: var(--bg); }
 
+  /* Pantallas de admin y cocina usan todo el ancho en desktop */
+  @media (min-width: 600px) {
+    #app { max-width: 100%; }
+    .screen:not(#s-admin):not(#s-admin-login) { max-width: 430px; margin: 0 auto; }
+    #s-admin { max-width: 100%; width: 100%; }
+    #atab-cocina { width: 100% !important; }
+    #atab-carta, #atab-mesas, #atab-historial, #atab-pagos {
+      max-width: 680px; margin: 0 auto;
+    }
+    #s-admin .hdr { padding: 1rem 2rem; }
+    #s-admin .tab-bar { padding: 0 2rem; }
+    /* Cocina: tarjetas más grandes en desktop */
+    #k-col-new > div, #k-col-making > div, #k-col-ready > div {
+      font-size: 15px !important;
+      padding: .85rem 1rem !important;
+    }
+    #k-col-new, #k-col-making, #k-col-ready {
+      padding: .75rem !important;
+    }
+    #atab-cocina > div:last-child > div > div > div {
+      font-size: 13px !important;
+      padding: .75rem .85rem !important;
+    }
+  }
+
   /* ── SCREENS ── */
   .screen { display: none; min-height: 100vh; flex-direction: column; animation: fadeUp .22s ease; }
   .screen.active { display: flex; }
@@ -581,7 +606,7 @@
     </div>
 
     <!-- TAB COCINA (admin) — Kanban 3 columnas -->
-    <div id="atab-cocina" style="display:none;flex-direction:column;height:calc(100vh - 120px)">
+    <div id="atab-cocina" style="display:none;flex-direction:column;height:calc(100vh - 110px);width:100%">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem .5rem;border-bottom:1px solid var(--bd)">
         <div class="live-badge"><div class="live-dot"></div><span>Tiempo real</span></div>
         <button onclick="loadAdminOrders()" style="font-size:12px;color:var(--t2);background:none;border:none;cursor:pointer;font-family:inherit">↻ Actualizar</button>
@@ -2415,6 +2440,17 @@ async function enterMesa() {
       room_id: String(roomId), name: String(name)
     }).select().single();
     if (ge) throw new Error('Error uniéndote: ' + ge.message);
+
+    // Añadir al nuevo comensal a todos los platos compartidos existentes
+    const { data: sharedDishes } = await sb.from('dishes')
+      .select('id')
+      .eq('room_id', roomId)
+      .eq('type', 'shared');
+    if (sharedDishes && sharedDishes.length) {
+      const parts = sharedDishes.map(d => ({ dish_id: d.id, guest_id: guest.id }));
+      await sb.from('dish_participants')
+        .upsert(parts, { onConflict: 'dish_id,guest_id' });
+    }
 
     // Cargar datos completos de la sala
     const { data: room } = await sb.from('rooms').select('*').eq('id', roomId).single();
