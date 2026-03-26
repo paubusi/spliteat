@@ -1919,52 +1919,82 @@ async function enterMesa() {
   errEl.style.display = 'none';
   if (!name) { errEl.textContent = 'Escribe tu nombre para entrar.'; errEl.style.display = 'block'; return; }
 
-  let roomId = _qrActiveRoomId;
-
-  // If no active room, create one automatically
-  if (!roomId) {
-    const code = String(Math.floor(1000 + Math.random() * 9000));
-    const { data: rest } = await sb.from('restaurants').select('name').eq('id', _qrRestaurantId).single().catch(() => ({ data: null }));
-    const roomPayload = {
-      code,
-      restaurant_id: _qrRestaurantId || undefined,
-      restaurant_name: rest?.name || '',
-      tip_percent: 0,
-      closed: false,
-      opened_at: new Date().toISOString().split('T')[0]
-    };
-    if (_qrTableId) roomPayload.table_id = _qrTableId;
-
-    const { data: newRoom, error: re } = await sb.from('rooms').insert(roomPayload).select().single();
-    if (re) { errEl.textContent = 'Error al abrir la mesa: ' + re.message; errEl.style.display = 'block'; return; }
-    roomId = newRoom.id;
-    _qrActiveRoomId = roomId;
+  // Validar que tenemos los datos del QR
+  if (!_qrRestaurantId) {
+    // Intentar releer la URL por si handleQRUrl no había terminado
+    const params = new URLSearchParams(window.location.search);
+    const mesa = params.get('mesa');
+    if (mesa) {
+      const [rid, tnum] = mesa.split('/');
+      _qrRestaurantId = rid || null;
+      _qrTableNum = tnum || null;
+    }
+    if (!_qrRestaurantId) {
+      errEl.textContent = 'Error: no se detectó la mesa. Vuelve a escanear el QR.';
+      errEl.style.display = 'block';
+      return;
+    }
   }
 
-  // Add guest to room
-  const { data: guest, error: ge } = await sb.from('guests').insert({
-    room_id: roomId, name
-  }).select().single();
-  if (ge) { errEl.textContent = 'Error al unirte: ' + ge.message; errEl.style.display = 'block'; return; }
+  const btn = document.querySelector('#s1-qr .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Entrando...'; }
 
-  // Load full room data
-  const { data: room } = await sb.from('rooms').select('*').eq('id', roomId).single();
-  const { data: guests } = await sb.from('guests').select('*').eq('room_id', roomId);
-  const { data: dishes } = await sb.from('dishes').select('*').eq('room_id', roomId);
+  let roomId = _qrActiveRoomId;
 
-  state.roomId = roomId;
-  state.roomCode = room.code;
-  state.myName = name;
-  state.myGuestId = guest.id;
-  state.restaurantName = room.restaurant_name || '';
-  state.restaurantId = room.restaurant_id || _qrRestaurantId;
-  state.tipPercent = 0;
-  state.guests = guests || [];
-  state.dishes = dishes || [];
-  await loadParticipants();
-  renderRoomScreen();
-  subscribeRealtime();
-  go('s2-room');
+  try {
+    // Si no hay sala activa, crear una
+    if (!roomId) {
+      const code = String(Math.floor(1000 + Math.random() * 9000));
+      const { data: rest } = await sb.from('restaurants').select('name')
+        .eq('id', _qrRestaurantId).maybeSingle();
+
+      const roomPayload = {
+        code,
+        restaurant_name: rest?.name || '',
+        tip_percent: 0,
+        closed: false,
+        opened_at: new Date().toISOString().split('T')[0]
+      };
+      if (_qrRestaurantId) roomPayload.restaurant_id = String(_qrRestaurantId);
+      if (_qrTableId) roomPayload.table_id = String(_qrTableId);
+
+      const { data: newRoom, error: re } = await sb.from('rooms').insert(roomPayload).select().single();
+      if (re) throw new Error('Error creando sala: ' + re.message);
+      roomId = newRoom.id;
+      _qrActiveRoomId = roomId;
+    }
+
+    // Añadir comensal
+    const { data: guest, error: ge } = await sb.from('guests').insert({
+      room_id: String(roomId), name: String(name)
+    }).select().single();
+    if (ge) throw new Error('Error uniéndote: ' + ge.message);
+
+    // Cargar datos completos de la sala
+    const { data: room } = await sb.from('rooms').select('*').eq('id', roomId).single();
+    const { data: guests } = await sb.from('guests').select('*').eq('room_id', roomId);
+    const { data: dishes } = await sb.from('dishes').select('*').eq('room_id', roomId);
+
+    state.roomId = roomId;
+    state.roomCode = room?.code || '';
+    state.myName = name;
+    state.myGuestId = guest.id;
+    state.restaurantName = room?.restaurant_name || '';
+    state.restaurantId = room?.restaurant_id || _qrRestaurantId;
+    state.tipPercent = 0;
+    state.guests = guests || [];
+    state.dishes = dishes || [];
+    await loadParticipants();
+    renderRoomScreen();
+    subscribeRealtime();
+    go('s2-room');
+
+  } catch(err) {
+    console.error('enterMesa error:', err);
+    errEl.textContent = err.message || 'Error al entrar. Inténtalo de nuevo.';
+    errEl.style.display = 'block';
+    if (btn) { btn.disabled = false; btn.textContent = 'Entrar a la mesa →'; }
+  }
 }
 
 // ══════════════════════════════════════════════════════
