@@ -1847,41 +1847,64 @@ async function handleQRUrl() {
   const [restaurantId, tableNum] = mesa.split('/');
   if (!restaurantId || !tableNum) return;
 
-  // Load restaurant
-  const { data: rest } = await sb.from('restaurants').select('*').eq('id', restaurantId).single();
-  if (!rest) { alert('Mesa no encontrada.'); return; }
-
-  // Load table
-  const { data: table } = await sb.from('tables').select('*')
-    .eq('restaurant_id', restaurantId).eq('number', parseInt(tableNum)).single();
-
-  // Store globally for enterMesa
-  _qrRestaurantId = restaurantId;
-  _qrTableId = table?.id || null;
-  _qrTableNum = tableNum;
-
-  // Check for active room on this table
-  let activeRoom = null;
-  if (table) {
-    const { data: room } = await sb.from('rooms').select('*')
-      .eq('table_id', table.id).eq('closed', false)
-      .order('created_at', { ascending: false })
-      .limit(1).single().catch(() => ({ data: null }));
-    activeRoom = room;
-  }
-  _qrActiveRoomId = activeRoom?.id || null;
-
-  // Fill UI
-  document.getElementById('qr-mesa-nombre').textContent =
-    `Mesa ${tableNum}${table?.label ? ' — ' + table.label : ''}`;
-  document.getElementById('qr-rest-nombre').textContent = rest.name;
-
-  if (activeRoom) {
-    document.getElementById('qr-sala-activa').style.display = 'block';
-  }
-
+  // Show loading state immediately so user knows something is happening
   go('s1-qr');
-  setTimeout(() => document.getElementById('qr-name')?.focus(), 300);
+  document.getElementById('qr-mesa-nombre').textContent = 'Cargando...';
+  document.getElementById('qr-rest-nombre').textContent = '';
+
+  try {
+    // Load restaurant
+    const { data: rest, error: restErr } = await sb.from('restaurants')
+      .select('*').eq('id', restaurantId).single();
+    if (restErr || !rest) {
+      document.getElementById('qr-mesa-nombre').textContent = 'Mesa no encontrada';
+      document.getElementById('qr-rest-nombre').textContent = 'Comprueba el QR con el restaurante';
+      return;
+    }
+
+    // Load table (mayfail if table doesn't exist yet — that's ok)
+    const { data: table } = await sb.from('tables')
+      .select('*')
+      .eq('restaurant_id', restaurantId)
+      .eq('number', parseInt(tableNum))
+      .maybeSingle();
+
+    // Store globally for enterMesa
+    _qrRestaurantId = restaurantId;
+    _qrTableId = table?.id || null;
+    _qrTableNum = tableNum;
+
+    // Check for active room on this table
+    let activeRoom = null;
+    if (table) {
+      const { data: room } = await sb.from('rooms')
+        .select('*')
+        .eq('table_id', table.id)
+        .eq('closed', false)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      activeRoom = room;
+    }
+    _qrActiveRoomId = activeRoom?.id || null;
+
+    // Fill UI
+    document.getElementById('qr-mesa-nombre').textContent =
+      `Mesa ${tableNum}${table?.label ? ' — ' + table.label : ''}`;
+    document.getElementById('qr-rest-nombre').textContent = rest.name;
+
+    if (activeRoom) {
+      document.getElementById('qr-sala-activa').style.display = 'block';
+    }
+
+    // Focus name input
+    setTimeout(() => document.getElementById('qr-name')?.focus(), 300);
+
+  } catch(err) {
+    console.error('handleQRUrl error:', err);
+    document.getElementById('qr-mesa-nombre').textContent = 'Error al cargar la mesa';
+    document.getElementById('qr-rest-nombre').textContent = err.message;
+  }
 }
 
 async function enterMesa() {
