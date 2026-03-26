@@ -1192,25 +1192,61 @@ function renderCarta() {
     grouped[cat].push(item);
   });
 
-  // Count how many times each menu_item is on the table
-  const countMap = {};
+  // Count and collect dish info per menu_item
+  const itemDishes = {}; // menuItemId → array of dishes
   state.dishes.forEach(d => {
-    if (d.menu_item_id) countMap[d.menu_item_id] = (countMap[d.menu_item_id] || 0) + 1;
+    if (!d.menu_item_id) return;
+    if (!itemDishes[d.menu_item_id]) itemDishes[d.menu_item_id] = [];
+    itemDishes[d.menu_item_id].push(d);
   });
+
+  // Helper: get initials bubble for a guest
+  const getInitial = (guestId) => {
+    const gIdx = state.guests.findIndex(g => g.id === guestId);
+    const guest = state.guests.find(g => g.id === guestId);
+    if (!guest) return '';
+    const [bg, tc] = avColor(gIdx);
+    const initial = guest.name.trim()[0]?.toUpperCase() || '?';
+    return `<div style="width:18px;height:18px;border-radius:50%;background:${bg};color:${tc};font-size:10px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initial}</div>`;
+  };
 
   let html = '';
   cats.forEach(cat => {
     if (!grouped[cat]) return;
     html += `<div class="sec-label" style="text-transform:capitalize">${cat}</div><div style="margin-bottom:.5rem">`;
     grouped[cat].forEach(item => {
-      const count = countMap[item.id] || 0;
+      const dishes = itemDishes[item.id] || [];
+      const count = dishes.length;
       const onTable = count > 0;
+
+      // Build initials row — one bubble per dish instance
+      let initialsHtml = '';
+      if (onTable) {
+        const bubbles = dishes.map(d => {
+          if (d.type === 'shared') {
+            // Compartido: mostrar pequeño icono de grupo + iniciales participantes
+            const parts = state.participants[d.id] || [];
+            if (parts.length === 0) {
+              return `<div style="font-size:11px;color:var(--brand);font-weight:500">🤝</div>`;
+            }
+            // Mostrar hasta 3 iniciales
+            const shown = parts.slice(0, 3);
+            return shown.map(gid => getInitial(gid)).join('');
+          } else {
+            // Individual: inicial del asignado
+            return getInitial(d.assignee_id);
+          }
+        }).flat().join('');
+        initialsHtml = `<div style="display:flex;align-items:center;gap:2px;margin-right:6px">${bubbles}</div>`;
+      }
+
       html += `<div onclick="openModal('${item.id}')"
         style="display:flex;align-items:center;padding:.75rem .85rem;border-radius:var(--r-sm);margin-bottom:.4rem;border:1px solid ${onTable ? 'var(--brand)' : 'var(--bd)'};background:${onTable ? 'var(--brand-l)' : 'var(--card)'};cursor:pointer;transition:all .15s;gap:10px">
         <div style="flex:1">
           <div style="font-size:14px;font-weight:${onTable ? '500' : '400'};color:${onTable ? 'var(--brand-d)' : 'var(--t1)'}">${item.name}</div>
           <div style="font-size:12px;color:${onTable ? 'var(--brand)' : 'var(--t3)'};margin-top:1px">${fmt(parseFloat(item.price))}</div>
         </div>
+        ${initialsHtml}
         <div style="width:28px;height:28px;border-radius:50%;border:1.5px solid ${onTable ? 'var(--brand)' : 'var(--bd2)'};background:${onTable ? 'var(--brand)' : 'none'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:${onTable ? '12px' : '16px'};font-weight:500;color:${onTable ? '#fff' : 'var(--t3)'}">
           ${onTable ? count : '+'}
         </div>
