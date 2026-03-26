@@ -931,11 +931,17 @@ async function confirmAddDish() {
   if (modalType === 'shared') {
     const parts = state.guests.map(g => ({ dish_id: dish.id, guest_id: g.id }));
     await sb.from('dish_participants').insert(parts);
-    if (!state.participants[dish.id]) state.participants[dish.id] = [];
-    state.participants[dish.id] = state.guests.map(g => g.id);
   }
-  state.dishes.push(dish);
-  renderCarta();
+  // NO hacemos state.dishes.push(dish) — el realtime lo añade automáticamente
+  // Actualización optimista solo si el realtime tarda
+  if (!state.dishes.find(d => d.id === dish.id)) {
+    state.dishes.push(dish);
+    if (modalType === 'shared') {
+      state.participants[dish.id] = state.guests.map(g => g.id);
+    }
+    renderCarta();
+    renderMesaDishes();
+  }
 }
 
 async function removeDishFromCarta(menuItemId) {
