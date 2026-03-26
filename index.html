@@ -1014,7 +1014,9 @@ function renderDishCard(dish) {
     const chips = state.guests.map((g, i) => {
       const inPart = parts.includes(g.id);
       const canToggle = !isConfirmed;
-      return `<span class="part-chip ${inPart ? 'in' : 'out'}" ${canToggle ? `onclick="toggleParticipant('${dish.id}','${g.id}',${!inPart})"` : ''} style="${!canToggle?'cursor:default;':''}">
+      return `<span class="part-chip ${inPart ? 'in' : 'out'}"
+        ${canToggle ? `onclick="toggleParticipant('${dish.id}','${g.id}')"` : ''}
+        style="${!canToggle ? 'cursor:default;opacity:.6;' : 'cursor:pointer;'}">
         ${avEl(g.name, i, 20)}${g.name}
       </span>`;
     }).join('');
@@ -1060,15 +1062,36 @@ function renderDishCard(dish) {
 // ══════════════════════════════════════════════════════
 // TOGGLE PARTICIPANT
 // ══════════════════════════════════════════════════════
-async function toggleParticipant(dishId, guestId, add) {
-  if (add) {
-    await sb.from('dish_participants').insert({ dish_id: dishId, guest_id: guestId }).catch(() => {});
+async function toggleParticipant(dishId, guestId) {
+  // Decide si añadir o quitar basándose en el estado actual
+  const currentParts = state.participants[dishId] || [];
+  const isIn = currentParts.includes(guestId);
+
+  if (!isIn) {
+    // Añadir
+    await sb.from('dish_participants')
+      .upsert({ dish_id: dishId, guest_id: guestId }, { onConflict: 'dish_id,guest_id' });
     if (!state.participants[dishId]) state.participants[dishId] = [];
-    if (!state.participants[dishId].includes(guestId)) state.participants[dishId].push(guestId);
+    if (!state.participants[dishId].includes(guestId)) {
+      state.participants[dishId].push(guestId);
+    }
   } else {
-    await sb.from('dish_participants').delete().eq('dish_id', dishId).eq('guest_id', guestId);
-    state.participants[dishId] = (state.participants[dishId] || []).filter(id => id !== guestId);
+    // Quitar — pero no dejar el plato sin ningún participante
+    if (currentParts.length <= 1) {
+      // Si es el último participante, avisar en lugar de dejar vacío
+      const chip = event?.currentTarget;
+      if (chip) {
+        chip.style.animation = 'none';
+        chip.style.opacity = '0.5';
+        setTimeout(() => { chip.style.opacity = '1'; }, 300);
+      }
+      return; // No quitar el último participante
+    }
+    await sb.from('dish_participants').delete()
+      .eq('dish_id', dishId).eq('guest_id', guestId);
+    state.participants[dishId] = currentParts.filter(id => id !== guestId);
   }
+
   flashCard(dishId);
   renderMesaDishes();
 }
