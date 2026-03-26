@@ -210,69 +210,49 @@
 <div id="app">
 
   <!-- ════════════════════════════════════════
-       S0: INICIO
+       S0: INICIO (solo para acceso directo sin QR)
   ════════════════════════════════════════ -->
   <div class="screen active" id="s0">
     <div class="hero">
       <div class="hero-icon">🍽</div>
       <h1 class="title">split<em style="color:var(--accent);font-style:normal">eat</em></h1>
-      <p class="subtitle">Divide la cuenta sin dramas.<br>Platos compartidos, platos individuales.<br>Cada uno paga exactamente lo suyo.</p>
+      <p class="subtitle">Divide la cuenta sin dramas.<br>Escanea el QR de tu mesa para empezar.</p>
     </div>
     <div class="body">
-      <button class="btn btn-primary" onclick="go('s1-create')">Crear mesa nueva</button>
-      <button class="btn btn-secondary" onclick="go('s1-join')">Unirme con código</button>
-      <hr>
       <button class="btn btn-ghost" onclick="go('s-admin-login')" style="text-align:center;width:100%">Panel del restaurante →</button>
     </div>
   </div>
 
   <!-- ════════════════════════════════════════
-       S1-CREATE: CREAR MESA
+       S1-QR: ENTRAR A MESA (via QR)
+       Pantalla que ve el comensal al escanear
   ════════════════════════════════════════ -->
-  <div class="screen" id="s1-create">
+  <div class="screen" id="s1-qr">
     <div class="hdr">
-      <button class="back-btn" onclick="go('s0')">← Inicio</button>
       <div class="logo">split<em>eat</em></div>
       <div style="width:60px"></div>
     </div>
-    <div class="steps"><div class="step done"></div><div class="step"></div><div class="step"></div><div class="step"></div></div>
     <div class="body">
-      <h2 class="title" style="font-size:22px">Nueva mesa</h2>
-      <p class="subtitle">Crea la sala y comparte el código con los comensales.</p>
-      <div class="spacer"></div>
-      <div class="field"><label>Tu nombre</label><input id="create-name" type="text" placeholder="ej. Lucía" autocomplete="off"></div>
-      <div class="field">
-        <label>Restaurante (opcional)</label>
-        <select id="create-rest" onchange="onRestaurantSelect(this.value)">
-          <option value="">— Sin restaurante —</option>
-        </select>
+      <div id="qr-mesa-info" style="background:var(--brand-l);border-radius:var(--r);padding:1rem 1.25rem;margin-bottom:1.25rem">
+        <div style="font-size:12px;color:var(--brand);font-weight:500;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem">Mesa</div>
+        <div id="qr-mesa-nombre" style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--brand-d)">—</div>
+        <div id="qr-rest-nombre" style="font-size:13px;color:var(--brand-d);margin-top:2px">—</div>
       </div>
-      <button class="btn btn-primary mt" onclick="createRoom()">Crear sala →</button>
-      <div id="create-err" class="notice notice-err" style="display:none"></div>
-    </div>
-  </div>
 
-  <!-- ════════════════════════════════════════
-       S1-JOIN: UNIRSE
-  ════════════════════════════════════════ -->
-  <div class="screen" id="s1-join">
-    <div class="hdr">
-      <button class="back-btn" onclick="go('s0')">← Inicio</button>
-      <div class="logo">split<em>eat</em></div>
-      <div style="width:60px"></div>
-    </div>
-    <div class="body">
-      <h2 class="title" style="font-size:22px">Unirme a una mesa</h2>
-      <p class="subtitle">Pídele el código de 4 dígitos a quien creó la mesa.</p>
-      <div class="spacer"></div>
-      <div class="field"><label>Tu nombre</label><input id="join-name" type="text" placeholder="ej. Marcos" autocomplete="off"></div>
-      <div class="field">
-        <label>Código de sala</label>
-        <input id="join-code" type="text" placeholder="1234" maxlength="4" inputmode="numeric"
-          style="font-size:32px;letter-spacing:10px;font-weight:700;text-align:center;font-family:'Fraunces',serif">
+      <div id="qr-sala-activa" style="display:none;background:var(--amber-l);border-radius:var(--r-sm);padding:.75rem 1rem;font-size:13px;color:var(--amber);margin-bottom:1rem;line-height:1.5">
+        🍽 Esta mesa ya tiene una sesión activa. Entrarás a la misma cuenta.
       </div>
-      <button class="btn btn-primary" onclick="joinRoom()">Entrar →</button>
-      <div id="join-err" class="notice notice-err" style="display:none"></div>
+
+      <h2 class="title" style="font-size:20px;margin-bottom:.35rem">¿Cómo te llamas?</h2>
+      <p class="subtitle" style="margin-bottom:1.25rem">Solo tu nombre — sin registro, sin contraseña.</p>
+
+      <div class="field">
+        <input id="qr-name" type="text" placeholder="ej. Lucía" autocomplete="off"
+          style="font-size:18px;padding:14px 16px"
+          onkeydown="if(event.key==='Enter') enterMesa()">
+      </div>
+      <button class="btn btn-primary mt" onclick="enterMesa()">Entrar a la mesa →</button>
+      <div id="qr-err" class="notice notice-err" style="display:none;margin-top:.75rem"></div>
     </div>
   </div>
 
@@ -284,17 +264,17 @@
       <div class="logo">split<em>eat</em></div>
       <div class="live-badge"><div class="live-dot"></div><span id="s2-online">0 conectados</span></div>
     </div>
-    <div class="steps"><div class="step done"></div><div class="step done"></div><div class="step"></div><div class="step"></div></div>
     <div class="body">
-      <div id="s2-room-name" class="muted" style="margin-bottom:.5rem"></div>
-      <div class="code-box">
-        <div class="code-label">Código de sala</div>
-        <div class="code-value" id="s2-code">—</div>
-        <div style="font-size:12px;color:var(--brand-d);margin-top:.35rem">Comparte este código con los comensales</div>
+      <div style="background:var(--brand-l);border-radius:var(--r);padding:.85rem 1.1rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div id="s2-room-name" style="font-size:16px;font-weight:500;color:var(--brand-d)">—</div>
+          <div style="font-size:12px;color:var(--brand);margin-top:1px">Mesa activa · en tiempo real</div>
+        </div>
+        <div class="live-dot"></div>
       </div>
       <div class="sec-label">Comensales en la mesa</div>
       <div id="s2-guests-list"></div>
-      <button class="btn btn-primary mt" onclick="go('s3-dishes')">Añadir platos →</button>
+      <button class="btn btn-primary mt" onclick="go('s3-dishes')">Ver carta y añadir platos →</button>
     </div>
   </div>
 
@@ -750,95 +730,14 @@ function resetState() {
     menuItems:[], restaurantId:null, realtimeSubs:[], payments:[] };
 }
 
-// ══════════════════════════════════════════════════════
-// ROOM: CREATE
-// ══════════════════════════════════════════════════════
-async function createRoom() {
-  const nameEl = document.getElementById('create-name');
-  const restSelect = document.getElementById('create-rest');
-  const errEl = document.getElementById('create-err');
-  errEl.style.display = 'none';
-
-  const name = (nameEl ? nameEl.value : '').trim();
-  if (!name) { errEl.textContent = 'Escribe tu nombre primero.'; errEl.style.display = 'block'; return; }
-
-  // Safely read restaurant select — avoid null/undefined serialization issues
-  let selectedRestId = null;
-  let selectedRestName = '';
-  try {
-    if (restSelect && restSelect.value) {
-      selectedRestId = String(restSelect.value);
-      selectedRestName = String(restSelect.options[restSelect.selectedIndex].text);
-    }
-  } catch(e) { selectedRestId = null; selectedRestName = ''; }
-
-  const code = String(Math.floor(1000 + Math.random() * 9000));
-
-  // Build insert payload with only plain serializable values
-  const roomPayload = {
-    code: code,
-    tip_percent: 0
-  };
-  if (selectedRestName) roomPayload.restaurant_name = selectedRestName;
-  if (selectedRestId) roomPayload.restaurant_id = selectedRestId;
-
-  const { data: room, error: re } = await sb.from('rooms').insert(roomPayload).select().single();
-  if (re) { errEl.textContent = 'Error al crear la sala: ' + re.message; errEl.style.display = 'block'; return; }
-
-  const { data: guest, error: ge } = await sb.from('guests').insert({
-    room_id: String(room.id), name: name
-  }).select().single();
-  if (ge) { errEl.textContent = 'Error al unirte: ' + ge.message; errEl.style.display = 'block'; return; }
-
-  state.roomId = room.id;
-  state.roomCode = code;
-  state.myName = name;
-  state.myGuestId = guest.id;
-  state.restaurantName = selectedRestName;
-  state.restaurantId = selectedRestId;
-  state.tipPercent = 0;
-  state.guests = [guest];
-  renderRoomScreen();
-  subscribeRealtime();
-  go('s2-room');
-}
-
-// ══════════════════════════════════════════════════════
-// ROOM: JOIN
-// ══════════════════════════════════════════════════════
-async function joinRoom() {
-  const name = document.getElementById('join-name').value.trim();
-  const code = document.getElementById('join-code').value.trim();
-  const errEl = document.getElementById('join-err');
-  errEl.style.display = 'none';
-  if (!name || !code) { errEl.textContent = 'Rellena tu nombre y el código.'; errEl.style.display = 'block'; return; }
-  const { data: room, error: re } = await sb.from('rooms').select('*').eq('code', code).single();
-  if (re || !room) { errEl.textContent = 'Código no encontrado. Comprueba los 4 dígitos.'; errEl.style.display = 'block'; return; }
-  const { data: guest, error: ge } = await sb.from('guests').insert({
-    room_id: room.id, name
-  }).select().single();
-  if (ge) { errEl.textContent = 'Error al unirte: ' + ge.message; errEl.style.display = 'block'; return; }
-  const { data: guests } = await sb.from('guests').select('*').eq('room_id', room.id);
-  const { data: dishes } = await sb.from('dishes').select('*').eq('room_id', room.id);
-  state.roomId = room.id; state.roomCode = code;
-  state.myName = name; state.myGuestId = guest.id;
-  state.restaurantName = room.restaurant_name || '';
-  state.tipPercent = room.tip_percent || 10;
-  state.restaurantId = room.restaurant_id || null;
-  state.guests = guests || [];
-  state.dishes = dishes || [];
-  await loadParticipants();
-  renderRoomScreen();
-  subscribeRealtime();
-  go('s2-room');
-}
+// ── createRoom y joinRoom eliminados — reemplazados por enterMesa (flujo QR) ──
 
 // ══════════════════════════════════════════════════════
 // RENDER ROOM SCREEN
 // ══════════════════════════════════════════════════════
 function renderRoomScreen() {
-  document.getElementById('s2-code').textContent = state.roomCode;
-  document.getElementById('s2-room-name').textContent = state.restaurantName || 'Mesa sin restaurante asignado';
+  const mesaLabel = document.getElementById('s2-room-name');
+  if (mesaLabel) mesaLabel.textContent = state.restaurantName || 'Mesa activa';
   document.getElementById('s2-online').textContent = `${state.guests.length} conectado${state.guests.length !== 1 ? 's' : ''}`;
   const list = document.getElementById('s2-guests-list');
   list.innerHTML = state.guests.map((g, i) => `
@@ -1353,9 +1252,12 @@ async function registerManualPayment(me, method) {
   });
   state.payments.push({ guest_id: state.myGuestId, method, amount: me.total });
   buildPayScreen();
-  // Check if everyone paid
+  // Auto-close room when everyone has paid
   const allPaid = state.guests.every(g => state.payments.find(p => p.guest_id === g.id));
-  if (allPaid) setTimeout(() => go('s6-done'), 800);
+  if (allPaid) {
+    await sb.from('rooms').update({ closed: true }).eq('id', state.roomId);
+    setTimeout(() => go('s6-done'), 800);
+  }
 }
 
 async function payWithStripe(me, method) {
@@ -1617,42 +1519,80 @@ async function deleteItem(itemId) {
 // ADMIN MESAS + QR
 // ══════════════════════════════════════════════════════
 async function loadAdminTables() {
-  const { data } = await sb.from('tables').select('*')
+  const { data: tables } = await sb.from('tables').select('*')
     .eq('restaurant_id', state.adminRestaurantId).order('number');
   const el = document.getElementById('admin-tables-list');
-  if (!data || !data.length) {
+  if (!tables || !tables.length) {
     el.innerHTML = '<div class="empty"><div class="empty-text">No hay mesas. Añade la primera.</div></div>'; return;
   }
-  el.innerHTML = data.map(t => `
-    <div class="card row" style="margin-bottom:.5rem;justify-content:space-between">
-      <div>
-        <div style="font-size:14px;font-weight:500">Mesa ${t.number}${t.label ? ' — ' + t.label : ''}</div>
-        <div style="font-size:12px;color:var(--t2)">spliteat.es/m/${state.adminRestaurantId}/${t.number}</div>
+
+  // Get active rooms for this restaurant
+  const { data: activeRooms } = await sb.from('rooms').select('*')
+    .eq('restaurant_id', state.adminRestaurantId).eq('closed', false);
+  const activeByTable = {};
+  (activeRooms || []).forEach(r => { if (r.table_id) activeByTable[r.table_id] = r; });
+
+  el.innerHTML = tables.map(t => {
+    const activeRoom = activeByTable[t.id];
+    const isActive = !!activeRoom;
+    return `<div class="card" style="margin-bottom:.5rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${isActive ? '.65rem' : '0'}">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="font-size:14px;font-weight:500">Mesa ${t.number}${t.label ? ' — ' + t.label : ''}</div>
+            ${isActive ? `<span style="font-size:11px;background:var(--brand-l);color:var(--brand);padding:2px 8px;border-radius:99px;font-weight:500">● Activa</span>` : `<span style="font-size:11px;background:var(--bg);color:var(--t3);padding:2px 8px;border-radius:99px;border:1px solid var(--bd)">Libre</span>`}
+          </div>
+          ${isActive ? `<div style="font-size:12px;color:var(--t2);margin-top:2px">${activeRoom.guests_count || '?'} comensales · abierta hoy</div>` : ''}
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-secondary btn-sm" onclick="showQR('${t.id}','${state.adminRestaurantId}',${t.number},'${t.label||''}')">QR</button>
+          <button class="btn btn-secondary btn-sm btn-icon" onclick="deleteTable('${t.id}')" title="Eliminar">✕</button>
+        </div>
       </div>
-      <div class="row" style="gap:6px">
-        <button class="btn btn-secondary btn-sm" onclick="showQR('${t.id}','${state.adminRestaurantId}',${t.number},'${t.label||''}')">QR</button>
-        <button class="btn btn-secondary btn-sm btn-icon" onclick="deleteTable('${t.id}')" title="Eliminar">✕</button>
-      </div>
-    </div>`).join('');
+      ${isActive ? `
+        <div style="display:flex;gap:.5rem">
+          <button onclick="adminCloseTable('${activeRoom.id}')"
+            style="flex:1;padding:8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:#FCEBEB;color:#A32D2D;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
+            Cerrar mesa
+          </button>
+          <button onclick="adminViewTable('${activeRoom.id}')"
+            style="flex:1;padding:8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg2);color:var(--t1);font-size:12px;cursor:pointer;font-family:inherit">
+            Ver pedidos
+          </button>
+        </div>` : `
+        <button onclick="adminOpenTable('${t.id}', '${t.number}', '${t.label || ''}')"
+          style="width:100%;padding:8px;border-radius:var(--r-sm);border:1px solid var(--bd);background:var(--bg2);color:var(--t2);font-size:12px;cursor:pointer;font-family:inherit">
+          + Abrir mesa manualmente
+        </button>`}
+    </div>`;
+  }).join('');
 }
 
-async function addTable() {
-  const num = prompt('Número de mesa:');
-  if (!num || isNaN(parseInt(num))) return;
-  const label = prompt('Etiqueta (opcional, ej: Terraza):') || '';
-  const qrUrl = `${BASE_URL}?mesa=${state.adminRestaurantId}/${num}`;
-  const { error } = await sb.from('tables').insert({
-    restaurant_id: state.adminRestaurantId, number: parseInt(num),
-    label: label || null, qr_url: qrUrl
+async function adminOpenTable(tableId, tableNum, tableLabel) {
+  // Create a new room for this table
+  const code = String(Math.floor(1000 + Math.random() * 9000));
+  const { error } = await sb.from('rooms').insert({
+    code,
+    restaurant_id: state.adminRestaurantId,
+    restaurant_name: state.adminRestaurantName,
+    table_id: tableId,
+    closed: false,
+    tip_percent: 0,
+    opened_at: new Date().toISOString().split('T')[0]
   });
   if (error) { alert('Error: ' + error.message); return; }
   loadAdminTables();
 }
 
-async function deleteTable(tableId) {
-  if (!confirm('¿Eliminar esta mesa?')) return;
-  await sb.from('tables').delete().eq('id', tableId);
+async function adminCloseTable(roomId) {
+  if (!confirm('¿Cerrar esta mesa? Se marcará como pagada/cerrada.')) return;
+  await sb.from('rooms').update({ closed: true }).eq('id', roomId);
   loadAdminTables();
+}
+
+async function adminViewTable(roomId) {
+  // Switch to cocina tab filtered to this room - for now just show cocina
+  showAdminTab('cocina');
 }
 
 function showQR(tableId, restaurantId, number, label) {
@@ -1886,64 +1826,116 @@ function handleStripeReturn() {
   }
 }
 
-// ══════════════════════════════════════════════════════
-// LOAD RESTAURANTS INTO SELECT (pantalla crear mesa)
-// ══════════════════════════════════════════════════════
-async function loadRestaurantsIntoSelect() {
-  const { data } = await sb.from('restaurants').select('id, name').order('name');
-  const sel = document.getElementById('create-rest');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">— Sin restaurante —</option>';
-  (data || []).forEach(r => {
-    const opt = document.createElement('option');
-    opt.value = r.id;
-    opt.textContent = r.name;
-    sel.appendChild(opt);
-  });
-}
+// ── loadRestaurantsIntoSelect eliminado — ya no se usa el selector manual ──
 
-function onRestaurantSelect(restaurantId) {
-  state.restaurantId = restaurantId || null;
-}
+function onRestaurantSelect() {} // kept for safety
 
 // ══════════════════════════════════════════════════════
-// QR URL HANDLER (when opening from a QR code)
+// QR URL HANDLER — nuevo flujo sin código manual
+// URL: ?mesa=restaurantId/tableNumber
 // ══════════════════════════════════════════════════════
+let _qrRestaurantId = null;
+let _qrTableId = null;
+let _qrTableNum = null;
+let _qrActiveRoomId = null;
+
 async function handleQRUrl() {
   const params = new URLSearchParams(window.location.search);
   const mesa = params.get('mesa');
   if (!mesa) return;
+
   const [restaurantId, tableNum] = mesa.split('/');
   if (!restaurantId || !tableNum) return;
-  // Load restaurant info
+
+  // Load restaurant
   const { data: rest } = await sb.from('restaurants').select('*').eq('id', restaurantId).single();
   if (!rest) { alert('Mesa no encontrada.'); return; }
-  // Load or find table
+
+  // Load table
   const { data: table } = await sb.from('tables').select('*')
     .eq('restaurant_id', restaurantId).eq('number', parseInt(tableNum)).single();
-  // Set state
-  state.restaurantId = restaurantId;
-  state.restaurantName = rest.name;
-  // Pre-fill restaurant in create form
-  document.getElementById('create-rest').value = rest.name;
-  // Check if active room for this table today
+
+  // Store globally for enterMesa
+  _qrRestaurantId = restaurantId;
+  _qrTableId = table?.id || null;
+  _qrTableNum = tableNum;
+
+  // Check for active room on this table
+  let activeRoom = null;
   if (table) {
-    const { data: activeRoom } = await sb.from('rooms').select('*')
-      .eq('table_id', table.id).eq('closed', false).single().catch(() => ({ data: null }));
-    if (activeRoom) {
-      // Show join screen with room code pre-filled
-      document.getElementById('join-code').value = activeRoom.code;
-      document.getElementById('join-name').placeholder = 'Tu nombre para unirte a la mesa';
-      const notice = document.createElement('div');
-      notice.className = 'notice';
-      notice.innerHTML = `<strong>Mesa ${tableNum} · ${rest.name}</strong><br>Ya hay una sala activa (código ${activeRoom.code}). Escribe tu nombre para unirte.`;
-      document.getElementById('s1-join').querySelector('.body').prepend(notice);
-      go('s1-join');
-      return;
-    }
+    const { data: room } = await sb.from('rooms').select('*')
+      .eq('table_id', table.id).eq('closed', false)
+      .order('created_at', { ascending: false })
+      .limit(1).single().catch(() => ({ data: null }));
+    activeRoom = room;
   }
-  // No active room → go to create with pre-filled info
-  go('s1-create');
+  _qrActiveRoomId = activeRoom?.id || null;
+
+  // Fill UI
+  document.getElementById('qr-mesa-nombre').textContent =
+    `Mesa ${tableNum}${table?.label ? ' — ' + table.label : ''}`;
+  document.getElementById('qr-rest-nombre').textContent = rest.name;
+
+  if (activeRoom) {
+    document.getElementById('qr-sala-activa').style.display = 'block';
+  }
+
+  go('s1-qr');
+  setTimeout(() => document.getElementById('qr-name')?.focus(), 300);
+}
+
+async function enterMesa() {
+  const name = (document.getElementById('qr-name')?.value || '').trim();
+  const errEl = document.getElementById('qr-err');
+  errEl.style.display = 'none';
+  if (!name) { errEl.textContent = 'Escribe tu nombre para entrar.'; errEl.style.display = 'block'; return; }
+
+  let roomId = _qrActiveRoomId;
+
+  // If no active room, create one automatically
+  if (!roomId) {
+    const code = String(Math.floor(1000 + Math.random() * 9000));
+    const { data: rest } = await sb.from('restaurants').select('name').eq('id', _qrRestaurantId).single().catch(() => ({ data: null }));
+    const roomPayload = {
+      code,
+      restaurant_id: _qrRestaurantId || undefined,
+      restaurant_name: rest?.name || '',
+      tip_percent: 0,
+      closed: false,
+      opened_at: new Date().toISOString().split('T')[0]
+    };
+    if (_qrTableId) roomPayload.table_id = _qrTableId;
+
+    const { data: newRoom, error: re } = await sb.from('rooms').insert(roomPayload).select().single();
+    if (re) { errEl.textContent = 'Error al abrir la mesa: ' + re.message; errEl.style.display = 'block'; return; }
+    roomId = newRoom.id;
+    _qrActiveRoomId = roomId;
+  }
+
+  // Add guest to room
+  const { data: guest, error: ge } = await sb.from('guests').insert({
+    room_id: roomId, name
+  }).select().single();
+  if (ge) { errEl.textContent = 'Error al unirte: ' + ge.message; errEl.style.display = 'block'; return; }
+
+  // Load full room data
+  const { data: room } = await sb.from('rooms').select('*').eq('id', roomId).single();
+  const { data: guests } = await sb.from('guests').select('*').eq('room_id', roomId);
+  const { data: dishes } = await sb.from('dishes').select('*').eq('room_id', roomId);
+
+  state.roomId = roomId;
+  state.roomCode = room.code;
+  state.myName = name;
+  state.myGuestId = guest.id;
+  state.restaurantName = room.restaurant_name || '';
+  state.restaurantId = room.restaurant_id || _qrRestaurantId;
+  state.tipPercent = 0;
+  state.guests = guests || [];
+  state.dishes = dishes || [];
+  await loadParticipants();
+  renderRoomScreen();
+  subscribeRealtime();
+  go('s2-room');
 }
 
 // ══════════════════════════════════════════════════════
@@ -1951,7 +1943,6 @@ async function handleQRUrl() {
 // ══════════════════════════════════════════════════════
 handleQRUrl();
 handleStripeReturn();
-loadRestaurantsIntoSelect();
 </script>
 </body>
 </html>
