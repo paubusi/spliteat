@@ -31,9 +31,23 @@
     .screen:not(#s-admin):not(#s-admin-login):not(#s-admin-login-form):not(#s-kitchen-login):not(#s-waiter):not(#s-waiter-select) { max-width: 430px; margin: 0 auto; }
     #s-admin { max-width: 100%; width: 100%; }
     #atab-cocina { width: 100% !important; }
-    #atab-gestion, #atab-reportes, #atab-encurso {
-      max-width: 680px; margin: 0 auto;
+    /* Gestión: 3 columnas en desktop */
+    #atab-gestion { width: 100%; }
+    #atab-gestion > .gestion-subtab-bar { padding: 0 2rem; }
+    #gtab-carta, #gtab-mesas, #gtab-camareros { padding: 1.5rem 2rem; }
+    /* Gestión: mostrar las 3 secciones en columnas cuando hay espacio */
+    .gestion-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1.5rem;
+      padding: 1.5rem 2rem;
     }
+    /* Reportes: full width */
+    #atab-reportes { width: 100%; }
+    #rtab-historial, #rtab-pagos { padding: 1.5rem 2rem; max-width: 900px; }
+    /* En curso: full width */
+    #atab-encurso { width: 100%; padding: 1rem 2rem; }
+    #encurso-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
     #s-admin .hdr { padding: 1rem 2rem; }
     #s-admin .tab-bar { padding: 0 2rem; }
     /* Cocina: tarjetas más grandes en desktop */
@@ -766,81 +780,91 @@
       </div>
     </div>
 
-    <!-- TAB GESTIÓN — subtabs: Carta / Mesas / Camareros -->
-    <div id="atab-gestion" style="display:none;flex-direction:column;flex:1">
-      <div style="display:flex;border-bottom:1px solid var(--bd);background:var(--bg2);padding:0 1rem">
+    <!-- TAB GESTIÓN — 3 columnas en desktop, subtabs en móvil -->
+    <div id="atab-gestion" style="display:none;flex-direction:column;width:100%;height:calc(100vh - 110px)">
+
+      <!-- Subtab bar — solo visible en móvil (<600px) -->
+      <div id="gestion-subtab-bar" style="display:flex;border-bottom:1px solid var(--bd);background:var(--bg2);padding:0 1rem">
         <button class="tab on" id="gtab-btn-carta" onclick="showGestionTab('carta')" style="font-size:13px;padding:.5rem .75rem">Carta</button>
         <button class="tab" id="gtab-btn-mesas" onclick="showGestionTab('mesas')" style="font-size:13px;padding:.5rem .75rem">Mesas</button>
         <button class="tab" id="gtab-btn-camareros" onclick="showGestionTab('camareros')" style="font-size:13px;padding:.5rem .75rem">Camareros</button>
       </div>
-      <!-- Carta -->
-      <div id="gtab-carta" class="body">
-        <div class="row" style="justify-content:space-between;margin-bottom:.75rem">
-          <div class="sec-label" style="margin:0">Platos de la carta</div>
-          <button class="btn btn-primary btn-sm" onclick="showAddItemForm()">+ Añadir</button>
-        </div>
-        <div id="add-item-form" style="display:none" class="card">
-          <div class="field"><label>Nombre del plato</label><input id="ai-name" type="text" placeholder="ej. Croquetas caseras" autocomplete="off"></div>
-          <div class="row" style="gap:.5rem">
-            <div class="field" style="flex:1;margin:0"><label>Precio €</label><input id="ai-price" type="number" step="0.01" min="0" inputmode="decimal" placeholder="9.50"></div>
-            <div class="field" style="flex:1;margin:0">
-              <label>Categoría</label>
-              <select id="ai-cat"><option value="entrantes">Entrantes</option><option value="principales">Principales</option><option value="postres">Postres</option><option value="bebidas">Bebidas</option><option value="otros">Otros</option></select>
-            </div>
-          </div>
-          <div class="toggle">
-            <span style="font-size:13px;color:var(--t2)">Suele pedirse para compartir</span>
-            <div class="toggle-track" id="ai-shared-track" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></div>
-          </div>
-          <div class="row mt">
-            <button class="btn btn-primary btn-sm" onclick="saveMenuItem()">Guardar</button>
-            <button class="btn btn-secondary btn-sm" onclick="hideAddItemForm()">Cancelar</button>
-          </div>
-        </div>
-        <div id="admin-carta-list"></div>
-      </div>
-      <!-- Mesas -->
-      <div id="gtab-mesas" class="body" style="display:none">
-        <div id="admin-tables-list"></div>
-        <button class="btn btn-secondary mt" onclick="addTable()">+ Añadir mesa</button>
-        <!-- QR Modal -->
-        <div id="qr-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;align-items:center;justify-content:center">
-          <div style="background:var(--card);border-radius:var(--r-lg);padding:1.5rem;max-width:340px;width:90%;text-align:center">
-            <div id="qr-mesa-label" style="font-size:14px;font-weight:500;margin-bottom:1rem"></div>
-            <div id="qr-container" style="display:inline-block;padding:12px;background:#fff;border-radius:8px;border:1px solid var(--bd)"></div>
-            <div style="font-size:12px;color:var(--t2);margin-top:.75rem">Escanea para ver la carta y dividir la cuenta</div>
-            <div id="qr-url-display" style="font-size:10px;color:var(--t3);margin-top:.4rem;word-break:break-all;font-family:monospace"></div>
-            <div style="display:flex;gap:.5rem;margin-top:1rem">
-              <button class="btn btn-secondary btn-sm mt" onclick="downloadQR()" style="flex:1">Descargar PNG</button>
-              <button class="btn btn-secondary btn-sm mt" onclick="document.getElementById('qr-modal').style.display='none'" style="flex:1">Cerrar</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <!-- Camareros -->
-      <div id="gtab-camareros" class="body" style="display:none">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
-          <div class="sec-label" style="margin:0">Camareros</div>
-          <button class="btn btn-primary btn-sm" onclick="showAddWaiterForm()">+ Añadir</button>
-        </div>
-        <div id="add-waiter-form" style="display:none" class="card">
-          <div class="field"><label>Nombre</label><input id="wf-name" type="text" placeholder="ej. Carlos" autocomplete="off"></div>
-          <div class="field"><label>PIN (4 dígitos)</label><input id="wf-pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
-          <div class="row mt">
-            <button class="btn btn-primary btn-sm" onclick="saveWaiter()">Guardar</button>
-            <button class="btn btn-secondary btn-sm" onclick="hideAddWaiterForm()">Cancelar</button>
-          </div>
-        </div>
-        <div id="admin-waiters-list"></div>
-        <div id="admin-waiters-empty" class="empty" style="display:none">
-          <div class="empty-icon">🧑‍🍳</div>
-          <div class="empty-text">No hay camareros. Añade el primero.</div>
-        </div>
-      </div>
-    </div>
 
-    <!-- TAB REPORTES — Historial + Pagos -->
-    </div><!-- close atab-gestion -->
+      <!-- DESKTOP: 3 columnas simultáneas -->
+      <div id="gestion-cols" style="display:none;grid-template-columns:1fr 1fr 1fr;gap:0;flex:1;overflow:hidden">
+
+        <!-- Col Carta -->
+        <div style="border-right:1px solid var(--bd);overflow-y:auto;padding:1.25rem 1.5rem;display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+            <div style="font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.06em">Carta</div>
+            <button class="btn btn-primary btn-sm" onclick="showAddItemForm()">+ Añadir</button>
+          </div>
+          <div id="add-item-form" style="display:none" class="card">
+            <div class="field"><label>Nombre del plato</label><input id="ai-name" type="text" placeholder="ej. Croquetas caseras" autocomplete="off"></div>
+            <div class="row" style="gap:.5rem">
+              <div class="field" style="flex:1;margin:0"><label>Precio €</label><input id="ai-price" type="number" step="0.01" min="0" inputmode="decimal" placeholder="9.50"></div>
+              <div class="field" style="flex:1;margin:0"><label>Categoría</label>
+                <select id="ai-cat"><option value="entrantes">Entrantes</option><option value="principales">Principales</option><option value="postres">Postres</option><option value="bebidas">Bebidas</option><option value="otros">Otros</option></select>
+              </div>
+            </div>
+            <div class="toggle">
+              <span style="font-size:13px;color:var(--t2)">Suele pedirse para compartir</span>
+              <div class="toggle-track" id="ai-shared-track" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></div>
+            </div>
+            <div class="row mt">
+              <button class="btn btn-primary btn-sm" onclick="saveMenuItem()">Guardar</button>
+              <button class="btn btn-secondary btn-sm" onclick="hideAddItemForm()">Cancelar</button>
+            </div>
+          </div>
+          <div id="admin-carta-list"></div>
+        </div>
+
+        <!-- Col Mesas -->
+        <div style="border-right:1px solid var(--bd);overflow-y:auto;padding:1.25rem 1.5rem">
+          <div style="font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.75rem">Mesas</div>
+          <div id="admin-tables-list"></div>
+          <button class="btn btn-secondary" onclick="addTable()" style="width:100%;margin-top:.75rem">+ Añadir mesa</button>
+          <div id="qr-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;align-items:center;justify-content:center">
+            <div style="background:var(--card);border-radius:var(--r-lg);padding:1.5rem;max-width:340px;width:90%;text-align:center">
+              <div id="qr-mesa-label" style="font-size:14px;font-weight:500;margin-bottom:1rem"></div>
+              <div id="qr-container" style="display:inline-block;padding:12px;background:#fff;border-radius:8px;border:1px solid var(--bd)"></div>
+              <div style="font-size:12px;color:var(--t2);margin-top:.75rem">Escanea para ver la carta y dividir la cuenta</div>
+              <div id="qr-url-display" style="font-size:10px;color:var(--t3);margin-top:.4rem;word-break:break-all;font-family:monospace"></div>
+              <div style="display:flex;gap:.5rem;margin-top:1rem">
+                <button class="btn btn-secondary btn-sm" onclick="downloadQR()" style="flex:1">Descargar PNG</button>
+                <button class="btn btn-secondary btn-sm" onclick="document.getElementById('qr-modal').style.display='none'" style="flex:1">Cerrar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Col Camareros -->
+        <div style="overflow-y:auto;padding:1.25rem 1.5rem">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+            <div style="font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.06em">Camareros</div>
+            <button class="btn btn-primary btn-sm" onclick="showAddWaiterForm()">+ Añadir</button>
+          </div>
+          <div id="add-waiter-form" style="display:none" class="card">
+            <div class="field"><label>Nombre</label><input id="wf-name" type="text" placeholder="ej. Carlos" autocomplete="off"></div>
+            <div class="field"><label>PIN (4 dígitos)</label><input id="wf-pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+            <div class="row mt">
+              <button class="btn btn-primary btn-sm" onclick="saveWaiter()">Guardar</button>
+              <button class="btn btn-secondary btn-sm" onclick="hideAddWaiterForm()">Cancelar</button>
+            </div>
+          </div>
+          <div id="admin-waiters-list"></div>
+          <div id="admin-waiters-empty" class="empty" style="display:none">
+            <div class="empty-icon">🧑‍🍳</div>
+            <div class="empty-text">No hay camareros. Añade el primero.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MÓVIL: una sección a la vez -->
+      <div id="gtab-carta" class="body" style="display:block;overflow-y:auto"></div>
+      <div id="gtab-mesas" class="body" style="display:none;overflow-y:auto"></div>
+      <div id="gtab-camareros" class="body" style="display:none;overflow-y:auto"></div>
+    </div>
 
     <!-- TAB COCINA (admin) — Kanban 3 columnas -->
     <div id="atab-cocina" style="display:none;flex-direction:column;height:calc(100vh - 110px);width:100%">
@@ -2732,9 +2756,36 @@ function showAdminTab(name) {
     tab.classList.toggle('on', ['encurso','gestion','cocina','reportes'][i] === name);
   });
   if (name === 'encurso') loadEncurso();
-  if (name === 'gestion') { loadAdminCarta(); showGestionTab('carta'); }
+  if (name === 'gestion') initGestionTab();
   if (name === 'cocina') loadAdminOrders();
   if (name === 'reportes') { loadHistorial(); showReportesTab('historial'); }
+}
+
+function initGestionTab() {
+  const isDesktop = window.innerWidth >= 600;
+  const cols = document.getElementById('gestion-cols');
+  const subBar = document.getElementById('gestion-subtab-bar');
+  const gtabCarta = document.getElementById('gtab-carta');
+  const gtabMesas = document.getElementById('gtab-mesas');
+  const gtabCamareros = document.getElementById('gtab-camareros');
+
+  if (isDesktop) {
+    // Show 3 columns, hide subtab bar and mobile single views
+    if (cols) cols.style.display = 'grid';
+    if (subBar) subBar.style.display = 'none';
+    if (gtabCarta) gtabCarta.style.display = 'none';
+    if (gtabMesas) gtabMesas.style.display = 'none';
+    if (gtabCamareros) gtabCamareros.style.display = 'none';
+  } else {
+    // Show subtab bar and default to carta
+    if (cols) cols.style.display = 'none';
+    if (subBar) subBar.style.display = 'flex';
+    showGestionTab('carta');
+  }
+  // Load data
+  loadAdminCarta();
+  loadAdminTables();
+  loadAdminWaiters();
 }
 
 function showGestionTab(name) {
@@ -2744,8 +2795,17 @@ function showGestionTab(name) {
     const btn = document.getElementById('gtab-btn-' + t);
     if (btn) btn.classList.toggle('on', t === name);
   });
-  if (name === 'mesas') loadAdminTables();
-  if (name === 'camareros') loadAdminWaiters();
+  // On mobile, mirror desktop column content into the mobile tab div
+  const mobileMap = {
+    carta: 'admin-carta-list',
+    mesas: 'admin-tables-list',
+    camareros: 'admin-waiters-list'
+  };
+  const mobileEl = document.getElementById('gtab-' + name);
+  const desktopEl = document.getElementById(mobileMap[name]);
+  if (mobileEl && desktopEl && window.innerWidth < 600) {
+    mobileEl.innerHTML = desktopEl.innerHTML || '<div style="text-align:center;padding:2rem;color:var(--t3)">Cargando...</div>';
+  }
 }
 
 function showReportesTab(name) {
