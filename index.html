@@ -1037,6 +1037,7 @@ let state = {
   guests: [], dishes: [], participants: {},
   menuItems: [], restaurantId: null,
   adminRestaurantId: null, adminRestaurantName: '',
+  adminRole: 'admin', // 'admin' | 'cocina'
   kitchenRestaurantId: null,
   realtimeSubs: [],
   payments: []
@@ -2710,9 +2711,32 @@ async function kitchenLogin() {
   }
   state.adminRestaurantId = data.id;
   state.adminRestaurantName = data.name;
+  state.adminRole = 'cocina';
   go('s-admin');
+  renderAdminTabs();
   showAdminTab('cocina');
   loadAdminOrders();
+}
+
+// ══════════════════════════════════════════════════════
+// RENDER ADMIN TABS según rol
+// ══════════════════════════════════════════════════════
+function renderAdminTabs() {
+  const tabBar = document.querySelector('#s-admin .tab-bar');
+  const hdr = document.querySelector('#s-admin .hdr span#admin-role-badge');
+
+  if (state.adminRole === 'cocina') {
+    // Ocultar tab bar completamente — cocina solo ve su panel
+    if (tabBar) tabBar.style.display = 'none';
+    // Cambiar título del header
+    const logo = document.querySelector('#s-admin .hdr .logo');
+    if (logo) logo.innerHTML = 'split<em>eat</em> <span style="font-size:12px;font-family:\'DM Sans\';color:var(--t2);font-style:normal">· cocina</span>';
+  } else {
+    // Admin — mostrar todo
+    if (tabBar) tabBar.style.display = 'flex';
+    const logo = document.querySelector('#s-admin .hdr .logo');
+    if (logo) logo.innerHTML = 'split<em>eat</em>';
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -2732,7 +2756,9 @@ async function adminLogin() {
   }
   state.adminRestaurantId = data.id;
   state.adminRestaurantName = data.name;
+  state.adminRole = 'admin';
   go('s-admin');
+  renderAdminTabs();
   showAdminTab('encurso');
   loadEncurso();
 }
@@ -2740,6 +2766,12 @@ async function adminLogin() {
 function adminLogout() {
   state.adminRestaurantId = null;
   state.adminRestaurantName = '';
+  state.adminRole = 'admin';
+  // Restaurar tab bar y logo
+  const tabBar = document.querySelector('#s-admin .tab-bar');
+  if (tabBar) tabBar.style.display = '';
+  const logo = document.querySelector('#s-admin .hdr .logo');
+  if (logo) logo.innerHTML = 'split<em>eat</em>';
   go('s0');
 }
 
