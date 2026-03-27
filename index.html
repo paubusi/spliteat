@@ -28,10 +28,10 @@
   /* Pantallas de admin y cocina usan todo el ancho en desktop */
   @media (min-width: 600px) {
     #app { max-width: 100%; }
-    .screen:not(#s-admin):not(#s-admin-login) { max-width: 430px; margin: 0 auto; }
+    .screen:not(#s-admin):not(#s-admin-login):not(#s-admin-login-form):not(#s-kitchen-login):not(#s-waiter):not(#s-waiter-select) { max-width: 430px; margin: 0 auto; }
     #s-admin { max-width: 100%; width: 100%; }
     #atab-cocina { width: 100% !important; }
-    #atab-carta, #atab-mesas, #atab-historial, #atab-pagos {
+    #atab-gestion, #atab-reportes, #atab-encurso {
       max-width: 680px; margin: 0 auto;
     }
     #s-admin .hdr { padding: 1rem 2rem; }
@@ -574,7 +574,26 @@
       <p class="subtitle">¿Cómo quieres acceder?</p>
       <div class="spacer"></div>
       <button class="btn btn-primary" onclick="go('s-waiter-select')" style="margin-bottom:.65rem">🧑‍🍳 Soy camarero</button>
+      <button class="btn btn-secondary" onclick="go('s-kitchen-login')" style="margin-bottom:.65rem">👨‍🍳 Soy cocina</button>
       <button class="btn btn-secondary" onclick="go('s-admin-login-form')">⚙️ Administración</button>
+    </div>
+  </div>
+
+  <!-- COCINA LOGIN -->
+  <div class="screen" id="s-kitchen-login">
+    <div class="hdr">
+      <button class="back-btn" onclick="go('s-admin-login')">← Atrás</button>
+      <div class="logo">split<em>eat</em></div>
+      <div style="width:60px"></div>
+    </div>
+    <div class="body">
+      <h2 class="title" style="font-size:22px">Acceso cocina</h2>
+      <p class="subtitle">Introduce el email y contraseña del restaurante.</p>
+      <div class="spacer"></div>
+      <div class="field"><label>Email del restaurante</label><input id="kitchen-email" type="email" placeholder="restaurante@email.com" autocomplete="off"></div>
+      <div class="field"><label>Contraseña</label><input id="kitchen-pass" type="password" placeholder="••••••••"></div>
+      <button class="btn btn-primary mt" onclick="kitchenLogin()">Entrar a cocina →</button>
+      <div id="kitchen-err" class="notice notice-err" style="display:none"></div>
     </div>
   </div>
 
@@ -726,19 +745,16 @@
       <button class="back-btn" onclick="adminLogout()" style="color:var(--accent)">Salir</button>
     </div>
     <div class="tab-bar">
-      <button class="tab on" onclick="showAdminTab('carta')">Carta</button>
-      <button class="tab" onclick="showAdminTab('encurso')" id="tab-encurso">
+      <button class="tab on" onclick="showAdminTab('encurso')" id="tab-encurso">
         En curso <span id="encurso-badge" style="display:none;background:#E24B4A;color:#fff;border-radius:99px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:3px">0</span>
       </button>
-      <button class="tab" onclick="showAdminTab('mesas')">Mesas</button>
+      <button class="tab" onclick="showAdminTab('gestion')">Gestión</button>
       <button class="tab" onclick="showAdminTab('cocina')">Cocina</button>
-      <button class="tab" onclick="showAdminTab('camareros')">Camareros</button>
-      <button class="tab" onclick="showAdminTab('historial')">Historial</button>
-      <button class="tab" onclick="showAdminTab('pagos')">Pagos</button>
+      <button class="tab" onclick="showAdminTab('reportes')">Reportes</button>
     </div>
 
     <!-- TAB EN CURSO — Mesas activas con estado de pago -->
-    <div id="atab-encurso" class="body" style="display:none;padding:.75rem 1rem">
+    <div id="atab-encurso" style="display:none;flex-direction:column;overflow-y:auto;padding:.75rem 1rem">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
         <div class="live-badge"><div class="live-dot"></div><span>Tiempo real</span></div>
         <button onclick="loadEncurso()" style="font-size:12px;color:var(--t2);background:none;border:none;cursor:pointer;font-family:inherit">↻ Actualizar</button>
@@ -750,54 +766,81 @@
       </div>
     </div>
 
-    <!-- TAB CARTA -->
-    <div id="atab-carta" class="body">
-      <div class="row" style="justify-content:space-between;margin-bottom:.75rem">
-        <div class="sec-label" style="margin:0">Platos de la carta</div>
-        <button class="btn btn-primary btn-sm" onclick="showAddItemForm()">+ Añadir</button>
+    <!-- TAB GESTIÓN — subtabs: Carta / Mesas / Camareros -->
+    <div id="atab-gestion" style="display:none;flex-direction:column;flex:1">
+      <div style="display:flex;border-bottom:1px solid var(--bd);background:var(--bg2);padding:0 1rem">
+        <button class="tab on" id="gtab-btn-carta" onclick="showGestionTab('carta')" style="font-size:13px;padding:.5rem .75rem">Carta</button>
+        <button class="tab" id="gtab-btn-mesas" onclick="showGestionTab('mesas')" style="font-size:13px;padding:.5rem .75rem">Mesas</button>
+        <button class="tab" id="gtab-btn-camareros" onclick="showGestionTab('camareros')" style="font-size:13px;padding:.5rem .75rem">Camareros</button>
       </div>
-      <div id="add-item-form" style="display:none" class="card">
-        <div class="field"><label>Nombre del plato</label><input id="ai-name" type="text" placeholder="ej. Croquetas caseras" autocomplete="off"></div>
-        <div class="row" style="gap:.5rem">
-          <div class="field" style="flex:1;margin:0"><label>Precio €</label><input id="ai-price" type="number" step="0.01" min="0" inputmode="decimal" placeholder="9.50"></div>
-          <div class="field" style="flex:1;margin:0">
-            <label>Categoría</label>
-            <select id="ai-cat"><option value="entrantes">Entrantes</option><option value="principales">Principales</option><option value="postres">Postres</option><option value="bebidas">Bebidas</option><option value="otros">Otros</option></select>
+      <!-- Carta -->
+      <div id="gtab-carta" class="body">
+        <div class="row" style="justify-content:space-between;margin-bottom:.75rem">
+          <div class="sec-label" style="margin:0">Platos de la carta</div>
+          <button class="btn btn-primary btn-sm" onclick="showAddItemForm()">+ Añadir</button>
+        </div>
+        <div id="add-item-form" style="display:none" class="card">
+          <div class="field"><label>Nombre del plato</label><input id="ai-name" type="text" placeholder="ej. Croquetas caseras" autocomplete="off"></div>
+          <div class="row" style="gap:.5rem">
+            <div class="field" style="flex:1;margin:0"><label>Precio €</label><input id="ai-price" type="number" step="0.01" min="0" inputmode="decimal" placeholder="9.50"></div>
+            <div class="field" style="flex:1;margin:0">
+              <label>Categoría</label>
+              <select id="ai-cat"><option value="entrantes">Entrantes</option><option value="principales">Principales</option><option value="postres">Postres</option><option value="bebidas">Bebidas</option><option value="otros">Otros</option></select>
+            </div>
+          </div>
+          <div class="toggle">
+            <span style="font-size:13px;color:var(--t2)">Suele pedirse para compartir</span>
+            <div class="toggle-track" id="ai-shared-track" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></div>
+          </div>
+          <div class="row mt">
+            <button class="btn btn-primary btn-sm" onclick="saveMenuItem()">Guardar</button>
+            <button class="btn btn-secondary btn-sm" onclick="hideAddItemForm()">Cancelar</button>
           </div>
         </div>
-        <div class="toggle">
-          <span style="font-size:13px;color:var(--t2)">Suele pedirse para compartir</span>
-          <div class="toggle-track" id="ai-shared-track" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></div>
-        </div>
-        <div class="row mt">
-          <button class="btn btn-primary btn-sm" onclick="saveMenuItem()">Guardar</button>
-          <button class="btn btn-secondary btn-sm" onclick="hideAddItemForm()">Cancelar</button>
+        <div id="admin-carta-list"></div>
+      </div>
+      <!-- Mesas -->
+      <div id="gtab-mesas" class="body" style="display:none">
+        <div id="admin-tables-list"></div>
+        <button class="btn btn-secondary mt" onclick="addTable()">+ Añadir mesa</button>
+        <!-- QR Modal -->
+        <div id="qr-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;align-items:center;justify-content:center">
+          <div style="background:var(--card);border-radius:var(--r-lg);padding:1.5rem;max-width:340px;width:90%;text-align:center">
+            <div id="qr-mesa-label" style="font-size:14px;font-weight:500;margin-bottom:1rem"></div>
+            <div id="qr-container" style="display:inline-block;padding:12px;background:#fff;border-radius:8px;border:1px solid var(--bd)"></div>
+            <div style="font-size:12px;color:var(--t2);margin-top:.75rem">Escanea para ver la carta y dividir la cuenta</div>
+            <div id="qr-url-display" style="font-size:10px;color:var(--t3);margin-top:.4rem;word-break:break-all;font-family:monospace"></div>
+            <div style="display:flex;gap:.5rem;margin-top:1rem">
+              <button class="btn btn-secondary btn-sm mt" onclick="downloadQR()" style="flex:1">Descargar PNG</button>
+              <button class="btn btn-secondary btn-sm mt" onclick="document.getElementById('qr-modal').style.display='none'" style="flex:1">Cerrar</button>
+            </div>
+          </div>
         </div>
       </div>
-      <div id="admin-carta-list"></div>
+      <!-- Camareros -->
+      <div id="gtab-camareros" class="body" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+          <div class="sec-label" style="margin:0">Camareros</div>
+          <button class="btn btn-primary btn-sm" onclick="showAddWaiterForm()">+ Añadir</button>
+        </div>
+        <div id="add-waiter-form" style="display:none" class="card">
+          <div class="field"><label>Nombre</label><input id="wf-name" type="text" placeholder="ej. Carlos" autocomplete="off"></div>
+          <div class="field"><label>PIN (4 dígitos)</label><input id="wf-pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+          <div class="row mt">
+            <button class="btn btn-primary btn-sm" onclick="saveWaiter()">Guardar</button>
+            <button class="btn btn-secondary btn-sm" onclick="hideAddWaiterForm()">Cancelar</button>
+          </div>
+        </div>
+        <div id="admin-waiters-list"></div>
+        <div id="admin-waiters-empty" class="empty" style="display:none">
+          <div class="empty-icon">🧑‍🍳</div>
+          <div class="empty-text">No hay camareros. Añade el primero.</div>
+        </div>
+      </div>
     </div>
 
-    <!-- TAB MESAS -->
-    <div id="atab-mesas" class="body" style="display:none">
-      <div class="row" style="justify-content:space-between;margin-bottom:.75rem">
-        <div class="sec-label" style="margin:0">Mesas del restaurante</div>
-        <button class="btn btn-primary btn-sm" onclick="addTable()">+ Mesa</button>
-      </div>
-      <div id="admin-tables-list"></div>
-      <div id="qr-modal" style="display:none" class="card mt">
-        <div class="row" style="justify-content:space-between;margin-bottom:.75rem">
-          <span style="font-weight:500">QR de mesa</span>
-          <button class="btn-ghost" onclick="document.getElementById('qr-modal').style.display='none'">✕ Cerrar</button>
-        </div>
-        <div class="qr-box">
-          <div id="qr-container" style="display:inline-block;padding:12px;background:#fff;border-radius:8px;border:1px solid var(--bd)"></div>
-          <div id="qr-mesa-label" style="font-size:14px;font-weight:500;margin-top:.75rem;color:var(--t1)"></div>
-          <div style="font-size:12px;color:var(--t2);margin-top:.25rem">Escanea para ver la carta y dividir la cuenta</div>
-          <div id="qr-url-display" style="font-size:10px;color:var(--t3);margin-top:.4rem;word-break:break-all;font-family:monospace"></div>
-        </div>
-        <button class="btn btn-secondary btn-sm mt" onclick="downloadQR()">Descargar PNG</button>
-      </div>
-    </div>
+    <!-- TAB REPORTES — Historial + Pagos -->
+    </div><!-- close atab-gestion -->
 
     <!-- TAB COCINA (admin) — Kanban 3 columnas -->
     <div id="atab-cocina" style="display:none;flex-direction:column;height:calc(100vh - 110px);width:100%">
@@ -837,104 +880,66 @@
         </div>
 
       </div>
-    </div>
+    </div><!-- close atab-cocina -->
 
-    <!-- TAB PAGOS (admin) — Stripe Connect -->
-    <div id="atab-pagos" class="body" style="display:none">
-      <div id="stripe-not-enabled" style="display:block">
-        <div class="notice" style="margin-bottom:1rem">
-          <strong>Pagos online — Próximamente</strong><br>
-          Cuando actives Stripe Connect, tus comensales podrán pagar directamente desde el móvil. El dinero llega a tu cuenta bancaria en 2 días. spliteat retiene una pequeña comisión del 0,8%.
+    <!-- TAB REPORTES -->
+    <div id="atab-reportes" style="display:none;flex-direction:column">
+      <div style="display:flex;border-bottom:1px solid var(--bd);background:var(--bg2);padding:0 1rem">
+        <button class="tab on" id="rtab-btn-historial" onclick="showReportesTab('historial')" style="font-size:13px;padding:.5rem .75rem">Historial</button>
+        <button class="tab" id="rtab-btn-pagos" onclick="showReportesTab('pagos')" style="font-size:13px;padding:.5rem .75rem">Pagos</button>
+      </div>
+      <div id="rtab-historial" class="body">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+          <div class="sec-label" style="margin:0">Registro de mesas</div>
+          <select id="historial-filter" onchange="loadHistorial()" style="font-size:12px;padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-family:inherit">
+            <option value="7">Últimos 7 días</option>
+            <option value="30">Últimos 30 días</option>
+            <option value="90">Últimos 3 meses</option>
+            <option value="all">Todo</option>
+          </select>
         </div>
-        <div class="card" style="margin-bottom:.75rem">
-          <div style="font-size:13px;font-weight:500;margin-bottom:.35rem">¿Cómo funciona?</div>
-          <div style="font-size:12px;color:var(--t2);line-height:1.7">
-            1. Conectas tu cuenta bancaria una vez (10 min)<br>
-            2. Los comensales ven el botón "Pagar con tarjeta"<br>
-            3. El dinero llega a tu cuenta en 2 días<br>
-            4. spliteat descuenta el 0,8% automáticamente
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.4rem;margin-bottom:1rem">
+          <div style="background:var(--bg2);border-radius:var(--r-sm);padding:.65rem .75rem;text-align:center">
+            <div id="hist-stat-mesas" style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--brand-d)">—</div>
+            <div style="font-size:11px;color:var(--t2)">Mesas</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:var(--r-sm);padding:.65rem .75rem;text-align:center">
+            <div id="hist-stat-comensales" style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--brand-d)">—</div>
+            <div style="font-size:11px;color:var(--t2)">Comensales</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:var(--r-sm);padding:.65rem .75rem;text-align:center">
+            <div id="hist-stat-total" style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--brand-d)">—</div>
+            <div style="font-size:11px;color:var(--t2)">Facturado</div>
           </div>
         </div>
-        <div class="card" style="margin-bottom:.75rem">
-          <div style="font-size:13px;font-weight:500;margin-bottom:.25rem">Coste para el restaurante</div>
-          <div style="font-size:12px;color:var(--t2);line-height:1.7">
-            Stripe: 1,4% + 0,25€ por transacción (tarjeta europea)<br>
-            spliteat: 0,8%<br>
-            <strong style="color:var(--t1)">Total: ~2,2% + 0,25€</strong> — similar a tu datáfono actual
+        <div id="historial-list"></div>
+        <div id="historial-empty" class="empty" style="display:none">
+          <div class="empty-icon">📋</div>
+          <div class="empty-text">No hay mesas registradas aún.</div>
+        </div>
+      </div>
+
+      <!-- Pagos -->
+      <div id="rtab-pagos" class="body" style="display:none">
+        <div id="stripe-not-enabled">
+          <div class="notice" style="margin-bottom:1rem">
+            <strong>Pagos online — Próximamente</strong><br>
+            Cuando actives Stripe Connect, tus comensales podrán pagar directamente desde el móvil.
+          </div>
+          <button class="btn btn-primary" onclick="startStripeOnboarding()" id="btn-stripe-connect" disabled>
+            Conectar cuenta bancaria →
+          </button>
+          <div style="font-size:12px;color:var(--t3);margin-top:.5rem;text-align:center">
+            Disponible próximamente — estamos activando los pagos
           </div>
         </div>
-        <button class="btn btn-primary" onclick="startStripeOnboarding()" id="btn-stripe-connect" disabled>
-          Conectar cuenta bancaria →
-        </button>
-        <div style="font-size:12px;color:var(--t3);margin-top:.5rem;text-align:center">
-          Disponible próximamente — estamos activando los pagos
+        <div id="stripe-enabled" style="display:none">
+          <div id="stripe-status-card" class="card" style="margin-bottom:.75rem"></div>
+          <div class="notice">Los pagos online están activos.</div>
         </div>
       </div>
 
-      <div id="stripe-enabled" style="display:none">
-        <div id="stripe-status-card" class="card" style="margin-bottom:.75rem"></div>
-        <div class="notice">
-          Los pagos online están activos. Tus comensales pueden pagar con tarjeta, Apple Pay o Google Pay directamente desde la mesa.
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB CAMAREROS -->
-    <div id="atab-camareros" class="body" style="display:none">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
-        <div class="sec-label" style="margin:0">Camareros</div>
-        <button class="btn btn-primary btn-sm" onclick="showAddWaiterForm()">+ Añadir</button>
-      </div>
-      <div id="add-waiter-form" style="display:none" class="card">
-        <div class="field"><label>Nombre</label><input id="wf-name" type="text" placeholder="ej. Carlos" autocomplete="off"></div>
-        <div class="field"><label>PIN (4 dígitos)</label><input id="wf-pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
-        <div class="row mt">
-          <button class="btn btn-primary btn-sm" onclick="saveWaiter()">Guardar</button>
-          <button class="btn btn-secondary btn-sm" onclick="hideAddWaiterForm()">Cancelar</button>
-        </div>
-      </div>
-      <div id="admin-waiters-list"></div>
-      <div id="admin-waiters-empty" class="empty" style="display:none">
-        <div class="empty-icon">🧑‍🍳</div>
-        <div class="empty-text">No hay camareros. Añade el primero.</div>
-      </div>
-    </div>
-
-    <!-- TAB HISTORIAL -->
-    <div id="atab-historial" class="body" style="display:none">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
-        <div class="sec-label" style="margin:0">Registro de mesas</div>
-        <select id="historial-filter" onchange="loadHistorial()" style="font-size:12px;padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-family:inherit">
-          <option value="7">Últimos 7 días</option>
-          <option value="30">Últimos 30 días</option>
-          <option value="90">Últimos 3 meses</option>
-          <option value="all">Todo</option>
-        </select>
-      </div>
-
-      <!-- Resumen stats -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.4rem;margin-bottom:1rem">
-        <div style="background:var(--bg2);border-radius:var(--r-sm);padding:.65rem .75rem;text-align:center">
-          <div id="hist-stat-mesas" style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--brand-d)">—</div>
-          <div style="font-size:11px;color:var(--t2)">Mesas</div>
-        </div>
-        <div style="background:var(--bg2);border-radius:var(--r-sm);padding:.65rem .75rem;text-align:center">
-          <div id="hist-stat-comensales" style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--brand-d)">—</div>
-          <div style="font-size:11px;color:var(--t2)">Comensales</div>
-        </div>
-        <div style="background:var(--bg2);border-radius:var(--r-sm);padding:.65rem .75rem;text-align:center">
-          <div id="hist-stat-total" style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--brand-d)">—</div>
-          <div style="font-size:11px;color:var(--t2)">Facturado</div>
-        </div>
-      </div>
-
-      <div id="historial-list"></div>
-      <div id="historial-empty" class="empty" style="display:none">
-        <div class="empty-icon">📋</div>
-        <div class="empty-text">No hay mesas registradas aún.</div>
-      </div>
-
-      <!-- Modal factura -->
+      <!-- Factura modal -->
       <div id="factura-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;overflow-y:auto;padding:1rem">
         <div style="background:var(--card);border-radius:var(--r-lg);max-width:430px;margin:0 auto;padding:1.5rem">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
@@ -949,6 +954,8 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
     </div>
   </div>
 
@@ -2664,6 +2671,27 @@ async function deleteWaiter(id) {
 }
 
 // ══════════════════════════════════════════════════════
+// KITCHEN LOGIN — acceso directo solo al KDS
+// ══════════════════════════════════════════════════════
+async function kitchenLogin() {
+  const email = document.getElementById('kitchen-email').value.trim();
+  const pass = document.getElementById('kitchen-pass').value;
+  const errEl = document.getElementById('kitchen-err');
+  errEl.style.display = 'none';
+  if (!email || !pass) { errEl.textContent = 'Rellena email y contraseña.'; errEl.style.display = 'block'; return; }
+  const { data, error } = await sb.from('restaurants').select('*').eq('email', email).single();
+  if (error || !data || data.password !== pass) {
+    errEl.textContent = 'Credenciales incorrectas.'; errEl.style.display = 'block'; return;
+  }
+  state.adminRestaurantId = data.id;
+  state.adminRestaurantName = data.name;
+  // Go directly to cocina screen
+  go('s-admin');
+  showAdminTab('cocina');
+  loadAdminOrders();
+}
+
+// ══════════════════════════════════════════════════════
 // ADMIN LOGIN
 // ══════════════════════════════════════════════════════
 async function adminLogin() {
@@ -2681,10 +2709,8 @@ async function adminLogin() {
   state.adminRestaurantId = data.id;
   state.adminRestaurantName = data.name;
   go('s-admin');
-  loadAdminCarta();
-  loadAdminTables();
-  loadAdminOrders();
-  loadEncurso(); // cargar mesas activas y activar badge
+  showAdminTab('encurso');
+  loadEncurso();
 }
 
 function adminLogout() {
@@ -2697,18 +2723,38 @@ function adminLogout() {
 // ADMIN TABS
 // ══════════════════════════════════════════════════════
 function showAdminTab(name) {
-  ['carta','encurso','mesas','cocina','camareros','historial','pagos'].forEach(t => {
+  ['encurso','gestion','cocina','reportes'].forEach(t => {
     const el = document.getElementById('atab-' + t);
     if (!el) return;
-    el.style.display = t === name ? (t === 'cocina' ? 'flex' : 'block') : 'none';
+    el.style.display = t === name ? 'flex' : 'none';
   });
-  document.querySelectorAll('#s-admin .tab').forEach((tab, i) => {
-    tab.classList.toggle('on', ['carta','encurso','mesas','cocina','camareros','historial','pagos'][i] === name);
+  document.querySelectorAll('#s-admin .tab-bar > .tab').forEach((tab, i) => {
+    tab.classList.toggle('on', ['encurso','gestion','cocina','reportes'][i] === name);
   });
   if (name === 'encurso') loadEncurso();
-  if (name === 'mesas') loadAdminTables();
+  if (name === 'gestion') { loadAdminCarta(); showGestionTab('carta'); }
   if (name === 'cocina') loadAdminOrders();
+  if (name === 'reportes') { loadHistorial(); showReportesTab('historial'); }
+}
+
+function showGestionTab(name) {
+  ['carta','mesas','camareros'].forEach(t => {
+    const el = document.getElementById('gtab-' + t);
+    if (el) el.style.display = t === name ? 'block' : 'none';
+    const btn = document.getElementById('gtab-btn-' + t);
+    if (btn) btn.classList.toggle('on', t === name);
+  });
+  if (name === 'mesas') loadAdminTables();
   if (name === 'camareros') loadAdminWaiters();
+}
+
+function showReportesTab(name) {
+  ['historial','pagos'].forEach(t => {
+    const el = document.getElementById('rtab-' + t);
+    if (el) el.style.display = t === name ? 'block' : 'none';
+    const btn = document.getElementById('rtab-btn-' + t);
+    if (btn) btn.classList.toggle('on', t === name);
+  });
   if (name === 'historial') loadHistorial();
   if (name === 'pagos') loadStripeStatus();
 }
