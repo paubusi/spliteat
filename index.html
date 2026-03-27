@@ -2704,12 +2704,12 @@ async function kitchenLogin() {
   errEl.style.display = 'none';
   if (!email || !pass) { errEl.textContent = 'Rellena email y contraseña.'; errEl.style.display = 'block'; return; }
   const { data, error } = await sb.from('restaurants').select('*').eq('email', email).single();
-  if (error || !data || data.password !== pass) {
-    errEl.textContent = 'Credenciales incorrectas.'; errEl.style.display = 'block'; return;
+  if (error || !data) { errEl.textContent = 'Restaurante no encontrado.'; errEl.style.display = 'block'; return; }
+  if (data.password_hash && data.password_hash !== pass) {
+    errEl.textContent = 'Contraseña incorrecta.'; errEl.style.display = 'block'; return;
   }
   state.adminRestaurantId = data.id;
   state.adminRestaurantName = data.name;
-  // Go directly to cocina screen
   go('s-admin');
   showAdminTab('cocina');
   loadAdminOrders();
