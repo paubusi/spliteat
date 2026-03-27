@@ -3217,7 +3217,11 @@ async function toggleWaiter(id, active) {
 
 async function deleteWaiter(id) {
   if (!confirm('¿Eliminar este camarero? Se perderán todos sus datos.')) return;
-  await sb.from('waiters').delete().eq('id', id);
+  // Nullificar referencias antes de borrar para evitar foreign key errors
+  await sb.from('rooms').update({ waiter_id: null }).eq('waiter_id', id);
+  await sb.from('payments').update({ waiter_id: null }).eq('waiter_id', id);
+  const { error } = await sb.from('waiters').delete().eq('id', id);
+  if (error) { alert('Error al eliminar: ' + error.message); return; }
   loadAdminWaiters();
 }
 
