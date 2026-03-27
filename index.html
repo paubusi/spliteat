@@ -3776,13 +3776,22 @@ function playKitchenSound() {
 }
 
 async function loadAdminOrders() {
-  const { data: rooms } = await sb.from('rooms').select('id, table_id')
-    .eq('restaurant_id', state.adminRestaurantId);
+  // Solo rooms abiertas del restaurante
+  const { data: rooms, error: roomsErr } = await sb.from('rooms')
+    .select('id, table_id')
+    .eq('restaurant_id', state.adminRestaurantId)
+    .eq('closed', false);
+
+  if (roomsErr) {
+    console.error('loadAdminOrders rooms error:', roomsErr);
+  }
+
   if (!rooms || !rooms.length) {
     ['new','making','ready'].forEach(s => {
-      document.getElementById('k-col-' + s).innerHTML =
-        `<div style="text-align:center;padding:1.5rem .5rem;color:var(--t3);font-size:12px">Sin pedidos</div>`;
-      document.getElementById('k-count-' + s).textContent = '0';
+      const el = document.getElementById('k-col-' + s);
+      if (el) el.innerHTML = `<div style="text-align:center;padding:1.5rem .5rem;color:var(--t3);font-size:12px">Sin pedidos</div>`;
+      const cnt = document.getElementById('k-count-' + s);
+      if (cnt) cnt.textContent = '0';
     });
     return;
   }
@@ -3928,7 +3937,11 @@ async function loadAdminOrders() {
     : `<div style="text-align:center;padding:1.5rem .5rem;color:var(--t3);font-size:12px">Sin listos aún</div>`;
   document.getElementById('k-count-ready').textContent = grouped.ready.length;
 
-  // Subscribe realtime (only once)
+  // Subscribe realtime — reset every time to avoid stale channels
+  if (state._kitchenSubActive) {
+    try { sb.removeChannel(sb.channel('admin-orders-' + state.adminRestaurantId)); } catch(e) {}
+    state._kitchenSubActive = false;
+  }
   if (!state._kitchenSubActive) {
     state._kitchenSubActive = true;
     const sub = sb.channel('admin-orders-' + state.adminRestaurantId)
