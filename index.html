@@ -683,25 +683,23 @@
     </div>
     <div class="body">
       <h2 class="title" style="font-size:20px">Acceso camarero</h2>
-      <p class="subtitle">Introduce el email del restaurante para ver los perfiles.</p>
+      <p class="subtitle">Entra con tu email y contraseña de empleado.</p>
       <div class="spacer"></div>
       <div class="field">
-        <label>Email del restaurante</label>
-        <input id="waiter-rest-email" type="email" placeholder="restaurante@email.com" autocomplete="off"
-          oninput="debounceLoadWaiters(this.value)">
+        <label>Tu email</label>
+        <input id="waiter-email" type="email" placeholder="carlos@restaurante.com" autocomplete="email"
+          onkeydown="if(event.key==='Enter') document.getElementById('waiter-password').focus()">
       </div>
-      <div id="waiter-profiles" style="display:none">
-        <div class="sec-label">Selecciona tu perfil</div>
-        <div id="waiter-chips" style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:1rem"></div>
-        <div class="field" id="waiter-pin-field" style="display:none">
-          <label id="waiter-pin-label">PIN de acceso</label>
-          <input id="waiter-pin" type="password" inputmode="numeric" maxlength="4"
-            placeholder="••••" style="font-size:28px;letter-spacing:8px;text-align:center"
-            onkeydown="if(event.key==='Enter') waiterLogin()">
-        </div>
-        <button class="btn btn-primary" id="btn-waiter-login" onclick="waiterLogin()" style="display:none">Entrar →</button>
-        <div id="waiter-err" class="notice notice-err" style="display:none"></div>
+      <div class="field">
+        <label>Contraseña</label>
+        <input id="waiter-password" type="password" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter') waiterLogin()">
       </div>
+      <button class="btn btn-primary mt" onclick="waiterLogin()">Entrar →</button>
+      <div id="waiter-err" class="notice notice-err" style="display:none;margin-top:.65rem"></div>
+      <button onclick="waiterForgotPassword()" style="margin-top:.75rem;width:100%;background:none;border:none;color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit;text-decoration:underline">
+        He olvidado mi contraseña
+      </button>
     </div>
   </div>
 
@@ -865,7 +863,10 @@
         <div style="border-right:1px solid var(--bd);overflow-y:auto;padding:1.25rem 1.5rem;display:flex;flex-direction:column">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
             <div style="font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.06em">Carta</div>
-            <button class="btn btn-primary btn-sm" onclick="showAddItemForm()">+ Añadir</button>
+            <div style="display:flex;gap:.4rem">
+              <button class="btn btn-secondary btn-sm" onclick="showImportCartaModal()" title="Importar carta desde foto con IA">📷 Importar</button>
+              <button class="btn btn-primary btn-sm" onclick="showAddItemForm()">+ Añadir</button>
+            </div>
           </div>
           <div id="add-item-form" style="display:none" class="card">
             <div class="field"><label>Nombre del plato</label><input id="ai-name" type="text" placeholder="ej. Croquetas caseras" autocomplete="off"></div>
@@ -914,7 +915,14 @@
           </div>
           <div id="add-waiter-form" style="display:none" class="card">
             <div class="field"><label>Nombre</label><input id="wf-name" type="text" placeholder="ej. Carlos" autocomplete="off"></div>
-            <div class="field"><label>PIN (4 dígitos)</label><input id="wf-pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+            <div class="field"><label>Email del empleado</label><input id="wf-email" type="email" placeholder="carlos@restaurante.com" autocomplete="off"></div>
+            <div class="field"><label>Contraseña</label><input id="wf-password" type="password" placeholder="mínimo 6 caracteres"></div>
+            <div class="field"><label>Rol</label>
+              <select id="wf-role" style="width:100%;padding:10px;border-radius:var(--r-sm);border:1px solid var(--bd2);font-family:inherit;font-size:14px">
+                <option value="waiter">Camarero</option>
+                <option value="manager">Responsable de turno</option>
+              </select>
+            </div>
             <div class="row mt">
               <button class="btn btn-primary btn-sm" onclick="saveWaiter()">Guardar</button>
               <button class="btn btn-secondary btn-sm" onclick="hideAddWaiterForm()">Cancelar</button>
@@ -1708,9 +1716,12 @@ function renderCarta() {
       }
 
       html += `<div onclick="openModal('${item.id}')"
-        style="display:flex;align-items:center;padding:.75rem .85rem;border-radius:var(--r-sm);margin-bottom:.4rem;border:1px solid ${onTable ? 'var(--brand)' : 'var(--bd)'};background:${onTable ? 'var(--brand-l)' : 'var(--card)'};cursor:pointer;transition:all .15s;gap:10px">
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:${onTable ? '500' : '400'};color:${onTable ? 'var(--brand-d)' : 'var(--t1)'}">${item.name}</div>
+        style="display:flex;align-items:center;padding:.65rem .85rem;border-radius:var(--r-sm);margin-bottom:.4rem;border:1px solid ${onTable ? 'var(--brand)' : 'var(--bd)'};background:${onTable ? 'var(--brand-l)' : 'var(--card)'};cursor:pointer;transition:all .15s;gap:10px">
+        ${item.photo_url
+          ? `<img src="${item.photo_url}" style="width:52px;height:52px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0">`
+          : ''}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:${onTable ? '500' : '400'};color:${onTable ? 'var(--brand-d)' : 'var(--t1)'};">${item.name}</div>
           <div style="font-size:12px;color:${onTable ? 'var(--brand)' : 'var(--t3)'};margin-top:1px">${fmt(parseFloat(item.price))}</div>
         </div>
         ${initialsHtml}
@@ -2612,22 +2623,60 @@ function selectWaiter(id, name) {
 }
 
 async function waiterLogin() {
-  const pin = document.getElementById('waiter-pin').value.trim();
+  const email = document.getElementById('waiter-email')?.value?.trim();
+  const password = document.getElementById('waiter-password')?.value;
   const errEl = document.getElementById('waiter-err');
   errEl.style.display = 'none';
-  if (!_waiterId) { errEl.textContent = 'Selecciona tu perfil primero.'; errEl.style.display = 'block'; return; }
-  if (!pin) { errEl.textContent = 'Introduce tu PIN.'; errEl.style.display = 'block'; return; }
 
-  const { data: waiter } = await sb.from('waiters').select('*')
-    .eq('id', _waiterId).eq('pin', pin).maybeSingle();
+  if (!email || !password) {
+    errEl.textContent = 'Introduce tu email y contraseña.';
+    errEl.style.display = 'block'; return;
+  }
 
-  if (!waiter) { errEl.textContent = 'PIN incorrecto. Inténtalo de nuevo.'; errEl.style.display = 'block'; return; }
+  // Look up waiter by email and password
+  const { data: waiter, error } = await sb.from('waiters')
+    .select('*')
+    .eq('email', email)
+    .eq('password', password)
+    .eq('active', true)
+    .maybeSingle();
+
+  if (error || !waiter) {
+    errEl.textContent = 'Email o contraseña incorrectos.';
+    errEl.style.display = 'block'; return;
+  }
+
+  _waiterId = waiter.id;
+  _waiterName = waiter.name;
+  _waiterRestaurantId = waiter.restaurant_id;
+
+  // Get restaurant name
+  const { data: rest } = await sb.from('restaurants')
+    .select('name').eq('id', waiter.restaurant_id).maybeSingle();
+  _waiterRestaurantName = rest?.name || '';
 
   document.getElementById('waiter-name-badge').textContent = waiter.name;
   go('s-waiter');
   loadWaiterMesas();
   loadWaiterTableSelects();
-  subscribeWaiterNotifications(); // notificaciones de platos listos
+  subscribeWaiterNotifications();
+}
+
+async function waiterForgotPassword() {
+  const email = document.getElementById('waiter-email')?.value?.trim();
+  if (!email) {
+    alert('Introduce tu email primero, luego pulsa "He olvidado mi contraseña".');
+    return;
+  }
+  // Check waiter exists
+  const { data: waiter } = await sb.from('waiters')
+    .select('id, name, restaurant_id').eq('email', email).maybeSingle();
+  if (!waiter) {
+    alert('No se encontró ningún empleado con ese email. Contacta con el administrador del restaurante.');
+    return;
+  }
+  // For now: tell them to contact admin (full reset would need email service)
+  alert(`Contacta con el responsable de tu restaurante para que restablezca tu contraseña desde el panel de administración → Gestión → Camareros.`);
 }
 
 function waiterLogout() {
@@ -2725,11 +2774,20 @@ function waiterGoToCobrar(roomId) {
 }
 
 async function loadWaiterTableSelects() {
-  const { data: rooms } = await sb.from('rooms').select('*, tables(number, label)')
-    .eq('restaurant_id', _waiterRestaurantId).eq('closed', false);
-  const { data: tables } = await sb.from('tables').select('*').eq('restaurant_id', _waiterRestaurantId);
+  // Active rooms → for pedido and cobrar selects
+  const { data: rooms } = await sb.from('rooms')
+    .select('id, code, table_id, tables(number, label)')
+    .eq('restaurant_id', _waiterRestaurantId)
+    .eq('closed', false);
 
-  const makeOpts = (selId) => {
+  // All tables → for opening new table modal
+  const { data: tables } = await sb.from('tables')
+    .select('*').eq('restaurant_id', _waiterRestaurantId).order('number');
+
+  // Active room IDs already open (to exclude from new table modal)
+  const openTableIds = new Set((rooms || []).map(r => r.table_id).filter(Boolean));
+
+  const makeRoomOpts = (selId) => {
     const sel = document.getElementById(selId);
     if (!sel) return;
     sel.innerHTML = '<option value="">— Selecciona mesa —</option>' +
@@ -2739,14 +2797,17 @@ async function loadWaiterTableSelects() {
         return `<option value="${r.id}">${label}</option>`;
       }).join('');
   };
-  makeOpts('waiter-mesa-sel');
-  makeOpts('waiter-cobrar-sel');
+  makeRoomOpts('waiter-mesa-sel');
+  makeRoomOpts('waiter-cobrar-sel');
 
-  // Fill new table modal
+  // New table modal — show ALL tables (can open even if active, creates new session)
   const newSel = document.getElementById('new-table-sel');
   if (newSel && tables) {
     newSel.innerHTML = '<option value="">— Elige mesa —</option>' +
-      tables.map(t => `<option value="${t.id}">Mesa ${t.number}${t.label ? ' — ' + t.label : ''}</option>`).join('');
+      tables.map(t => {
+        const isOpen = openTableIds.has(t.id);
+        return `<option value="${t.id}">${isOpen ? '● ' : ''}Mesa ${t.number}${t.label ? ' — ' + t.label : ''}${isOpen ? ' (activa)' : ''}</option>`;
+      }).join('');
   }
 }
 
@@ -3078,8 +3139,10 @@ function showAddWaiterForm() {
 }
 function hideAddWaiterForm() {
   document.getElementById('add-waiter-form').style.display = 'none';
-  document.getElementById('wf-name').value = '';
-  document.getElementById('wf-pin').value = '';
+  ['wf-name','wf-email','wf-password'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
 }
 
 async function loadAdminWaiters() {
@@ -3089,32 +3152,62 @@ async function loadAdminWaiters() {
   const emptyEl = document.getElementById('admin-waiters-empty');
   if (!data || !data.length) { el.innerHTML = ''; emptyEl.style.display = 'block'; return; }
   emptyEl.style.display = 'none';
-  el.innerHTML = data.map(w => `
-    <div class="card row" style="margin-bottom:.5rem;justify-content:space-between">
-      <div>
+  el.innerHTML = data.map(w => {
+    const roleLabel = w.role === 'manager' ? 'Responsable' : 'Camarero';
+    const avatar = w.photo_url
+      ? `<img src="${w.photo_url}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0">`
+      : `<div style="width:36px;height:36px;border-radius:50%;background:var(--brand-l);color:var(--brand-d);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0">${w.name[0]?.toUpperCase()}</div>`;
+    return `<div class="card" style="margin-bottom:.5rem;display:flex;align-items:center;gap:10px">
+      ${avatar}
+      <div style="flex:1;min-width:0">
         <div style="font-size:14px;font-weight:500">${w.name}</div>
-        <div style="font-size:12px;color:var(--t2)">PIN: ${'•'.repeat(w.pin.length)} · ${w.active ? 'Activo' : 'Inactivo'}</div>
+        <div style="font-size:12px;color:var(--t2)">${w.email || 'Sin email'} · ${roleLabel} · ${w.active ? '✓ Activo' : '✗ Inactivo'}</div>
       </div>
-      <div class="row" style="gap:6px">
+      <div style="display:flex;align-items:center;gap:6px">
+        <button onclick="resetWaiterPassword('${w.id}','${w.name}')"
+          style="font-size:11px;padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);cursor:pointer;color:var(--t2);font-family:inherit">
+          🔑 Reset
+        </button>
         <div class="toggle-track ${w.active ? 'on' : ''}" onclick="toggleWaiter('${w.id}',${!w.active})">
           <div class="toggle-thumb"></div>
         </div>
         <button class="btn btn-secondary btn-sm btn-icon" onclick="deleteWaiter('${w.id}')">✕</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 async function saveWaiter() {
   const name = document.getElementById('wf-name').value.trim();
-  const pin = document.getElementById('wf-pin').value.trim();
+  const email = document.getElementById('wf-email').value.trim();
+  const password = document.getElementById('wf-password').value.trim();
+  const role = document.getElementById('wf-role')?.value || 'waiter';
+
   if (!name) { alert('Escribe el nombre del camarero.'); return; }
-  if (pin.length !== 4 || isNaN(pin)) { alert('El PIN debe ser exactamente 4 dígitos.'); return; }
+  if (!email || !email.includes('@')) { alert('Introduce un email válido.'); return; }
+  if (password.length < 6) { alert('La contraseña debe tener al menos 6 caracteres.'); return; }
+
+  // Check email not already used
+  const { data: existing } = await sb.from('waiters')
+    .select('id').eq('email', email).maybeSingle();
+  if (existing) { alert('Ya existe un empleado con ese email.'); return; }
+
   const { error } = await sb.from('waiters').insert({
-    restaurant_id: state.adminRestaurantId, name, pin, active: true
+    restaurant_id: state.adminRestaurantId,
+    name, email, password, role, active: true
   });
   if (error) { alert('Error: ' + error.message); return; }
   hideAddWaiterForm();
   loadAdminWaiters();
+}
+
+async function resetWaiterPassword(waiterId, waiterName) {
+  const newPass = prompt(`Nueva contraseña para ${waiterName} (mínimo 6 caracteres):`);
+  if (!newPass) return;
+  if (newPass.length < 6) { alert('La contraseña debe tener al menos 6 caracteres.'); return; }
+  const { error } = await sb.from('waiters').update({ password: newPass }).eq('id', waiterId);
+  if (error) { alert('Error: ' + error.message); return; }
+  alert(`✓ Contraseña actualizada. Comunícasela a ${waiterName}.`);
 }
 
 async function toggleWaiter(id, active) {
@@ -3123,7 +3216,7 @@ async function toggleWaiter(id, active) {
 }
 
 async function deleteWaiter(id) {
-  if (!confirm('¿Eliminar este camarero?')) return;
+  if (!confirm('¿Eliminar este camarero? Se perderán todos sus datos.')) return;
   await sb.from('waiters').delete().eq('id', id);
   loadAdminWaiters();
 }
@@ -3305,16 +3398,23 @@ async function loadAdminCarta() {
     if (!grouped[cat]) return;
     html += `<div class="sec-label" style="text-transform:capitalize">${cat}</div>`;
     grouped[cat].forEach(item => {
+      const photoHtml = item.photo_url
+        ? `<img src="${item.photo_url}" style="width:52px;height:52px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0">`
+        : `<div style="width:52px;height:52px;border-radius:var(--r-sm);background:var(--bg2);border:1px dashed var(--bd2);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer" onclick="uploadDishPhoto('${item.id}')" title="Añadir foto">
+            <span style="font-size:18px">📷</span>
+           </div>`;
       html += `<div class="card" style="margin-bottom:.5rem">
-        <div class="row" style="justify-content:space-between">
-          <div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div onclick="uploadDishPhoto('${item.id}')" style="cursor:pointer" title="Cambiar foto">${photoHtml}</div>
+          <div style="flex:1;min-width:0">
             <div style="font-size:14px;font-weight:500">${item.name}</div>
             <div style="font-size:12px;color:var(--t2);margin-top:2px">
               ${fmt(parseFloat(item.price))} · ${item.is_shared ? '🤝 compartido' : '👤 individual'}
+              ${!item.active ? ' · <span style="color:var(--accent)">Inactivo</span>' : ''}
             </div>
           </div>
-          <div class="row" style="gap:6px">
-            <div class="toggle-track ${item.active ? 'on' : ''}" onclick="toggleItemActive('${item.id}',${!item.active})">
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <div class="toggle-track ${item.active ? 'on' : ''}" onclick="toggleItemActive('${item.id}',${!item.active})" title="${item.active ? 'Desactivar' : 'Activar'}">
               <div class="toggle-thumb"></div>
             </div>
             <button class="btn btn-secondary btn-sm btn-icon" onclick="deleteItem('${item.id}')" title="Eliminar">✕</button>
@@ -3325,6 +3425,149 @@ async function loadAdminCarta() {
   });
   document.getElementById('admin-carta-list').innerHTML = html || '<div class="empty"><div class="empty-text">No hay platos. Añade el primero.</div></div>';
 }
+
+// ── SUBIR FOTO A PLATO ──
+function uploadDishPhoto(itemId) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Convert to base64 and upload to Supabase Storage
+    const ext = file.name.split('.').pop();
+    const path = `menu/${state.adminRestaurantId}/${itemId}.${ext}`;
+
+    const { data: uploadData, error: uploadErr } = await sb.storage
+      .from('dish-photos')
+      .upload(path, file, { upsert: true, contentType: file.type });
+
+    if (uploadErr) {
+      // If storage bucket doesn't exist, use base64 fallback
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        await sb.from('menu_items').update({ photo_url: ev.target.result }).eq('id', itemId);
+        loadAdminCarta();
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    const { data: { publicUrl } } = sb.storage.from('dish-photos').getPublicUrl(path);
+    await sb.from('menu_items').update({ photo_url: publicUrl }).eq('id', itemId);
+    loadAdminCarta();
+  };
+  input.click();
+}
+
+// ── IMPORTAR CARTA DESDE FOTO CON IA ──
+function showImportCartaModal() {
+  const modal = document.createElement('div');
+  modal.id = 'import-carta-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:1rem';
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg);padding:1.5rem;max-width:400px;width:100%">
+      <div style="font-size:16px;font-weight:500;margin-bottom:.5rem">📷 Importar carta desde foto</div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:1rem;line-height:1.5">
+        Haz una foto de tu carta actual. La IA leerá los platos y precios automáticamente.
+      </div>
+      <input type="file" id="carta-photo-input" accept="image/*" style="display:none" onchange="processCartaPhoto(this)">
+      <button class="btn btn-primary" onclick="document.getElementById('carta-photo-input').click()" style="width:100%;margin-bottom:.5rem">
+        📸 Seleccionar foto de la carta
+      </button>
+      <div id="import-status" style="font-size:13px;color:var(--t2);text-align:center;min-height:20px"></div>
+      <div id="import-preview" style="margin-top:.75rem;max-height:300px;overflow-y:auto"></div>
+      <div style="display:flex;gap:.5rem;margin-top:1rem">
+        <button id="btn-import-confirm" class="btn btn-primary" onclick="confirmCartaImport()" style="flex:1;display:none">✓ Importar platos</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('import-carta-modal').remove()" style="flex:1">Cancelar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+let _importedDishes = [];
+
+async function processCartaPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById('import-status');
+  statusEl.textContent = '⏳ Analizando carta con IA...';
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const base64 = e.target.result.split(',')[1];
+    const mediaType = file.type || 'image/jpeg';
+
+    try {
+      // Call via Edge Function to avoid CORS
+      const res = await fetch(`${SUPA_URL}/functions/v1/analyze-carta`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPA_KEY}`
+        },
+        body: JSON.stringify({ imageBase64: base64, mediaType })
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error('Error del servidor: ' + errText);
+      }
+
+      const parsed = await res.json();
+      _importedDishes = parsed.platos || [];
+
+      if (!_importedDishes.length) {
+        statusEl.textContent = '❌ No se detectaron platos. Intenta con una foto más clara.';
+        return;
+      }
+
+      statusEl.textContent = `✓ Se detectaron ${_importedDishes.length} platos. Revisa y confirma:`;
+      document.getElementById('import-preview').innerHTML = _importedDishes.map((p, i) =>
+        `<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd)">
+          <input type="checkbox" id="imp-${i}" checked style="width:16px;height:16px;margin-top:2px">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:500">${p.nombre}</div>
+            <div style="font-size:11px;color:var(--t2)">${p.categoria}${p.descripcion ? ' · ' + p.descripcion : ''}</div>
+          </div>
+          <input type="number" value="${p.precio || 0}" step="0.5" min="0"
+            style="width:65px;padding:4px;border:1px solid var(--bd2);border-radius:4px;font-size:12px;font-family:inherit;text-align:right"
+            onchange="_importedDishes[${i}].precio=parseFloat(this.value)||0"> €
+        </div>`
+      ).join('');
+      document.getElementById('btn-import-confirm').style.display = 'block';
+
+    } catch(err) {
+      statusEl.textContent = '❌ ' + (err.message || 'Error al analizar. Comprueba que la foto es legible.');
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function confirmCartaImport() {
+  const selected = _importedDishes.filter((_, i) =>
+    document.getElementById(`imp-${i}`)?.checked
+  );
+  if (!selected.length) { alert('Selecciona al menos un plato.'); return; }
+
+  const inserts = selected.map(p => ({
+    restaurant_id: state.adminRestaurantId,
+    name: p.nombre,
+    price: p.precio || 0,
+    category: p.categoria || 'otros',
+    is_shared: p.compartido || false,
+    active: true
+  }));
+
+  const { error } = await sb.from('menu_items').insert(inserts);
+  if (error) { alert('Error importando: ' + error.message); return; }
+
+  document.getElementById('import-carta-modal').remove();
+  loadAdminCarta();
+  showToast('✓ Carta importada', `${inserts.length} platos añadidos.`);
+}
+
 
 function showAddItemForm() {
   document.getElementById('add-item-form').style.display = 'block';
@@ -4072,40 +4315,100 @@ async function loadPropinas() {
 async function loadPagosRecientes() {
   const el = document.getElementById('pagos-recientes-list');
   if (!el) return;
-  el.innerHTML = '<div style="font-size:13px;color:var(--t3)">Cargando pagos recientes...</div>';
+  el.innerHTML = '<div style="font-size:13px;color:var(--t3)">Cargando pagos...</div>';
 
-  const { data: rooms } = await sb.from('rooms').select('id,created_at')
+  // Load recent payments (last 30 days)
+  const { data: rooms } = await sb.from('rooms').select('id,created_at,table_id')
     .eq('restaurant_id', state.adminRestaurantId)
-    .gte('created_at', new Date(Date.now() - 7 * 86400000).toISOString())
+    .gte('created_at', new Date(Date.now() - 30 * 86400000).toISOString())
     .order('created_at', { ascending: false })
-    .limit(5);
+    .limit(50);
 
   if (!rooms?.length) { el.innerHTML = '<div style="font-size:13px;color:var(--t2)">Sin pagos recientes.</div>'; return; }
 
   const { data: payments } = await sb.from('payments').select('*')
     .in('room_id', rooms.map(r => r.id))
     .order('created_at', { ascending: false })
-    .limit(20);
+    .limit(50);
 
-  const methodIcon = { 'Tarjeta':'💳', 'Apple Pay':'🍎', 'Google Pay':'🔵', 'Bizum':'📱', 'Efectivo':'💶', 'Camarero':'🧑‍🍳' };
+  const { data: tables } = await sb.from('tables').select('id,number,label')
+    .eq('restaurant_id', state.adminRestaurantId);
+  const tablesById = {};
+  (tables || []).forEach(t => { tablesById[t.id] = t; });
+  const roomsById = {};
+  (rooms || []).forEach(r => { roomsById[r.id] = r; });
 
-  el.innerHTML = (payments || []).map(p => {
-    const icon = methodIcon[p.method] || '💰';
-    const date = new Date(p.created_at).toLocaleDateString('es-ES', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
-    const statusColor = p.stripe_status === 'succeeded' ? '#3B6D11' : p.stripe_status === 'manual' ? '#854F0B' : 'var(--t2)';
-    const statusLabel = p.stripe_status === 'succeeded' ? '✓ Confirmado' : p.stripe_status === 'manual' ? 'Manual' : p.stripe_status || '—';
-    return `<div style="display:flex;align-items:center;gap:10px;padding:.65rem .85rem;border-radius:var(--r-sm);border:1px solid var(--bd);background:var(--card);margin-bottom:.35rem">
-      <div style="font-size:20px">${icon}</div>
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:500">${p.method}</div>
-        <div style="font-size:11px;color:var(--t3)">${date}</div>
+  // Summary stats
+  const totalOnline = (payments || []).filter(p => ['Tarjeta','Apple Pay','Google Pay','Bizum'].includes(p.method))
+    .reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+  const totalEfectivo = (payments || []).filter(p => p.method === 'Efectivo' || p.method === 'Camarero')
+    .reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+  const totalStripe = (payments || []).filter(p => p.stripe_status === 'succeeded')
+    .reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+
+  el.innerHTML = `
+    <!-- Resumen -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;margin-bottom:1rem">
+      <div style="background:var(--bg2);border-radius:var(--r-sm);padding:.65rem;text-align:center">
+        <div style="font-size:16px;font-weight:700;color:var(--brand-d)">${totalOnline.toFixed(2)}€</div>
+        <div style="font-size:11px;color:var(--t2)">Online</div>
       </div>
-      <div style="text-align:right">
-        <div style="font-size:14px;font-weight:600;color:var(--brand-d)">${parseFloat(p.amount || 0).toFixed(2)}€</div>
-        <div style="font-size:10px;color:${statusColor}">${statusLabel}</div>
+      <div style="background:var(--bg2);border-radius:var(--r-sm);padding:.65rem;text-align:center">
+        <div style="font-size:16px;font-weight:700;color:var(--brand-d)">${totalEfectivo.toFixed(2)}€</div>
+        <div style="font-size:11px;color:var(--t2)">Efectivo</div>
       </div>
-    </div>`;
-  }).join('') || '<div style="font-size:13px;color:var(--t2)">Sin pagos esta semana.</div>';
+      <div style="background:#EAF3DE;border-radius:var(--r-sm);padding:.65rem;text-align:center">
+        <div style="font-size:16px;font-weight:700;color:#3B6D11">${(totalOnline + totalEfectivo).toFixed(2)}€</div>
+        <div style="font-size:11px;color:#3B6D11">Total</div>
+      </div>
+    </div>
+
+    ${totalStripe > 0 ? `
+    <div style="background:#E8F4FD;border-radius:var(--r-sm);padding:.65rem .85rem;margin-bottom:.75rem;font-size:12px;color:#0C447C;line-height:1.5">
+      💳 <strong>${totalStripe.toFixed(2)}€ via Stripe</strong> — los pagos con tarjeta llegan a tu cuenta en <strong>2 días laborables</strong> tras la transacción.
+      Los pagos del fin de semana llegan el martes.
+    </div>` : ''}
+
+    <div style="font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Últimas transacciones</div>
+
+    ${(payments || []).slice(0, 20).map(p => {
+      const room = roomsById[p.room_id];
+      const table = room?.table_id ? tablesById[room.table_id] : null;
+      const tableLabel = table ? `Mesa ${table.number}` : 'Mesa';
+      const methodIcon = { 'Tarjeta':'💳','Apple Pay':'🍎','Google Pay':'🔵','Bizum':'📱','Efectivo':'💶','Camarero':'🧑‍🍳','Partes iguales':'👥' };
+      const icon = methodIcon[p.method] || '💰';
+      const date = new Date(p.created_at || Date.now());
+      const dateStr = date.toLocaleDateString('es-ES', { day:'2-digit', month:'short' });
+      const timeStr = date.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
+
+      // Stripe T+2 arrival estimate
+      let arrivalHtml = '';
+      if (p.stripe_status === 'succeeded') {
+        const arrival = new Date(date);
+        arrival.setDate(arrival.getDate() + 2);
+        // Skip weekends
+        while (arrival.getDay() === 0 || arrival.getDay() === 6) arrival.setDate(arrival.getDate() + 1);
+        arrivalHtml = `<div style="font-size:10px;color:#0C447C">Llega ~${arrival.toLocaleDateString('es-ES', { day:'2-digit', month:'short' })}</div>`;
+      }
+
+      const statusColor = p.stripe_status === 'succeeded' ? '#3B6D11' :
+        p.stripe_status === 'manual' ? '#854F0B' : 'var(--t3)';
+      const statusLabel = p.stripe_status === 'succeeded' ? '✓ Confirmado' :
+        p.stripe_status === 'manual' ? 'Manual' : p.stripe_status || '—';
+
+      return `<div style="display:flex;align-items:center;gap:10px;padding:.6rem .75rem;border-radius:var(--r-sm);border:1px solid var(--bd);background:var(--card);margin-bottom:.3rem">
+        <div style="font-size:18px">${icon}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500">${p.method} · ${tableLabel}</div>
+          <div style="font-size:11px;color:var(--t3)">${dateStr} ${timeStr}</div>
+          ${arrivalHtml}
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:14px;font-weight:600;color:var(--brand-d)">${parseFloat(p.amount || 0).toFixed(2)}€</div>
+          <div style="font-size:10px;color:${statusColor}">${statusLabel}</div>
+        </div>
+      </div>`;
+    }).join('')}`;
 }
 
 // ══════════════════════════════════════════════════════
@@ -4351,7 +4654,14 @@ function showFactura(idx) {
     // Prices are IVA-included (precio con IVA)
     const baseImponible = subtotal / (1 + ivaRate / 100);
     const cuotaIva = subtotal - baseImponible;
-    const invoiceNum = `${rest?.invoice_series || 'F-'}${String(room.id).slice(0, 8).toUpperCase()}`;
+
+    // Número de factura correlativo según legislación española
+    // Formato: SERIE-AÑO-NÚMERO (ej. F-2024-0001)
+    const year = openedAt.getFullYear();
+    const serie = rest?.invoice_series || 'F';
+    // Use room sequence number based on created_at order
+    const invoiceSeq = String(idx + 1 + (rest?.invoice_start_num || 0)).padStart(4, '0');
+    const invoiceNum = `${serie}-${year}-${invoiceSeq}`;
     const dateStr = openedAt.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
     const guestTotals = guests.map(g => {
