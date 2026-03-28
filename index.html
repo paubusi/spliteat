@@ -997,7 +997,8 @@
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
           <div style="font-size:15px;font-weight:500">Resumen</div>
           <select id="kpi-filter" onchange="loadKPIs()" style="font-size:12px;padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-family:inherit">
-            <option value="7">Últimos 7 días</option>
+            <option value="0">Hoy</option>
+            <option value="7" selected>Últimos 7 días</option>
             <option value="30">Últimos 30 días</option>
             <option value="90">Últimos 3 meses</option>
             <option value="all">Todo</option>
@@ -1039,6 +1040,24 @@
           </div>
         </div>
         <div id="kpi-loading" style="text-align:center;padding:1rem;color:var(--t3);font-size:13px">Cargando datos...</div>
+
+        <!-- KPIs personalizados -->
+        <div style="margin-top:1.25rem;border-top:1px solid var(--bd);padding-top:1rem">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem">
+            <div style="font-size:13px;font-weight:500">📌 Mis KPIs personalizados</div>
+            <button onclick="showAddCustomKPI()" style="font-size:12px;padding:4px 10px;border-radius:99px;border:1px solid var(--brand);background:none;color:var(--brand);cursor:pointer;font-family:inherit">+ Añadir</button>
+          </div>
+          <div id="custom-kpis-list"></div>
+          <div id="add-custom-kpi-form" style="display:none" class="card">
+            <div class="field"><label>Nombre del KPI</label><input id="ckpi-name" type="text" placeholder="ej. Mesas en terraza" autocomplete="off"></div>
+            <div class="field"><label>Valor actual</label><input id="ckpi-value" type="text" placeholder="ej. 12 por noche"></div>
+            <div class="field"><label>Objetivo</label><input id="ckpi-target" type="text" placeholder="ej. 15 por noche"></div>
+            <div class="row mt">
+              <button class="btn btn-primary btn-sm" onclick="saveCustomKPI()">Guardar</button>
+              <button class="btn btn-secondary btn-sm" onclick="document.getElementById('add-custom-kpi-form').style.display='none'">Cancelar</button>
+            </div>
+          </div>
+        </div>
       </div>
 
 
@@ -3357,17 +3376,227 @@ function showGestionTab(name) {
     const btn = document.getElementById('gtab-btn-' + t);
     if (btn) btn.classList.toggle('on', t === name);
   });
-  // On mobile, mirror desktop column content into the mobile tab div
-  const mobileMap = {
-    carta: 'admin-carta-list',
-    mesas: 'admin-tables-list',
-    camareros: 'admin-waiters-list'
-  };
-  const mobileEl = document.getElementById('gtab-' + name);
-  const desktopEl = document.getElementById(mobileMap[name]);
-  if (mobileEl && desktopEl && window.innerWidth < 600) {
-    mobileEl.innerHTML = desktopEl.innerHTML || '<div style="text-align:center;padding:2rem;color:var(--t3)">Cargando...</div>';
+
+  // On mobile — render full content with action buttons directly into the tab
+  if (window.innerWidth < 600) {
+    if (name === 'carta') renderMobileCartaTab();
+    if (name === 'mesas') renderMobileMesasTab();
+    if (name === 'camareros') renderMobileCamarerosTab();
   }
+}
+
+function renderMobileCartaTab() {
+  const tab = document.getElementById('gtab-carta');
+  if (!tab) return;
+  // Add header with buttons
+  tab.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+      <div class="sec-label" style="margin:0">Carta</div>
+      <div style="display:flex;gap:.4rem">
+        <button class="btn btn-secondary btn-sm" onclick="showImportCartaModal()">📷 Importar</button>
+        <button class="btn btn-primary btn-sm" onclick="showAddItemFormMobile()">+ Añadir</button>
+      </div>
+    </div>
+    <div id="add-item-form-mobile" style="display:none" class="card">
+      <div class="field"><label>Nombre</label><input id="aim-name" type="text" placeholder="ej. Croquetas caseras"></div>
+      <div class="row" style="gap:.5rem">
+        <div class="field" style="flex:1;margin:0"><label>Precio €</label><input id="aim-price" type="number" step="0.01" min="0" inputmode="decimal" placeholder="9.50"></div>
+        <div class="field" style="flex:1;margin:0"><label>Categoría</label>
+          <select id="aim-cat"><option value="entrantes">Entrantes</option><option value="principales">Principales</option><option value="postres">Postres</option><option value="bebidas">Bebidas</option><option value="otros">Otros</option></select>
+        </div>
+      </div>
+      <div class="toggle" style="margin-top:.5rem">
+        <span style="font-size:13px;color:var(--t2)">Para compartir</span>
+        <div class="toggle-track" id="aim-shared-track" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></div>
+      </div>
+      <div class="row mt">
+        <button class="btn btn-primary btn-sm" onclick="saveMenuItemMobile()">Guardar</button>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('add-item-form-mobile').style.display='none'">Cancelar</button>
+      </div>
+    </div>
+    <div id="admin-carta-list-mobile"></div>`;
+
+  // Load carta into mobile container
+  loadAdminCartaMobile();
+}
+
+async function loadAdminCartaMobile() {
+  const el = document.getElementById('admin-carta-list-mobile');
+  if (!el) return;
+  const { data } = await sb.from('menu_items').select('*')
+    .eq('restaurant_id', state.adminRestaurantId).order('category').order('name');
+  const cats = ['entrantes','principales','postres','bebidas','otros'];
+  const grouped = {};
+  (data || []).forEach(item => {
+    const cat = item.category || 'otros';
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(item);
+  });
+  let html = '';
+  cats.forEach(cat => {
+    if (!grouped[cat]) return;
+    html += `<div class="sec-label" style="text-transform:capitalize">${cat}</div>`;
+    grouped[cat].forEach(item => {
+      html += `<div class="card" id="mitem-${item.id}" style="margin-bottom:.4rem;${!item.active?'opacity:.6;':''}">
+        <div style="display:flex;align-items:center;gap:8px">
+          ${item.photo_url ? `<img src="${item.photo_url}" style="width:44px;height:44px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0">` : ''}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:500">${item.name}</div>
+            <div style="font-size:12px;color:var(--t2)">${fmt(parseFloat(item.price))} · ${item.is_shared?'🤝':'👤'}${!item.active?' · <span style="color:var(--accent);font-size:11px">Inactivo</span>':''}</div>
+          </div>
+          <div style="display:flex;gap:4px;flex-shrink:0">
+            <div class="toggle-track ${item.active?'on':''}" onclick="toggleItemActiveMobile('${item.id}',${!item.active},this)"><div class="toggle-thumb"></div></div>
+            <button onclick="deleteItemMobile('${item.id}')" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:14px;cursor:pointer">✕</button>
+          </div>
+        </div>
+      </div>`;
+    });
+  });
+  el.innerHTML = html || '<div class="empty"><div class="empty-text">No hay platos.</div></div>';
+}
+
+function showAddItemFormMobile() {
+  const f = document.getElementById('add-item-form-mobile');
+  if (f) { f.style.display = 'block'; document.getElementById('aim-name')?.focus(); }
+}
+
+async function saveMenuItemMobile() {
+  const name = document.getElementById('aim-name')?.value.trim();
+  const price = parseFloat(document.getElementById('aim-price')?.value);
+  const cat = document.getElementById('aim-cat')?.value;
+  const isShared = document.getElementById('aim-shared-track')?.classList.contains('on');
+  if (!name || isNaN(price) || price <= 0) { alert('Rellena nombre y precio.'); return; }
+  const { error } = await sb.from('menu_items').insert({
+    restaurant_id: state.adminRestaurantId, name, price, category: cat, is_shared: isShared, active: true
+  });
+  if (error) { alert('Error: ' + error.message); return; }
+  document.getElementById('add-item-form-mobile').style.display = 'none';
+  loadAdminCartaMobile();
+  loadAdminCarta(); // also refresh desktop
+}
+
+async function toggleItemActiveMobile(itemId, active, el) {
+  if (el) el.classList.toggle('on', active);
+  const card = document.getElementById('mitem-' + itemId);
+  if (card) card.style.opacity = active ? '1' : '0.6';
+  await sb.from('menu_items').update({ active }).eq('id', itemId);
+}
+
+async function deleteItemMobile(itemId) {
+  if (!confirm('¿Eliminar este plato?')) return;
+  const card = document.getElementById('mitem-' + itemId);
+  if (card) card.style.display = 'none';
+  await sb.from('menu_items').delete().eq('id', itemId);
+}
+
+function renderMobileMesasTab() {
+  const tab = document.getElementById('gtab-mesas');
+  if (!tab) return;
+  tab.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+      <div class="sec-label" style="margin:0">Mesas</div>
+      <button class="btn btn-primary btn-sm" onclick="addTable()">+ Añadir mesa</button>
+    </div>
+    <div id="admin-tables-list-mobile"></div>`;
+  loadAdminTablesMobile();
+}
+
+async function loadAdminTablesMobile() {
+  const { data: tables } = await sb.from('tables').select('*')
+    .eq('restaurant_id', state.adminRestaurantId).order('number');
+  const { data: activeRooms } = await sb.from('rooms').select('*')
+    .eq('restaurant_id', state.adminRestaurantId).eq('closed', false);
+  const activeByTable = {};
+  (activeRooms || []).forEach(r => { if (r.table_id) activeByTable[r.table_id] = r; });
+
+  const el = document.getElementById('admin-tables-list-mobile');
+  if (!el) return;
+  if (!tables?.length) { el.innerHTML = '<div class="empty"><div class="empty-text">No hay mesas.</div></div>'; return; }
+
+  el.innerHTML = tables.map(t => {
+    const room = activeByTable[t.id];
+    const isActive = !!room;
+    return `<div class="card" style="margin-bottom:.5rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${isActive?'.5rem':'0'}">
+        <div>
+          <div style="font-size:14px;font-weight:500">Mesa ${t.number}${t.label?' — '+t.label:''}</div>
+          <span style="font-size:11px;padding:2px 8px;border-radius:99px;${isActive?'background:var(--brand-l);color:var(--brand)':'background:var(--bg2);color:var(--t3)'}">${isActive?'● Activa':'Libre'}</span>
+        </div>
+        <div style="display:flex;gap:5px">
+          <button onclick="showQR('${t.id}','${state.adminRestaurantId}',${t.number},'${t.label||''}')" class="btn btn-secondary btn-sm">QR</button>
+          <button onclick="deleteTable('${t.id}')" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:14px;cursor:pointer">✕</button>
+        </div>
+      </div>
+      ${isActive ? `<div style="display:flex;gap:.4rem">
+        <button onclick="adminCloseTable('${room.id}');setTimeout(()=>loadAdminTablesMobile(),500)"
+          style="flex:1;padding:7px;border-radius:var(--r-sm);border:1px solid #FCCACA;background:#FFF5F5;color:#A32D2D;font-size:12px;cursor:pointer;font-family:inherit">
+          Cerrar mesa
+        </button>
+      </div>` : `
+        <button onclick="adminOpenTable('${t.id}','${t.number}','${t.label||''}');setTimeout(()=>loadAdminTablesMobile(),500)"
+          style="width:100%;padding:7px;border-radius:var(--r-sm);border:1px solid var(--bd);background:var(--bg2);color:var(--t2);font-size:12px;cursor:pointer;font-family:inherit">
+          + Abrir mesa manualmente
+        </button>`}
+    </div>`;
+  }).join('');
+}
+
+function renderMobileCamarerosTab() {
+  const tab = document.getElementById('gtab-camareros');
+  if (!tab) return;
+  tab.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+      <div class="sec-label" style="margin:0">Camareros</div>
+      <button class="btn btn-primary btn-sm" onclick="showAddWaiterFormMobile()">+ Añadir</button>
+    </div>
+    <div id="add-waiter-form-mobile" style="display:none" class="card">
+      <div class="field"><label>Nombre</label><input id="awm-name" type="text" placeholder="ej. Carlos"></div>
+      <div class="field"><label>Email</label><input id="awm-email" type="email" placeholder="carlos@restaurante.com"></div>
+      <div class="field"><label>Contraseña</label><input id="awm-pass" type="password" placeholder="mínimo 6 caracteres"></div>
+      <div class="row mt">
+        <button class="btn btn-primary btn-sm" onclick="saveWaiterMobile()">Guardar</button>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('add-waiter-form-mobile').style.display='none'">Cancelar</button>
+      </div>
+    </div>
+    <div id="admin-waiters-list-mobile"></div>`;
+  loadAdminWaitersMobile();
+}
+
+function showAddWaiterFormMobile() {
+  const f = document.getElementById('add-waiter-form-mobile');
+  if (f) { f.style.display = 'block'; document.getElementById('awm-name')?.focus(); }
+}
+
+async function saveWaiterMobile() {
+  const name = document.getElementById('awm-name')?.value.trim();
+  const email = document.getElementById('awm-email')?.value.trim();
+  const password = document.getElementById('awm-pass')?.value.trim();
+  if (!name || !email || password.length < 6) { alert('Rellena todos los campos (contraseña mínimo 6 caracteres).'); return; }
+  const { error } = await sb.from('waiters').insert({
+    restaurant_id: state.adminRestaurantId, name, email, password, role: 'waiter', active: true
+  });
+  if (error) { alert('Error: ' + error.message); return; }
+  document.getElementById('add-waiter-form-mobile').style.display = 'none';
+  loadAdminWaitersMobile();
+}
+
+async function loadAdminWaitersMobile() {
+  const { data } = await sb.from('waiters').select('*')
+    .eq('restaurant_id', state.adminRestaurantId).order('name');
+  const el = document.getElementById('admin-waiters-list-mobile');
+  if (!el) return;
+  if (!data?.length) { el.innerHTML = '<div class="empty"><div class="empty-text">No hay camareros.</div></div>'; return; }
+  el.innerHTML = data.map(w => `
+    <div class="card row" style="margin-bottom:.5rem;justify-content:space-between">
+      <div>
+        <div style="font-size:14px;font-weight:500">${w.name}</div>
+        <div style="font-size:12px;color:var(--t2)">${w.email||'Sin email'} · ${w.active?'Activo':'Inactivo'}</div>
+      </div>
+      <div style="display:flex;gap:5px;align-items:center">
+        <div class="toggle-track ${w.active?'on':''}" onclick="toggleWaiter('${w.id}',${!w.active})"><div class="toggle-thumb"></div></div>
+        <button onclick="deleteWaiter('${w.id}')" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:14px;cursor:pointer">✕</button>
+      </div>
+    </div>`).join('');
 }
 
 function showReportesTab(name) {
@@ -3388,8 +3617,16 @@ function showReportesTab(name) {
 // ADMIN CARTA
 // ══════════════════════════════════════════════════════
 async function loadAdminCarta() {
-  const { data } = await sb.from('menu_items').select('*')
-    .eq('restaurant_id', state.adminRestaurantId).order('sort_order');
+  const el = document.getElementById('admin-carta-list');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--t3);font-size:13px">Cargando...</div>';
+
+  const { data, error } = await sb.from('menu_items').select('*')
+    .eq('restaurant_id', state.adminRestaurantId)
+    .order('category').order('name');
+
+  if (error) { el.innerHTML = '<div class="empty"><div class="empty-text">Error cargando carta.</div></div>'; return; }
+
   const cats = ['entrantes','principales','postres','bebidas','otros'];
   const grouped = {};
   (data || []).forEach(item => {
@@ -3397,40 +3634,65 @@ async function loadAdminCarta() {
     if (!grouped[cat]) grouped[cat] = [];
     grouped[cat].push(item);
   });
+
   let html = '';
   cats.forEach(cat => {
     if (!grouped[cat]) return;
-    html += `<div class="sec-label" style="text-transform:capitalize">${cat}</div>`;
+    html += `<div class="sec-label" style="text-transform:capitalize;margin-top:.5rem">${cat}</div>`;
     grouped[cat].forEach(item => {
       const photoHtml = item.photo_url
-        ? `<img src="${item.photo_url}" style="width:52px;height:52px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0">`
-        : `<div style="width:52px;height:52px;border-radius:var(--r-sm);background:var(--bg2);border:1px dashed var(--bd2);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer" onclick="uploadDishPhoto('${item.id}')" title="Añadir foto">
-            <span style="font-size:18px">📷</span>
-           </div>`;
-      html += `<div class="card" style="margin-bottom:.5rem">
-        <div style="display:flex;align-items:center;gap:10px">
-          <div onclick="uploadDishPhoto('${item.id}')" style="cursor:pointer" title="Cambiar foto">${photoHtml}</div>
+        ? `<div style="position:relative;flex-shrink:0;width:48px;height:48px">
+            <img src="${item.photo_url}" style="width:48px;height:48px;border-radius:var(--r-sm);object-fit:cover" loading="lazy">
+            <button onclick="deleteDishPhoto('${item.id}',event)"
+              style="position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:#E24B4A;border:none;color:#fff;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">✕</button>
+           </div>`
+        : `<div style="width:48px;height:48px;border-radius:var(--r-sm);background:var(--bg2);border:1px dashed var(--bd2);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer" onclick="uploadDishPhoto('${item.id}')"><span style="font-size:16px">📷</span></div>`;
+      html += `<div class="card" id="item-card-${item.id}" style="margin-bottom:.4rem;padding:.65rem .75rem;${!item.active ? 'opacity:.6;' : ''}">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div onclick="uploadDishPhoto('${item.id}')" style="cursor:pointer;flex-shrink:0">${photoHtml}</div>
           <div style="flex:1;min-width:0">
-            <div style="font-size:14px;font-weight:500">${item.name}</div>
-            <div style="font-size:12px;color:var(--t2);margin-top:2px">
-              ${fmt(parseFloat(item.price))} · ${item.is_shared ? '🤝 compartido' : '👤 individual'}
-              ${!item.active ? ' · <span style="color:var(--accent)">Inactivo</span>' : ''}
-            </div>
+            <div style="font-size:14px;font-weight:${item.active ? '500' : '400'}">${item.name}</div>
+            <div style="font-size:12px;color:var(--t2)">${fmt(parseFloat(item.price))} · ${item.is_shared ? '🤝' : '👤'}${!item.active ? ' · <span style="color:var(--accent);font-size:11px">Inactivo</span>' : ''}</div>
           </div>
-          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-            <div class="toggle-track ${item.active ? 'on' : ''}" onclick="toggleItemActive('${item.id}',${!item.active})" title="${item.active ? 'Desactivar' : 'Activar'}">
+          <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+            <div class="toggle-track ${item.active ? 'on' : ''}" onclick="toggleItemActive('${item.id}',${!item.active},this)" style="cursor:pointer">
               <div class="toggle-thumb"></div>
             </div>
-            <button class="btn btn-secondary btn-sm btn-icon" onclick="deleteItem('${item.id}')" title="Eliminar">✕</button>
+            <button onclick="deleteItem('${item.id}')" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Eliminar">✕</button>
           </div>
         </div>
       </div>`;
     });
   });
-  document.getElementById('admin-carta-list').innerHTML = html || '<div class="empty"><div class="empty-text">No hay platos. Añade el primero.</div></div>';
+
+  el.innerHTML = html || '<div class="empty"><div class="empty-text">No hay platos. Añade el primero.</div></div>';
 }
 
-// ── SUBIR FOTO A PLATO ──
+async function toggleItemActive(itemId, newActive, toggleEl) {
+  // Update UI immediately
+  if (toggleEl) toggleEl.classList.toggle('on', newActive);
+  const card = document.getElementById('item-card-' + itemId);
+  if (card) card.style.opacity = newActive ? '1' : '0.6';
+  const { error } = await sb.from('menu_items').update({ active: newActive }).eq('id', itemId);
+  if (error) {
+    alert('Error: ' + error.message);
+    if (toggleEl) toggleEl.classList.toggle('on', !newActive);
+    if (card) card.style.opacity = newActive ? '0.6' : '1';
+  }
+}
+
+async function deleteItem(itemId) {
+  if (!confirm('¿Eliminar este plato de la carta?')) return;
+  const card = document.getElementById('item-card-' + itemId);
+  if (card) card.style.display = 'none';
+  const { error } = await sb.from('menu_items').delete().eq('id', itemId);
+  if (error) {
+    alert('Error: ' + error.message);
+    if (card) card.style.display = '';
+  }
+}
+
+// ── FOTOS DE PLATOS ──
 function uploadDishPhoto(itemId) {
   const input = document.createElement('input');
   input.type = 'file';
@@ -3438,50 +3700,56 @@ function uploadDishPhoto(itemId) {
   input.onchange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    // Convert to base64 and upload to Supabase Storage
     const ext = file.name.split('.').pop();
     const path = `menu/${state.adminRestaurantId}/${itemId}.${ext}`;
-
-    const { data: uploadData, error: uploadErr } = await sb.storage
-      .from('dish-photos')
-      .upload(path, file, { upsert: true, contentType: file.type });
-
+    const { error: uploadErr } = await sb.storage
+      .from('dish-photos').upload(path, file, { upsert: true, contentType: file.type });
     if (uploadErr) {
-      // If storage bucket doesn't exist, use base64 fallback
+      // Fallback: base64
       const reader = new FileReader();
       reader.onload = async (ev) => {
         await sb.from('menu_items').update({ photo_url: ev.target.result }).eq('id', itemId);
         loadAdminCarta();
+        loadAdminCartaMobile();
       };
       reader.readAsDataURL(file);
       return;
     }
-
     const { data: { publicUrl } } = sb.storage.from('dish-photos').getPublicUrl(path);
     await sb.from('menu_items').update({ photo_url: publicUrl }).eq('id', itemId);
     loadAdminCarta();
+    loadAdminCartaMobile();
   };
   input.click();
 }
 
+async function deleteDishPhoto(itemId, event) {
+  event?.stopPropagation();
+  if (!confirm('¿Eliminar la foto de este plato?')) return;
+  await sb.from('menu_items').update({ photo_url: null }).eq('id', itemId);
+  loadAdminCarta();
+  loadAdminCartaMobile();
+}
+
 // ── IMPORTAR CARTA DESDE FOTO CON IA ──
 function showImportCartaModal() {
+  const existing = document.getElementById('import-carta-modal');
+  if (existing) existing.remove();
   const modal = document.createElement('div');
   modal.id = 'import-carta-modal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:1rem';
   modal.innerHTML = `
-    <div style="background:var(--card);border-radius:var(--r-lg);padding:1.5rem;max-width:400px;width:100%">
+    <div style="background:var(--card);border-radius:var(--r-lg);padding:1.5rem;max-width:420px;width:100%;max-height:90vh;overflow-y:auto">
       <div style="font-size:16px;font-weight:500;margin-bottom:.5rem">📷 Importar carta desde foto</div>
       <div style="font-size:13px;color:var(--t2);margin-bottom:1rem;line-height:1.5">
-        Haz una foto de tu carta actual. La IA leerá los platos y precios automáticamente.
+        Haz una foto clara de tu carta. La IA leerá los platos y precios automáticamente.
       </div>
       <input type="file" id="carta-photo-input" accept="image/*" style="display:none" onchange="processCartaPhoto(this)">
       <button class="btn btn-primary" onclick="document.getElementById('carta-photo-input').click()" style="width:100%;margin-bottom:.5rem">
         📸 Seleccionar foto de la carta
       </button>
-      <div id="import-status" style="font-size:13px;color:var(--t2);text-align:center;min-height:20px"></div>
-      <div id="import-preview" style="margin-top:.75rem;max-height:300px;overflow-y:auto"></div>
+      <div id="import-status" style="font-size:13px;color:var(--t2);text-align:center;min-height:20px;padding:.35rem 0"></div>
+      <div id="import-preview" style="margin-top:.5rem;max-height:300px;overflow-y:auto"></div>
       <div style="display:flex;gap:.5rem;margin-top:1rem">
         <button id="btn-import-confirm" class="btn btn-primary" onclick="confirmCartaImport()" style="flex:1;display:none">✓ Importar platos</button>
         <button class="btn btn-secondary" onclick="document.getElementById('import-carta-modal').remove()" style="flex:1">Cancelar</button>
@@ -3497,90 +3765,69 @@ async function processCartaPhoto(input) {
   if (!file) return;
   const statusEl = document.getElementById('import-status');
   statusEl.textContent = '⏳ Analizando carta con IA...';
-
   const reader = new FileReader();
   reader.onload = async (e) => {
     const base64 = e.target.result.split(',')[1];
     const mediaType = file.type || 'image/jpeg';
-
     try {
-      // Call via Edge Function to avoid CORS
       const res = await fetch(`${SUPA_URL}/functions/v1/analyze-carta`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPA_KEY}`
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPA_KEY}` },
         body: JSON.stringify({ imageBase64: base64, mediaType })
       });
-
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error('Error del servidor: ' + errText);
-      }
-
+      if (!res.ok) throw new Error(await res.text());
       const parsed = await res.json();
       _importedDishes = parsed.platos || [];
-
       if (!_importedDishes.length) {
         statusEl.textContent = '❌ No se detectaron platos. Intenta con una foto más clara.';
         return;
       }
-
-      statusEl.textContent = `✓ Se detectaron ${_importedDishes.length} platos. Revisa y confirma:`;
+      statusEl.textContent = `✓ ${_importedDishes.length} platos detectados. Revisa y confirma:`;
       document.getElementById('import-preview').innerHTML = _importedDishes.map((p, i) =>
-        `<div style="display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd)">
-          <input type="checkbox" id="imp-${i}" checked style="width:16px;height:16px;margin-top:2px">
+        `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd)">
+          <input type="checkbox" id="imp-${i}" checked style="width:16px;height:16px">
           <div style="flex:1">
             <div style="font-size:13px;font-weight:500">${p.nombre}</div>
             <div style="font-size:11px;color:var(--t2)">${p.categoria}${p.descripcion ? ' · ' + p.descripcion : ''}</div>
           </div>
-          <input type="number" value="${p.precio || 0}" step="0.5" min="0"
-            style="width:65px;padding:4px;border:1px solid var(--bd2);border-radius:4px;font-size:12px;font-family:inherit;text-align:right"
+          <input type="number" value="${p.precio||0}" step="0.5" min="0"
+            style="width:60px;padding:4px;border:1px solid var(--bd2);border-radius:4px;font-size:12px;font-family:inherit;text-align:right"
             onchange="_importedDishes[${i}].precio=parseFloat(this.value)||0"> €
         </div>`
       ).join('');
       document.getElementById('btn-import-confirm').style.display = 'block';
-
     } catch(err) {
-      statusEl.textContent = '❌ ' + (err.message || 'Error al analizar. Comprueba que la foto es legible.');
+      statusEl.textContent = '❌ ' + (err.message || 'Error al analizar la foto.');
     }
   };
   reader.readAsDataURL(file);
 }
 
 async function confirmCartaImport() {
-  const selected = _importedDishes.filter((_, i) =>
-    document.getElementById(`imp-${i}`)?.checked
-  );
+  const selected = _importedDishes.filter((_, i) => document.getElementById(`imp-${i}`)?.checked);
   if (!selected.length) { alert('Selecciona al menos un plato.'); return; }
-
   const inserts = selected.map(p => ({
     restaurant_id: state.adminRestaurantId,
-    name: p.nombre,
-    price: p.precio || 0,
+    name: p.nombre, price: p.precio || 0,
     category: p.categoria || 'otros',
-    is_shared: p.compartido || false,
-    active: true
+    is_shared: p.compartido || false, active: true
   }));
-
   const { error } = await sb.from('menu_items').insert(inserts);
   if (error) { alert('Error importando: ' + error.message); return; }
-
   document.getElementById('import-carta-modal').remove();
   loadAdminCarta();
+  loadAdminCartaMobile();
   showToast('✓ Carta importada', `${inserts.length} platos añadidos.`);
 }
 
-
+// ── AÑADIR PLATO (desktop) ──
 function showAddItemForm() {
   document.getElementById('add-item-form').style.display = 'block';
-  document.getElementById('ai-name').focus();
+  document.getElementById('ai-name')?.focus();
 }
 function hideAddItemForm() {
   document.getElementById('add-item-form').style.display = 'none';
-  document.getElementById('ai-name').value = '';
-  document.getElementById('ai-price').value = '';
+  ['ai-name','ai-price'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
 }
 
 async function saveMenuItem() {
@@ -3597,21 +3844,7 @@ async function saveMenuItem() {
   loadAdminCarta();
 }
 
-async function toggleItemActive(itemId, active) {
-  await sb.from('menu_items').update({ active }).eq('id', itemId);
-  loadAdminCarta();
-}
 
-async function deleteItem(itemId) {
-  if (!confirm('¿Eliminar este plato de la carta?')) return;
-  await sb.from('menu_items').delete().eq('id', itemId);
-  loadAdminCarta();
-}
-
-// ══════════════════════════════════════════════════════
-// ADMIN MESAS + QR
-// ══════════════════════════════════════════════════════
-async function loadAdminTables() {
   const { data: tables } = await sb.from('tables').select('*')
     .eq('restaurant_id', state.adminRestaurantId).order('number');
   const el = document.getElementById('admin-tables-list');
@@ -4227,9 +4460,15 @@ async function loadKPIs() {
   const loadingEl = document.getElementById('kpi-loading');
   if (loadingEl) loadingEl.style.display = 'block';
 
-  const dateFilter = days !== 'all'
-    ? new Date(Date.now() - parseInt(days) * 86400000).toISOString()
-    : null;
+  // "Hoy" = desde medianoche
+  let dateFilter = null;
+  if (days === '0') {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    dateFilter = today.toISOString();
+  } else if (days !== 'all') {
+    dateFilter = new Date(Date.now() - parseInt(days) * 86400000).toISOString();
+  }
 
   let roomsQ = sb.from('rooms').select('id,created_at')
     .eq('restaurant_id', state.adminRestaurantId);
@@ -4277,9 +4516,60 @@ async function loadKPIs() {
   document.getElementById('kpi-ticket-medio').textContent = fmt2(ticketMedio);
   document.getElementById('kpi-comensales').textContent = nComensales;
   document.getElementById('kpi-ticket-persona').textContent = fmt2(ticketPersona);
-  document.getElementById('kpi-propinas').textContent = '—'; // propinas reales requieren campo separado
+  document.getElementById('kpi-propinas').textContent = '—';
   document.getElementById('kpi-plato-top').textContent = platoTop ? `${platoTop[0]} (×${platoTop[1]})` : '—';
   document.getElementById('kpi-spliteat-rate').textContent = adoptionRate + '%';
+  renderCustomKPIs();
+}
+
+// ── CUSTOM KPIs ──
+function showAddCustomKPI() {
+  document.getElementById('add-custom-kpi-form').style.display = 'block';
+  document.getElementById('ckpi-name')?.focus();
+}
+
+function saveCustomKPI() {
+  const name = document.getElementById('ckpi-name')?.value.trim();
+  const value = document.getElementById('ckpi-value')?.value.trim();
+  const target = document.getElementById('ckpi-target')?.value.trim();
+  if (!name) { alert('Escribe un nombre para el KPI.'); return; }
+
+  const key = 'spliteat_kpis_' + state.adminRestaurantId;
+  let kpis = [];
+  try { kpis = JSON.parse(localStorage.getItem(key) || '[]'); } catch(e) {}
+  kpis.push({ id: Date.now(), name, value, target });
+  localStorage.setItem(key, JSON.stringify(kpis));
+
+  document.getElementById('add-custom-kpi-form').style.display = 'none';
+  ['ckpi-name','ckpi-value','ckpi-target'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  renderCustomKPIs();
+}
+
+function renderCustomKPIs() {
+  const el = document.getElementById('custom-kpis-list');
+  if (!el) return;
+  const key = 'spliteat_kpis_' + state.adminRestaurantId;
+  let kpis = [];
+  try { kpis = JSON.parse(localStorage.getItem(key) || '[]'); } catch(e) {}
+  if (!kpis.length) { el.innerHTML = '<div style="font-size:12px;color:var(--t3)">Sin KPIs personalizados aún. Añade métricas importantes para tu negocio.</div>'; return; }
+  el.innerHTML = kpis.map(k => `
+    <div style="display:flex;align-items:center;gap:8px;padding:.65rem .85rem;border:1px solid var(--bd);border-radius:var(--r-sm);margin-bottom:.4rem;background:var(--card)">
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:500">${k.name}</div>
+        <div style="font-size:12px;color:var(--t2)">${k.value || '—'}${k.target ? ` / Objetivo: ${k.target}` : ''}</div>
+      </div>
+      <button onclick="deleteCustomKPI(${k.id})"
+        style="width:24px;height:24px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:13px;cursor:pointer">✕</button>
+    </div>`).join('');
+}
+
+function deleteCustomKPI(id) {
+  const key = 'spliteat_kpis_' + state.adminRestaurantId;
+  let kpis = [];
+  try { kpis = JSON.parse(localStorage.getItem(key) || '[]'); } catch(e) {}
+  kpis = kpis.filter(k => k.id !== id);
+  localStorage.setItem(key, JSON.stringify(kpis));
+  renderCustomKPIs();
 }
 
 // ══════════════════════════════════════════════════════
