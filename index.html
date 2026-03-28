@@ -411,13 +411,13 @@
         <div id="modal-dish-name" style="font-size:18px;font-weight:500;margin-bottom:.25rem"></div>
         <div id="modal-dish-price" style="font-size:15px;color:var(--brand-d);font-weight:500;margin-bottom:1rem"></div>
 
-        <div style="font-size:13px;color:var(--t2);margin-bottom:.5rem">¿Cuándo lo queréis?</div>
+        <div style="font-size:13px;color:var(--t2);margin-bottom:.5rem">¿Cuándo lo queréis? <span id="modal-course-hint" style="font-size:11px;color:var(--brand)"></span></div>
         <div style="display:flex;gap:.4rem;margin-bottom:1rem">
-          <button class="course-btn on" data-course="1" onclick="setCourse(1)"
+          <button class="course-btn on" data-course="1" onclick="setCourse(1,false)"
             style="flex:1;padding:7px 6px;border-radius:var(--r-sm);border:1.5px solid var(--brand);background:var(--brand-l);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;color:var(--brand-d);transition:all .15s">1º Entrante</button>
-          <button class="course-btn" data-course="2" onclick="setCourse(2)"
+          <button class="course-btn" data-course="2" onclick="setCourse(2,false)"
             style="flex:1;padding:7px 6px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--bg);font-size:12px;cursor:pointer;font-family:inherit;color:var(--t2);transition:all .15s">2º Principal</button>
-          <button class="course-btn" data-course="3" onclick="setCourse(3)"
+          <button class="course-btn" data-course="3" onclick="setCourse(3,false)"
             style="flex:1;padding:7px 6px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--bg);font-size:12px;cursor:pointer;font-family:inherit;color:var(--t2);transition:all .15s">3º Postre</button>
         </div>
 
@@ -1767,7 +1767,7 @@ let modalItemId = null;
 let modalType = 'solo'; // default: individual
 let modalCourse = 1; // 1=entrante, 2=principal, 3=postre
 
-function setCourse(n) {
+function setCourse(n, auto = false) {
   modalCourse = n;
   document.querySelectorAll('.course-btn').forEach(btn => {
     const isOn = parseInt(btn.dataset.course) === n;
@@ -1777,6 +1777,8 @@ function setCourse(n) {
     btn.style.color = isOn ? 'var(--brand-d)' : 'var(--t2)';
     btn.style.fontWeight = isOn ? '500' : '400';
   });
+  const hint = document.getElementById('modal-course-hint');
+  if (hint) hint.textContent = auto ? '(sugerido por categoría)' : '';
 }
 
 function openModal(itemId) {
@@ -1784,12 +1786,21 @@ function openModal(itemId) {
   if (!item) return;
   modalItemId = itemId;
   modalType = 'solo';
-  modalCourse = 1;
+
+  // Auto-assign course from menu item category
+  const catToCourse = {
+    'entrantes': 1, 'tapas': 1, 'aperitivos': 1,
+    'principales': 2, 'carnes': 2, 'pescados': 2, 'arroces': 2, 'pastas': 2,
+    'postres': 3
+  };
+  const cat = (item.category || '').toLowerCase();
+  modalCourse = catToCourse[cat] || 1;
+
   document.getElementById('modal-dish-name').textContent = item.name;
   document.getElementById('modal-dish-price').textContent = fmt(parseFloat(item.price));
   document.getElementById('modal-shared-hint').style.display = 'none';
-  setModalType('solo');
-  setCourse(1);
+  setModalType(item.is_shared ? 'shared' : 'solo');
+  setCourse(modalCourse, true); // true = auto-assigned from category
   const modal = document.getElementById('dish-modal');
   modal.style.display = 'flex';
 }
@@ -3437,9 +3448,15 @@ async function loadAdminCartaMobile() {
     if (!grouped[cat]) return;
     html += `<div class="sec-label" style="text-transform:capitalize">${cat}</div>`;
     grouped[cat].forEach(item => {
+      const photoEl = item.photo_url
+        ? `<div style="position:relative;flex-shrink:0;width:44px;height:44px">
+            <img src="${item.photo_url}" style="width:44px;height:44px;border-radius:var(--r-sm);object-fit:cover">
+            <button onclick="deleteDishPhoto('${item.id}',event)" style="position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:#E24B4A;border:none;color:#fff;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+           </div>`
+        : `<div onclick="uploadDishPhoto('${item.id}')" style="width:44px;height:44px;border-radius:var(--r-sm);background:var(--bg2);border:1px dashed var(--bd2);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer"><span style="font-size:16px">📷</span></div>`;
       html += `<div class="card" id="mitem-${item.id}" style="margin-bottom:.4rem;${!item.active?'opacity:.6;':''}">
         <div style="display:flex;align-items:center;gap:8px">
-          ${item.photo_url ? `<img src="${item.photo_url}" style="width:44px;height:44px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0">` : ''}
+          ${photoEl}
           <div style="flex:1;min-width:0">
             <div style="font-size:14px;font-weight:500">${item.name}</div>
             <div style="font-size:12px;color:var(--t2)">${fmt(parseFloat(item.price))} · ${item.is_shared?'🤝':'👤'}${!item.active?' · <span style="color:var(--accent);font-size:11px">Inactivo</span>':''}</div>
@@ -3497,20 +3514,23 @@ function renderMobileMesasTab() {
       <div class="sec-label" style="margin:0">Mesas</div>
       <button class="btn btn-primary btn-sm" onclick="addTable()">+ Añadir mesa</button>
     </div>
-    <div id="admin-tables-list-mobile"></div>`;
+    <div id="admin-tables-list-mobile"><div style="text-align:center;padding:1.5rem;color:var(--t3);font-size:13px">Cargando...</div></div>`;
   loadAdminTablesMobile();
 }
 
 async function loadAdminTablesMobile() {
-  const { data: tables } = await sb.from('tables').select('*')
-    .eq('restaurant_id', state.adminRestaurantId).order('number');
-  const { data: activeRooms } = await sb.from('rooms').select('*')
-    .eq('restaurant_id', state.adminRestaurantId).eq('closed', false);
+  const el = document.getElementById('admin-tables-list-mobile');
+  if (!el) return;
+
+  // Parallel queries for speed
+  const [{ data: tables }, { data: activeRooms }] = await Promise.all([
+    sb.from('tables').select('*').eq('restaurant_id', state.adminRestaurantId).order('number'),
+    sb.from('rooms').select('id,table_id,code').eq('restaurant_id', state.adminRestaurantId).eq('closed', false)
+  ]);
+
   const activeByTable = {};
   (activeRooms || []).forEach(r => { if (r.table_id) activeByTable[r.table_id] = r; });
 
-  const el = document.getElementById('admin-tables-list-mobile');
-  if (!el) return;
   if (!tables?.length) { el.innerHTML = '<div class="empty"><div class="empty-text">No hay mesas.</div></div>'; return; }
 
   el.innerHTML = tables.map(t => {
@@ -3527,16 +3547,15 @@ async function loadAdminTablesMobile() {
           <button onclick="deleteTable('${t.id}')" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:14px;cursor:pointer">✕</button>
         </div>
       </div>
-      ${isActive ? `<div style="display:flex;gap:.4rem">
-        <button onclick="adminCloseTable('${room.id}');setTimeout(()=>loadAdminTablesMobile(),500)"
-          style="flex:1;padding:7px;border-radius:var(--r-sm);border:1px solid #FCCACA;background:#FFF5F5;color:#A32D2D;font-size:12px;cursor:pointer;font-family:inherit">
-          Cerrar mesa
-        </button>
-      </div>` : `
-        <button onclick="adminOpenTable('${t.id}','${t.number}','${t.label||''}');setTimeout(()=>loadAdminTablesMobile(),500)"
-          style="width:100%;padding:7px;border-radius:var(--r-sm);border:1px solid var(--bd);background:var(--bg2);color:var(--t2);font-size:12px;cursor:pointer;font-family:inherit">
-          + Abrir mesa manualmente
-        </button>`}
+      ${isActive
+        ? `<button onclick="adminCloseTable('${room.id}').then(()=>loadAdminTablesMobile())"
+            style="width:100%;padding:7px;border-radius:var(--r-sm);border:1px solid #FCCACA;background:#FFF5F5;color:#A32D2D;font-size:12px;cursor:pointer;font-family:inherit">
+            Cerrar mesa
+          </button>`
+        : `<button onclick="adminOpenTable('${t.id}','${t.number}','${t.label||''}').then(()=>loadAdminTablesMobile())"
+            style="width:100%;padding:7px;border-radius:var(--r-sm);border:1px solid var(--bd);background:var(--bg2);color:var(--t2);font-size:12px;cursor:pointer;font-family:inherit">
+            + Abrir mesa manualmente
+          </button>`}
     </div>`;
   }).join('');
 }
@@ -3558,7 +3577,7 @@ function renderMobileCamarerosTab() {
         <button class="btn btn-secondary btn-sm" onclick="document.getElementById('add-waiter-form-mobile').style.display='none'">Cancelar</button>
       </div>
     </div>
-    <div id="admin-waiters-list-mobile"></div>`;
+    <div id="admin-waiters-list-mobile"><div style="text-align:center;padding:1.5rem;color:var(--t3);font-size:13px">Cargando...</div></div>`;
   loadAdminWaitersMobile();
 }
 
