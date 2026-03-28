@@ -3844,7 +3844,7 @@ async function saveMenuItem() {
   loadAdminCarta();
 }
 
-
+async function loadAdminTables() {
   const { data: tables } = await sb.from('tables').select('*')
     .eq('restaurant_id', state.adminRestaurantId).order('number');
   const el = document.getElementById('admin-tables-list');
