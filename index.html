@@ -893,6 +893,7 @@
                 <select id="ai-cat"><option value="entrantes">Entrantes</option><option value="principales">Principales</option><option value="postres">Postres</option><option value="bebidas">Bebidas</option><option value="otros">Otros</option></select>
               </div>
             </div>
+            <div class="field" style="margin-top:.35rem"><label>Tiempo de preparación (min) <span style="font-weight:400;color:var(--t3)">— para alertas en cocina</span></label><input id="ai-prep" type="number" min="0" max="120" inputmode="numeric" placeholder="ej. 12"></div>
             <div class="toggle">
               <span style="font-size:13px;color:var(--t2)">Suele pedirse para compartir</span>
               <div class="toggle-track" id="ai-shared-track" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></div>
@@ -947,17 +948,30 @@
       <div id="gtab-camareros" class="body" style="display:none;overflow-y:auto"></div>
     </div>
 
-    <!-- TAB COCINA (admin) — Kanban 3 columnas -->
+    <!-- TAB COCINA (admin) — Vista por mesa + pases -->
     <div id="atab-cocina" style="display:none;flex-direction:column;height:calc(100vh - 110px);width:100%">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem .5rem;border-bottom:1px solid var(--bd)">
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem 1rem;border-bottom:1px solid var(--bd);flex-shrink:0;gap:.5rem">
         <div class="live-badge"><div class="live-dot"></div><span>Tiempo real</span></div>
-        <button onclick="loadAdminOrders()" style="font-size:12px;color:var(--t2);background:none;border:none;cursor:pointer;font-family:inherit">↻ Actualizar</button>
+        <div style="display:flex;align-items:center;gap:.4rem">
+          <!-- Vista toggle -->
+          <div style="display:flex;border:1px solid var(--bd2);border-radius:var(--r-sm);overflow:hidden">
+            <button id="kds-view-pases" onclick="setKDSView('pases')"
+              style="padding:4px 10px;font-size:11px;font-weight:500;border:none;background:var(--brand);color:#fff;cursor:pointer;font-family:inherit">Por pases</button>
+            <button id="kds-view-kanban" onclick="setKDSView('kanban')"
+              style="padding:4px 10px;font-size:11px;border:none;background:var(--bg2);color:var(--t2);cursor:pointer;font-family:inherit">Kanban</button>
+          </div>
+          <button onclick="loadAdminOrders()" style="font-size:12px;color:var(--t2);background:none;border:none;cursor:pointer;font-family:inherit;padding:4px 8px;border:1px solid var(--bd);border-radius:var(--r-sm)">↻</button>
+        </div>
       </div>
 
-      <!-- Kanban board -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;flex:1;overflow:hidden">
+      <!-- VISTA PASES (por mesa, agrupado por tiempo) -->
+      <div id="kds-view-pases-panel" style="flex:1;overflow-y:auto;padding:.65rem">
+        <div id="kds-mesas-list"></div>
+      </div>
 
-        <!-- COLUMNA 1: NUEVOS -->
+      <!-- VISTA KANBAN (legacy 3 columnas) -->
+      <div id="kds-view-kanban-panel" style="display:none;display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;flex:1;overflow:hidden">
         <div style="border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden">
           <div style="padding:.6rem .75rem;background:#FCEBEB;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
             <span style="font-size:11px;font-weight:500;color:#A32D2D;text-transform:uppercase;letter-spacing:.05em">Nuevos</span>
@@ -965,8 +979,6 @@
           </div>
           <div id="k-col-new" style="flex:1;overflow-y:auto;padding:.5rem"></div>
         </div>
-
-        <!-- COLUMNA 2: EN PREPARACIÓN -->
         <div style="border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden">
           <div style="padding:.6rem .75rem;background:#FAEEDA;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
             <span style="font-size:11px;font-weight:500;color:#854F0B;text-transform:uppercase;letter-spacing:.05em">Prep.</span>
@@ -974,8 +986,6 @@
           </div>
           <div id="k-col-making" style="flex:1;overflow-y:auto;padding:.5rem"></div>
         </div>
-
-        <!-- COLUMNA 3: LISTOS -->
         <div style="display:flex;flex-direction:column;overflow:hidden">
           <div style="padding:.6rem .75rem;background:#EAF3DE;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
             <span style="font-size:11px;font-weight:500;color:#3B6D11;text-transform:uppercase;letter-spacing:.05em">Listos</span>
@@ -983,7 +993,6 @@
           </div>
           <div id="k-col-ready" style="flex:1;overflow-y:auto;padding:.5rem"></div>
         </div>
-
       </div>
     </div><!-- close atab-cocina -->
 
@@ -3676,7 +3685,7 @@ async function loadAdminCarta() {
           <div onclick="uploadDishPhoto('${item.id}')" style="cursor:pointer;flex-shrink:0">${photoHtml}</div>
           <div style="flex:1;min-width:0">
             <div style="font-size:14px;font-weight:${item.active ? '500' : '400'}">${item.name}</div>
-            <div style="font-size:12px;color:var(--t2)">${fmt(parseFloat(item.price))} · ${item.is_shared ? '🤝' : '👤'}${!item.active ? ' · <span style="color:var(--accent);font-size:11px">Inactivo</span>' : ''}</div>
+            <div style="font-size:12px;color:var(--t2)">${fmt(parseFloat(item.price))} · ${item.is_shared ? '🤝' : '👤'}${item.prep_time_minutes ? ' · ⏱ ' + item.prep_time_minutes + ' min' : ''}${!item.active ? ' · <span style="color:var(--accent);font-size:11px">Inactivo</span>' : ''}</div>
           </div>
           <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
             <div class="toggle-track ${item.active ? 'on' : ''}" onclick="toggleItemActive('${item.id}',${!item.active},this)" style="cursor:pointer">
@@ -3859,9 +3868,12 @@ async function saveMenuItem() {
   const price = parseFloat(document.getElementById('ai-price').value);
   const cat = document.getElementById('ai-cat').value;
   const isShared = document.getElementById('ai-shared-track').classList.contains('on');
+  const prepTime = parseInt(document.getElementById('ai-prep')?.value) || null;
   if (!name || isNaN(price) || price <= 0) { alert('Rellena nombre y precio correctamente.'); return; }
   const { error } = await sb.from('menu_items').insert({
-    restaurant_id: state.adminRestaurantId, name, price, category: cat, is_shared: isShared, active: true
+    restaurant_id: state.adminRestaurantId, name, price, category: cat,
+    is_shared: isShared, active: true,
+    ...(prepTime ? { prep_time_minutes: prepTime } : {})
   });
   if (error) { alert('Error: ' + error.message); return; }
   hideAddItemForm();
@@ -4032,169 +4044,74 @@ function playKitchenSound() {
   } catch(e) {} // silenciar si el navegador bloquea audio
 }
 
+// ══════════════════════════════════════════════════════
+// KDS — VISTA POR PASES (nueva arquitectura)
+// ══════════════════════════════════════════════════════
+let _kdsView = 'pases'; // 'pases' | 'kanban'
+let _kdsTimerInterval = null;
+
+function setKDSView(view) {
+  _kdsView = view;
+  document.getElementById('kds-view-pases-panel').style.display = view === 'pases' ? 'block' : 'none';
+  const kanbanPanel = document.getElementById('kds-view-kanban-panel');
+  if (kanbanPanel) kanbanPanel.style.display = view === 'kanban' ? 'grid' : 'none';
+  document.getElementById('kds-view-pases').style.background = view === 'pases' ? 'var(--brand)' : 'var(--bg2)';
+  document.getElementById('kds-view-pases').style.color = view === 'pases' ? '#fff' : 'var(--t2)';
+  document.getElementById('kds-view-kanban').style.background = view === 'kanban' ? 'var(--brand)' : 'var(--bg2)';
+  document.getElementById('kds-view-kanban').style.color = view === 'kanban' ? '#fff' : 'var(--t2)';
+  loadAdminOrders();
+}
+
 async function loadAdminOrders() {
-  // Solo rooms abiertas del restaurante
   const { data: rooms, error: roomsErr } = await sb.from('rooms')
-    .select('id, table_id')
+    .select('id, table_id, created_at')
     .eq('restaurant_id', state.adminRestaurantId)
     .eq('closed', false);
 
-  if (roomsErr) {
-    console.error('loadAdminOrders rooms error:', roomsErr);
-  }
+  if (roomsErr) console.error('loadAdminOrders rooms error:', roomsErr);
 
-  if (!rooms || !rooms.length) {
+  const clearKDS = () => {
     ['new','making','ready'].forEach(s => {
       const el = document.getElementById('k-col-' + s);
       if (el) el.innerHTML = `<div style="text-align:center;padding:1.5rem .5rem;color:var(--t3);font-size:12px">Sin pedidos</div>`;
       const cnt = document.getElementById('k-count-' + s);
       if (cnt) cnt.textContent = '0';
     });
-    return;
-  }
+    const ml = document.getElementById('kds-mesas-list');
+    if (ml) ml.innerHTML = `<div style="text-align:center;padding:3rem 1rem;color:var(--t3);font-size:14px">🍽 Sin pedidos activos</div>`;
+  };
+
+  if (!rooms || !rooms.length) { clearKDS(); return; }
 
   const roomIds = rooms.map(r => r.id);
   const roomTableMap = {};
-  rooms.forEach(r => { roomTableMap[r.id] = r.table_id; });
+  rooms.forEach(r => { roomTableMap[r.id] = r; });
 
-  // Load dishes
-  const { data: dishes } = await sb.from('dishes')
-    .select('*')
-    .in('room_id', roomIds)
-    .in('kitchen_status', ['sent', 'making', 'ready'])
-    .order('created_at');
+  // Load dishes + tables in parallel
+  const [{ data: dishes }, { data: tables }, { data: menuItems }] = await Promise.all([
+    sb.from('dishes').select('*').in('room_id', roomIds)
+      .in('kitchen_status', ['sent','making','ready']).order('created_at'),
+    sb.from('tables').select('*').eq('restaurant_id', state.adminRestaurantId),
+    sb.from('menu_items').select('id,prep_time_minutes').eq('restaurant_id', state.adminRestaurantId)
+  ]);
 
-  // Load tables
-  const { data: tables } = await sb.from('tables')
-    .select('*').eq('restaurant_id', state.adminRestaurantId);
   const tablesById = {};
   (tables || []).forEach(t => { tablesById[t.id] = t; });
+  const prepTimeByItem = {};
+  (menuItems || []).forEach(m => { if (m.prep_time_minutes) prepTimeByItem[m.id] = m.prep_time_minutes; });
 
-  const grouped = { sent: [], making: [], ready: [] };
-  (dishes || []).forEach(d => {
-    if (grouped[d.kitchen_status]) grouped[d.kitchen_status].push(d);
-  });
+  // Sound detection
+  const sentCount = (dishes || []).filter(d => d.kitchen_status === 'sent').length;
+  if (sentCount > _prevNewCount && _prevNewCount >= 0) playKitchenSound();
+  _prevNewCount = sentCount;
 
-  // Sound if new orders arrived
-  if (grouped.sent.length > _prevNewCount && _prevNewCount >= 0) {
-    playKitchenSound();
-  }
-  _prevNewCount = grouped.sent.length;
-
-  // Group dishes by room (mesa)
-  function groupByMesa(dishList) {
-    const byRoom = {};
-    dishList.forEach(d => {
-      if (!byRoom[d.room_id]) byRoom[d.room_id] = [];
-      byRoom[d.room_id].push(d);
-    });
-    return Object.entries(byRoom).map(([roomId, dishes]) => {
-      const tableId = roomTableMap[roomId];
-      const table = tableId ? tablesById[tableId] : null;
-      return { roomId, dishes, table };
-    });
+  if (_kdsView === 'pases') {
+    renderKDSPases(dishes || [], roomTableMap, tablesById, prepTimeByItem);
+  } else {
+    renderKDSKanban(dishes || [], roomTableMap, tablesById, prepTimeByItem);
   }
 
-  // Render a mesa group card
-  function renderMesaCard(group, fromStatus) {
-    const { roomId, dishes, table } = group;
-    const tableLabel = table
-      ? `Mesa ${table.number}${table.label ? ' — ' + table.label : ''}`
-      : 'Mesa sin asignar';
-
-    // Group dishes by course within the mesa card
-    const courseOrder = [1, 2, 3, null];
-    const courseLabels = { 1: '1º Entrante', 2: '2º Principal', 3: '3º Postre' };
-
-    // Timer: oldest dish in this group
-    const oldest = dishes.reduce((min, d) => {
-      const t = new Date(d.created_at || Date.now()).getTime();
-      return t < min ? t : min;
-    }, Date.now());
-    const elapsed = Math.floor((Date.now() - oldest) / 60000); // minutes
-    const timerColor = elapsed > 15 ? '#C0392B' : elapsed > 8 ? '#E67E22' : 'var(--t3)';
-    const timerHtml = fromStatus !== 'ready'
-      ? `<span style="font-size:11px;color:${timerColor};font-weight:${elapsed > 8 ? '600' : '400'}">${elapsed > 0 ? elapsed + ' min' : 'ahora'}</span>`
-      : '';
-
-    const dishRows = dishes.map(d => {
-      const courseBadge = d.course ? `<span style="font-size:10px;background:var(--bg2);border-radius:3px;padding:1px 5px;color:var(--t3);margin-right:4px">${d.course}º</span>` : '';
-      let btn = '';
-      if (fromStatus === 'sent') {
-        btn = `<button onclick="setOrderStatus('${d.id}','making');event.stopPropagation()"
-          style="padding:4px 12px;border-radius:99px;border:none;background:var(--brand);color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">
-          → Prep.
-        </button>`;
-      } else if (fromStatus === 'making') {
-        btn = `<button onclick="setOrderStatus('${d.id}','ready');event.stopPropagation()"
-          style="padding:4px 12px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">
-          ✓ Listo
-        </button>`;
-      } else {
-        btn = `<span style="font-size:13px;color:#3B6D11">✓</span>`;
-      }
-
-      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--bd)">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${courseBadge}${d.name}</div>
-          <div style="font-size:11px;color:var(--t2)">${d.type === 'shared' ? '🤝' : '👤'} ${parseFloat(d.price).toFixed(2)}€</div>
-        </div>
-        ${btn}
-      </div>`;
-    }).join('');
-
-    let confirmAllBtn = '';
-    if (fromStatus === 'sent' && dishes.length > 1) {
-      const ids = dishes.map(d => `'${d.id}'`).join(',');
-      confirmAllBtn = `<button onclick="setAllOrderStatus([${ids}],'making')"
-        style="width:100%;margin-top:.5rem;padding:8px;border-radius:6px;border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
-        → Mesa completa a preparación
-      </button>`;
-    } else if (fromStatus === 'making' && dishes.length > 1) {
-      const ids = dishes.map(d => `'${d.id}'`).join(',');
-      confirmAllBtn = `<button onclick="setAllOrderStatus([${ids}],'ready')"
-        style="width:100%;margin-top:.5rem;padding:8px;border-radius:6px;border:none;background:#3B6D11;color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
-        ✓ Todo listo para servir
-      </button>`;
-    }
-
-    const borderColor = fromStatus === 'sent' ? '#FCCACA' : fromStatus === 'making' ? '#F5DEB3' : '#A8D5A2';
-    const bgColor = fromStatus === 'sent' ? '#FFF5F5' : fromStatus === 'making' ? '#FFFBF2' : '#F5FFF7';
-
-    return `<div style="background:${bgColor};border-radius:8px;padding:.65rem .75rem;margin-bottom:.5rem;border:1.5px solid ${borderColor}">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem">
-        <span style="font-size:13px;font-weight:600;color:var(--t1)">${tableLabel}</span>
-        <div style="display:flex;align-items:center;gap:8px">
-          ${timerHtml}
-          <span style="font-size:11px;color:var(--t3)">${dishes.length} plato${dishes.length !== 1 ? 's' : ''}</span>
-        </div>
-      </div>
-      ${dishRows}
-      ${confirmAllBtn}
-    </div>`;
-  }
-
-  // Render columns
-  const newGroups = groupByMesa(grouped.sent);
-  const makingGroups = groupByMesa(grouped.making);
-  const readyGroups = groupByMesa(grouped.ready).reverse().slice(0, 10);
-
-  document.getElementById('k-col-new').innerHTML = newGroups.length
-    ? newGroups.map(g => renderMesaCard(g, 'sent')).join('')
-    : `<div style="text-align:center;padding:1.5rem .5rem;color:var(--t3);font-size:12px">Sin pedidos nuevos</div>`;
-  document.getElementById('k-count-new').textContent = grouped.sent.length;
-
-  document.getElementById('k-col-making').innerHTML = makingGroups.length
-    ? makingGroups.map(g => renderMesaCard(g, 'making')).join('')
-    : `<div style="text-align:center;padding:1.5rem .5rem;color:var(--t3);font-size:12px">Vacío</div>`;
-  document.getElementById('k-count-making').textContent = grouped.making.length;
-
-  document.getElementById('k-col-ready').innerHTML = readyGroups.length
-    ? readyGroups.map(g => renderMesaCard(g, 'ready')).join('')
-    : `<div style="text-align:center;padding:1.5rem .5rem;color:var(--t3);font-size:12px">Sin listos aún</div>`;
-  document.getElementById('k-count-ready').textContent = grouped.ready.length;
-
-  // Subscribe realtime — reset every time to avoid stale channels
+  // Realtime subscription
   if (state._kitchenSubActive) {
     try { sb.removeChannel(sb.channel('admin-orders-' + state.adminRestaurantId)); } catch(e) {}
     state._kitchenSubActive = false;
@@ -4203,9 +4120,297 @@ async function loadAdminOrders() {
     state._kitchenSubActive = true;
     const sub = sb.channel('admin-orders-' + state.adminRestaurantId)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dishes' }, () => loadAdminOrders())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms' }, () => loadAdminOrders())
       .subscribe();
     state.realtimeSubs.push(sub);
   }
+}
+
+// ── RENDER VISTA PASES ──
+function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
+  const el = document.getElementById('kds-mesas-list');
+  if (!el) return;
+
+  // Group all dishes by room
+  const byRoom = {};
+  dishes.forEach(d => {
+    if (!byRoom[d.room_id]) byRoom[d.room_id] = [];
+    byRoom[d.room_id].push(d);
+  });
+
+  if (!Object.keys(byRoom).length) {
+    el.innerHTML = `<div style="text-align:center;padding:3rem 1rem;color:var(--t3);font-size:14px">🍽 Sin pedidos activos</div>`;
+    return;
+  }
+
+  // Sort rooms by oldest dish (most urgent first)
+  const roomsSorted = Object.entries(byRoom).sort(([, a], [, b]) => {
+    const oldestA = Math.min(...a.map(d => new Date(d.created_at).getTime()));
+    const oldestB = Math.min(...b.map(d => new Date(d.created_at).getTime()));
+    return oldestA - oldestB;
+  });
+
+  const COURSE_LABELS = { 1: '1º Entrantes', 2: '2º Principales', 3: '3º Postres' };
+  const COURSE_COLORS = {
+    1: { bg: '#FFF5F5', border: '#FCCACA', hdr: '#FCEBEB', txt: '#A32D2D' },
+    2: { bg: '#FFFBF2', border: '#F5DEB3', hdr: '#FAEEDA', txt: '#854F0B' },
+    3: { bg: '#F5FFF7', border: '#A8D5A2', hdr: '#EAF3DE', txt: '#3B6D11' }
+  };
+
+  el.innerHTML = roomsSorted.map(([roomId, roomDishes]) => {
+    const roomData = roomTableMap[roomId];
+    const table = roomData?.table_id ? tablesById[roomData.table_id] : null;
+    const tableLabel = table
+      ? `Mesa ${table.number}${table.label ? ' — ' + table.label : ''}`
+      : `Sala ${roomId.slice(0,6)}`;
+
+    // Timer from oldest dish
+    const oldest = Math.min(...roomDishes.map(d => new Date(d.created_at).getTime()));
+    const elapsed = Math.floor((Date.now() - oldest) / 60000);
+    const timerColor = elapsed > 20 ? '#C0392B' : elapsed > 10 ? '#E67E22' : '#666';
+    const timerBg = elapsed > 20 ? '#FCEBEB' : elapsed > 10 ? '#FAEEDA' : 'var(--bg2)';
+
+    // Group dishes by course (1=entrantes, 2=principales, 3=postres, null=sin pase)
+    const byCourse = {};
+    roomDishes.forEach(d => {
+      const c = d.course || 1;
+      if (!byCourse[c]) byCourse[c] = [];
+      byCourse[c].push(d);
+    });
+
+    // Determine active course (lowest course with sent/making dishes)
+    const activeCourses = Object.keys(byCourse).map(Number).sort();
+    const currentCourse = activeCourses.find(c =>
+      byCourse[c].some(d => d.kitchen_status === 'sent' || d.kitchen_status === 'making')
+    ) || activeCourses[0];
+
+    const courseSections = activeCourses.map(course => {
+      const cDishes = byCourse[course];
+      const col = COURSE_COLORS[course] || COURSE_COLORS[1];
+      const label = COURSE_LABELS[course] || `Pase ${course}`;
+      const isActive = course === currentCourse;
+      const isDone = cDishes.every(d => d.kitchen_status === 'ready');
+      const isWaiting = course > currentCourse && !isActive;
+
+      // Status of this course
+      const allSent = cDishes.every(d => d.kitchen_status === 'sent');
+      const allMaking = cDishes.every(d => d.kitchen_status === 'making');
+      const someMaking = cDishes.some(d => d.kitchen_status === 'making');
+      const allReady = isDone;
+
+      // Prep time estimate for this course
+      const maxPrepTime = Math.max(...cDishes.map(d => prepTimeByItem[d.menu_item_id] || 0));
+      const prepHint = maxPrepTime > 0 ? `⏱ ${maxPrepTime} min est.` : '';
+
+      // Dish rows
+      const dishRows = cDishes.map(d => {
+        const prepTime = prepTimeByItem[d.menu_item_id] || 0;
+        const ks = d.kitchen_status;
+        const statusDot = ks === 'ready' ? '🟢' : ks === 'making' ? '🟡' : '🔴';
+        const dishElapsed = Math.floor((Date.now() - new Date(d.created_at).getTime()) / 60000);
+
+        let actionBtn = '';
+        if (!isWaiting) {
+          if (ks === 'sent') {
+            actionBtn = `<button onclick="setOrderStatus('${d.id}','making')"
+              style="padding:3px 10px;border-radius:99px;border:none;background:var(--brand);color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">→ Prep.</button>`;
+          } else if (ks === 'making') {
+            actionBtn = `<button onclick="setOrderStatus('${d.id}','ready')"
+              style="padding:3px 10px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">✓ Listo</button>`;
+          } else {
+            actionBtn = `<span style="font-size:13px">✓</span>`;
+          }
+        }
+
+        return `<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.05)">
+          <span style="font-size:12px">${statusDot}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.name}</div>
+            ${prepTime > 0 ? `<div style="font-size:10px;color:var(--t3)">⏱ ${prepTime} min · ${dishElapsed} min esperando</div>` : ''}
+          </div>
+          ${actionBtn}
+        </div>`;
+      }).join('');
+
+      // Course action buttons
+      const sentIds = cDishes.filter(d => d.kitchen_status === 'sent').map(d => `'${d.id}'`).join(',');
+      const makingIds = cDishes.filter(d => d.kitchen_status === 'making').map(d => `'${d.id}'`).join(',');
+
+      let courseAction = '';
+      if (!isWaiting && !allReady) {
+        if (sentIds.length > 0) {
+          courseAction = `<button onclick="setAllOrderStatus([${sentIds}],'making')"
+            style="width:100%;margin-top:.4rem;padding:7px;border-radius:6px;border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
+            → Todo a preparación
+          </button>`;
+        }
+        if (makingIds.length > 0 && sentIds.length === 0) {
+          courseAction = `<button onclick="fireNextCourse('${roomId}', ${course}, [${makingIds}])"
+            style="width:100%;margin-top:.4rem;padding:7px;border-radius:6px;border:none;background:#3B6D11;color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
+            ✓ Pase listo — notificar camarero
+          </button>`;
+        }
+      }
+
+      const statusLabel = isWaiting ? '⏳ En espera'
+        : allReady ? '✅ Servido'
+        : someMaking ? '🍳 Preparando'
+        : '🔴 Pendiente';
+
+      return `<div style="margin-bottom:.5rem;border-radius:8px;overflow:hidden;border:1.5px solid ${isWaiting ? 'var(--bd)' : col.border};${isWaiting ? 'opacity:.5' : ''}">
+        <div style="background:${isWaiting ? 'var(--bg2)' : col.hdr};padding:.4rem .65rem;display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:11px;font-weight:600;color:${isWaiting ? 'var(--t3)' : col.txt};text-transform:uppercase;letter-spacing:.04em">${label}</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            ${prepHint ? `<span style="font-size:10px;color:${isWaiting ? 'var(--t3)' : col.txt}">${prepHint}</span>` : ''}
+            <span style="font-size:11px;color:${isWaiting ? 'var(--t3)' : col.txt}">${statusLabel}</span>
+          </div>
+        </div>
+        <div style="background:${isWaiting ? 'var(--bg2)' : col.bg};padding:.5rem .65rem">
+          ${dishRows}
+          ${courseAction}
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div style="background:var(--card);border-radius:var(--r);border:1.5px solid var(--bd2);margin-bottom:.75rem;overflow:hidden">
+      <!-- Mesa header -->
+      <div style="padding:.5rem .75rem;background:var(--bg2);border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:14px;font-weight:600">${tableLabel}</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:12px;font-weight:500;color:${timerColor};background:${timerBg};padding:2px 8px;border-radius:99px">${elapsed > 0 ? elapsed + ' min' : 'ahora'}</span>
+          <span style="font-size:11px;color:var(--t3)">${roomDishes.length} platos</span>
+        </div>
+      </div>
+      <!-- Pases -->
+      <div style="padding:.5rem .65rem">
+        ${courseSections}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── FIRE NEXT COURSE — marca pase listo y notifica camarero ──
+async function fireNextCourse(roomId, course, dishIds) {
+  // Mark all dishes in this course as ready
+  await setAllOrderStatus(dishIds, 'ready');
+
+  // Get table info for notification
+  const { data: room } = await sb.from('rooms').select('table_id').eq('id', roomId).maybeSingle();
+  const tableLabel = room?.table_id
+    ? await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle()
+      .then(({ data: t }) => t ? `Mesa ${t.number}${t.label ? ' — ' + t.label : ''}` : 'Una mesa')
+    : 'Una mesa';
+
+  const courseLabels = { 1: 'entrantes', 2: 'principales', 3: 'postres' };
+  const courseLabel = courseLabels[course] || `pase ${course}`;
+
+  // Push notification to waiters
+  fetch(`${SUPA_URL}/functions/v1/send-push`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPA_KEY}` },
+    body: JSON.stringify({
+      roomId,
+      title: `🛎 ${tableLabel} — ${courseLabel} listos`,
+      body: `Los ${courseLabel} de ${tableLabel} están listos para servir.`,
+      tag: 'spliteat-kitchen'
+    })
+  }).catch(() => {});
+
+  // Also show in-app notification for waiter
+  showWaiterReadyToast(`${courseLabel} listos`, tableLabel, roomId);
+}
+
+// ── RENDER VISTA KANBAN (legacy) ──
+function renderKDSKanban(dishes, roomTableMap, tablesById, prepTimeByItem) {
+  const grouped = { sent: [], making: [], ready: [] };
+  dishes.forEach(d => { if (grouped[d.kitchen_status]) grouped[d.kitchen_status].push(d); });
+
+  function groupByMesa(dishList) {
+    const byRoom = {};
+    dishList.forEach(d => {
+      if (!byRoom[d.room_id]) byRoom[d.room_id] = [];
+      byRoom[d.room_id].push(d);
+    });
+    return Object.entries(byRoom).map(([roomId, dishes]) => {
+      const roomData = roomTableMap[roomId];
+      const table = roomData?.table_id ? tablesById[roomData.table_id] : null;
+      return { roomId, dishes, table };
+    });
+  }
+
+  function renderMesaCard(group, fromStatus) {
+    const { roomId, dishes, table } = group;
+    const tableLabel = table
+      ? `Mesa ${table.number}${table.label ? ' — ' + table.label : ''}`
+      : 'Mesa sin asignar';
+
+    const oldest = Math.min(...dishes.map(d => new Date(d.created_at).getTime()));
+    const elapsed = Math.floor((Date.now() - oldest) / 60000);
+    const timerColor = elapsed > 15 ? '#C0392B' : elapsed > 8 ? '#E67E22' : 'var(--t3)';
+
+    const dishRows = dishes.map(d => {
+      const courseBadge = d.course ? `<span style="font-size:10px;background:var(--bg2);border-radius:3px;padding:1px 5px;color:var(--t3);margin-right:4px">${d.course}º</span>` : '';
+      const prepTime = prepTimeByItem[d.menu_item_id] || 0;
+      let btn = '';
+      if (fromStatus === 'sent') {
+        btn = `<button onclick="setOrderStatus('${d.id}','making');event.stopPropagation()" style="padding:4px 12px;border-radius:99px;border:none;background:var(--brand);color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">→ Prep.</button>`;
+      } else if (fromStatus === 'making') {
+        btn = `<button onclick="setOrderStatus('${d.id}','ready');event.stopPropagation()" style="padding:4px 12px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">✓ Listo</button>`;
+      } else {
+        btn = `<span style="font-size:13px;color:#3B6D11">✓</span>`;
+      }
+      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--bd)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${courseBadge}${d.name}</div>
+          ${prepTime > 0 ? `<div style="font-size:10px;color:var(--t3)">⏱ ${prepTime} min</div>` : ''}
+        </div>${btn}
+      </div>`;
+    }).join('');
+
+    let confirmAllBtn = '';
+    if (fromStatus === 'sent' && dishes.length > 1) {
+      const ids = dishes.map(d => `'${d.id}'`).join(',');
+      confirmAllBtn = `<button onclick="setAllOrderStatus([${ids}],'making')" style="width:100%;margin-top:.5rem;padding:8px;border-radius:6px;border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">→ Mesa completa a preparación</button>`;
+    } else if (fromStatus === 'making' && dishes.length > 1) {
+      const ids = dishes.map(d => `'${d.id}'`).join(',');
+      confirmAllBtn = `<button onclick="setAllOrderStatus([${ids}],'ready')" style="width:100%;margin-top:.5rem;padding:8px;border-radius:6px;border:none;background:#3B6D11;color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">✓ Todo listo para servir</button>`;
+    }
+
+    const borderColor = fromStatus === 'sent' ? '#FCCACA' : fromStatus === 'making' ? '#F5DEB3' : '#A8D5A2';
+    const bgColor = fromStatus === 'sent' ? '#FFF5F5' : fromStatus === 'making' ? '#FFFBF2' : '#F5FFF7';
+
+    return `<div style="background:${bgColor};border-radius:8px;padding:.65rem .75rem;margin-bottom:.5rem;border:1.5px solid ${borderColor}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem">
+        <span style="font-size:13px;font-weight:600">${tableLabel}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:${timerColor};font-weight:${elapsed > 8 ? '600' : '400'}">${elapsed > 0 ? elapsed + ' min' : 'ahora'}</span>
+          <span style="font-size:11px;color:var(--t3)">${dishes.length} platos</span>
+        </div>
+      </div>
+      ${dishRows}${confirmAllBtn}
+    </div>`;
+  }
+
+  const newGroups = groupByMesa(grouped.sent).sort((a,b) => {
+    const tA = Math.min(...a.dishes.map(d => new Date(d.created_at).getTime()));
+    const tB = Math.min(...b.dishes.map(d => new Date(d.created_at).getTime()));
+    return tA - tB;
+  });
+  const makingGroups = groupByMesa(grouped.making);
+  const readyGroups = groupByMesa(grouped.ready).slice(0, 10);
+
+  document.getElementById('k-col-new').innerHTML = newGroups.length
+    ? newGroups.map(g => renderMesaCard(g, 'sent')).join('')
+    : `<div style="text-align:center;padding:1.5rem .5rem;color:var(--t3);font-size:12px">Sin pedidos nuevos</div>`;
+  document.getElementById('k-count-new').textContent = grouped.sent.length;
+  document.getElementById('k-col-making').innerHTML = makingGroups.length
+    ? makingGroups.map(g => renderMesaCard(g, 'making')).join('')
+    : `<div style="text-align:center;padding:1.5rem .5rem;color:var(--t3);font-size:12px">Vacío</div>`;
+  document.getElementById('k-count-making').textContent = grouped.making.length;
+  document.getElementById('k-col-ready').innerHTML = readyGroups.length
+    ? readyGroups.map(g => renderMesaCard(g, 'ready')).join('')
+    : `<div style="text-align:center;padding:1.5rem .5rem;color:var(--t3);font-size:12px">Sin listos aún</div>`;
+  document.getElementById('k-count-ready').textContent = grouped.ready.length;
 }
 
 // Confirmar/marcar como listo todos los platos de una mesa de golpe
