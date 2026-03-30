@@ -8,5 +8,8 @@
         { "key": "Cache-Control", "value": "no-cache" }
       ]
     }
+  ],
+  "rewrites": [
+    { "source": "/reservar", "destination": "/reservar.html" }
   ]
 }

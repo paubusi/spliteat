@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="page-title">Reservar mesa — spliteat</title>
+<meta name="description" id="page-desc" content="Reserva tu mesa en segundos, sin registro">
+<meta property="og:title" id="og-title" content="Reservar mesa">
+<meta property="og:description" content="Reserva online — sin registro, confirmación inmediata">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --brand: #1D9E75; --brand-d: #085041; --brand-l: #E1F5EE;
+    --ink: #0F1C17; --muted: #5C726A; --border: #D0E5DC;
+    --bg: #F7FBF9; --card: #fff; --r: 16px; --r-sm: 10px;
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; }
+
+  /* ── HERO ── */
+  .hero {
+    background: var(--brand-d);
+    padding: 2.5rem 1.5rem 3.5rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 30% 0%, rgba(29,158,117,.4) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 100%, rgba(29,158,117,.25) 0%, transparent 50%);
+  }
+  .hero > * { position: relative; }
+  .hero-logo { font-family: 'Fraunces', serif; font-size: 22px; color: rgba(255,255,255,.7); margin-bottom: 1.5rem; letter-spacing: -.01em; }
+  .hero-logo em { color: #fff; font-style: normal; }
+  .rest-name { font-family: 'Fraunces', serif; font-size: 32px; font-weight: 700; color: #fff; line-height: 1.1; margin-bottom: .4rem; }
+  .hero-sub { font-size: 15px; color: rgba(255,255,255,.7); line-height: 1.5; }
+  .rest-info { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1rem; flex-wrap: wrap; }
+  .rest-pill { display: flex; align-items: center; gap: 5px; font-size: 12px; color: rgba(255,255,255,.65); }
+
+  /* ── FORM CARD ── */
+  .form-wrap { max-width: 480px; margin: -1.5rem auto 0; padding: 0 1rem 3rem; position: relative; z-index: 2; }
+  .card { background: var(--card); border-radius: var(--r); padding: 1.5rem; box-shadow: 0 4px 24px rgba(0,0,0,.08); }
+
+  /* ── STEPS ── */
+  .steps { display: flex; gap: 0; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border); }
+  .step-btn { flex: 1; padding: .6rem .5rem; font-size: 12px; font-weight: 500; color: var(--muted); background: none; border: none; cursor: pointer; font-family: inherit; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .15s; }
+  .step-btn.active { color: var(--brand-d); border-bottom-color: var(--brand); }
+  .step-btn.done { color: var(--brand); }
+
+  /* ── FIELDS ── */
+  .field { margin-bottom: 1rem; }
+  .field label { display: block; font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: .35rem; text-transform: uppercase; letter-spacing: .04em; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: var(--r-sm);
+    font-size: 15px; font-family: inherit; background: var(--bg); color: var(--ink);
+    transition: border-color .15s; outline: none;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--brand); background: #fff; }
+  .field textarea { resize: none; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+
+  /* ── PAX SELECTOR ── */
+  .pax-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: .4rem; }
+  .pax-btn {
+    aspect-ratio: 1; border-radius: 10px; border: 1.5px solid var(--border); background: var(--bg);
+    font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit; color: var(--ink);
+    transition: all .15s; display: flex; align-items: center; justify-content: center;
+  }
+  .pax-btn.sel { background: var(--brand-d); border-color: var(--brand-d); color: #fff; }
+  .pax-btn.more { font-size: 11px; }
+
+  /* ── TIME SLOTS ── */
+  .slots-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: .4rem; }
+  .slot-btn {
+    padding: 10px 6px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--bg);
+    font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit; color: var(--ink);
+    transition: all .15s; text-align: center;
+  }
+  .slot-btn.sel { background: var(--brand-d); border-color: var(--brand-d); color: #fff; }
+  .slot-btn.unavail { opacity: .35; cursor: not-allowed; text-decoration: line-through; }
+
+  /* ── DATE STRIP ── */
+  .date-strip { display: flex; gap: .4rem; overflow-x: auto; padding-bottom: .25rem; scrollbar-width: none; margin-bottom: 1.25rem; }
+  .date-strip::-webkit-scrollbar { display: none; }
+  .date-card {
+    flex-shrink: 0; width: 56px; text-align: center; padding: .5rem .25rem; border-radius: 10px;
+    border: 1.5px solid var(--border); cursor: pointer; transition: all .15s; background: var(--bg);
+  }
+  .date-card .day-name { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  .date-card .day-num { font-size: 20px; font-weight: 700; font-family: 'Fraunces', serif; color: var(--ink); line-height: 1.1; }
+  .date-card .month { font-size: 10px; color: var(--muted); }
+  .date-card.sel { background: var(--brand-d); border-color: var(--brand-d); }
+  .date-card.sel .day-name, .date-card.sel .day-num, .date-card.sel .month { color: #fff; }
+  .date-card.today .day-num { color: var(--brand); }
+  .date-card.sel.today .day-num { color: #fff; }
+
+  /* ── SUMMARY BOX ── */
+  .summary { background: var(--brand-l); border: 1.5px solid var(--brand); border-radius: var(--r-sm); padding: 1rem 1.1rem; margin-bottom: 1.25rem; }
+  .sum-row { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-bottom: .35rem; }
+  .sum-row:last-child { margin-bottom: 0; }
+  .sum-icon { font-size: 16px; width: 22px; flex-shrink: 0; }
+  .sum-val { font-weight: 500; color: var(--brand-d); }
+
+  /* ── BUTTONS ── */
+  .btn-primary {
+    width: 100%; padding: 15px; border-radius: var(--r-sm); border: none;
+    background: var(--brand); color: #fff; font-size: 16px; font-weight: 500;
+    cursor: pointer; font-family: inherit; transition: all .15s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-primary:hover { background: var(--brand-d); }
+  .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-secondary {
+    width: 100%; padding: 12px; border-radius: var(--r-sm); border: 1.5px solid var(--border);
+    background: none; color: var(--muted); font-size: 14px; cursor: pointer; font-family: inherit; margin-top: .5rem;
+  }
+
+  /* ── NOTICE / ERROR ── */
+  .notice { padding: .75rem 1rem; border-radius: var(--r-sm); font-size: 13px; line-height: 1.5; margin-bottom: 1rem; }
+  .notice-err { background: #FCEBEB; color: #A32D2D; }
+  .notice-ok { background: var(--brand-l); color: var(--brand-d); }
+
+  /* ── SUCCESS SCREEN ── */
+  #s-success { display: none; text-align: center; padding: 2rem 1rem; }
+  .success-icon { font-size: 64px; margin-bottom: 1rem; animation: pop .4s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes pop { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .success-title { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 700; color: var(--brand-d); margin-bottom: .5rem; }
+  .success-sub { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 1.5rem; }
+
+  /* ── INTEGRATIONS FOOTER ── */
+  .integrations { max-width: 480px; margin: 0 auto; padding: 0 1rem 2rem; }
+  .int-title { font-size: 12px; color: var(--muted); text-align: center; margin-bottom: .75rem; text-transform: uppercase; letter-spacing: .05em; }
+  .int-grid { display: flex; gap: .5rem; justify-content: center; flex-wrap: wrap; }
+  .int-pill {
+    padding: 6px 14px; border-radius: 99px; border: 1px solid var(--border); background: var(--card);
+    font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 5px;
+  }
+  .int-pill .coming { font-size: 10px; background: #FAEEDA; color: #854F0B; padding: 1px 5px; border-radius: 99px; }
+
+  /* ── DEPOSIT BANNER (próximamente) ── */
+  .deposit-banner {
+    background: linear-gradient(135deg, #0F1C17 0%, #1D4A35 100%);
+    border-radius: var(--r-sm); padding: .85rem 1rem; margin-top: 1rem;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .deposit-banner .dep-icon { font-size: 22px; flex-shrink: 0; }
+  .deposit-banner .dep-text { font-size: 12px; color: rgba(255,255,255,.75); line-height: 1.4; }
+  .deposit-banner .dep-badge { font-size: 10px; background: rgba(255,255,255,.15); color: #fff; padding: 2px 7px; border-radius: 99px; white-space: nowrap; margin-left: auto; flex-shrink: 0; }
+
+  /* ── POWERED BY ── */
+  .powered { text-align: center; padding: 1.5rem; font-size: 12px; color: var(--muted); }
+  .powered a { color: var(--brand); text-decoration: none; font-weight: 500; }
+
+  /* ── LOADING ── */
+  .skeleton { background: linear-gradient(90deg, #e8f0ec 25%, #d4e5dc 50%, #e8f0ec 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 8px; }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+</style>
+</head>
+<body>
+
+<!-- LOADING STATE -->
+<div id="s-loading">
+  <div class="hero" style="min-height:200px">
+    <div class="hero-logo">split<em>eat</em></div>
+    <div class="skeleton" style="height:32px;width:60%;margin:0 auto .5rem"></div>
+    <div class="skeleton" style="height:16px;width:40%;margin:0 auto"></div>
+  </div>
+  <div class="form-wrap">
+    <div class="card">
+      <div class="skeleton" style="height:200px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ERROR STATE -->
+<div id="s-error" style="display:none;text-align:center;padding:4rem 2rem">
+  <div style="font-size:48px;margin-bottom:1rem">🍽</div>
+  <div style="font-family:'Fraunces',serif;font-size:22px;color:var(--ink);margin-bottom:.5rem">Restaurante no encontrado</div>
+  <div style="font-size:14px;color:var(--muted)">Comprueba el enlace o contacta con el restaurante.</div>
+</div>
+
+<!-- MAIN APP -->
+<div id="s-app" style="display:none">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-logo">split<em>eat</em></div>
+    <div class="rest-name" id="hero-name">Restaurante</div>
+    <div class="hero-sub" id="hero-sub">Reserva tu mesa — confirmación inmediata</div>
+    <div class="rest-info">
+      <div class="rest-pill" id="hero-addr" style="display:none">📍 <span id="hero-addr-txt"></span></div>
+      <div class="rest-pill" id="hero-phone" style="display:none">📞 <span id="hero-phone-txt"></span></div>
+      <div class="rest-pill" id="hero-hours" style="display:none">🕐 <span id="hero-hours-txt"></span></div>
+    </div>
+  </div>
+
+  <!-- Form card -->
+  <div class="form-wrap">
+
+    <!-- SUCCESS -->
+    <div id="s-success" class="card">
+      <div class="success-icon">✅</div>
+      <div class="success-title">¡Reserva confirmada!</div>
+      <div class="success-sub" id="success-sub">Tu mesa está reservada. Te esperamos.</div>
+      <div class="summary" id="success-summary"></div>
+      <!-- Añadir a calendario -->
+      <a id="cal-link" href="#" target="_blank"
+        style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;border-radius:var(--r-sm);border:1.5px solid var(--border);font-size:14px;color:var(--muted);text-decoration:none;margin-bottom:.5rem">
+        📅 Añadir a Google Calendar
+      </a>
+      <!-- Compartir por WhatsApp -->
+      <a id="wa-link" href="#" target="_blank"
+        style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;border-radius:var(--r-sm);background:#25D366;border:none;font-size:14px;color:#fff;text-decoration:none;font-weight:500">
+        💬 Compartir por WhatsApp
+      </a>
+      <button onclick="location.reload()" class="btn-secondary" style="margin-top:.5rem">Hacer otra reserva</button>
+    </div>
+
+    <!-- BOOKING FORM -->
+    <div id="s-form" class="card">
+
+      <!-- Step indicator -->
+      <div class="steps">
+        <button class="step-btn active" id="step-btn-1" onclick="goStep(1)">1. Cuándo</button>
+        <button class="step-btn" id="step-btn-2" onclick="goStep(2)">2. Datos</button>
+        <button class="step-btn" id="step-btn-3" onclick="goStep(3)">3. Confirmar</button>
+      </div>
+
+      <!-- STEP 1: fecha + pax + hora -->
+      <div id="step-1">
+        <!-- Comensales -->
+        <div class="field">
+          <label>¿Cuántos sois?</label>
+          <div class="pax-grid" id="pax-grid"></div>
+          <div id="pax-custom-row" style="display:none;margin-top:.5rem">
+            <input type="number" id="pax-custom-input" min="11" max="50" placeholder="Número de personas"
+              style="width:100%;padding:10px 12px;border:1.5px solid var(--brand);border-radius:var(--r-sm);font-size:15px;font-family:inherit"
+              oninput="selectPax(parseInt(this.value)||0,true)">
+          </div>
+        </div>
+
+        <!-- Fecha -->
+        <div class="field">
+          <label>¿Qué día?</label>
+          <div class="date-strip" id="date-strip"></div>
+        </div>
+
+        <!-- Hora -->
+        <div class="field">
+          <label>¿A qué hora?</label>
+          <div id="slots-loading" style="font-size:13px;color:var(--muted);text-align:center;padding:.5rem">Cargando disponibilidad...</div>
+          <div class="slots-grid" id="slots-grid" style="display:none"></div>
+          <div id="slots-empty" style="display:none;font-size:13px;color:var(--muted);text-align:center;padding:.5rem">
+            No hay disponibilidad para este día. Prueba otra fecha.
+          </div>
+        </div>
+
+        <div id="step1-err" class="notice notice-err" style="display:none"></div>
+        <button class="btn-primary" onclick="nextStep1()">Continuar →</button>
+      </div>
+
+      <!-- STEP 2: datos personales -->
+      <div id="step-2" style="display:none">
+        <div class="field">
+          <label>Tu nombre *</label>
+          <input id="f-name" type="text" placeholder="María García" autocomplete="name">
+        </div>
+        <div class="field">
+          <label>Teléfono *</label>
+          <input id="f-phone" type="tel" placeholder="+34 666 123 456" autocomplete="tel">
+        </div>
+        <div class="field">
+          <label>Email <span style="font-weight:400;color:var(--muted);text-transform:none">(para confirmación)</span></label>
+          <input id="f-email" type="email" placeholder="tu@email.com" autocomplete="email">
+        </div>
+        <div class="field">
+          <label>Nota especial <span style="font-weight:400;color:var(--muted);text-transform:none">(alergias, cumpleaños…)</span></label>
+          <textarea id="f-notes" rows="2" placeholder="ej. Somos celíacos, cumpleaños de Ana, silla de bebé…"></textarea>
+        </div>
+
+        <!-- Depósito — próximamente -->
+        <div class="deposit-banner">
+          <div class="dep-icon">💳</div>
+          <div class="dep-text">Pago de señal para garantizar la reserva</div>
+          <div class="dep-badge">Próximamente</div>
+        </div>
+
+        <div id="step2-err" class="notice notice-err" style="display:none;margin-top:1rem"></div>
+        <div style="display:flex;gap:.5rem;margin-top:1rem">
+          <button class="btn-secondary" onclick="goStep(1)" style="flex:1;margin-top:0">← Atrás</button>
+          <button class="btn-primary" onclick="nextStep2()" style="flex:2">Revisar reserva →</button>
+        </div>
+      </div>
+
+      <!-- STEP 3: resumen + confirmar -->
+      <div id="step-3" style="display:none">
+        <div style="font-size:14px;font-weight:500;margin-bottom:.85rem;color:var(--muted)">Revisa tu reserva</div>
+        <div class="summary" id="confirm-summary"></div>
+
+        <div style="font-size:12px;color:var(--muted);margin-bottom:1rem;line-height:1.6;text-align:center">
+          Al confirmar aceptas la política de reservas del restaurante.<br>
+          Recibirás confirmación en el teléfono indicado.
+        </div>
+
+        <div id="step3-err" class="notice notice-err" style="display:none"></div>
+        <button class="btn-primary" id="btn-confirm" onclick="confirmReserva()">
+          ✓ Confirmar reserva
+        </button>
+        <div style="display:flex;gap:.5rem;margin-top:.5rem">
+          <button class="btn-secondary" onclick="goStep(2)" style="flex:1;margin-top:0">← Editar datos</button>
+        </div>
+      </div>
+
+    </div><!-- /.card -->
+  </div><!-- /.form-wrap -->
+
+  <!-- Integraciones footer -->
+  <div class="integrations">
+    <div class="int-title">También disponible en</div>
+    <div class="int-grid">
+      <div class="int-pill">
+        <span>TheFork</span>
+        <span class="coming">Próximamente</span>
+      </div>
+      <div class="int-pill">
+        <span>Cover Manager</span>
+        <span class="coming">Próximamente</span>
+      </div>
+      <div class="int-pill">
+        <span>Google Reserve</span>
+        <span class="coming">Próximamente</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="powered">Reservas gestionadas por <a href="https://spliteat.es">spliteat</a></div>
+
+</div><!-- /#s-app -->
+
+<script>
+// ── CONFIG ──
+const SUPA_URL = 'https://zvkdzbxczeysezvfqfzp.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp2a2R6YnhjemV5c2V6dmZxZnpwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxOTk5MjQsImV4cCI6MjA4OTc3NTkyNH0.fRH0xxxUZQFDSPEJeyhwekNVpQu_q93GJdZSaZR4HhY';
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+// ── STATE ──
+let rest = null;          // restaurant data
+let selectedPax = 2;
+let selectedDate = null;  // 'YYYY-MM-DD'
+let selectedTime = null;  // 'HH:MM'
+
+// ── INIT ──
+window.addEventListener('load', async () => {
+  const params = new URLSearchParams(location.search);
+  const restParam = params.get('r') || params.get('restaurante');
+
+  if (!restParam) { showError(); return; }
+
+  // Try to load by slug first, then by ID
+  let query = sb.from('restaurants').select('*');
+  if (restParam.includes('-') && restParam.length > 20) {
+    query = query.eq('id', restParam);
+  } else {
+    // Try slug match on name
+    query = query.ilike('name', restParam.replace(/-/g, ' '));
+  }
+  const { data } = await query.maybeSingle();
+
+  if (!data) {
+    // Try direct ID
+    const { data: d2 } = await sb.from('restaurants').select('*').eq('id', restParam).maybeSingle();
+    if (!d2) { showError(); return; }
+    rest = d2;
+  } else {
+    rest = data;
+  }
+
+  initApp();
+});
+
+function showError() {
+  document.getElementById('s-loading').style.display = 'none';
+  document.getElementById('s-error').style.display = 'block';
+}
+
+function initApp() {
+  document.getElementById('s-loading').style.display = 'none';
+  document.getElementById('s-app').style.display = 'block';
+
+  // Update page metadata
+  document.title = `Reservar en ${rest.name} — spliteat`;
+  document.getElementById('page-title').textContent = `Reservar en ${rest.name}`;
+  document.getElementById('page-desc').setAttribute('content', `Reserva tu mesa en ${rest.name}`);
+  document.getElementById('og-title').setAttribute('content', `Reservar en ${rest.name}`);
+  document.getElementById('hero-name').textContent = rest.name;
+
+  if (rest.address) {
+    document.getElementById('hero-addr').style.display = 'flex';
+    document.getElementById('hero-addr-txt').textContent = rest.address;
+  }
+  if (rest.phone) {
+    document.getElementById('hero-phone').style.display = 'flex';
+    document.getElementById('hero-phone-txt').textContent = rest.phone;
+  }
+
+  buildPaxGrid();
+  buildDateStrip();
+  // Auto-select today
+  const today = new Date().toISOString().split('T')[0];
+  selectDate(today);
+}
+
+// ── PAX GRID ──
+function buildPaxGrid() {
+  const grid = document.getElementById('pax-grid');
+  const vals = [1,2,3,4,5,6,7,8,9,10];
+  grid.innerHTML = vals.map(n =>
+    `<button class="pax-btn${n===2?' sel':''}" onclick="selectPax(${n})">${n}</button>`
+  ).join('') + `<button class="pax-btn more" onclick="showCustomPax()">+10</button>`;
+}
+
+function selectPax(n, fromInput = false) {
+  selectedPax = n;
+  if (!fromInput) {
+    document.getElementById('pax-custom-row').style.display = 'none';
+    document.querySelectorAll('.pax-btn').forEach((btn, i) => {
+      btn.classList.toggle('sel', parseInt(btn.textContent) === n);
+    });
+  }
+}
+
+function showCustomPax() {
+  document.getElementById('pax-custom-row').style.display = 'block';
+  document.querySelectorAll('.pax-btn').forEach(btn => btn.classList.remove('sel'));
+  document.getElementById('pax-custom-input').focus();
+}
+
+// ── DATE STRIP ──
+function buildDateStrip() {
+  const strip = document.getElementById('date-strip');
+  const today = new Date();
+  const days = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+
+  let html = '';
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    const dateStr = d.toISOString().split('T')[0];
+    const isToday = i === 0;
+    html += `<div class="date-card${isToday?' today':''}" id="dc-${dateStr}" onclick="selectDate('${dateStr}')">
+      <div class="day-name">${days[d.getDay()]}</div>
+      <div class="day-num">${d.getDate()}</div>
+      <div class="month">${months[d.getMonth()]}</div>
+    </div>`;
+  }
+  strip.innerHTML = html;
+}
+
+function selectDate(dateStr) {
+  selectedDate = dateStr;
+  selectedTime = null;
+
+  document.querySelectorAll('.date-card').forEach(el => el.classList.remove('sel'));
+  const card = document.getElementById('dc-' + dateStr);
+  if (card) {
+    card.classList.add('sel');
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }
+
+  loadTimeSlots(dateStr);
+}
+
+// ── TIME SLOTS ──
+async function loadTimeSlots(dateStr) {
+  document.getElementById('slots-loading').style.display = 'block';
+  document.getElementById('slots-grid').style.display = 'none';
+  document.getElementById('slots-empty').style.display = 'none';
+
+  // Load existing reservations for this date to show unavailable slots
+  const { data: existing } = await sb.from('reservations')
+    .select('time, party_size, status')
+    .eq('restaurant_id', rest.id)
+    .eq('date', dateStr)
+    .in('status', ['confirmed', 'pending', 'seated']);
+
+  // Build time slots (12:00 - 23:30, every 30 min)
+  const slots = [];
+  for (let h = 12; h <= 23; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      slots.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+    }
+  }
+
+  // Filter out past slots for today
+  const now = new Date();
+  const isToday = dateStr === now.toISOString().split('T')[0];
+
+  // Count bookings per slot (simple capacity: assume 50 max covers)
+  const bookedBySlot = {};
+  (existing || []).forEach(r => {
+    const t = r.time?.slice(0,5);
+    if (t) bookedBySlot[t] = (bookedBySlot[t] || 0) + (r.party_size || 0);
+  });
+
+  const maxCapacity = rest.capacity || 50;
+  const availableSlots = slots.filter(t => {
+    if (isToday) {
+      const [hh, mm] = t.split(':').map(Number);
+      const slotDate = new Date(); slotDate.setHours(hh, mm, 0);
+      if (slotDate <= now) return false;
+    }
+    return (bookedBySlot[t] || 0) + selectedPax <= maxCapacity;
+  });
+
+  document.getElementById('slots-loading').style.display = 'none';
+
+  if (!availableSlots.length) {
+    document.getElementById('slots-empty').style.display = 'block';
+    return;
+  }
+
+  const grid = document.getElementById('slots-grid');
+  grid.innerHTML = slots.map(t => {
+    const isPast = isToday && (() => {
+      const [hh, mm] = t.split(':').map(Number);
+      const sd = new Date(); sd.setHours(hh, mm, 0);
+      return sd <= now;
+    })();
+    const isFull = (bookedBySlot[t] || 0) + selectedPax > maxCapacity;
+    const unavail = isPast || isFull;
+    return `<button class="slot-btn${unavail?' unavail':''}" id="sl-${t}"
+      onclick="${unavail ? '' : `selectTime('${t}')`}"
+      ${unavail ? 'disabled' : ''}>
+      ${t}${isFull ? '<br><span style="font-size:9px">Completo</span>' : ''}
+    </button>`;
+  }).join('');
+  grid.style.display = 'grid';
+}
+
+function selectTime(time) {
+  selectedTime = time;
+  document.querySelectorAll('.slot-btn').forEach(btn => btn.classList.remove('sel'));
+  document.getElementById('sl-' + time)?.classList.add('sel');
+}
+
+// ── STEP NAVIGATION ──
+function goStep(n) {
+  [1,2,3].forEach(i => {
+    document.getElementById('step-' + i).style.display = i === n ? 'block' : 'none';
+    const btn = document.getElementById('step-btn-' + i);
+    btn.classList.toggle('active', i === n);
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function nextStep1() {
+  const err = document.getElementById('step1-err');
+  err.style.display = 'none';
+  if (!selectedPax) { err.textContent = 'Indica cuántas personas sois.'; err.style.display = 'block'; return; }
+  if (!selectedDate) { err.textContent = 'Selecciona un día.'; err.style.display = 'block'; return; }
+  if (!selectedTime) { err.textContent = 'Selecciona una hora.'; err.style.display = 'block'; return; }
+  document.getElementById('step-btn-1').classList.add('done');
+  goStep(2);
+}
+
+function nextStep2() {
+  const err = document.getElementById('step2-err');
+  err.style.display = 'none';
+  const name = document.getElementById('f-name').value.trim();
+  const phone = document.getElementById('f-phone').value.trim();
+  if (!name) { err.textContent = 'Introduce tu nombre.'; err.style.display = 'block'; return; }
+  if (!phone) { err.textContent = 'Introduce tu teléfono.'; err.style.display = 'block'; return; }
+  document.getElementById('step-btn-2').classList.add('done');
+
+  // Build summary
+  const d = new Date(selectedDate + 'T12:00');
+  const dateLabel = d.toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'long' });
+  document.getElementById('confirm-summary').innerHTML = buildSummaryHTML(dateLabel, name, phone);
+  goStep(3);
+}
+
+function buildSummaryHTML(dateLabel, name, phone) {
+  return `<div class="sum-row"><span class="sum-icon">🍽</span><span class="sum-val">${rest.name}</span></div>
+  <div class="sum-row"><span class="sum-icon">👥</span><span class="sum-val">${selectedPax} persona${selectedPax!==1?'s':''}</span></div>
+  <div class="sum-row"><span class="sum-icon">📅</span><span class="sum-val">${dateLabel}</span></div>
+  <div class="sum-row"><span class="sum-icon">🕐</span><span class="sum-val">${selectedTime}</span></div>
+  <div class="sum-row"><span class="sum-icon">👤</span><span class="sum-val">${name} · ${phone}</span></div>
+  ${document.getElementById('f-notes').value.trim() ? `<div class="sum-row"><span class="sum-icon">💬</span><span class="sum-val">${document.getElementById('f-notes').value.trim()}</span></div>` : ''}`;
+}
+
+async function confirmReserva() {
+  const btn = document.getElementById('btn-confirm');
+  const err = document.getElementById('step3-err');
+  err.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Confirmando...';
+
+  const name = document.getElementById('f-name').value.trim();
+  const phone = document.getElementById('f-phone').value.trim();
+  const email = document.getElementById('f-email').value.trim();
+  const notes = document.getElementById('f-notes').value.trim();
+
+  const { data, error } = await sb.from('reservations').insert({
+    restaurant_id: rest.id,
+    name, phone,
+    email: email || null,
+    date: selectedDate,
+    time: selectedTime,
+    party_size: selectedPax,
+    notes: notes || null,
+    status: 'confirmed',
+    source: 'online'
+  }).select().single();
+
+  if (error) {
+    err.textContent = 'Error al confirmar. Inténtalo de nuevo.';
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = '✓ Confirmar reserva';
+    return;
+  }
+
+  // Show success
+  const d = new Date(selectedDate + 'T12:00');
+  const dateLabel = d.toLocaleDateString('es-ES', { weekday:'long', day:'numeric', month:'long' });
+  document.getElementById('success-sub').textContent =
+    `Tu reserva en ${rest.name} para el ${dateLabel} a las ${selectedTime} está confirmada. ¡Te esperamos!`;
+  document.getElementById('success-summary').innerHTML = buildSummaryHTML(dateLabel, name, phone);
+
+  // Google Calendar link
+  const calDate = selectedDate.replace(/-/g,'');
+  const [hh,mm] = selectedTime.split(':');
+  const endHH = String(parseInt(hh)+2).padStart(2,'0');
+  const calUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=Reserva+en+${encodeURIComponent(rest.name)}&dates=${calDate}T${hh}${mm}00/${calDate}T${endHH}${mm}00&details=Reserva+para+${selectedPax}+personas`;
+  document.getElementById('cal-link').href = calUrl;
+
+  // WhatsApp share
+  const waText = `✅ Reserva confirmada en ${rest.name}\n📅 ${dateLabel} a las ${selectedTime}\n👥 ${selectedPax} personas\n\nReserva hecha con spliteat`;
+  document.getElementById('wa-link').href = `https://wa.me/?text=${encodeURIComponent(waText)}`;
+
+  document.getElementById('s-form').style.display = 'none';
+  document.getElementById('s-success').style.display = 'block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>

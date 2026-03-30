@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>spliteat — divide sin dramas</title>
+<title>spliteat · manageat · cookeat · serveat</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -71,8 +71,8 @@
 
   /* ── HEADER ── */
   .hdr { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid var(--bd); background: var(--card); position: sticky; top: 0; z-index: 10; }
-  .logo { font-family: 'Fraunces', serif; font-size: 22px; color: var(--brand-d); letter-spacing: -0.5px; }
-  .logo em { color: var(--accent); font-style: normal; }
+  .logo { font-family: 'Fraunces', serif; font-size: 22px; color: var(--brand-d); letter-spacing: -0.5px; white-space: nowrap; word-spacing: 0; }
+  .logo em { color: var(--accent) !important; font-style: normal !important; display: inline; font-size: inherit; letter-spacing: -0.5px; }
   .back-btn { background: none; border: none; font-size: 13px; color: var(--t2); cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 4px; padding: 4px 0; }
   .live-badge { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--brand); font-weight: 500; }
   .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand); animation: pulse 1.8s infinite; }
@@ -258,7 +258,9 @@
       <p class="subtitle">Divide la cuenta sin dramas.<br>Escanea el QR de tu mesa para empezar.</p>
     </div>
     <div class="body">
-      <button class="btn btn-ghost" onclick="go('s-admin-login')" style="text-align:center;width:100%">Panel del restaurante →</button>
+      <button class="btn btn-ghost" onclick="go('s-admin-login')" style="text-align:center;width:100%">
+        <span style="font-family:'Fraunces',serif;font-size:14px;color:var(--brand-d)">manag<em style="color:var(--accent);font-style:normal">eat</em></span> · <span style="font-family:'Fraunces',serif;font-size:14px;color:var(--brand-d)">cook<em style="color:var(--accent);font-style:normal">eat</em></span> · <span style="font-family:'Fraunces',serif;font-size:14px;color:var(--brand-d)">serv<em style="color:var(--accent);font-style:normal">eat</em></span> →
+      </button>
     </div>
   </div>
 
@@ -603,7 +605,7 @@
   ════════════════════════════════════════ -->
   <div class="screen" id="s-kitchen">
     <div class="hdr">
-      <div class="logo">split<em>eat</em> <span style="font-family:'DM Sans';font-size:13px;color:var(--t2);font-weight:400">cocina</span></div>
+      <div class="logo">cook<em style="color:var(--accent);font-style:normal">eat</em></div>
       <div class="live-badge"><div class="live-dot"></div><span id="k-rest-name">—</span></div>
     </div>
     <div class="tab-bar">
@@ -623,16 +625,22 @@
   <div class="screen" id="s-admin-login">
     <div class="hdr">
       <button class="back-btn" onclick="go('s0')">← Inicio</button>
-      <div class="logo">split<em>eat</em></div>
+      <div class="logo">manag<em style="color:var(--accent);font-style:normal">eat</em></div>
       <div style="width:60px"></div>
     </div>
     <div class="body">
-      <h2 class="title" style="font-size:22px">Panel del restaurante</h2>
-      <p class="subtitle">¿Cómo quieres acceder?</p>
+      <h2 class="title" style="font-size:22px">Acceso al restaurante</h2>
+      <p class="subtitle">¿Qué aplicativo necesitas?</p>
       <div class="spacer"></div>
-      <button class="btn btn-primary" onclick="go('s-waiter-select')" style="margin-bottom:.65rem">🧑‍🍳 Soy camarero</button>
-      <button class="btn btn-secondary" onclick="go('s-kitchen-login')" style="margin-bottom:.65rem">👨‍🍳 Soy cocina</button>
-      <button class="btn btn-secondary" onclick="go('s-admin-login-form')">⚙️ Administración</button>
+      <button class="btn btn-primary" onclick="go('s-waiter-select')" style="margin-bottom:.65rem">
+        <span style="font-family:'Fraunces',serif;font-size:20px;letter-spacing:-.5px;color:#fff">serv<em style="color:#FF8C5A;font-style:normal">eat</em></span>&ensp;<span style="font-size:13px;font-weight:400;opacity:.85">— Camareros</span>
+      </button>
+      <button class="btn btn-secondary" onclick="go('s-kitchen-login')" style="margin-bottom:.65rem">
+        <span style="font-family:'Fraunces',serif;font-size:20px;letter-spacing:-.5px;color:var(--brand-d)">cook<em style="color:var(--accent);font-style:normal">eat</em></span>&ensp;<span style="font-size:13px;color:var(--t2)">— Cocina</span>
+      </button>
+      <button class="btn btn-secondary" onclick="go('s-admin-login-form')">
+        <span style="font-family:'Fraunces',serif;font-size:20px;letter-spacing:-.5px;color:var(--brand-d)">manag<em style="color:var(--accent);font-style:normal">eat</em></span>&ensp;<span style="font-size:13px;color:var(--t2)">— Administración</span>
+      </button>
     </div>
   </div>
 
@@ -640,12 +648,12 @@
   <div class="screen" id="s-kitchen-login">
     <div class="hdr">
       <button class="back-btn" onclick="go('s-admin-login')">← Atrás</button>
-      <div class="logo">split<em>eat</em></div>
+      <div class="logo">cook<em style="color:var(--accent);font-style:normal">eat</em></div>
       <div style="width:60px"></div>
     </div>
     <div class="body">
-      <h2 class="title" style="font-size:22px">Acceso cocina</h2>
-      <p class="subtitle">Introduce el email y contraseña del restaurante.</p>
+      <h2 style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:var(--brand-d);letter-spacing:-.5px;margin-bottom:.25rem">cook<em style="color:var(--accent);font-style:normal">eat</em></h2>
+      <p class="subtitle">Acceso para el equipo de cocina</p>
       <div class="spacer"></div>
       <div class="field"><label>Email del restaurante</label><input id="kitchen-email" type="email" placeholder="restaurante@email.com" autocomplete="off"></div>
       <div class="field"><label>Contraseña</label><input id="kitchen-pass" type="password" placeholder="••••••••"></div>
@@ -658,12 +666,12 @@
   <div class="screen" id="s-admin-login-form">
     <div class="hdr">
       <button class="back-btn" onclick="go('s-admin-login')">← Atrás</button>
-      <div class="logo">split<em>eat</em></div>
+      <div class="logo">manag<em style="color:var(--accent);font-style:normal">eat</em></div>
       <div style="width:60px"></div>
     </div>
     <div class="body">
-      <h2 class="title" style="font-size:22px">Administración</h2>
-      <p class="subtitle">Gestiona tu carta, mesas y pedidos.</p>
+      <h2 style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:var(--brand-d);letter-spacing:-.5px;margin-bottom:.25rem">manag<em style="color:var(--accent);font-style:normal">eat</em></h2>
+      <p class="subtitle">Panel de administración del restaurante</p>
       <div class="spacer"></div>
       <div class="field"><label>Email del restaurante</label><input id="admin-email" type="email" placeholder="tucorreo@restaurante.com" autocomplete="off"></div>
       <div class="field"><label>Contraseña</label><input id="admin-pass" type="password" placeholder="••••••••"></div>
@@ -678,12 +686,12 @@
   <div class="screen" id="s-waiter-select">
     <div class="hdr">
       <button class="back-btn" onclick="go('s-admin-login')">← Atrás</button>
-      <div class="logo">split<em>eat</em></div>
+      <div class="logo">serv<em style="color:var(--accent);font-style:normal">eat</em></div>
       <div style="width:60px"></div>
     </div>
     <div class="body">
-      <h2 class="title" style="font-size:20px">Acceso camarero</h2>
-      <p class="subtitle">Entra con tu email y contraseña de empleado.</p>
+      <h2 style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:var(--brand-d);letter-spacing:-.5px;margin-bottom:.25rem">serv<em style="color:var(--accent);font-style:normal">eat</em></h2>
+      <p class="subtitle">Acceso para el equipo de sala</p>
       <div class="spacer"></div>
       <div class="field">
         <label>Tu email</label>
@@ -724,8 +732,7 @@
   <div class="screen" id="s-waiter">
     <div class="hdr">
       <div style="display:flex;align-items:center;gap:8px">
-        <div class="logo">split<em>eat</em></div>
-        <span style="font-size:12px;color:var(--t2);font-family:'DM Sans'">camarero</span>
+        <div class="logo">serv<em style="color:var(--accent);font-style:normal">eat</em></div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <span id="waiter-name-badge" style="font-size:13px;font-weight:500;color:var(--brand-d)"></span>
@@ -813,15 +820,18 @@
   ════════════════════════════════════════ -->
   <div class="screen" id="s-admin">
     <div class="hdr">
-      <div class="logo">split<em>eat</em></div>
+      <div class="logo">manag<em style="color:var(--accent);font-style:normal">eat</em></div>
       <button class="back-btn" onclick="adminLogout()" style="color:var(--accent)">Salir</button>
     </div>
-    <div class="tab-bar">
+    <div class="tab-bar" style="overflow-x:auto;white-space:nowrap">
       <button class="tab on" onclick="showAdminTab('encurso')" id="tab-encurso">
         En curso <span id="encurso-badge" style="display:none;background:#E24B4A;color:#fff;border-radius:99px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:3px">0</span>
       </button>
       <button class="tab" onclick="showAdminTab('gestion')">Gestión</button>
       <button class="tab" onclick="showAdminTab('cocina')">Cocina</button>
+      <button class="tab" onclick="showAdminTab('reservas')">
+        Reservas <span id="reservas-badge" style="display:none;background:#185FA5;color:#fff;border-radius:99px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:3px">0</span>
+      </button>
       <button class="tab" onclick="showAdminTab('reportes')">Reportes</button>
     </div>
 
@@ -995,6 +1005,124 @@
         </div>
       </div>
     </div><!-- close atab-cocina -->
+
+    <!-- TAB RESERVAS -->
+    <div id="atab-reservas" style="display:none;flex-direction:column;height:calc(100vh - 110px);width:100%">
+
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:.6rem 1rem;border-bottom:1px solid var(--bd);background:var(--card);flex-shrink:0;gap:.5rem">
+        <div style="display:flex;align-items:center;gap:.5rem">
+          <div class="live-badge"><div class="live-dot"></div><span>Tiempo real</span></div>
+          <!-- Selector de fecha -->
+          <input type="date" id="reservas-date" onchange="loadReservas()"
+            style="font-size:13px;padding:4px 8px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;background:var(--bg)">
+        </div>
+        <div style="display:flex;gap:.4rem">
+          <button onclick="showReservaForm()" class="btn btn-primary btn-sm">+ Nueva reserva</button>
+          <button onclick="showCoverManagerConfig()"
+            style="font-size:12px;padding:4px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t2);cursor:pointer;font-family:inherit">
+            🔗 Cover Manager
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats del día -->
+      <div id="reservas-stats" style="display:flex;gap:.5rem;padding:.65rem 1rem;border-bottom:1px solid var(--bd);background:var(--bg2);flex-shrink:0;overflow-x:auto">
+        <div style="text-align:center;min-width:70px">
+          <div id="res-stat-total" style="font-size:18px;font-weight:700;color:var(--brand-d)">—</div>
+          <div style="font-size:11px;color:var(--t2)">Reservas</div>
+        </div>
+        <div style="width:1px;background:var(--bd)"></div>
+        <div style="text-align:center;min-width:70px">
+          <div id="res-stat-comensales" style="font-size:18px;font-weight:700;color:var(--brand-d)">—</div>
+          <div style="font-size:11px;color:var(--t2)">Comensales</div>
+        </div>
+        <div style="width:1px;background:var(--bd)"></div>
+        <div style="text-align:center;min-width:70px">
+          <div id="res-stat-confirmadas" style="font-size:18px;font-weight:700;color:#3B6D11">—</div>
+          <div style="font-size:11px;color:var(--t2)">Confirmadas</div>
+        </div>
+        <div style="width:1px;background:var(--bd)"></div>
+        <div style="text-align:center;min-width:70px">
+          <div id="res-stat-pendientes" style="font-size:18px;font-weight:700;color:#854F0B">—</div>
+          <div style="font-size:11px;color:var(--t2)">Pendientes</div>
+        </div>
+      </div>
+
+      <!-- Timeline de reservas -->
+      <div id="reservas-timeline" style="flex:1;overflow-y:auto;padding:.75rem 1rem">
+        <div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando reservas...</div>
+      </div>
+
+      <!-- Cover Manager banner si está conectado -->
+      <div id="cover-manager-banner" style="display:none;padding:.5rem 1rem;background:#E8F4FD;border-top:1px solid #B8D9F0;font-size:12px;color:#0C447C;text-align:center;flex-shrink:0">
+        🔗 Sincronizado con Cover Manager · Última sync: <span id="cm-last-sync">—</span>
+      </div>
+    </div>
+
+    <!-- MODAL: NUEVA RESERVA -->
+    <div id="reserva-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;align-items:flex-end;justify-content:center">
+      <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:1.5rem 1.25rem;width:100%;max-width:480px;max-height:90vh;overflow-y:auto">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+          <div style="font-size:16px;font-weight:500" id="reserva-modal-title">Nueva reserva</div>
+          <button onclick="closeReservaModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+        </div>
+        <div id="reserva-modal-content">
+          <div class="field"><label>Nombre del cliente *</label><input id="res-nombre" type="text" placeholder="ej. García Martínez" autocomplete="off"></div>
+          <div class="field"><label>Teléfono *</label><input id="res-tel" type="tel" placeholder="+34 666 123 456" autocomplete="off"></div>
+          <div class="field"><label>Email</label><input id="res-email" type="email" placeholder="cliente@email.com" autocomplete="off"></div>
+          <div class="row" style="gap:.5rem">
+            <div class="field" style="flex:1;margin:0"><label>Fecha *</label><input id="res-fecha" type="date"></div>
+            <div class="field" style="flex:1;margin:0"><label>Hora *</label>
+              <select id="res-hora" style="width:100%;padding:10px;border-radius:var(--r-sm);border:1px solid var(--bd2);font-family:inherit;font-size:14px">
+                <option value="">— Hora —</option>
+              </select>
+            </div>
+          </div>
+          <div class="row" style="gap:.5rem">
+            <div class="field" style="flex:1;margin:0"><label>Comensales *</label><input id="res-pax" type="number" min="1" max="50" placeholder="2"></div>
+            <div class="field" style="flex:1;margin:0"><label>Mesa (opcional)</label>
+              <select id="res-mesa" style="width:100%;padding:10px;border-radius:var(--r-sm);border:1px solid var(--bd2);font-family:inherit;font-size:14px">
+                <option value="">— Sin asignar —</option>
+              </select>
+            </div>
+          </div>
+          <div class="field"><label>Notas / alergias</label><textarea id="res-notas" placeholder="Cumpleaños, silla de bebé, alergias..." rows="2" style="width:100%;padding:10px;border-radius:var(--r-sm);border:1px solid var(--bd2);font-family:inherit;font-size:14px;resize:none"></textarea></div>
+          <div id="res-err" class="notice notice-err" style="display:none;margin-bottom:.5rem"></div>
+          <button class="btn btn-primary" onclick="saveReserva()" style="width:100%">Confirmar reserva</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: COVER MANAGER CONFIG -->
+    <div id="cm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;align-items:center;justify-content:center;padding:1rem">
+      <div style="background:var(--card);border-radius:var(--r-lg);padding:1.5rem;max-width:420px;width:100%">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+          <div style="font-size:16px;font-weight:500">🔗 Cover Manager</div>
+          <button onclick="document.getElementById('cm-modal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+        </div>
+        <div style="font-size:13px;color:var(--t2);margin-bottom:1rem;line-height:1.6">
+          Cover Manager es el software de reservas líder en España. Para conectarlo necesitas una API Key que Cover Manager proporciona a sus partners.<br><br>
+          Solicita acceso en <strong>partnerships@covermanager.com</strong> mencionando spliteat.
+        </div>
+        <div class="field">
+          <label>API Key de Cover Manager</label>
+          <input id="cm-apikey" type="password" placeholder="cm_live_xxxxx..." autocomplete="off">
+        </div>
+        <div class="field">
+          <label>ID del restaurante en Cover Manager</label>
+          <input id="cm-restid" type="text" placeholder="ej. 12345" autocomplete="off">
+        </div>
+        <div id="cm-status" style="font-size:12px;color:var(--t2);margin-bottom:.75rem;min-height:18px"></div>
+        <div style="display:flex;gap:.5rem">
+          <button class="btn btn-primary" onclick="saveCoverManagerConfig()" style="flex:1">Guardar y sincronizar</button>
+          <button class="btn btn-secondary" onclick="document.getElementById('cm-modal').style.display='none'" style="flex:1">Cancelar</button>
+        </div>
+        <div style="margin-top:.75rem;padding:.65rem;background:var(--bg2);border-radius:var(--r-sm);font-size:11px;color:var(--t3);line-height:1.5">
+          Sin API Key, spliteat gestiona las reservas de forma independiente. Puedes empezar así y conectar Cover Manager más adelante.
+        </div>
+      </div>
+    </div>
 
     <!-- TAB REPORTES -->
     <div id="atab-reportes" style="display:none;flex-direction:column">
@@ -1189,6 +1317,23 @@
             <option value="21">21% — General</option>
             <option value="4">4% — Reducido especial</option>
           </select>
+        </div>
+
+        <!-- RESERVAS -->
+        <div style="border-top:1px solid var(--bd);margin:.75rem 0;padding-top:.75rem">
+          <div style="font-size:13px;font-weight:500;margin-bottom:.75rem">🗓 Reservas online</div>
+          <div class="field"><label>Aforo máximo del restaurante</label><input id="prf-capacity" type="number" min="1" max="500" placeholder="ej. 45" inputmode="numeric"></div>
+          <div class="field"><label>URL personalizada de reservas <span style="font-weight:400;color:var(--t3)">(solo letras, números y guiones)</span></label>
+            <div style="display:flex;align-items:center;gap:0;border:1px solid var(--bd2);border-radius:var(--r-sm);overflow:hidden">
+              <span style="padding:10px 10px;background:var(--bg2);font-size:13px;color:var(--t3);white-space:nowrap;border-right:1px solid var(--bd2)">spliteat.es/reservar?r=</span>
+              <input id="prf-slug" type="text" placeholder="taberna-el-marino"
+                style="flex:1;padding:10px;border:none;font-size:14px;font-family:inherit;background:var(--card)">
+            </div>
+          </div>
+          <div id="prf-booking-url" style="font-size:12px;color:var(--brand);background:var(--brand-l);border-radius:var(--r-sm);padding:.5rem .75rem;margin-top:.35rem;display:none">
+            🔗 <span id="prf-booking-url-txt"></span>
+            <button onclick="copyBookingUrl()" style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid var(--brand);background:none;color:var(--brand);cursor:pointer;font-family:inherit">Copiar</button>
+          </div>
         </div>
         <button class="btn btn-primary mt" onclick="saveRestaurantProfile()">Guardar perfil</button>
         <div id="prf-ok" style="display:none;color:var(--brand);font-size:13px;margin-top:.5rem;text-align:center">✓ Guardado correctamente</div>
@@ -3304,12 +3449,12 @@ function renderAdminTabs() {
     if (tabBar) tabBar.style.display = 'none';
     // Cambiar título del header
     const logo = document.querySelector('#s-admin .hdr .logo');
-    if (logo) logo.innerHTML = 'split<em>eat</em> <span style="font-size:12px;font-family:\'DM Sans\';color:var(--t2);font-style:normal">· cocina</span>';
+    if (logo) logo.innerHTML = 'cook<em style="color:var(--accent);font-style:normal">eat</em>';
   } else {
     // Admin — mostrar todo
     if (tabBar) tabBar.style.display = 'flex';
     const logo = document.querySelector('#s-admin .hdr .logo');
-    if (logo) logo.innerHTML = 'split<em>eat</em>';
+    if (logo) logo.innerHTML = 'manag<em style="color:var(--accent);font-style:normal">eat</em>';
   }
 }
 
@@ -3324,7 +3469,6 @@ async function adminLogin() {
   if (!email || !pass) { errEl.textContent = 'Rellena email y contraseña.'; errEl.style.display = 'block'; return; }
   const { data, error } = await sb.from('restaurants').select('*').eq('email', email).single();
   if (error || !data) { errEl.textContent = 'Restaurante no encontrado.'; errEl.style.display = 'block'; return; }
-  // Simple password check (in production use Supabase Auth)
   if (data.password_hash && data.password_hash !== pass) {
     errEl.textContent = 'Contraseña incorrecta.'; errEl.style.display = 'block'; return;
   }
@@ -3341,11 +3485,10 @@ function adminLogout() {
   state.adminRestaurantId = null;
   state.adminRestaurantName = '';
   state.adminRole = 'admin';
-  // Restaurar tab bar y logo
   const tabBar = document.querySelector('#s-admin .tab-bar');
   if (tabBar) tabBar.style.display = '';
   const logo = document.querySelector('#s-admin .hdr .logo');
-  if (logo) logo.innerHTML = 'split<em>eat</em>';
+  if (logo) logo.innerHTML = 'manag<em style="color:var(--accent);font-style:normal">eat</em>';
   go('s0');
 }
 
@@ -3353,17 +3496,18 @@ function adminLogout() {
 // ADMIN TABS
 // ══════════════════════════════════════════════════════
 function showAdminTab(name) {
-  ['encurso','gestion','cocina','reportes'].forEach(t => {
+  ['encurso','gestion','cocina','reservas','reportes'].forEach(t => {
     const el = document.getElementById('atab-' + t);
     if (!el) return;
     el.style.display = t === name ? 'flex' : 'none';
   });
   document.querySelectorAll('#s-admin .tab-bar > .tab').forEach((tab, i) => {
-    tab.classList.toggle('on', ['encurso','gestion','cocina','reportes'][i] === name);
+    tab.classList.toggle('on', ['encurso','gestion','cocina','reservas','reportes'][i] === name);
   });
   if (name === 'encurso') loadEncurso();
   if (name === 'gestion') initGestionTab();
   if (name === 'cocina') loadAdminOrders();
+  if (name === 'reservas') initReservasTab();
   if (name === 'reportes') { loadKPIs(); showReportesTab('kpis'); }
 }
 
@@ -4424,6 +4568,374 @@ async function setAllOrderStatus(dishIds, status) {
 // ══════════════════════════════════════════════════════
 // EN CURSO — Mesas activas con estado de pago en tiempo real
 // ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+// RESERVAS — Módulo propio + conector Cover Manager
+// ══════════════════════════════════════════════════════
+let _reservasSub = null;
+let _editingReservaId = null;
+
+function initReservasTab() {
+  // Set today's date as default
+  const dateInput = document.getElementById('reservas-date');
+  if (dateInput && !dateInput.value) {
+    dateInput.value = new Date().toISOString().split('T')[0];
+  }
+  loadReservas();
+  loadCoverManagerStatus();
+
+  // Realtime subscription
+  if (!_reservasSub) {
+    _reservasSub = sb.channel('reservas-' + state.adminRestaurantId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => {
+        if (document.getElementById('atab-reservas')?.style.display !== 'none') loadReservas();
+      }).subscribe();
+  }
+}
+
+async function loadReservas() {
+  const date = document.getElementById('reservas-date')?.value || new Date().toISOString().split('T')[0];
+  const el = document.getElementById('reservas-timeline');
+  if (!el) return;
+
+  const { data: reservas } = await sb.from('reservations')
+    .select('*, tables(number, label)')
+    .eq('restaurant_id', state.adminRestaurantId)
+    .eq('date', date)
+    .order('time');
+
+  const all = reservas || [];
+
+  // Update stats
+  document.getElementById('res-stat-total').textContent = all.length;
+  document.getElementById('res-stat-comensales').textContent = all.reduce((s, r) => s + (r.party_size || 0), 0);
+  document.getElementById('res-stat-confirmadas').textContent = all.filter(r => r.status === 'confirmed').length;
+  document.getElementById('res-stat-pendientes').textContent = all.filter(r => r.status === 'pending').length;
+
+  // Update badge
+  const todayStr = new Date().toISOString().split('T')[0];
+  const badge = document.getElementById('reservas-badge');
+  if (badge && date === todayStr) {
+    const pending = all.filter(r => r.status === 'pending').length;
+    badge.style.display = pending > 0 ? 'inline' : 'none';
+    badge.textContent = pending;
+  }
+
+  if (!all.length) {
+    el.innerHTML = `<div style="text-align:center;padding:3rem 1rem;color:var(--t3)">
+      <div style="font-size:32px;margin-bottom:.5rem">📅</div>
+      <div style="font-size:14px;margin-bottom:.35rem">Sin reservas para este día</div>
+      <div style="font-size:12px">Pulsa "+ Nueva reserva" para añadir una</div>
+    </div>`;
+    return;
+  }
+
+  // Group by hour for timeline view
+  const STATUS_COLORS = {
+    confirmed: { bg: '#EAF3DE', border: '#3B6D11', txt: '#3B6D11', label: '✓ Confirmada' },
+    pending:   { bg: '#FAEEDA', border: '#EF9F27', txt: '#854F0B', label: '⏳ Pendiente' },
+    cancelled: { bg: '#F5F5F5', border: '#ccc',    txt: '#999',    label: '✗ Cancelada' },
+    seated:    { bg: '#E8F4FD', border: '#185FA5', txt: '#0C447C', label: '🪑 En mesa' },
+    noshow:    { bg: '#FCEBEB', border: '#E24B4A', txt: '#A32D2D', label: '✗ No show' },
+  };
+
+  el.innerHTML = all.map(r => {
+    const s = STATUS_COLORS[r.status] || STATUS_COLORS.pending;
+    const tableLabel = r.tables ? `Mesa ${r.tables.number}${r.tables.label ? ' — ' + r.tables.label : ''}` : 'Sin mesa asignada';
+    const timeStr = r.time?.slice(0, 5) || '—';
+
+    return `<div style="display:flex;gap:.65rem;margin-bottom:.75rem">
+      <!-- Hora -->
+      <div style="width:42px;text-align:right;padding-top:.4rem;flex-shrink:0">
+        <div style="font-size:14px;font-weight:600;color:var(--t1)">${timeStr}</div>
+      </div>
+      <!-- Línea vertical -->
+      <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0">
+        <div style="width:10px;height:10px;border-radius:50%;background:${s.border};margin-top:.45rem"></div>
+        <div style="width:2px;flex:1;background:var(--bd);margin-top:2px"></div>
+      </div>
+      <!-- Card -->
+      <div style="flex:1;background:${s.bg};border:1.5px solid ${s.border};border-radius:var(--r);padding:.75rem .9rem;margin-bottom:.1rem">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:600;color:var(--t1)">${r.name}</div>
+            <div style="font-size:12px;color:var(--t2);margin-top:1px">
+              👥 ${r.party_size} persona${r.party_size !== 1 ? 's' : ''}
+              ${r.phone ? ` · 📞 ${r.phone}` : ''}
+            </div>
+            <div style="font-size:12px;color:var(--t2)">${tableLabel}</div>
+            ${r.notes ? `<div style="font-size:12px;color:var(--t3);margin-top:2px;font-style:italic">💬 ${r.notes}</div>` : ''}
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+            <span style="font-size:11px;font-weight:500;color:${s.txt};background:rgba(255,255,255,0.6);padding:2px 8px;border-radius:99px">${s.label}</span>
+          </div>
+        </div>
+        <!-- Actions -->
+        <div style="display:flex;gap:.35rem;margin-top:.6rem;flex-wrap:wrap">
+          ${r.status === 'pending' ? `
+            <button onclick="updateReservaStatus('${r.id}','confirmed')"
+              style="padding:4px 10px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit">✓ Confirmar</button>` : ''}
+          ${r.status !== 'seated' && r.status !== 'cancelled' ? `
+            <button onclick="updateReservaStatus('${r.id}','seated')"
+              style="padding:4px 10px;border-radius:99px;border:none;background:#185FA5;color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit">🪑 Sentar</button>` : ''}
+          ${r.status !== 'cancelled' && r.status !== 'noshow' ? `
+            <button onclick="updateReservaStatus('${r.id}','noshow')"
+              style="padding:4px 10px;border-radius:99px;border:1px solid var(--bd);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit">No show</button>` : ''}
+          <button onclick="editReserva('${r.id}')"
+            style="padding:4px 10px;border-radius:99px;border:1px solid var(--bd);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit">✏️ Editar</button>
+          <button onclick="deleteReserva('${r.id}')"
+            style="padding:4px 10px;border-radius:99px;border:1px solid #FCCACA;background:#FFF5F5;color:#A32D2D;font-size:11px;cursor:pointer;font-family:inherit">✕</button>
+          ${r.phone ? `<a href="tel:${r.phone}" style="padding:4px 10px;border-radius:99px;border:1px solid var(--bd);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit;text-decoration:none">📞 Llamar</a>` : ''}
+          ${r.email ? `<a href="mailto:${r.email}?subject=Reserva ${timeStr} ${r.name}" style="padding:4px 10px;border-radius:99px;border:1px solid var(--bd);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit;text-decoration:none">✉️ Email</a>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function updateReservaStatus(id, status) {
+  await sb.from('reservations').update({ status }).eq('id', id);
+  loadReservas();
+}
+
+async function deleteReserva(id) {
+  if (!confirm('¿Cancelar esta reserva?')) return;
+  await sb.from('reservations').update({ status: 'cancelled' }).eq('id', id);
+  loadReservas();
+}
+
+// ── FORMULARIO NUEVA/EDITAR RESERVA ──
+async function showReservaForm(reservaId = null) {
+  _editingReservaId = reservaId;
+  const modal = document.getElementById('reserva-modal');
+  const title = document.getElementById('reserva-modal-title');
+  title.textContent = reservaId ? 'Editar reserva' : 'Nueva reserva';
+
+  // Populate time slots (every 15 min from 12:00 to 23:30)
+  const horaSelect = document.getElementById('res-hora');
+  horaSelect.innerHTML = '<option value="">— Hora —</option>';
+  for (let h = 12; h <= 23; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      const time = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+      horaSelect.innerHTML += `<option value="${time}">${time}</option>`;
+    }
+  }
+
+  // Populate tables
+  const mesaSelect = document.getElementById('res-mesa');
+  const { data: tables } = await sb.from('tables').select('*')
+    .eq('restaurant_id', state.adminRestaurantId).order('number');
+  mesaSelect.innerHTML = '<option value="">— Sin asignar —</option>';
+  (tables || []).forEach(t => {
+    mesaSelect.innerHTML += `<option value="${t.id}">Mesa ${t.number}${t.label ? ' — ' + t.label : ''}</option>`;
+  });
+
+  // Pre-fill date with currently selected date
+  const currentDate = document.getElementById('reservas-date')?.value || new Date().toISOString().split('T')[0];
+  document.getElementById('res-fecha').value = currentDate;
+
+  // If editing, load existing data
+  if (reservaId) {
+    const { data: r } = await sb.from('reservations').select('*').eq('id', reservaId).single();
+    if (r) {
+      document.getElementById('res-nombre').value = r.name || '';
+      document.getElementById('res-tel').value = r.phone || '';
+      document.getElementById('res-email').value = r.email || '';
+      document.getElementById('res-fecha').value = r.date || currentDate;
+      document.getElementById('res-hora').value = r.time?.slice(0,5) || '';
+      document.getElementById('res-pax').value = r.party_size || '';
+      document.getElementById('res-mesa').value = r.table_id || '';
+      document.getElementById('res-notas').value = r.notes || '';
+    }
+  } else {
+    // Clear form
+    ['res-nombre','res-tel','res-email','res-hora','res-pax','res-notas'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    document.getElementById('res-mesa').value = '';
+  }
+
+  document.getElementById('res-err').style.display = 'none';
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('res-nombre')?.focus(), 100);
+}
+
+async function editReserva(id) {
+  showReservaForm(id);
+}
+
+function closeReservaModal() {
+  document.getElementById('reserva-modal').style.display = 'none';
+  _editingReservaId = null;
+}
+
+async function saveReserva() {
+  const name = document.getElementById('res-nombre').value.trim();
+  const phone = document.getElementById('res-tel').value.trim();
+  const email = document.getElementById('res-email').value.trim();
+  const date = document.getElementById('res-fecha').value;
+  const time = document.getElementById('res-hora').value;
+  const pax = parseInt(document.getElementById('res-pax').value);
+  const tableId = document.getElementById('res-mesa').value || null;
+  const notes = document.getElementById('res-notas').value.trim();
+  const errEl = document.getElementById('res-err');
+
+  if (!name || !phone || !date || !time || !pax) {
+    errEl.textContent = 'Rellena los campos obligatorios: nombre, teléfono, fecha, hora y comensales.';
+    errEl.style.display = 'block'; return;
+  }
+
+  const payload = {
+    restaurant_id: state.adminRestaurantId,
+    name, phone, email: email || null,
+    date, time,
+    party_size: pax,
+    table_id: tableId,
+    notes: notes || null,
+    status: _editingReservaId ? undefined : 'confirmed',
+    source: _editingReservaId ? undefined : 'manual'
+  };
+
+  let error;
+  if (_editingReservaId) {
+    ({ error } = await sb.from('reservations').update(payload).eq('id', _editingReservaId));
+  } else {
+    ({ error } = await sb.from('reservations').insert(payload));
+  }
+
+  if (error) { errEl.textContent = 'Error: ' + error.message; errEl.style.display = 'block'; return; }
+
+  closeReservaModal();
+  // Switch to the date of the new reservation
+  const dateInput = document.getElementById('reservas-date');
+  if (dateInput) dateInput.value = date;
+  loadReservas();
+}
+
+// ── COVER MANAGER INTEGRATION ──
+async function loadCoverManagerStatus() {
+  const key = 'cm_config_' + state.adminRestaurantId;
+  const config = JSON.parse(localStorage.getItem(key) || 'null');
+  const banner = document.getElementById('cover-manager-banner');
+  if (config?.apiKey && banner) {
+    banner.style.display = 'block';
+    document.getElementById('cm-last-sync').textContent = config.lastSync
+      ? new Date(config.lastSync).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+      : 'Nunca';
+    // Auto-sync on load
+    syncCoverManager(config);
+  }
+}
+
+function showCoverManagerConfig() {
+  const key = 'cm_config_' + state.adminRestaurantId;
+  const config = JSON.parse(localStorage.getItem(key) || 'null');
+  if (config) {
+    document.getElementById('cm-apikey').value = config.apiKey || '';
+    document.getElementById('cm-restid').value = config.restaurantId || '';
+  }
+  document.getElementById('cm-status').textContent = '';
+  document.getElementById('cm-modal').style.display = 'flex';
+}
+
+async function saveCoverManagerConfig() {
+  const apiKey = document.getElementById('cm-apikey').value.trim();
+  const restaurantId = document.getElementById('cm-restid').value.trim();
+  const statusEl = document.getElementById('cm-status');
+
+  if (!apiKey || !restaurantId) {
+    statusEl.textContent = 'Rellena la API Key y el ID del restaurante.';
+    statusEl.style.color = '#A32D2D'; return;
+  }
+
+  statusEl.textContent = '⏳ Verificando conexión con Cover Manager...';
+  statusEl.style.color = 'var(--t2)';
+
+  const config = { apiKey, restaurantId, lastSync: null };
+  const result = await syncCoverManager(config);
+
+  if (result.success) {
+    config.lastSync = new Date().toISOString();
+    localStorage.setItem('cm_config_' + state.adminRestaurantId, JSON.stringify(config));
+    statusEl.textContent = `✓ Conectado. ${result.count} reservas importadas.`;
+    statusEl.style.color = '#3B6D11';
+    setTimeout(() => {
+      document.getElementById('cm-modal').style.display = 'none';
+      loadCoverManagerStatus();
+      loadReservas();
+    }, 1500);
+  } else {
+    statusEl.textContent = '❌ ' + result.error;
+    statusEl.style.color = '#A32D2D';
+  }
+}
+
+async function syncCoverManager(config) {
+  // Cover Manager API integration
+  // Endpoint: https://api.covermanager.com/v1/reservations
+  // Auth: Bearer token (API Key)
+  // Docs: solicitar a partnerships@covermanager.com
+
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+
+    const res = await fetch(
+      `https://api.covermanager.com/v1/restaurants/${config.restaurantId}/reservations?date_from=${today}&date_to=${tomorrow}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${config.apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if (!res.ok) {
+      if (res.status === 401) return { success: false, error: 'API Key incorrecta o sin acceso.' };
+      if (res.status === 404) return { success: false, error: 'ID de restaurante no encontrado.' };
+      return { success: false, error: `Error ${res.status} de Cover Manager.` };
+    }
+
+    const data = await res.json();
+    const cmReservas = data.reservations || data.data || [];
+
+    // Map Cover Manager fields to spliteat schema
+    const inserts = cmReservas.map(r => ({
+      restaurant_id: state.adminRestaurantId,
+      name: r.client_name || r.name || 'Sin nombre',
+      phone: r.phone || r.client_phone || null,
+      email: r.email || r.client_email || null,
+      date: r.date || r.reservation_date || today,
+      time: r.time || r.reservation_time || '20:00',
+      party_size: r.party_size || r.covers || r.pax || 2,
+      notes: r.notes || r.comments || null,
+      status: r.status === 'cancelled' ? 'cancelled' : 'confirmed',
+      source: 'covermanager',
+      external_id: String(r.id || r.reservation_id || '')
+    }));
+
+    // Upsert by external_id to avoid duplicates
+    if (inserts.length > 0) {
+      await sb.from('reservations').upsert(inserts, {
+        onConflict: 'restaurant_id,external_id',
+        ignoreDuplicates: false
+      });
+    }
+
+    return { success: true, count: inserts.length };
+
+  } catch(err) {
+    // If Cover Manager API not accessible (CORS or no key), show helpful message
+    if (err.message.includes('fetch') || err.message.includes('CORS') || err.message.includes('network')) {
+      return {
+        success: false,
+        error: 'No se pudo conectar. Cover Manager requiere acceso de partner — contacta partnerships@covermanager.com'
+      };
+    }
+    return { success: false, error: err.message };
+  }
+}
+
 let _encursoSub = null;
 let _prevPaymentCounts = {}; // roomId → nº pagos anteriores
 
@@ -4950,20 +5462,44 @@ async function loadPagosRecientes() {
 // ══════════════════════════════════════════════════════
 // PERFIL DEL RESTAURANTE
 // ══════════════════════════════════════════════════════
+function updateBookingUrlDisplay(slug) {
+  const el = document.getElementById('prf-booking-url');
+  const txt = document.getElementById('prf-booking-url-txt');
+  if (!el || !txt) return;
+  const base = window.location.origin;
+  const id = state.adminRestaurantId;
+  const url = slug
+    ? `${base}/reservar?r=${slug}`
+    : `${base}/reservar?r=${id}`;
+  txt.textContent = url;
+  el.style.display = 'block';
+}
+
+function copyBookingUrl() {
+  const txt = document.getElementById('prf-booking-url-txt')?.textContent;
+  if (!txt) return;
+  navigator.clipboard.writeText(txt).then(() => {
+    showToast('✓ URL copiada', 'Pégala en Google My Business, Instagram o WhatsApp.');
+  });
+}
+
 async function loadRestaurantProfile() {
   if (!state.adminRestaurantId) return;
   const { data } = await sb.from('restaurants').select('*').eq('id', state.adminRestaurantId).single();
   if (!data) return;
   const fields = { nombre: data.name, nif: data.nif, dir: data.address,
     tel: data.phone, email: data.contact_email, web: data.website,
-    serie: data.invoice_series || 'F-2024-', iva: data.iva_rate || 10 };
+    serie: data.invoice_series || 'F-2024-', iva: data.iva_rate || 10,
+    capacity: data.capacity || 50, slug: data.booking_slug || '' };
   Object.entries(fields).forEach(([k, v]) => {
     const el = document.getElementById('prf-' + k);
-    if (el && v) el.value = v;
+    if (el && v !== null && v !== undefined) el.value = v;
   });
+  updateBookingUrlDisplay(data.booking_slug);
 }
 
 async function saveRestaurantProfile() {
+  const slug = document.getElementById('prf-slug')?.value?.trim().toLowerCase().replace(/[^a-z0-9-]/g,'') || null;
   const payload = {
     name: document.getElementById('prf-nombre')?.value?.trim(),
     nif: document.getElementById('prf-nif')?.value?.trim(),
@@ -4972,13 +5508,16 @@ async function saveRestaurantProfile() {
     contact_email: document.getElementById('prf-email')?.value?.trim(),
     website: document.getElementById('prf-web')?.value?.trim(),
     invoice_series: document.getElementById('prf-serie')?.value?.trim(),
-    iva_rate: parseInt(document.getElementById('prf-iva')?.value || '10')
+    iva_rate: parseInt(document.getElementById('prf-iva')?.value || '10'),
+    capacity: parseInt(document.getElementById('prf-capacity')?.value || '50') || 50,
+    booking_slug: slug || null
   };
   const { error } = await sb.from('restaurants').update(payload).eq('id', state.adminRestaurantId);
-  if (error) { alert('Error guardando: ' + error.message); return; }
-  state.adminRestaurantName = payload.name || state.adminRestaurantName;
+  if (error) { alert('Error: ' + error.message); return; }
   document.getElementById('prf-ok').style.display = 'block';
-  setTimeout(() => document.getElementById('prf-ok').style.display = 'none', 3000);
+  setTimeout(() => { document.getElementById('prf-ok').style.display = 'none'; }, 2000);
+  // Update booking URL display
+  updateBookingUrlDisplay(slug);
 }
 
 // ══════════════════════════════════════════════════════
