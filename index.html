@@ -251,15 +251,98 @@
   <!-- ════════════════════════════════════════
        S0: INICIO (solo para acceso directo sin QR)
   ════════════════════════════════════════ -->
-  <div class="screen active" id="s0">
-    <div class="hero">
-      <div class="hero-icon">🍽</div>
-      <h1 class="title">split<em style="color:var(--accent);font-style:normal">eat</em></h1>
-      <p class="subtitle">Divide la cuenta sin dramas.<br>Escanea el QR de tu mesa para empezar.</p>
+  <div class="screen active" id="s0" style="background:#F3F7F5;display:flex;flex-direction:column;min-height:100vh;padding:0">
+
+    <!-- Hero -->
+    <div style="background:var(--brand-d);padding:3.5rem 1.75rem 3rem;text-align:center;position:relative;overflow:hidden">
+      <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 30% 0%,rgba(29,158,117,.5) 0%,transparent 60%),radial-gradient(ellipse at 80% 120%,rgba(8,80,65,.8) 0%,transparent 50%);pointer-events:none"></div>
+      <!-- Decorative circles -->
+      <div style="position:absolute;top:-40px;right:-40px;width:180px;height:180px;border-radius:50%;border:1px solid rgba(255,255,255,.06);pointer-events:none"></div>
+      <div style="position:absolute;bottom:-60px;left:-30px;width:220px;height:220px;border-radius:50%;border:1px solid rgba(255,255,255,.04);pointer-events:none"></div>
+
+      <div style="position:relative">
+        <div style="font-family:'Fraunces',serif;font-size:44px;font-weight:700;letter-spacing:-1px;line-height:1;margin-bottom:1.75rem">
+          <span style="color:#fff">split</span><em style="color:var(--accent);font-style:normal">eat</em>
+        </div>
+        <p style="font-size:15px;color:rgba(255,255,255,.8);line-height:1.85;margin:0;font-weight:400">
+          Adiós a los bizums de 15,43€ que nunca llegan.<br>
+          Sin marear al camarero, sin perseguir a nadie.<br>
+          <strong style="color:#fff;font-weight:600;font-size:16px">La cuenta, resuelta.</strong>
+        </p>
+      </div>
     </div>
-    <div class="body">
-      <button class="btn btn-ghost" onclick="go('s-admin-login')" style="text-align:center;width:100%">
-        <span style="font-family:'Fraunces',serif;font-size:14px;color:var(--brand-d)">manag<em style="color:var(--accent);font-style:normal">eat</em></span> · <span style="font-family:'Fraunces',serif;font-size:14px;color:var(--brand-d)">cook<em style="color:var(--accent);font-style:normal">eat</em></span> · <span style="font-family:'Fraunces',serif;font-size:14px;color:var(--brand-d)">serv<em style="color:var(--accent);font-style:normal">eat</em></span> →
+
+    <!-- Content -->
+    <div style="flex:1;padding:1.5rem 1.25rem 2rem">
+
+      <!-- Section label -->
+      <div style="font-size:11px;font-weight:600;color:var(--brand);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.85rem">Cómo funciona</div>
+
+      <!-- Feature cards — full width list -->
+      <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.5rem">
+
+        <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:center;gap:.9rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+          <div style="width:36px;height:36px;border-radius:10px;background:var(--brand-l);flex-shrink:0;display:flex;align-items:center;justify-content:center">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="6" height="6" rx="1.5" fill="var(--brand)"/><rect x="10" y="2" width="6" height="6" rx="1.5" fill="var(--brand)"/><rect x="2" y="10" width="6" height="6" rx="1.5" fill="var(--brand)"/><rect x="10" y="10" width="2.5" height="2.5" rx=".75" fill="var(--brand)"/><rect x="13.5" y="10" width="2.5" height="2.5" rx=".75" fill="var(--brand)"/><rect x="10" y="13.5" width="2.5" height="2.5" rx=".75" fill="var(--brand)"/><rect x="13.5" y="13.5" width="2.5" height="2.5" rx=".75" fill="var(--brand)"/></svg>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:600;color:#0F1C17;margin-bottom:2px">Pide desde la mesa</div>
+            <div style="font-size:12px;color:#5A7168;line-height:1.45">Escanea el QR y pide sin tener que perseguir al camarero</div>
+          </div>
+        </div>
+
+        <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:center;gap:.9rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+          <div style="width:36px;height:36px;border-radius:10px;background:var(--brand-l);flex-shrink:0;display:flex;align-items:center;justify-content:center">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="6.5" stroke="var(--brand)" stroke-width="1.6"/><path d="M9 5.5V9.5l2.5 1.5" stroke="var(--brand)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:600;color:#0F1C17;margin-bottom:2px">Sigue tu pedido en tiempo real</div>
+            <div style="font-size:12px;color:#5A7168;line-height:1.45">Sabes exactamente cuándo está listo tu plato, sin preguntar</div>
+          </div>
+        </div>
+
+        <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:center;gap:.9rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+          <div style="width:36px;height:36px;border-radius:10px;background:var(--brand-l);flex-shrink:0;display:flex;align-items:center;justify-content:center">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9h12M9 3v12" stroke="var(--brand)" stroke-width="1.6" stroke-linecap="round"/><circle cx="9" cy="9" r="6.5" stroke="var(--brand)" stroke-width="1.6"/></svg>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:600;color:#0F1C17;margin-bottom:2px">Divide la cuenta fácilmente</div>
+            <div style="font-size:12px;color:#5A7168;line-height:1.45">¿Bravas para compartir? Tú decides si participas, spliteat lo calcula al céntimo</div>
+          </div>
+        </div>
+
+        <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:center;gap:.9rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+          <div style="width:36px;height:36px;border-radius:10px;background:var(--brand-l);flex-shrink:0;display:flex;align-items:center;justify-content:center">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1.5" y="4" width="15" height="10" rx="2" stroke="var(--brand)" stroke-width="1.6"/><path d="M1.5 7.5h15" stroke="var(--brand)" stroke-width="1.6"/><rect x="4" y="10.5" width="3.5" height="1.5" rx=".75" fill="var(--brand)"/></svg>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:600;color:#0F1C17;margin-bottom:2px">Paga en segundos</div>
+            <div style="font-size:12px;color:#5A7168;line-height:1.45">Apple Pay, Bizum o tarjeta. Sin esperar, sin bizums raros después</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- CTA scan -->
+      <div style="background:var(--brand-d);border-radius:14px;padding:1.1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;cursor:pointer">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:2px">Escanea el QR de tu mesa</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.65)">Sin registro · Gratis para el comensal</div>
+        </div>
+        <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M7 5l4 4-4 4" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+      </div>
+
+      <!-- Acceso restaurante -->
+      <button onclick="go('s-admin-login')"
+        style="width:100%;padding:11px;border-radius:10px;border:1px solid #D0E5DC;background:#fff;cursor:pointer;font-family:inherit;text-align:center;box-shadow:0 1px 2px rgba(0,0,0,.04)">
+        <span style="font-family:'Fraunces',serif;font-size:13px;color:var(--brand-d)">manag<em style="color:var(--accent);font-style:normal">eat</em></span>
+        <span style="color:#C8DDD5;margin:0 5px">·</span>
+        <span style="font-family:'Fraunces',serif;font-size:13px;color:var(--brand-d)">cook<em style="color:var(--accent);font-style:normal">eat</em></span>
+        <span style="color:#C8DDD5;margin:0 5px">·</span>
+        <span style="font-family:'Fraunces',serif;font-size:13px;color:var(--brand-d)">serv<em style="color:var(--accent);font-style:normal">eat</em></span>
+        <span style="font-size:11px;color:#9BB5AC;margin-left:5px">→</span>
       </button>
     </div>
   </div>
@@ -632,15 +715,45 @@
   <div class="screen" id="s-kitchen">
     <div class="hdr">
       <div class="logo">cook<em style="color:var(--accent);font-style:normal">eat</em></div>
-      <div class="live-badge"><div class="live-dot"></div><span id="k-rest-name">—</span></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="live-badge"><div class="live-dot"></div><span id="k-rest-name">—</span></div>
+        <button class="back-btn" onclick="kitchenLogout()" style="color:var(--accent)">Salir</button>
+      </div>
     </div>
     <div class="tab-bar">
-      <button class="tab on" onclick="showKitchenTab('pending')">Pendientes</button>
-      <button class="tab" onclick="showKitchenTab('all')">Todos</button>
+      <button class="tab on" id="ktab-btn-pedidos" onclick="showKitchenTab('pedidos')">
+        Pedidos <span id="k-pedidos-badge" style="display:none;background:#E24B4A;color:#fff;border-radius:99px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:3px">0</span>
+      </button>
+      <button class="tab" id="ktab-btn-carta" onclick="showKitchenTab('carta')">Carta</button>
+      <button class="tab" id="ktab-btn-config" onclick="showKitchenTab('config')">Config</button>
     </div>
-    <div class="body" id="k-body">
-      <div id="k-pending"></div>
-      <div id="k-all" style="display:none"></div>
+
+    <!-- TAB PEDIDOS — vista por pases (única vista) -->
+    <div id="ktab-pedidos" style="flex:1;overflow-y:auto;padding:.65rem">
+      <div id="k-mesas-list">
+        <div style="text-align:center;padding:3rem 1rem;color:var(--t3);font-size:14px">Cargando pedidos...</div>
+      </div>
+    </div>
+
+    <!-- TAB CARTA — activar/desactivar platos + tiempo prep -->
+    <div id="ktab-carta" style="display:none;flex:1;overflow-y:auto;padding:.65rem">
+      <div style="font-size:12px;color:var(--t2);margin-bottom:.75rem;line-height:1.5;background:var(--bg2);padding:.65rem .85rem;border-radius:var(--r-sm)">
+        Activa o desactiva platos según disponibilidad. Los desactivados no aparecen en la carta del comensal.
+      </div>
+      <div id="k-carta-list">
+        <div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando carta...</div>
+      </div>
+    </div>
+
+    <!-- TAB CONFIG — tiempos de preparación -->
+    <div id="ktab-config" style="display:none;flex:1;overflow-y:auto;padding:.65rem">
+      <div style="font-size:15px;font-weight:500;margin-bottom:.25rem">Tiempos de preparación</div>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:.75rem;line-height:1.5">
+        Define cuántos minutos tarda cada plato. Se muestra en el KDS para coordinar los pases.
+      </div>
+      <div id="k-prep-list">
+        <div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando...</div>
+      </div>
     </div>
   </div>
 
@@ -761,6 +874,11 @@
         <div class="logo">serv<em style="color:var(--accent);font-style:normal">eat</em></div>
       </div>
       <div style="display:flex;align-items:center;gap:10px">
+        <button onclick="openWaiterNotifHistory()"
+          style="position:relative;background:none;border:none;cursor:pointer;padding:4px;color:var(--t2)">
+          🔔
+          <span id="waiter-notif-badge" style="display:none;position:absolute;top:0;right:0;background:#E24B4A;color:#fff;border-radius:99px;font-size:9px;font-weight:700;padding:1px 4px;min-width:14px;text-align:center">0</span>
+        </button>
         <span id="waiter-name-badge" style="font-size:13px;font-weight:500;color:var(--brand-d)"></span>
         <button class="back-btn" onclick="waiterLogout()" style="color:var(--accent)">Salir</button>
       </div>
@@ -984,51 +1102,21 @@
       <div id="gtab-camareros" class="body" style="display:none;overflow-y:auto"></div>
     </div>
 
-    <!-- TAB COCINA (admin) — Vista por mesa + pases -->
+    <!-- TAB COCINA (admin) — Vista por pases -->
     <div id="atab-cocina" style="display:none;flex-direction:column;height:calc(100vh - 110px);width:100%">
       <!-- Header -->
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem 1rem;border-bottom:1px solid var(--bd);flex-shrink:0;gap:.5rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem 1rem;border-bottom:1px solid var(--bd);flex-shrink:0">
         <div class="live-badge"><div class="live-dot"></div><span>Tiempo real</span></div>
-        <div style="display:flex;align-items:center;gap:.4rem">
-          <!-- Vista toggle -->
-          <div style="display:flex;border:1px solid var(--bd2);border-radius:var(--r-sm);overflow:hidden">
-            <button id="kds-view-pases" onclick="setKDSView('pases')"
-              style="padding:4px 10px;font-size:11px;font-weight:500;border:none;background:var(--brand);color:#fff;cursor:pointer;font-family:inherit">Por pases</button>
-            <button id="kds-view-kanban" onclick="setKDSView('kanban')"
-              style="padding:4px 10px;font-size:11px;border:none;background:var(--bg2);color:var(--t2);cursor:pointer;font-family:inherit">Kanban</button>
-          </div>
-          <button onclick="loadAdminOrders()" style="font-size:12px;color:var(--t2);background:none;border:none;cursor:pointer;font-family:inherit;padding:4px 8px;border:1px solid var(--bd);border-radius:var(--r-sm)">↻</button>
-        </div>
+        <button onclick="loadAdminOrders()" style="font-size:12px;color:var(--t2);background:none;border:none;cursor:pointer;font-family:inherit;padding:4px 8px;border:1px solid var(--bd);border-radius:var(--r-sm)">↻ Actualizar</button>
       </div>
-
-      <!-- VISTA PASES (por mesa, agrupado por tiempo) -->
-      <div id="kds-view-pases-panel" style="flex:1;overflow-y:auto;padding:.65rem">
+      <!-- Vista pases -->
+      <div style="flex:1;overflow-y:auto;padding:.65rem">
         <div id="kds-mesas-list"></div>
       </div>
-
-      <!-- VISTA KANBAN (legacy 3 columnas) -->
-      <div id="kds-view-kanban-panel" style="display:none;display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;flex:1;overflow:hidden">
-        <div style="border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden">
-          <div style="padding:.6rem .75rem;background:#FCEBEB;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-            <span style="font-size:11px;font-weight:500;color:#A32D2D;text-transform:uppercase;letter-spacing:.05em">Nuevos</span>
-            <span id="k-count-new" style="font-size:11px;font-weight:700;color:#A32D2D;background:#fff;border-radius:99px;padding:1px 7px">0</span>
-          </div>
-          <div id="k-col-new" style="flex:1;overflow-y:auto;padding:.5rem"></div>
-        </div>
-        <div style="border-right:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden">
-          <div style="padding:.6rem .75rem;background:#FAEEDA;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-            <span style="font-size:11px;font-weight:500;color:#854F0B;text-transform:uppercase;letter-spacing:.05em">Prep.</span>
-            <span id="k-count-making" style="font-size:11px;font-weight:700;color:#854F0B;background:#fff;border-radius:99px;padding:1px 7px">0</span>
-          </div>
-          <div id="k-col-making" style="flex:1;overflow-y:auto;padding:.5rem"></div>
-        </div>
-        <div style="display:flex;flex-direction:column;overflow:hidden">
-          <div style="padding:.6rem .75rem;background:#EAF3DE;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-            <span style="font-size:11px;font-weight:500;color:#3B6D11;text-transform:uppercase;letter-spacing:.05em">Listos</span>
-            <span id="k-count-ready" style="font-size:11px;font-weight:700;color:#3B6D11;background:#fff;border-radius:99px;padding:1px 7px">0</span>
-          </div>
-          <div id="k-col-ready" style="flex:1;overflow-y:auto;padding:.5rem"></div>
-        </div>
+      <!-- Keep hidden Kanban IDs for JS compatibility -->
+      <div style="display:none">
+        <div id="k-col-new"></div><div id="k-col-making"></div><div id="k-col-ready"></div>
+        <span id="k-count-new">0</span><span id="k-count-making">0</span><span id="k-count-ready">0</span>
       </div>
     </div><!-- close atab-cocina -->
 
@@ -2714,62 +2802,338 @@ async function payWithStripe(me, method) {
 // KITCHEN SCREEN
 // ══════════════════════════════════════════════════════
 function showKitchenTab(name) {
-  document.getElementById('k-pending').style.display = name === 'pending' ? 'block' : 'none';
-  document.getElementById('k-all').style.display = name === 'all' ? 'block' : 'none';
-  document.querySelectorAll('#s-kitchen .tab').forEach((t, i) => t.classList.toggle('on', i === (name === 'pending' ? 0 : 1)));
+  ['pedidos','carta','config'].forEach(t => {
+    const el = document.getElementById('ktab-' + t);
+    if (el) el.style.display = t === name ? 'block' : 'none';
+    const btn = document.getElementById('ktab-btn-' + t);
+    if (btn) btn.classList.toggle('on', t === name);
+  });
+  if (name === 'pedidos') loadKitchenOrders();
+  if (name === 'carta') loadKitchenCarta();
+  if (name === 'config') loadKitchenPrepTimes();
 }
 
 async function openKitchen(restaurantId, restaurantName) {
   state.kitchenRestaurantId = restaurantId;
   document.getElementById('k-rest-name').textContent = restaurantName || 'Cocina';
   go('s-kitchen');
-  await loadKitchenOrders();
+  showKitchenTab('pedidos');
   subscribeKitchenRealtime();
 }
 
-async function loadKitchenOrders() {
-  // Load orders from dishes table (orders table may not exist yet)
-  // For now, show dishes from active rooms of this restaurant
-  const { data: rooms } = await sb.from('rooms')
-    .select('id').eq('restaurant_id', state.kitchenRestaurantId).eq('closed', false).catch(() => ({ data: [] }));
-  if (!rooms || !rooms.length) { renderKitchenOrders([]); return; }
-  const roomIds = rooms.map(r => r.id);
-  const { data: dishes } = await sb.from('dishes').select('*, guests(name), rooms(restaurant_name)').in('room_id', roomIds);
-  renderKitchenOrders(dishes || []);
+function kitchenLogout() {
+  state.kitchenRestaurantId = null;
+  go('s0');
 }
 
-function renderKitchenOrders(dishes) {
-  const statuses = { new: 'Nuevo', making: 'Preparando', ready: 'Listo' };
-  const pending = dishes.filter(d => d.kitchen_status !== 'ready');
-  const all = dishes;
+async function loadKitchenOrders() {
+  const el = document.getElementById('k-mesas-list');
+  if (!el) return;
 
-  const renderList = (list, el) => {
-    if (!list.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">Todo al día</div></div>'; return; }
-    el.innerHTML = list.map(d => {
-      const st = d.kitchen_status || 'new';
-      const guestName = d.guests?.name || '?';
-      return `<div class="order-card ${st}" id="ok-${d.id}">
-        <div>
-          <div class="order-item">${d.name}</div>
-          <div class="order-who">${d.type === 'shared' ? 'Compartido' : guestName} · ${fmt(parseFloat(d.price))}</div>
-          <div class="status-row">
-            <button class="status-btn ${st === 'new' ? 'active-new' : ''}" onclick="setOrderStatus('${d.id}','new')">Nuevo</button>
-            <button class="status-btn ${st === 'making' ? 'active-making' : ''}" onclick="setOrderStatus('${d.id}','making')">Preparando</button>
-            <button class="status-btn ${st === 'ready' ? 'active-ready' : ''}" onclick="setOrderStatus('${d.id}','ready')">Listo ✓</button>
+  const { data: rooms } = await sb.from('rooms')
+    .select('id, table_id')
+    .eq('restaurant_id', state.kitchenRestaurantId)
+    .eq('closed', false);
+
+  if (!rooms?.length) {
+    el.innerHTML = `<div style="text-align:center;padding:3rem 1rem;color:var(--t3)">
+      <div style="font-size:32px;margin-bottom:.5rem">✅</div>
+      <div style="font-size:14px">Todo al día — sin pedidos pendientes</div>
+    </div>`;
+    const badge = document.getElementById('k-pedidos-badge');
+    if (badge) badge.style.display = 'none';
+    return;
+  }
+
+  const roomIds = rooms.map(r => r.id);
+  const roomTableMap = {};
+  rooms.forEach(r => { roomTableMap[r.id] = r.table_id; });
+
+  const [{ data: dishes }, { data: tables }, { data: menuItems }] = await Promise.all([
+    sb.from('dishes').select('*').in('room_id', roomIds)
+      .in('kitchen_status', ['sent','making','ready']).order('created_at'),
+    sb.from('tables').select('*').eq('restaurant_id', state.kitchenRestaurantId),
+    sb.from('menu_items').select('id,prep_time_minutes').eq('restaurant_id', state.kitchenRestaurantId)
+  ]);
+
+  const tablesById = {};
+  (tables || []).forEach(t => { tablesById[t.id] = t; });
+  const prepByItem = {};
+  (menuItems || []).forEach(m => { if (m.prep_time_minutes) prepByItem[m.id] = m.prep_time_minutes; });
+
+  // Update badge
+  const sentCount = (dishes || []).filter(d => d.kitchen_status === 'sent').length;
+  const badge = document.getElementById('k-pedidos-badge');
+  if (badge) {
+    badge.textContent = sentCount;
+    badge.style.display = sentCount > 0 ? 'inline' : 'none';
+  }
+
+  // Sound on new orders
+  if (sentCount > _prevNewCount && _prevNewCount >= 0) playKitchenSound();
+  _prevNewCount = sentCount;
+
+  if (!dishes?.length) {
+    el.innerHTML = `<div style="text-align:center;padding:3rem 1rem;color:var(--t3)">
+      <div style="font-size:32px;margin-bottom:.5rem">✅</div>
+      <div style="font-size:14px">Todo al día</div>
+    </div>`;
+    return;
+  }
+
+  renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem);
+}
+
+function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
+  const COURSE_LABELS = { 1:'1º Entrantes', 2:'2º Principales', 3:'3º Postres' };
+  const COURSE_COLORS = {
+    1: { bg:'#FFF5F5', border:'#FCCACA', hdr:'#FCEBEB', txt:'#A32D2D' },
+    2: { bg:'#FFFBF2', border:'#F5DEB3', hdr:'#FAEEDA', txt:'#854F0B' },
+    3: { bg:'#F5FFF7', border:'#A8D5A2', hdr:'#EAF3DE', txt:'#3B6D11' }
+  };
+
+  // Group by room
+  const byRoom = {};
+  dishes.forEach(d => {
+    if (!byRoom[d.room_id]) byRoom[d.room_id] = [];
+    byRoom[d.room_id].push(d);
+  });
+
+  // Sort by oldest dish (most urgent first)
+  const roomsSorted = Object.entries(byRoom).sort(([,a],[,b]) => {
+    const tA = Math.min(...a.map(d => new Date(d.created_at).getTime()));
+    const tB = Math.min(...b.map(d => new Date(d.created_at).getTime()));
+    return tA - tB;
+  });
+
+  el.innerHTML = roomsSorted.map(([roomId, roomDishes]) => {
+    const tableId = roomTableMap[roomId];
+    const table = tableId ? tablesById[tableId] : null;
+    const tableLabel = table ? `Mesa ${table.number}${table.label?' — '+table.label:''}` : `Sala`;
+
+    const oldest = Math.min(...roomDishes.map(d => new Date(d.created_at).getTime()));
+    const elapsed = Math.floor((Date.now() - oldest) / 60000);
+    const timerColor = elapsed > 20 ? '#C0392B' : elapsed > 10 ? '#E67E22' : 'var(--t3)';
+    const timerBg = elapsed > 20 ? '#FCEBEB' : elapsed > 10 ? '#FAEEDA' : 'var(--bg2)';
+
+    // Group by course
+    const byCourse = {};
+    roomDishes.forEach(d => {
+      const c = d.course || 1;
+      if (!byCourse[c]) byCourse[c] = [];
+      byCourse[c].push(d);
+    });
+
+    const activeCourses = Object.keys(byCourse).map(Number).sort();
+    const currentCourse = activeCourses.find(c =>
+      byCourse[c].some(d => d.kitchen_status === 'sent' || d.kitchen_status === 'making')
+    ) || activeCourses[0];
+
+    const courseSections = activeCourses.map(course => {
+      const cDishes = byCourse[course];
+      const col = COURSE_COLORS[course] || COURSE_COLORS[1];
+      const label = COURSE_LABELS[course] || `Pase ${course}`;
+      const isWaiting = course > currentCourse;
+      const allReady = cDishes.every(d => d.kitchen_status === 'ready');
+
+      const sentIds = cDishes.filter(d => d.kitchen_status === 'sent').map(d => `'${d.id}'`).join(',');
+      const makingIds = cDishes.filter(d => d.kitchen_status === 'making').map(d => `'${d.id}'`).join(',');
+
+      const maxPrep = Math.max(...cDishes.map(d => prepByItem[d.menu_item_id] || 0));
+
+      const dishRows = cDishes.map(d => {
+        const prep = prepByItem[d.menu_item_id] || 0;
+        const dishElapsed = Math.floor((Date.now() - new Date(d.created_at).getTime()) / 60000);
+        const ks = d.kitchen_status;
+        const dot = ks === 'ready' ? '🟢' : ks === 'making' ? '🟡' : '🔴';
+
+        let btn = '';
+        if (!isWaiting) {
+          if (ks === 'sent') btn = `<button onclick="setOrderStatus('${d.id}','making')"
+            style="padding:4px 12px;border-radius:99px;border:none;background:var(--brand);color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">→ Prep.</button>`;
+          else if (ks === 'making') btn = `<button onclick="setOrderStatus('${d.id}','ready')"
+            style="padding:4px 12px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">✓ Listo</button>`;
+          else btn = `<span style="font-size:16px">✅</span>`;
+        }
+
+        return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid rgba(0,0,0,.05)">
+          <span style="font-size:12px;flex-shrink:0">${dot}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.name}</div>
+            ${prep ? `<div style="font-size:10px;color:var(--t3)">⏱ ${prep} min · esperando ${dishElapsed} min</div>` : ''}
           </div>
+          ${btn}
+        </div>`;
+      }).join('');
+
+      let action = '';
+      if (!isWaiting && !allReady) {
+        if (sentIds) action = `<button onclick="setAllOrderStatus([${sentIds}],'making')"
+          style="width:100%;margin-top:.4rem;padding:8px;border-radius:6px;border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
+          → Todos a preparación
+        </button>`;
+        else if (makingIds) action = `<button onclick="fireNextCourse('${roomId}',${course},[${makingIds}])"
+          style="width:100%;margin-top:.4rem;padding:8px;border-radius:6px;border:none;background:#3B6D11;color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
+          ✓ Pase listo — avisar camarero
+        </button>`;
+      }
+
+      const statusLabel = isWaiting ? '⏳ En espera' : allReady ? '✅ Servido' :
+        cDishes.some(d=>d.kitchen_status==='making') ? '🍳 Preparando' : '🔴 Nuevo';
+
+      return `<div style="margin-bottom:.5rem;border-radius:8px;overflow:hidden;border:1.5px solid ${isWaiting?'var(--bd)':col.border};${isWaiting?'opacity:.5':''}">
+        <div style="background:${isWaiting?'var(--bg2)':col.hdr};padding:.4rem .65rem;display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:11px;font-weight:600;color:${isWaiting?'var(--t3)':col.txt};text-transform:uppercase;letter-spacing:.04em">${label}</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            ${maxPrep ? `<span style="font-size:10px;color:${isWaiting?'var(--t3)':col.txt}">⏱ ${maxPrep} min</span>` : ''}
+            <span style="font-size:11px;color:${isWaiting?'var(--t3)':col.txt}">${statusLabel}</span>
+          </div>
+        </div>
+        <div style="background:${isWaiting?'var(--bg2)':col.bg};padding:.5rem .65rem">
+          ${dishRows}${action}
         </div>
       </div>`;
     }).join('');
-  };
 
-  renderList(pending, document.getElementById('k-pending'));
-  renderList(all, document.getElementById('k-all'));
+    return `<div style="background:var(--card);border-radius:var(--r);border:1.5px solid var(--bd2);margin-bottom:.75rem;overflow:hidden">
+      <div style="padding:.5rem .75rem;background:var(--bg2);border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:14px;font-weight:600">${tableLabel}</span>
+        <span style="font-size:12px;font-weight:500;color:${timerColor};background:${timerBg};padding:2px 8px;border-radius:99px">${elapsed > 0 ? elapsed+' min' : 'ahora'}</span>
+      </div>
+      <div style="padding:.5rem .65rem">${courseSections}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── COCINA: CARTA (activar/desactivar) ──
+async function loadKitchenCarta() {
+  const el = document.getElementById('k-carta-list');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--t3);font-size:13px">Cargando...</div>';
+
+  const { data } = await sb.from('menu_items').select('*')
+    .eq('restaurant_id', state.kitchenRestaurantId).order('category').order('name');
+
+  if (!data?.length) { el.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3)">No hay platos configurados</div>'; return; }
+
+  const cats = ['entrantes','principales','postres','bebidas','otros'];
+  const grouped = {};
+  data.forEach(item => {
+    const cat = item.category || 'otros';
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(item);
+  });
+
+  let html = '';
+  cats.forEach(cat => {
+    if (!grouped[cat]) return;
+    html += `<div style="font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin:.65rem 0 .35rem">${cat}</div>`;
+    grouped[cat].forEach(item => {
+      html += `<div class="card" style="margin-bottom:.35rem;padding:.6rem .75rem;${!item.active?'opacity:.55':''}">
+        <div style="display:flex;align-items:center;gap:8px">
+          ${item.photo_url ? `<img src="${item.photo_url}" style="width:38px;height:38px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0">` : ''}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:${item.active?'500':'400'}">${item.name}</div>
+            <div style="font-size:12px;color:var(--t2)">${fmt(parseFloat(item.price))}${item.prep_time_minutes?' · ⏱ '+item.prep_time_minutes+' min':''}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <span style="font-size:11px;color:${item.active?'var(--brand)':'var(--t3)'};font-weight:500">${item.active?'Activo':'Inactivo'}</span>
+            <div class="toggle-track ${item.active?'on':''}" onclick="kitchenToggleItem('${item.id}',${!item.active},this)">
+              <div class="toggle-thumb"></div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    });
+  });
+  el.innerHTML = html;
+}
+
+async function kitchenToggleItem(itemId, active, toggleEl) {
+  if (toggleEl) toggleEl.classList.toggle('on', active);
+  const card = toggleEl?.closest('.card');
+  if (card) card.style.opacity = active ? '1' : '0.55';
+  await sb.from('menu_items').update({ active }).eq('id', itemId);
+}
+
+// ── COCINA: TIEMPOS DE PREPARACIÓN ──
+async function loadKitchenPrepTimes() {
+  const el = document.getElementById('k-prep-list');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--t3);font-size:13px">Cargando...</div>';
+
+  const { data } = await sb.from('menu_items').select('id,name,category,prep_time_minutes,active')
+    .eq('restaurant_id', state.kitchenRestaurantId)
+    .eq('active', true).order('category').order('name');
+
+  if (!data?.length) { el.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3)">No hay platos activos</div>'; return; }
+
+  const cats = ['entrantes','principales','postres','bebidas','otros'];
+  const grouped = {};
+  data.forEach(item => {
+    const cat = item.category || 'otros';
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(item);
+  });
+
+  let html = '';
+  cats.forEach(cat => {
+    if (!grouped[cat]) return;
+    html += `<div style="font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin:.65rem 0 .35rem">${cat}</div>`;
+    grouped[cat].forEach(item => {
+      html += `<div class="card" style="margin-bottom:.35rem;padding:.6rem .75rem">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="flex:1;font-size:14px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.name}</div>
+          <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+            <input type="number" min="0" max="120" value="${item.prep_time_minutes || ''}"
+              placeholder="min" inputmode="numeric"
+              style="width:56px;padding:6px 8px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-size:14px;font-family:inherit;text-align:center"
+              onchange="savePrepTime('${item.id}',this.value)"
+              onfocus="this.style.borderColor='var(--brand)'"
+              onblur="this.style.borderColor='var(--bd2)'">
+            <span style="font-size:12px;color:var(--t3)">min</span>
+          </div>
+        </div>
+      </div>`;
+    });
+  });
+
+  html += `<div style="margin-top:.75rem;font-size:12px;color:var(--t3);text-align:center;line-height:1.5">
+    Los tiempos se guardan automáticamente al cambiarlos.<br>Se mostrarán en el KDS para coordinar los pases.
+  </div>`;
+  el.innerHTML = html;
+}
+
+async function savePrepTime(itemId, value) {
+  const mins = parseInt(value) || null;
+  await sb.from('menu_items').update({ prep_time_minutes: mins }).eq('id', itemId);
+}
+
+function renderKitchenOrders() {
+  // Legacy function kept for compatibility — redirects to new system
+  loadKitchenOrders();
+}
+
+function subscribeKitchenRealtime() {
+  if (state._kitchenSubActiveK) return;
+  state._kitchenSubActiveK = true;
+  const sub = sb.channel('kitchen-standalone-' + state.kitchenRestaurantId)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'dishes' }, () => {
+      if (document.getElementById('ktab-pedidos')?.style.display !== 'none') loadKitchenOrders();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, () => {
+      if (document.getElementById('ktab-carta')?.style.display !== 'none') loadKitchenCarta();
+      if (document.getElementById('ktab-config')?.style.display !== 'none') loadKitchenPrepTimes();
+    })
+    .subscribe();
+  state.realtimeSubs.push(sub);
 }
 
 async function setOrderStatus(dishId, status) {
   const { data: dish } = await sb.from('dishes').select('*').eq('id', dishId).single();
   await sb.from('dishes').update({ kitchen_status: status }).eq('id', dishId);
   loadAdminOrders();
+  loadKitchenOrders();
 
   if (dish && (status === 'making' || status === 'ready')) {
     const title = status === 'making' ? '🍳 En preparación' : '🛎 ¡Plato listo para servir!';
@@ -2787,7 +3151,7 @@ async function setOrderStatus(dishId, status) {
 
 // ── CAMARERO: notificaciones de platos listos ──
 let _waiterDishSub = null;
-let _waiterReadyToasts = []; // platos pendientes de recoger
+let _waiterNotifHistory = []; // historial completo
 
 function subscribeWaiterNotifications() {
   if (_waiterDishSub) return;
@@ -2796,55 +3160,175 @@ function subscribeWaiterNotifications() {
       const dish = payload.new;
       if (dish.kitchen_status !== 'ready') return;
 
-      // Comprobar que es una mesa del restaurante del camarero
-      const { data: room } = await sb.from('rooms').select('table_id')
-        .eq('id', dish.room_id).maybeSingle();
+      const { data: room } = await sb.from('rooms')
+        .select('table_id, id').eq('id', dish.room_id).maybeSingle();
       if (!room) return;
 
-      // Obtener label de la mesa
       const { data: table } = room.table_id
         ? await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle()
         : { data: null };
-      const tableLabel = table ? `Mesa ${table.number}${table.label ? ' — ' + table.label : ''}` : 'Una mesa';
+      const tableLabel = table
+        ? `Mesa ${table.number}${table.label ? ' — ' + table.label : ''}`
+        : 'Mesa';
 
-      // Sonido
+      // Get all ready dishes for this room to show in detail
+      const { data: readyDishes } = await sb.from('dishes')
+        .select('name, course').eq('room_id', dish.room_id)
+        .eq('kitchen_status', 'ready');
+
+      const courseLabel = { 1:'Entrantes', 2:'Principales', 3:'Postres' }[dish.course || 1] || 'Platos';
+
       playKitchenSound();
-
-      // Mostrar notificación persistente en el panel del camarero
-      showWaiterReadyToast(dish.name, tableLabel, dish.id);
+      addWaiterNotif({
+        id: Date.now(),
+        tableLabel,
+        roomId: dish.room_id,
+        courseLabel,
+        course: dish.course || 1,
+        dishes: readyDishes || [],
+        time: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+        seen: false
+      });
     })
     .subscribe();
 }
 
-function showWaiterReadyToast(dishName, tableLabel, dishId) {
-  const container = document.getElementById('waiter-notifications') ||
-    (() => {
-      const el = document.createElement('div');
-      el.id = 'waiter-notifications';
-      el.style.cssText = 'position:fixed;top:70px;left:0;right:0;z-index:500;padding:0 1rem;pointer-events:none';
-      document.getElementById('s-waiter')?.appendChild(el);
-      return el;
-    })();
-
-  const toast = document.createElement('div');
-  toast.style.cssText = 'background:#085041;color:#fff;border-radius:var(--r);padding:.75rem 1rem;margin-bottom:.4rem;display:flex;align-items:center;gap:10px;pointer-events:all;animation:slideUpToast .2s ease;box-shadow:0 4px 16px rgba(0,0,0,0.2)';
-  toast.innerHTML = `
-    <div style="flex:1">
-      <div style="font-size:13px;font-weight:500">🛎 ${dishName} — listo para servir</div>
-      <div style="font-size:11px;opacity:.8">${tableLabel}</div>
-    </div>
-    <button onclick="this.closest('div[style]').remove()"
-      style="background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:99px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap">
-      ✓ Visto
-    </button>`;
-  container.appendChild(toast);
+function addWaiterNotif(notif) {
+  _waiterNotifHistory.unshift(notif);
+  renderWaiterNotifBanner();
+  updateWaiterNotifBadge();
 }
 
-function subscribeKitchenRealtime() {
-  const sub = sb.channel('kitchen-' + state.kitchenRestaurantId)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'dishes' }, () => loadKitchenOrders())
-    .subscribe();
-  state.realtimeSubs.push(sub);
+function renderWaiterNotifBanner() {
+  // Show only the latest unseen notification as a banner
+  const unseen = _waiterNotifHistory.filter(n => !n.seen);
+  if (!unseen.length) {
+    document.getElementById('waiter-notif-banner')?.remove();
+    return;
+  }
+
+  const latest = unseen[0];
+  let banner = document.getElementById('waiter-notif-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'waiter-notif-banner';
+    banner.style.cssText = 'position:fixed;top:58px;left:0;right:0;z-index:500;padding:0 .75rem';
+    document.getElementById('s-waiter')?.appendChild(banner);
+  }
+
+  banner.innerHTML = `<div style="background:#085041;color:#fff;border-radius:var(--r);padding:.7rem 1rem;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.25);cursor:pointer"
+    onclick="openWaiterNotifDetail(${latest.id})">
+    <div style="font-size:20px;flex-shrink:0">🛎</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:600">${latest.tableLabel} — ${latest.courseLabel} listos</div>
+      <div style="font-size:11px;opacity:.75">Toca para ver qué hay que servir · ${latest.time}</div>
+    </div>
+    <div style="display:flex;gap:6px;flex-shrink:0">
+      ${unseen.length > 1 ? `<span style="background:rgba(255,255,255,.2);border-radius:99px;padding:2px 7px;font-size:11px">+${unseen.length - 1}</span>` : ''}
+      <button onclick="event.stopPropagation();markWaiterNotifSeen(${latest.id})"
+        style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:99px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit">
+        ✓ Visto
+      </button>
+    </div>
+  </div>`;
+}
+
+function markWaiterNotifSeen(id) {
+  const n = _waiterNotifHistory.find(n => n.id === id);
+  if (n) n.seen = true;
+  renderWaiterNotifBanner();
+  updateWaiterNotifBadge();
+}
+
+function markAllWaiterNotifSeen() {
+  _waiterNotifHistory.forEach(n => n.seen = true);
+  renderWaiterNotifBanner();
+  updateWaiterNotifBadge();
+}
+
+function updateWaiterNotifBadge() {
+  const unseen = _waiterNotifHistory.filter(n => !n.seen).length;
+  const badge = document.getElementById('waiter-notif-badge');
+  if (badge) {
+    badge.textContent = unseen;
+    badge.style.display = unseen > 0 ? 'inline' : 'none';
+  }
+}
+
+function openWaiterNotifDetail(id) {
+  const n = _waiterNotifHistory.find(n => n.id === id);
+  if (!n) return;
+  markWaiterNotifSeen(id);
+
+  const modal = document.getElementById('waiter-notif-modal') || (() => {
+    const el = document.createElement('div');
+    el.id = 'waiter-notif-modal';
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;display:flex;align-items:flex-end;justify-content:center';
+    document.body.appendChild(el);
+    return el;
+  })();
+
+  const courseEmoji = { 1:'🥗', 2:'🍽', 3:'🍰' };
+  const dishList = n.dishes.length
+    ? n.dishes.map(d => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd)">
+        <span style="font-size:14px">${courseEmoji[d.course] || '🍽'}</span>
+        <span style="font-size:14px">${d.name}</span>
+      </div>`).join('')
+    : '<div style="font-size:13px;color:var(--t2)">Sin detalle disponible</div>';
+
+  modal.innerHTML = `<div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:1.5rem 1.25rem;width:100%;max-width:430px;animation:slideUp .2s ease">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+      <div>
+        <div style="font-size:16px;font-weight:600">${n.tableLabel}</div>
+        <div style="font-size:12px;color:var(--t2)">${n.courseLabel} listos · ${n.time}</div>
+      </div>
+      <button onclick="document.getElementById('waiter-notif-modal').style.display='none'"
+        style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+    </div>
+    <div style="margin-bottom:1rem">${dishList}</div>
+    <button onclick="document.getElementById('waiter-notif-modal').style.display='none'"
+      class="btn btn-primary">✓ Entendido, voy a servir</button>
+  </div>`;
+
+  modal.style.display = 'flex';
+}
+
+function openWaiterNotifHistory() {
+  const modal = document.getElementById('waiter-notif-modal') || (() => {
+    const el = document.createElement('div');
+    el.id = 'waiter-notif-modal';
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;display:flex;align-items:flex-end;justify-content:center';
+    document.body.appendChild(el);
+    return el;
+  })();
+
+  const items = _waiterNotifHistory.length
+    ? _waiterNotifHistory.map(n => `
+      <div onclick="openWaiterNotifDetail(${n.id})"
+        style="display:flex;align-items:center;gap:10px;padding:.65rem .75rem;border-radius:var(--r-sm);border:1px solid var(--bd);background:${n.seen ? 'var(--card)' : 'var(--brand-l)'};margin-bottom:.35rem;cursor:pointer">
+        <div style="width:8px;height:8px;border-radius:50%;background:${n.seen ? 'var(--bd2)' : 'var(--brand)'};flex-shrink:0"></div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:500">${n.tableLabel} — ${n.courseLabel}</div>
+          <div style="font-size:11px;color:var(--t2)">${n.time} · ${n.dishes.length} platos</div>
+        </div>
+        <span style="font-size:11px;color:var(--t3)">→</span>
+      </div>`).join('')
+    : '<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Sin notificaciones aún</div>';
+
+  modal.innerHTML = `<div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:1.5rem 1.25rem;width:100%;max-width:430px;max-height:80vh;display:flex;flex-direction:column;animation:slideUp .2s ease">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-shrink:0">
+      <div style="font-size:16px;font-weight:600">Historial de avisos</div>
+      <div style="display:flex;gap:.5rem">
+        <button onclick="markAllWaiterNotifSeen();openWaiterNotifHistory()"
+          style="font-size:12px;padding:4px 10px;border-radius:99px;border:1px solid var(--bd);background:none;color:var(--t2);cursor:pointer;font-family:inherit">Todo visto</button>
+        <button onclick="document.getElementById('waiter-notif-modal').style.display='none'"
+          style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+      </div>
+    </div>
+    <div style="overflow-y:auto;flex:1">${items}</div>
+  </div>`;
+
+  modal.style.display = 'flex';
 }
 
 // ══════════════════════════════════════════════════════
@@ -4350,11 +4834,8 @@ async function loadAdminOrders() {
   if (sentCount > _prevNewCount && _prevNewCount >= 0) playKitchenSound();
   _prevNewCount = sentCount;
 
-  if (_kdsView === 'pases') {
-    renderKDSPases(dishes || [], roomTableMap, tablesById, prepTimeByItem);
-  } else {
-    renderKDSKanban(dishes || [], roomTableMap, tablesById, prepTimeByItem);
-  }
+  // Always use pases view
+  renderKDSPases(dishes || [], roomTableMap, tablesById, prepTimeByItem);
 
   // Realtime subscription
   if (state._kitchenSubActive) {
@@ -4562,7 +5043,16 @@ async function fireNextCourse(roomId, course, dishIds) {
   }).catch(() => {});
 
   // Also show in-app notification for waiter
-  showWaiterReadyToast(`${courseLabel} listos`, tableLabel, roomId);
+  addWaiterNotif({
+    id: Date.now(),
+    tableLabel,
+    roomId,
+    courseLabel,
+    course,
+    dishes: dishIds.map(id => ({ name: '—', course })),
+    time: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+    seen: false
+  });
 }
 
 // ── RENDER VISTA KANBAN (legacy) ──
