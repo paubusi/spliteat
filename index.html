@@ -251,7 +251,10 @@
   <!-- ════════════════════════════════════════
        S0: INICIO (solo para acceso directo sin QR)
   ════════════════════════════════════════ -->
-  <div class="screen active" id="s0" style="background:#F3F7F5;display:flex;flex-direction:column;min-height:100vh;padding:0">
+  <div class="screen active" id="s0" style="background:#F3F7F5;flex-direction:column;height:100vh;padding:0;overflow:hidden">
+
+    <!-- Scrollable content -->
+    <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch">
 
     <!-- Hero -->
     <div style="background:var(--brand-d);padding:3.5rem 1.75rem 3rem;text-align:center;position:relative;overflow:hidden">
@@ -324,7 +327,7 @@
       </div>
 
       <!-- CTA scan -->
-      <div style="background:var(--brand-d);border-radius:14px;padding:1.1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;cursor:pointer">
+      <div style="background:var(--brand-d);border-radius:14px;padding:1.1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:0;cursor:pointer">
         <div>
           <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:2px">Escanea el QR de tu mesa</div>
           <div style="font-size:12px;color:rgba(255,255,255,.65)">Sin registro · Gratis para el comensal</div>
@@ -333,8 +336,12 @@
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M7 5l4 4-4 4" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
       </div>
+    </div>
 
-      <!-- Acceso restaurante -->
+    </div><!-- end scrollable -->
+
+    <!-- Acceso restaurante — fijo al fondo, FUERA del scroll -->
+    <div style="background:#F3F7F5;padding:.75rem 1.25rem calc(.75rem + env(safe-area-inset-bottom));border-top:1px solid #D0E5DC;flex-shrink:0">
       <button onclick="go('s-admin-login')"
         style="width:100%;padding:11px;border-radius:10px;border:1px solid #D0E5DC;background:#fff;cursor:pointer;font-family:inherit;text-align:center;box-shadow:0 1px 2px rgba(0,0,0,.04)">
         <span style="font-family:'Fraunces',serif;font-size:13px;color:var(--brand-d)">manag<em style="color:var(--accent);font-style:normal">eat</em></span>
@@ -438,6 +445,20 @@
 
     <!-- TAB: MESA -->
     <div id="dtab-mesa" class="body" style="display:none">
+
+      <!-- Steps indicator -->
+      <div style="display:flex;align-items:center;gap:4px;margin-bottom:1rem;font-size:11px;font-weight:500">
+        <span style="color:var(--brand)">✓ Carta</span>
+        <span style="color:var(--bd2)">——</span>
+        <span style="color:var(--brand-d);font-weight:600">Revisar</span>
+        <span style="color:var(--bd2)">——</span>
+        <span style="color:var(--t3)">Cocina</span>
+        <span style="color:var(--bd2)">——</span>
+        <span style="color:var(--t3)">Resumen</span>
+        <span style="color:var(--bd2)">——</span>
+        <span style="color:var(--t3)">Pagar</span>
+      </div>
+
       <div class="live-badge" style="margin-bottom:.75rem"><div class="live-dot"></div><span>En tiempo real</span></div>
       <div id="mesa-dishes-list"></div>
       <div id="mesa-empty" class="empty" style="display:none">
@@ -453,6 +474,16 @@
         <div id="kitchen-sent-msg" style="display:none;background:var(--brand-light);border-radius:var(--r-sm);padding:.65rem 1rem;font-size:13px;color:var(--brand-dark);margin-top:.65rem">
           ✓ Pedido enviado. Cocina lo está preparando.
         </div>
+      </div>
+
+      <!-- BOTONES NAVEGACIÓN INFERIOR -->
+      <div style="display:flex;gap:.5rem;margin-top:.75rem">
+        <button class="btn btn-secondary" onclick="showDishTab('carta')" style="flex:1">
+          ← Añadir más
+        </button>
+        <button class="btn btn-primary" onclick="go('s4-summary')" style="flex:1">
+          Ver resumen →
+        </button>
       </div>
 
       <!-- MODAL CONFIRMACIÓN ENVÍO A COCINA -->
@@ -563,11 +594,21 @@
   ════════════════════════════════════════ -->
   <div class="screen" id="s4-summary">
     <div class="hdr">
-      <button class="back-btn" onclick="go('s3-dishes')">← Platos</button>
+      <button class="back-btn" onclick="go('s3-dishes')">← Mesa</button>
       <div class="logo">split<em>eat</em></div>
       <div class="live-badge"><div class="live-dot"></div></div>
     </div>
     <div class="body">
+      <!-- Steps -->
+      <div style="display:flex;align-items:center;gap:4px;margin-bottom:1rem;font-size:11px;font-weight:500">
+        <span style="color:var(--brand)">✓ Carta</span>
+        <span style="color:var(--bd2)">——</span>
+        <span style="color:var(--brand)">✓ Cocina</span>
+        <span style="color:var(--bd2)">——</span>
+        <span style="color:var(--brand-d);font-weight:600">Resumen</span>
+        <span style="color:var(--bd2)">——</span>
+        <span style="color:var(--t3)">Pagar</span>
+      </div>
       <div class="sec-label">Lo que debe cada uno</div>
       <div id="summary-list"></div>
       <div class="grand-bar">
@@ -595,6 +636,7 @@
           <div id="pay-name-label" style="font-size:16px;font-weight:500;color:var(--brand-d)">—</div>
           <div id="pay-amount" style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:var(--brand-d)">—</div>
         </div>
+        <div id="pay-breakdown" style="font-size:12px;color:var(--brand);margin-top:3px;display:none"></div>
       </div>
 
       <!-- PROPINA — mejorada y divertida -->
@@ -1242,6 +1284,7 @@
     <div id="atab-reportes" style="display:none;flex-direction:column">
       <div style="display:flex;border-bottom:1px solid var(--bd);background:var(--bg2);padding:0 1rem;overflow-x:auto">
         <button class="tab on" id="rtab-btn-kpis" onclick="showReportesTab('kpis')" style="font-size:13px;padding:.5rem .75rem;white-space:nowrap">📊 KPIs</button>
+        <button class="tab" id="rtab-btn-platos" onclick="showReportesTab('platos')" style="font-size:13px;padding:.5rem .75rem;white-space:nowrap">⏱ Platos</button>
         <button class="tab" id="rtab-btn-historial" onclick="showReportesTab('historial')" style="font-size:13px;padding:.5rem .75rem;white-space:nowrap">Historial</button>
         <button class="tab" id="rtab-btn-propinas" onclick="showReportesTab('propinas')" style="font-size:13px;padding:.5rem .75rem;white-space:nowrap">Propinas</button>
         <button class="tab" id="rtab-btn-pagos" onclick="showReportesTab('pagos')" style="font-size:13px;padding:.5rem .75rem;white-space:nowrap">Pagos</button>
@@ -1249,8 +1292,7 @@
       </div>
 
       <!-- KPIs -->
-      <div id="rtab-kpis" class="body">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+      <div id="rtab-kpis" class="body">        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
           <div style="font-size:15px;font-weight:500">Resumen</div>
           <select id="kpi-filter" onchange="loadKPIs()" style="font-size:12px;padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-family:inherit">
             <option value="0">Hoy</option>
@@ -1316,6 +1358,25 @@
         </div>
       </div>
 
+
+      <!-- Platos — tiempos reales vs estimados -->
+      <div id="rtab-platos" class="body" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+          <div class="sec-label" style="margin:0">Tiempos de preparación</div>
+          <select id="platos-filter" onchange="loadKPIPlatos()" style="font-size:12px;padding:5px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-family:inherit">
+            <option value="7" selected>7 días</option>
+            <option value="30">30 días</option>
+            <option value="90">3 meses</option>
+            <option value="all">Todo</option>
+          </select>
+        </div>
+        <div style="font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:1rem;background:var(--bg2);padding:.65rem .85rem;border-radius:var(--r-sm)">
+          Tiempo real desde que cocina empieza a preparar hasta que marca el plato como listo. Compara con el tiempo estimado configurado en cookeat.
+        </div>
+        <div id="kpi-platos-list">
+          <div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando...</div>
+        </div>
+      </div>
 
       <!-- Historial -->
       <div id="rtab-historial" class="body" style="display:none">
@@ -1850,7 +1911,10 @@ function subscribeRealtime() {
       const { data } = await sb.from('guests').select('*').eq('room_id', state.roomId);
       state.guests = data || [];
       renderRoomScreen();
+      renderMesaDishes();
       document.getElementById('s3-online').textContent = state.guests.length;
+      if (document.getElementById('s4-summary').classList.contains('active')) buildSummary();
+      if (document.getElementById('s5-pay').classList.contains('active')) buildPayScreen();
     }).subscribe();
 
   const dishSub = sb.channel('dishes-' + state.roomId)
@@ -2606,7 +2670,6 @@ function applyCustomTip(value) {
 // ══════════════════════════════════════════════════════
 function calcTotals() {
   const tip = (state.tipPercent || 0) / 100;
-  const totalDishes = state.dishes.reduce((s, d) => s + parseFloat(d.price || 0), 0);
   const nGuests = Math.max(1, state.guests.length);
 
   return state.guests.map(g => {
@@ -2624,9 +2687,9 @@ function calcTotals() {
       }
     });
     const sub = soloAmt + sharedAmt;
-    // Fixed tip: split equally among all guests
+    // Tip is personal — each person tips on their own subtotal
     const tipAmt = state.tipFixed != null
-      ? state.tipFixed / nGuests
+      ? state.tipFixed  // fixed amount is per person (they set it themselves)
       : sub * tip;
     const total = sub + tipAmt;
     return { g, soloAmt, sharedAmt, sub, total, soloItems, sharedItems, tipAmt };
@@ -2668,6 +2731,15 @@ function buildPayScreen() {
   if (me) {
     document.getElementById('pay-name-label').textContent = me.g.name + ' (tú)';
     document.getElementById('pay-amount').textContent = fmt(me.total);
+    const breakdown = document.getElementById('pay-breakdown');
+    if (breakdown) {
+      if (me.tipAmt > 0) {
+        breakdown.textContent = `${fmt(me.sub)} + ${fmt(me.tipAmt)} propina`;
+        breakdown.style.display = 'block';
+      } else {
+        breakdown.style.display = 'none';
+      }
+    }
   }
   const list = document.getElementById('pay-status-list');
   list.innerHTML = totals.map((t, i) => {
@@ -3131,7 +3203,13 @@ function subscribeKitchenRealtime() {
 
 async function setOrderStatus(dishId, status) {
   const { data: dish } = await sb.from('dishes').select('*').eq('id', dishId).single();
-  await sb.from('dishes').update({ kitchen_status: status }).eq('id', dishId);
+
+  // Record timestamps for KPI tracking
+  const updates = { kitchen_status: status };
+  if (status === 'making') updates.making_at = new Date().toISOString();
+  if (status === 'ready') updates.ready_at = new Date().toISOString();
+
+  await sb.from('dishes').update(updates).eq('id', dishId);
   loadAdminOrders();
   loadKitchenOrders();
 
@@ -4362,17 +4440,136 @@ async function loadAdminWaitersMobile() {
 }
 
 function showReportesTab(name) {
-  ['kpis','historial','propinas','pagos','perfil'].forEach(t => {
+  ['kpis','platos','historial','propinas','pagos','perfil'].forEach(t => {
     const el = document.getElementById('rtab-' + t);
     if (el) el.style.display = t === name ? 'block' : 'none';
     const btn = document.getElementById('rtab-btn-' + t);
     if (btn) btn.classList.toggle('on', t === name);
   });
   if (name === 'kpis') loadKPIs();
+  if (name === 'platos') loadKPIPlatos();
   if (name === 'historial') loadHistorial();
   if (name === 'propinas') loadPropinas();
   if (name === 'pagos') { loadPagosRecientes(); loadStripeStatus(); }
   if (name === 'perfil') loadRestaurantProfile();
+}
+
+// ══════════════════════════════════════════════════════
+// KPI PLATOS — tiempos reales vs estimados
+// ══════════════════════════════════════════════════════
+async function loadKPIPlatos() {
+  const el = document.getElementById('kpi-platos-list');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando...</div>';
+
+  const days = document.getElementById('platos-filter')?.value || '7';
+  const since = days === 'all' ? null : new Date(Date.now() - days * 86400000).toISOString();
+
+  // Get dishes with making_at and ready_at timestamps
+  let query = sb.from('dishes')
+    .select('name, menu_item_id, making_at, ready_at')
+    .eq('restaurant_id', state.adminRestaurantId)
+    .not('making_at', 'is', null)
+    .not('ready_at', 'is', null);
+  if (since) query = query.gte('ready_at', since);
+
+  const [{ data: dishes }, { data: menuItems }] = await Promise.all([
+    query,
+    sb.from('menu_items').select('id, name, prep_time_minutes')
+      .eq('restaurant_id', state.adminRestaurantId)
+  ]);
+
+  if (!dishes?.length) {
+    el.innerHTML = `<div style="text-align:center;padding:3rem 1rem;color:var(--t3)">
+      <div style="font-size:28px;margin-bottom:.5rem">📊</div>
+      <div style="font-size:14px;margin-bottom:.35rem">Sin datos todavía</div>
+      <div style="font-size:12px;line-height:1.5">Los tiempos se registran automáticamente cuando cocina marca los platos. Necesitas ejecutar el SQL <code>add_dish_timestamps.sql</code> primero.</div>
+    </div>`;
+    return;
+  }
+
+  // Build prep time lookup
+  const prepByItemId = {};
+  const nameByItemId = {};
+  (menuItems || []).forEach(m => {
+    prepByItemId[m.id] = m.prep_time_minutes;
+    nameByItemId[m.id] = m.name;
+  });
+
+  // Group by dish name and calculate stats
+  const byDish = {};
+  dishes.forEach(d => {
+    if (!d.making_at || !d.ready_at) return;
+    const realMins = Math.round((new Date(d.ready_at) - new Date(d.making_at)) / 60000);
+    if (realMins < 0 || realMins > 180) return; // ignore outliers
+
+    const key = d.menu_item_id || d.name;
+    const label = nameByItemId[d.menu_item_id] || d.name;
+    if (!byDish[key]) byDish[key] = { name: label, times: [], estimado: prepByItemId[d.menu_item_id] || null };
+    byDish[key].times.push(realMins);
+  });
+
+  if (!Object.keys(byDish).length) {
+    el.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Sin datos suficientes para el período seleccionado</div>';
+    return;
+  }
+
+  // Sort by most orders desc
+  const sorted = Object.values(byDish).sort((a, b) => b.times.length - a.times.length);
+
+  el.innerHTML = sorted.map(item => {
+    const avg = Math.round(item.times.reduce((s, t) => s + t, 0) / item.times.length);
+    const min = Math.min(...item.times);
+    const max = Math.max(...item.times);
+    const est = item.estimado;
+    const diff = est ? avg - est : null;
+
+    // Color coding based on real vs estimated
+    const barColor = diff === null ? 'var(--brand)' :
+      diff > 5 ? '#E24B4A' : diff > 2 ? '#EF9F27' : 'var(--brand)';
+    const diffLabel = diff === null ? '' :
+      diff > 0 ? `<span style="color:#E24B4A;font-size:11px;font-weight:500">+${diff} min sobre estimado</span>` :
+      diff < 0 ? `<span style="color:var(--brand);font-size:11px;font-weight:500">${diff} min bajo estimado</span>` :
+      `<span style="color:var(--t3);font-size:11px">Exacto al estimado</span>`;
+
+    // Bar width — relative to max avg across all dishes
+    const maxAvg = Math.max(...sorted.map(s => Math.round(s.times.reduce((a,b)=>a+b,0)/s.times.length)));
+    const barPct = maxAvg > 0 ? Math.round((avg / maxAvg) * 100) : 0;
+
+    return `<div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.9rem 1rem;margin-bottom:.5rem">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:.6rem">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:500;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.name}</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:1px">${item.times.length} pedido${item.times.length !== 1 ? 's' : ''}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:${barColor};line-height:1">${avg}<span style="font-size:12px;font-weight:400;color:var(--t2)"> min</span></div>
+          <div style="font-size:11px;color:var(--t3)">media real</div>
+        </div>
+      </div>
+
+      <!-- Bar -->
+      <div style="height:5px;background:var(--bg2);border-radius:99px;margin-bottom:.6rem;overflow:hidden">
+        <div style="height:100%;width:${barPct}%;background:${barColor};border-radius:99px;transition:width .4s ease"></div>
+      </div>
+
+      <!-- Stats row -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px">
+        <div style="display:flex;gap:12px">
+          <span style="font-size:11px;color:var(--t3)">Mín <strong style="color:var(--t2)">${min} min</strong></span>
+          <span style="font-size:11px;color:var(--t3)">Máx <strong style="color:var(--t2)">${max} min</strong></span>
+          ${est ? `<span style="font-size:11px;color:var(--t3)">Estimado <strong style="color:var(--t2)">${est} min</strong></span>` : '<span style="font-size:11px;color:var(--t3);font-style:italic">Sin estimado</span>'}
+        </div>
+        ${diffLabel}
+      </div>
+
+      ${diff !== null && Math.abs(diff) > 3 ? `
+      <div style="margin-top:.6rem;padding:.45rem .65rem;background:${diff > 0 ? '#FFF5F5' : '#F0FBF7'};border-radius:var(--r-sm);font-size:11px;color:${diff > 0 ? '#A32D2D' : '#3B6D11'}">
+        ${diff > 5 ? `⚠️ Este plato tarda ${diff} min más de lo estimado. Actualiza el tiempo en cookeat → Config.` :
+          diff < -3 ? `✓ Este plato se prepara ${Math.abs(diff)} min antes de lo estimado. Puedes ajustar a la baja.` : ''}
+      </div>` : ''}
+    </div>`;
+  }).join('');
 }
 
 // ══════════════════════════════════════════════════════
@@ -5150,10 +5347,14 @@ function renderKDSKanban(dishes, roomTableMap, tablesById, prepTimeByItem) {
 
 // Confirmar/marcar como listo todos los platos de una mesa de golpe
 async function setAllOrderStatus(dishIds, status) {
+  const updates = { kitchen_status: status };
+  if (status === 'making') updates.making_at = new Date().toISOString();
+  if (status === 'ready') updates.ready_at = new Date().toISOString();
   await Promise.all(dishIds.map(id =>
-    sb.from('dishes').update({ kitchen_status: status }).eq('id', id)
+    sb.from('dishes').update(updates).eq('id', id)
   ));
   loadAdminOrders();
+  loadKitchenOrders();
 }
 
 // ══════════════════════════════════════════════════════
