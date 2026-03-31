@@ -342,6 +342,15 @@
         <div class="empty-icon">🍽</div>
         <div class="empty-text">No hay carta disponible.<br>Pídele al restaurante que la configure.</div>
       </div>
+      <!-- Botón revisar pedido — visible solo si hay platos pendientes -->
+      <div id="carta-review-btn-area" style="display:none;position:sticky;bottom:0;padding:.75rem 0;background:linear-gradient(transparent, var(--bg) 40%);margin-top:.5rem">
+        <button onclick="showDishTab('mesa')"
+          style="width:100%;padding:14px;border-radius:var(--r);border:none;background:var(--brand);color:#fff;font-size:15px;font-weight:500;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 16px rgba(29,158,117,.35)">
+          <span>Revisar pedido</span>
+          <span id="carta-review-count" style="background:rgba(255,255,255,.25);border-radius:99px;padding:2px 9px;font-size:13px">0</span>
+          <span>→</span>
+        </button>
+      </div>
     </div>
 
     <!-- TAB: MESA -->
@@ -355,14 +364,31 @@
 
       <!-- BOTÓN ENVIAR A COCINA -->
       <div id="kitchen-send-area" style="display:none;margin-top:1rem">
-        <div style="background:#FAEEDA;border-radius:var(--r-sm);padding:.65rem 1rem;font-size:13px;color:#633806;margin-bottom:.65rem;line-height:1.5">
-          Cuando hayas decidido todos tus platos, envíalos a cocina. Podrás seguir añadiendo más después.
-        </div>
-        <button class="btn btn-accent" onclick="sendToKitchen()" id="btn-send-kitchen">
+        <button class="btn btn-accent" onclick="showSendToKitchenConfirm()" id="btn-send-kitchen">
           🍳 Enviar pedido a cocina
         </button>
         <div id="kitchen-sent-msg" style="display:none;background:var(--brand-light);border-radius:var(--r-sm);padding:.65rem 1rem;font-size:13px;color:var(--brand-dark);margin-top:.65rem">
           ✓ Pedido enviado. Cocina lo está preparando.
+        </div>
+      </div>
+
+      <!-- MODAL CONFIRMACIÓN ENVÍO A COCINA -->
+      <div id="send-confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:200;align-items:flex-end;justify-content:center">
+        <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:1.5rem 1.25rem;width:100%;max-width:430px;animation:slideUp .2s ease">
+          <div style="font-size:16px;font-weight:500;margin-bottom:.25rem">Confirmar pedido</div>
+          <div style="font-size:13px;color:var(--t2);margin-bottom:1rem">Revisa que todo está correcto antes de enviar a cocina.</div>
+          <div id="send-confirm-list" style="margin-bottom:1rem;max-height:40vh;overflow-y:auto"></div>
+          <div style="border-top:1px solid var(--bd);padding-top:.75rem;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:13px;color:var(--t2)">Total del pedido</span>
+            <span id="send-confirm-total" style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--brand-d)">—</span>
+          </div>
+          <button class="btn btn-accent" onclick="confirmSendToKitchen()" style="margin-bottom:.5rem">
+            ✓ Sí, enviar a cocina
+          </button>
+          <button onclick="document.getElementById('send-confirm-modal').style.display='none'"
+            style="width:100%;padding:11px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:none;color:var(--t2);font-size:14px;cursor:pointer;font-family:inherit">
+            Volver y seguir añadiendo
+          </button>
         </div>
       </div>
 
@@ -2148,6 +2174,13 @@ function renderMesaDishes() {
     badge.textContent = state.dishes.length;
   }
 
+  // Update sticky "Revisar pedido" button in carta tab
+  const unsentCount = state.dishes.filter(d => !d.kitchen_status || d.kitchen_status === 'new').length;
+  const reviewArea = document.getElementById('carta-review-btn-area');
+  const reviewCount = document.getElementById('carta-review-count');
+  if (reviewArea) reviewArea.style.display = unsentCount > 0 ? 'block' : 'none';
+  if (reviewCount) reviewCount.textContent = unsentCount + ' plato' + (unsentCount !== 1 ? 's' : '');
+
   // Show/hide send-to-kitchen area
   const kitchenArea = document.getElementById('kitchen-send-area');
   const sentMsg = document.getElementById('kitchen-sent-msg');
@@ -2347,6 +2380,75 @@ async function toggleDishType(dishId) {
 // ══════════════════════════════════════════════════════
 // SEND TO KITCHEN
 // ══════════════════════════════════════════════════════
+function showSendToKitchenConfirm() {
+  const unsentDishes = state.dishes.filter(d => !d.kitchen_status || d.kitchen_status === 'new');
+  if (!unsentDishes.length) return;
+
+  const COURSE_LABELS = { 1: '1º Entrante', 2: '2º Principal', 3: '3º Postre' };
+  const GUEST_COLORS = ['#D85A30','#185FA5','#7B3FA0','#C0392B','#117A65','#B7770D','#1A5276','#6E2C00'];
+
+  // Group by course for cleaner display
+  const byCourse = {};
+  unsentDishes.forEach(d => {
+    const c = d.course || 1;
+    if (!byCourse[c]) byCourse[c] = [];
+    byCourse[c].push(d);
+  });
+
+  let html = '';
+  Object.keys(byCourse).sort().forEach(course => {
+    const dishes = byCourse[course];
+    html += `<div style="font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.35rem;margin-top:.5rem">${COURSE_LABELS[course] || 'Platos'}</div>`;
+    dishes.forEach(d => {
+      const isShared = d.type === 'shared';
+      const parts = state.participants[d.id] || [];
+      const nParts = Math.max(1, parts.length);
+      const perPerson = parseFloat(d.price) / nParts;
+
+      // Who's assigned
+      let whoHtml = '';
+      if (isShared && parts.length > 0) {
+        const avatars = parts.slice(0, 4).map(gid => {
+          const gIdx = state.guests.findIndex(g => g.id === gid);
+          const g = state.guests.find(g => g.id === gid);
+          if (!g) return '';
+          const bg = GUEST_COLORS[gIdx % GUEST_COLORS.length];
+          return `<div style="width:18px;height:18px;border-radius:50%;background:${bg};color:#fff;font-size:8px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-right:-4px;border:1.5px solid var(--card)">${g.name[0].toUpperCase()}</div>`;
+        }).join('');
+        whoHtml = `<div style="display:flex;align-items:center;gap:2px;margin-left:4px">${avatars}</div>`;
+      } else if (!isShared && d.assignee_id) {
+        const gIdx = state.guests.findIndex(g => g.id === d.assignee_id);
+        const g = state.guests.find(g => g.id === d.assignee_id);
+        if (g) {
+          const bg = GUEST_COLORS[gIdx % GUEST_COLORS.length];
+          whoHtml = `<div style="width:18px;height:18px;border-radius:50%;background:${bg};color:#fff;font-size:8px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:4px">${g.name[0].toUpperCase()}</div>`;
+        }
+      }
+
+      html += `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.name}</div>
+          <div style="font-size:11px;color:var(--t2)">${isShared ? `🤝 compartido ÷${nParts} = ${fmt(perPerson)}/p.` : `👤 ${fmt(parseFloat(d.price))}`}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+          ${whoHtml}
+          <span style="font-size:14px;font-weight:600;color:var(--brand-d);margin-left:6px">${fmt(parseFloat(d.price))}</span>
+        </div>
+      </div>`;
+    });
+  });
+
+  const total = unsentDishes.reduce((s, d) => s + parseFloat(d.price || 0), 0);
+  document.getElementById('send-confirm-list').innerHTML = html;
+  document.getElementById('send-confirm-total').textContent = fmt(total);
+  document.getElementById('send-confirm-modal').style.display = 'flex';
+}
+
+async function confirmSendToKitchen() {
+  document.getElementById('send-confirm-modal').style.display = 'none';
+  await sendToKitchen();
+}
+
 async function sendToKitchen() {
   const unsentDishes = state.dishes.filter(d =>
     !d.kitchen_status || d.kitchen_status === 'new'
@@ -2356,7 +2458,6 @@ async function sendToKitchen() {
   const btn = document.getElementById('btn-send-kitchen');
   if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
 
-  // Mark all unsent dishes as 'sent'
   for (const dish of unsentDishes) {
     await sb.from('dishes').update({ kitchen_status: 'sent' }).eq('id', dish.id);
     dish.kitchen_status = 'sent';
