@@ -24,6 +24,7 @@
   }
   html, body { height: 100%; background: var(--bg); color: var(--t1); font-family: 'DM Sans', sans-serif; font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
   #app { max-width: 430px; margin: 0 auto; min-height: 100vh; position: relative; background: var(--bg); }
+  #s0 { max-width: none !important; width: 100vw !important; margin: 0 !important; position: fixed !important; inset: 0 !important; z-index: 1; overflow-y: auto; }
 
   /* Pantallas de admin y cocina usan todo el ancho en desktop */
   @media (min-width: 600px) {
@@ -251,107 +252,108 @@
   <!-- ════════════════════════════════════════
        S0: INICIO (solo para acceso directo sin QR)
   ════════════════════════════════════════ -->
-  <div class="screen active" id="s0" style="background:#F3F7F5;flex-direction:column;height:100vh;padding:0;overflow:hidden">
+  <div class="screen active" id="s0" style="background:#F3F7F5;flex-direction:column;min-height:100vh;padding:0;max-width:none!important;width:100%!important">
 
-    <!-- Scrollable content -->
-    <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch">
+    <!-- Full-width container -->
+    <div style="max-width:900px;margin:0 auto;width:100%;min-height:100vh;display:flex;flex-direction:column">
 
-    <!-- Hero -->
-    <div style="background:var(--brand-d);padding:3.5rem 1.75rem 3rem;text-align:center;position:relative;overflow:hidden">
-      <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 30% 0%,rgba(29,158,117,.5) 0%,transparent 60%),radial-gradient(ellipse at 80% 120%,rgba(8,80,65,.8) 0%,transparent 50%);pointer-events:none"></div>
-      <!-- Decorative circles -->
-      <div style="position:absolute;top:-40px;right:-40px;width:180px;height:180px;border-radius:50%;border:1px solid rgba(255,255,255,.06);pointer-events:none"></div>
-      <div style="position:absolute;bottom:-60px;left:-30px;width:220px;height:220px;border-radius:50%;border:1px solid rgba(255,255,255,.04);pointer-events:none"></div>
+      <!-- DESKTOP: two column layout / MOBILE: single column -->
+      <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;min-height:100vh">
 
-      <div style="position:relative">
-        <div style="font-family:'Fraunces',serif;font-size:44px;font-weight:700;letter-spacing:-1px;line-height:1;margin-bottom:1.75rem">
-          <span style="color:#fff">split</span><em style="color:var(--accent);font-style:normal">eat</em>
+        <!-- Left: Hero -->
+        <div style="background:var(--brand-d);padding:3.5rem 3rem;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden">
+          <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 30% 0%,rgba(29,158,117,.5) 0%,transparent 60%),radial-gradient(ellipse at 80% 120%,rgba(8,80,65,.8) 0%,transparent 50%);pointer-events:none"></div>
+          <div style="position:absolute;top:-40px;right:-40px;width:200px;height:200px;border-radius:50%;border:1px solid rgba(255,255,255,.06);pointer-events:none"></div>
+          <div style="position:absolute;bottom:-60px;left:-30px;width:240px;height:240px;border-radius:50%;border:1px solid rgba(255,255,255,.04);pointer-events:none"></div>
+          <div style="position:relative">
+            <div style="font-family:'Fraunces',serif;font-size:48px;font-weight:700;letter-spacing:-1px;line-height:1;margin-bottom:2rem">
+              <span style="color:#fff">split</span><em style="color:var(--accent);font-style:normal">eat</em>
+            </div>
+            <p style="font-size:16px;color:rgba(255,255,255,.85);line-height:1.9;margin:0 0 2.5rem">
+              Adiós a los bizums de 15,43€ que nunca llegan.<br>
+              Sin marear al camarero, sin perseguir a nadie.<br>
+              <strong style="color:#fff;font-weight:600;font-size:17px">La cuenta, resuelta.</strong>
+            </p>
+            <!-- CTA scan -->
+            <div style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:14px;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;cursor:pointer;backdrop-filter:blur(4px)">
+              <div>
+                <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:2px">Escanea el QR de tu mesa</div>
+                <div style="font-size:12px;color:rgba(255,255,255,.6)">Sin registro · Gratis para el comensal</div>
+              </div>
+              <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M7 5l4 4-4 4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+            </div>
+          </div>
         </div>
-        <p style="font-size:15px;color:rgba(255,255,255,.8);line-height:1.85;margin:0;font-weight:400">
-          Adiós a los bizums de 15,43€ que nunca llegan.<br>
-          Sin marear al camarero, sin perseguir a nadie.<br>
-          <strong style="color:#fff;font-weight:600;font-size:16px">La cuenta, resuelta.</strong>
-        </p>
+
+        <!-- Right: Features + acceso -->
+        <div style="padding:3rem 2.5rem;display:flex;flex-direction:column;justify-content:center;background:#F3F7F5">
+          <div style="font-size:11px;font-weight:600;color:var(--brand);text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem">Cómo funciona</div>
+
+          <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.5rem">
+            <div style="background:#fff;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.85rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+              <div style="width:34px;height:34px;border-radius:9px;background:var(--brand-l);flex-shrink:0;display:flex;align-items:center;justify-content:center">
+                <svg width="17" height="17" viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="6" height="6" rx="1.5" fill="var(--brand)"/><rect x="10" y="2" width="6" height="6" rx="1.5" fill="var(--brand)"/><rect x="2" y="10" width="6" height="6" rx="1.5" fill="var(--brand)"/><rect x="10" y="10" width="2.5" height="2.5" rx=".75" fill="var(--brand)"/><rect x="13.5" y="10" width="2.5" height="2.5" rx=".75" fill="var(--brand)"/><rect x="10" y="13.5" width="2.5" height="2.5" rx=".75" fill="var(--brand)"/><rect x="13.5" y="13.5" width="2.5" height="2.5" rx=".75" fill="var(--brand)"/></svg>
+              </div>
+              <div>
+                <div style="font-size:13px;font-weight:600;color:#0F1C17;margin-bottom:1px">Pide desde la mesa</div>
+                <div style="font-size:11px;color:#5A7168">Sin tener que perseguir al camarero</div>
+              </div>
+            </div>
+            <div style="background:#fff;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.85rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+              <div style="width:34px;height:34px;border-radius:9px;background:var(--brand-l);flex-shrink:0;display:flex;align-items:center;justify-content:center">
+                <svg width="17" height="17" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="6.5" stroke="var(--brand)" stroke-width="1.6"/><path d="M9 5.5V9.5l2.5 1.5" stroke="var(--brand)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <div>
+                <div style="font-size:13px;font-weight:600;color:#0F1C17;margin-bottom:1px">Sigue tu pedido en tiempo real</div>
+                <div style="font-size:11px;color:#5A7168">Sabes cuándo está listo, sin preguntar</div>
+              </div>
+            </div>
+            <div style="background:#fff;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.85rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+              <div style="width:34px;height:34px;border-radius:9px;background:var(--brand-l);flex-shrink:0;display:flex;align-items:center;justify-content:center">
+                <svg width="17" height="17" viewBox="0 0 18 18" fill="none"><path d="M3 9h12M9 3v12" stroke="var(--brand)" stroke-width="1.6" stroke-linecap="round"/><circle cx="9" cy="9" r="6.5" stroke="var(--brand)" stroke-width="1.6"/></svg>
+              </div>
+              <div>
+                <div style="font-size:13px;font-weight:600;color:#0F1C17;margin-bottom:1px">Divide la cuenta fácilmente</div>
+                <div style="font-size:11px;color:#5A7168">¿Bravas para compartir? Tú decides, spliteat calcula al céntimo</div>
+              </div>
+            </div>
+            <div style="background:#fff;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.85rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+              <div style="width:34px;height:34px;border-radius:9px;background:var(--brand-l);flex-shrink:0;display:flex;align-items:center;justify-content:center">
+                <svg width="17" height="17" viewBox="0 0 18 18" fill="none"><rect x="1.5" y="4" width="15" height="10" rx="2" stroke="var(--brand)" stroke-width="1.6"/><path d="M1.5 7.5h15" stroke="var(--brand)" stroke-width="1.6"/><rect x="4" y="10.5" width="3.5" height="1.5" rx=".75" fill="var(--brand)"/></svg>
+              </div>
+              <div>
+                <div style="font-size:13px;font-weight:600;color:#0F1C17;margin-bottom:1px">Paga en segundos</div>
+                <div style="font-size:11px;color:#5A7168">Apple Pay, Bizum o tarjeta. Sin esperar</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Acceso restaurante -->
+          <button onclick="go('s-admin-login')"
+            style="width:100%;padding:11px;border-radius:10px;border:1px solid #D0E5DC;background:#fff;cursor:pointer;font-family:inherit;text-align:center;box-shadow:0 1px 2px rgba(0,0,0,.04)">
+            <span style="font-family:'Fraunces',serif;font-size:13px;color:var(--brand-d)">manag<em style="color:var(--accent);font-style:normal">eat</em></span>
+            <span style="color:#C8DDD5;margin:0 5px">·</span>
+            <span style="font-family:'Fraunces',serif;font-size:13px;color:var(--brand-d)">cook<em style="color:var(--accent);font-style:normal">eat</em></span>
+            <span style="color:#C8DDD5;margin:0 5px">·</span>
+            <span style="font-family:'Fraunces',serif;font-size:13px;color:var(--brand-d)">serv<em style="color:var(--accent);font-style:normal">eat</em></span>
+            <span style="font-size:11px;color:#9BB5AC;margin-left:5px">→</span>
+          </button>
+        </div>
       </div>
     </div>
 
-    <!-- Content -->
-    <div style="flex:1;padding:1.5rem 1.25rem 2rem">
-
-      <!-- Section label -->
-      <div style="font-size:11px;font-weight:600;color:var(--brand);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.85rem">Cómo funciona</div>
-
-      <!-- Feature cards — full width list -->
-      <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.5rem">
-
-        <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:center;gap:.9rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-          <div style="width:36px;height:36px;border-radius:10px;background:var(--brand-l);flex-shrink:0;display:flex;align-items:center;justify-content:center">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="6" height="6" rx="1.5" fill="var(--brand)"/><rect x="10" y="2" width="6" height="6" rx="1.5" fill="var(--brand)"/><rect x="2" y="10" width="6" height="6" rx="1.5" fill="var(--brand)"/><rect x="10" y="10" width="2.5" height="2.5" rx=".75" fill="var(--brand)"/><rect x="13.5" y="10" width="2.5" height="2.5" rx=".75" fill="var(--brand)"/><rect x="10" y="13.5" width="2.5" height="2.5" rx=".75" fill="var(--brand)"/><rect x="13.5" y="13.5" width="2.5" height="2.5" rx=".75" fill="var(--brand)"/></svg>
-          </div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:14px;font-weight:600;color:#0F1C17;margin-bottom:2px">Pide desde la mesa</div>
-            <div style="font-size:12px;color:#5A7168;line-height:1.45">Escanea el QR y pide sin tener que perseguir al camarero</div>
-          </div>
-        </div>
-
-        <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:center;gap:.9rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-          <div style="width:36px;height:36px;border-radius:10px;background:var(--brand-l);flex-shrink:0;display:flex;align-items:center;justify-content:center">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="6.5" stroke="var(--brand)" stroke-width="1.6"/><path d="M9 5.5V9.5l2.5 1.5" stroke="var(--brand)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:14px;font-weight:600;color:#0F1C17;margin-bottom:2px">Sigue tu pedido en tiempo real</div>
-            <div style="font-size:12px;color:#5A7168;line-height:1.45">Sabes exactamente cuándo está listo tu plato, sin preguntar</div>
-          </div>
-        </div>
-
-        <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:center;gap:.9rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-          <div style="width:36px;height:36px;border-radius:10px;background:var(--brand-l);flex-shrink:0;display:flex;align-items:center;justify-content:center">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9h12M9 3v12" stroke="var(--brand)" stroke-width="1.6" stroke-linecap="round"/><circle cx="9" cy="9" r="6.5" stroke="var(--brand)" stroke-width="1.6"/></svg>
-          </div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:14px;font-weight:600;color:#0F1C17;margin-bottom:2px">Divide la cuenta fácilmente</div>
-            <div style="font-size:12px;color:#5A7168;line-height:1.45">¿Bravas para compartir? Tú decides si participas, spliteat lo calcula al céntimo</div>
-          </div>
-        </div>
-
-        <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:center;gap:.9rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-          <div style="width:36px;height:36px;border-radius:10px;background:var(--brand-l);flex-shrink:0;display:flex;align-items:center;justify-content:center">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1.5" y="4" width="15" height="10" rx="2" stroke="var(--brand)" stroke-width="1.6"/><path d="M1.5 7.5h15" stroke="var(--brand)" stroke-width="1.6"/><rect x="4" y="10.5" width="3.5" height="1.5" rx=".75" fill="var(--brand)"/></svg>
-          </div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:14px;font-weight:600;color:#0F1C17;margin-bottom:2px">Paga en segundos</div>
-            <div style="font-size:12px;color:#5A7168;line-height:1.45">Apple Pay, Bizum o tarjeta. Sin esperar, sin bizums raros después</div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- CTA scan -->
-      <div style="background:var(--brand-d);border-radius:14px;padding:1.1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:0;cursor:pointer">
-        <div>
-          <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:2px">Escanea el QR de tu mesa</div>
-          <div style="font-size:12px;color:rgba(255,255,255,.65)">Sin registro · Gratis para el comensal</div>
-        </div>
-        <div style="width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M7 5l4 4-4 4" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </div>
-      </div>
-    </div>
-
-    </div><!-- end scrollable -->
-
-    <!-- Acceso restaurante — fijo al fondo, FUERA del scroll -->
-    <div style="background:#F3F7F5;padding:.75rem 1.25rem calc(.75rem + env(safe-area-inset-bottom));border-top:1px solid #D0E5DC;flex-shrink:0">
-      <button onclick="go('s-admin-login')"
-        style="width:100%;padding:11px;border-radius:10px;border:1px solid #D0E5DC;background:#fff;cursor:pointer;font-family:inherit;text-align:center;box-shadow:0 1px 2px rgba(0,0,0,.04)">
-        <span style="font-family:'Fraunces',serif;font-size:13px;color:var(--brand-d)">manag<em style="color:var(--accent);font-style:normal">eat</em></span>
-        <span style="color:#C8DDD5;margin:0 5px">·</span>
-        <span style="font-family:'Fraunces',serif;font-size:13px;color:var(--brand-d)">cook<em style="color:var(--accent);font-style:normal">eat</em></span>
-        <span style="color:#C8DDD5;margin:0 5px">·</span>
-        <span style="font-family:'Fraunces',serif;font-size:13px;color:var(--brand-d)">serv<em style="color:var(--accent);font-style:normal">eat</em></span>
-        <span style="font-size:11px;color:#9BB5AC;margin-left:5px">→</span>
-      </button>
-    </div>
+    <!-- Mobile override: stack columns vertically -->
+    <style>
+      @media (max-width: 600px) {
+        #s0 > div > div { grid-template-columns: 1fr !important; min-height: unset !important; }
+        #s0 > div > div > div:first-child { padding: 2.5rem 1.5rem 2rem !important; justify-content: flex-start !important; min-height: unset !important; }
+        #s0 > div > div > div:last-child { padding: 1.25rem 1.25rem 1.5rem !important; justify-content: flex-start !important; }
+        #s0 { min-height: 100vh !important; }
+        #s0 > div { min-height: unset !important; }
+      }
+    </style>
   </div>
 
   <!-- ════════════════════════════════════════
