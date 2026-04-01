@@ -24,7 +24,8 @@
   }
   html, body { height: 100%; background: var(--bg); color: var(--t1); font-family: 'DM Sans', sans-serif; font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
   #app { max-width: 430px; margin: 0 auto; min-height: 100vh; position: relative; background: var(--bg); }
-  #s0 { max-width: none !important; width: 100vw !important; margin: 0 !important; position: fixed !important; inset: 0 !important; z-index: 1; overflow-y: auto; }
+  #s0 { max-width: none !important; width: 100vw !important; margin: 0 !important; position: fixed !important; inset: 0 !important; z-index: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #s0.active ~ * { pointer-events: none; }
 
   /* Pantallas de admin y cocina usan todo el ancho en desktop */
   @media (min-width: 600px) {
@@ -249,9 +250,9 @@
 <body>
 
 <!-- Botón acceso restaurante — fuera del #app, siempre visible en cualquier dispositivo -->
-<div id="btn-acceso-restaurante" style="position:fixed;top:.85rem;right:1.25rem;z-index:9999">
-  <button onclick="go('s-admin-login')"
-    style="padding:8px 16px;border-radius:99px;border:1.5px solid var(--brand-d);background:#fff;color:var(--brand-d);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.1)">
+<div id="btn-acceso-restaurante" style="position:fixed;top:12px;right:12px;z-index:99999;-webkit-transform:translateZ(0);transform:translateZ(0)">
+  <button id="btn-acceso-inner"
+    style="padding:9px 18px;border-radius:99px;border:1.5px solid var(--brand-d);background:#fff;color:var(--brand-d);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.12);-webkit-appearance:none;appearance:none;display:block">
     Acceso al restaurante →
   </button>
 </div>
@@ -1627,6 +1628,25 @@ function go(screenId) {
     document.getElementById('s3-online').textContent = state.guests.length;
   }
 }
+
+// iOS 12 fix: wire up acceso button with touchstart fallback
+(function() {
+  function bindAccesoBtn() {
+    const btn = document.getElementById('btn-acceso-inner');
+    if (!btn) return;
+    const handler = function(e) {
+      e.preventDefault();
+      go('s-admin-login');
+    };
+    btn.addEventListener('click', handler);
+    btn.addEventListener('touchstart', handler, { passive: false });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindAccesoBtn);
+  } else {
+    bindAccesoBtn();
+  }
+})();
 
 function resetState() {
   state.realtimeSubs.forEach(s => { try { sb.removeChannel(s); } catch(e){} });
