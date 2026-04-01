@@ -1646,6 +1646,53 @@ function handleAccesoHash() {
 window.addEventListener('hashchange', handleAccesoHash);
 window.addEventListener('load', handleAccesoHash);
 
+// ── PAGE VISIBILITY — refresh cuando vuelve de pantalla bloqueada ──
+document.addEventListener('visibilitychange', async () => {
+  if (document.hidden) return; // pantalla bloqueada — no hacer nada
+
+  // Pantalla desbloqueada — refrescar estado según pantalla activa
+  const active = document.querySelector('.screen.active');
+  if (!active) return;
+  const id = active.id;
+
+  // Pantallas del comensal
+  if (id === 's3-dishes' && state.roomId) {
+    const [{ data: dishes }, { data: guests }] = await Promise.all([
+      sb.from('dishes').select('*').eq('room_id', state.roomId),
+      sb.from('guests').select('*').eq('room_id', state.roomId)
+    ]);
+    if (dishes) { state.dishes = dishes; await loadParticipants(); renderMesaDishes(); renderCarta(); }
+    if (guests) { state.guests = guests; document.getElementById('s3-online').textContent = guests.length; }
+  }
+  if (id === 's4-summary' && state.roomId) {
+    const { data: dishes } = await sb.from('dishes').select('*').eq('room_id', state.roomId);
+    const { data: guests } = await sb.from('guests').select('*').eq('room_id', state.roomId);
+    if (dishes) { state.dishes = dishes; await loadParticipants(); }
+    if (guests) state.guests = guests;
+    buildSummary();
+  }
+  if (id === 's5-pay' && state.roomId) {
+    const { data: payments } = await sb.from('payments').select('*').eq('room_id', state.roomId);
+    const { data: guests } = await sb.from('guests').select('*').eq('room_id', state.roomId);
+    if (payments) state.payments = payments;
+    if (guests) state.guests = guests;
+    buildPayScreen();
+  }
+  if (id === 's2-room' && state.roomId) {
+    const { data: guests } = await sb.from('guests').select('*').eq('room_id', state.roomId);
+    if (guests) { state.guests = guests; renderRoomScreen(); }
+  }
+
+  // Pantallas del restaurante
+  if (id === 's-waiter' && _waiterRestaurantId) loadWaiterMesas();
+  if (id === 's-kitchen' && state.kitchenRestaurantId) loadKitchenOrders();
+  if (id === 's-admin' && state.adminRestaurantId) {
+    const tab = document.querySelector('#s-admin .tab.on')?.textContent?.trim();
+    if (tab?.includes('curso')) loadEncurso();
+    else if (tab?.includes('cocina') || tab?.includes('Cocina')) loadAdminOrders();
+  }
+});
+
 function resetState() {
   state.realtimeSubs.forEach(s => { try { sb.removeChannel(s); } catch(e){} });
   clearSession();
@@ -1952,14 +1999,16 @@ function subscribeRealtime() {
         if (!myDish) return;
 
         if (prev.kitchen_status !== 'making' && newDish.kitchen_status === 'making') {
-          playGuestSound('making');
-          showGuestNotification('🍳 En preparación', `"${newDish.name}" ya está en la cocina.`);
-          // Push ya lo envía el servidor desde setOrderStatus
+          if (newDish.category !== 'bebidas') { // bebidas no pasan por cocina
+            playGuestSound('making');
+            showGuestNotification('🍳 En preparación', `"${newDish.name}" ya está en la cocina.`);
+          }
         }
         if (prev.kitchen_status !== 'ready' && newDish.kitchen_status === 'ready') {
-          playGuestSound('ready');
-          showGuestNotification('🛎 ¡Tu plato está listo!', `"${newDish.name}" llega en breve a tu mesa.`);
-          // Push ya lo envía el servidor desde setOrderStatus
+          if (newDish.category !== 'bebidas') { // bebidas: el camarero confirma, sin notif automática
+            playGuestSound('ready');
+            showGuestNotification('🛎 ¡Tu plato está listo!', `"${newDish.name}" llega en breve a tu mesa.`);
+          }
         }
       });
 
@@ -2575,8 +2624,7 @@ function showSendToKitchenConfirm() {
   const sections = [];
   let lastLabel = null;
   sorted.forEach(d => {
-    const label = d.category === 'bebidas' ? 'Bebidas'
-      : d.category === 'bebidas' ? 'Bebidas'
+    const label = (d.category === 'bebidas' || d.course === 0) ? '🥤 Bebidas'
       : d.course === 1 ? 'Entrantes'
       : d.course === 2 ? 'Principales'
       : d.course === 3 ? 'Postres' : 'Platos';
@@ -2646,12 +2694,11 @@ async function sendToKitchen() {
   const sentAt = new Date().toISOString();
   for (const dish of unsentDishes) {
     const isBebidas = dish.category === 'bebidas' || dish.course === 0;
-    // Bebidas go directly to ready — don't need kitchen preparation
-    const newStatus = isBebidas ? 'ready' : 'sent';
+    // Bebidas go to 'sent' like other dishes — waiter confirms from serveat
+    const newStatus = 'sent';
     await sb.from('dishes').update({
       kitchen_status: newStatus,
-      sent_at: sentAt,
-      ...(isBebidas ? { making_at: sentAt, ready_at: sentAt } : {})
+      sent_at: sentAt
     }).eq('id', dish.id);
     dish.kitchen_status = newStatus;
     dish.sent_at = sentAt;
@@ -3726,19 +3773,25 @@ async function loadWaiterMesas() {
     const readyCount = dishes.filter(d => d.kitchen_status === 'ready').length;
     const hasReady = readyCount > 0;
 
-    const dishesHtml = courseGroups.map(({ label: cLabel, dishes: cDishes }) => {
+    const dishesHtml = courseGroups.map(({ label: cLabel, dishes: cDishes, course: cCourse }) => {
+      const isBebGroup = cCourse === 0;
       const allDelivered = cDishes.every(d => d.kitchen_status === 'delivered');
+      const hasSentBebidas = isBebGroup && cDishes.some(d => d.kitchen_status === 'sent');
       return `<div style="margin-bottom:.35rem">
-        <div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.2rem">${cLabel}</div>
+        <div style="font-size:10px;font-weight:600;color:${isBebGroup?'#185FA5':'var(--t3)'};text-transform:uppercase;letter-spacing:.05em;margin-bottom:.2rem">${cLabel}${hasSentBebidas ? ' 🔔' : ''}</div>
         ${cDishes.map(d => {
           const isDel = d.kitchen_status === 'delivered';
           const isReady = d.kitchen_status === 'ready';
+          const isSentBeb = isBebGroup && d.kitchen_status === 'sent';
           return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0">
             <span style="font-size:12px;flex-shrink:0">${STATUS_ICON[d.kitchen_status] || '⬜'}</span>
-            <span style="font-size:12px;flex:1;${isDel ? 'text-decoration:line-through;color:var(--t3)' : isReady ? 'color:var(--brand-d);font-weight:500' : ''}">${d.name}</span>
+            <span style="font-size:12px;flex:1;${isDel ? 'text-decoration:line-through;color:var(--t3)' : (isReady||isSentBeb) ? 'color:var(--brand-d);font-weight:500' : ''}">${d.name}</span>
             ${isReady ? `<button onclick="markDishDelivered('${d.id}')"
               style="padding:2px 8px;border-radius:99px;border:none;background:var(--brand);color:#fff;font-size:10px;cursor:pointer;font-family:inherit;flex-shrink:0">
               Llevado ✓
+            </button>` : isSentBeb ? `<button onclick="markBebidasReady('${d.id}')"
+              style="padding:2px 8px;border-radius:99px;border:none;background:#185FA5;color:#fff;font-size:10px;cursor:pointer;font-family:inherit;flex-shrink:0">
+              Preparada ✓
             </button>` : ''}
           </div>`;
         }).join('')}
@@ -3775,6 +3828,16 @@ async function loadWaiterMesas() {
 
 async function markDishDelivered(dishId) {
   await sb.from('dishes').update({ kitchen_status: 'delivered' }).eq('id', dishId);
+  loadWaiterMesas();
+}
+
+async function markBebidasReady(dishId) {
+  const now = new Date().toISOString();
+  await sb.from('dishes').update({
+    kitchen_status: 'ready',
+    making_at: now,
+    ready_at: now
+  }).eq('id', dishId);
   loadWaiterMesas();
 }
 
