@@ -247,20 +247,21 @@
 </style>
 </head>
 <body>
+
+<!-- Botón acceso restaurante — fuera del #app, siempre visible en cualquier dispositivo -->
+<div id="btn-acceso-restaurante" style="position:fixed;top:.85rem;right:1.25rem;z-index:9999">
+  <button onclick="go('s-admin-login')"
+    style="padding:8px 16px;border-radius:99px;border:1.5px solid var(--brand-d);background:#fff;color:var(--brand-d);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.1)">
+    Acceso al restaurante →
+  </button>
+</div>
+
 <div id="app">
 
   <!-- ════════════════════════════════════════
        S0: INICIO (solo para acceso directo sin QR)
   ════════════════════════════════════════ -->
   <div class="screen active" id="s0" style="background:#F3F7F5;flex-direction:column;min-height:100vh;padding:0;max-width:none!important;width:100%!important">
-
-    <!-- Top bar -->
-    <div style="position:absolute;top:0;right:0;z-index:10;padding:.85rem 1.25rem">
-      <button onclick="go('s-admin-login')"
-        style="padding:8px 16px;border-radius:99px;border:1.5px solid var(--brand-d);background:#fff;color:var(--brand-d);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap">
-        Acceso al restaurante →
-      </button>
-    </div>
 
     <!-- Full-width container -->
     <div style="max-width:900px;margin:0 auto;width:100%;min-height:100vh;display:flex;flex-direction:column">
@@ -1615,6 +1616,9 @@ function go(screenId) {
   const target = document.getElementById(screenId);
   if (target) target.classList.add('active');
   window.scrollTo(0, 0);
+  // Show acceso button only on s0
+  const btnAcceso = document.getElementById('btn-acceso-restaurante');
+  if (btnAcceso) btnAcceso.style.display = screenId === 's0' ? 'block' : 'none';
   if (screenId === 's4-summary') buildSummary();
   if (screenId === 's5-pay') buildPayScreen();
   if (screenId === 's3-dishes') {
