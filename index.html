@@ -754,7 +754,7 @@
   <!-- ════════════════════════════════════════
        COCINA: PANTALLA DE COCINA
   ════════════════════════════════════════ -->
-  <div class="screen" id="s-kitchen">
+  <div class="screen" id="s-kitchen" style="height:100vh;overflow:hidden">
     <div class="hdr">
       <div class="logo">cook<em style="color:var(--accent);font-style:normal">eat</em></div>
       <div style="display:flex;align-items:center;gap:8px">
@@ -767,18 +767,18 @@
         Pedidos <span id="k-pedidos-badge" style="display:none;background:#E24B4A;color:#fff;border-radius:99px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:3px">0</span>
       </button>
       <button class="tab" id="ktab-btn-carta" onclick="showKitchenTab('carta')">Carta</button>
-      <button class="tab" id="ktab-btn-config" onclick="showKitchenTab('config')">Config</button>
+      <button class="tab" id="ktab-btn-config" onclick="showKitchenTab('config')">Tiempos</button>
     </div>
 
     <!-- TAB PEDIDOS — vista por pases (única vista) -->
-    <div id="ktab-pedidos" style="flex:1;overflow-y:auto;padding:.65rem">
+    <div id="ktab-pedidos" style="height:calc(100vh - 110px);overflow-y:auto;padding:.65rem">
       <div id="k-mesas-list">
         <div style="text-align:center;padding:3rem 1rem;color:var(--t3);font-size:14px">Cargando pedidos...</div>
       </div>
     </div>
 
     <!-- TAB CARTA — activar/desactivar platos + tiempo prep -->
-    <div id="ktab-carta" style="display:none;flex:1;overflow-y:auto;padding:.65rem">
+    <div id="ktab-carta" style="display:none;height:calc(100vh - 110px);overflow-y:auto;padding:.65rem">
       <div style="font-size:12px;color:var(--t2);margin-bottom:.75rem;line-height:1.5;background:var(--bg2);padding:.65rem .85rem;border-radius:var(--r-sm)">
         Activa o desactiva platos según disponibilidad. Los desactivados no aparecen en la carta del comensal.
       </div>
@@ -788,7 +788,7 @@
     </div>
 
     <!-- TAB CONFIG — tiempos de preparación -->
-    <div id="ktab-config" style="display:none;flex:1;overflow-y:auto;padding:.65rem">
+    <div id="ktab-config" style="display:none;height:calc(100vh - 110px);overflow-y:auto;padding:.65rem">
       <div style="font-size:15px;font-weight:500;margin-bottom:.25rem">Tiempos de preparación</div>
       <div style="font-size:12px;color:var(--t2);margin-bottom:.75rem;line-height:1.5">
         Define cuántos minutos tarda cada plato. Se muestra en el KDS para coordinar los pases.
@@ -836,8 +836,10 @@
       <h2 style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:var(--brand-d);letter-spacing:-.5px;margin-bottom:.25rem">cook<em style="color:var(--accent);font-style:normal">eat</em></h2>
       <p class="subtitle">Acceso para el equipo de cocina</p>
       <div class="spacer"></div>
-      <div class="field"><label>Email del restaurante</label><input id="kitchen-email" type="email" placeholder="restaurante@email.com" autocomplete="off"></div>
-      <div class="field"><label>Contraseña</label><input id="kitchen-pass" type="password" placeholder="••••••••"></div>
+      <div class="field"><label>Email del restaurante</label><input id="kitchen-email" type="email" placeholder="restaurante@email.com" autocomplete="off"
+        onkeydown="if(event.key==='Enter') document.getElementById('kitchen-pass').focus()"></div>
+      <div class="field"><label>Contraseña</label><input id="kitchen-pass" type="password" placeholder="••••••••"
+        onkeydown="if(event.key==='Enter') kitchenLogin()"></div>
       <button class="btn btn-primary mt" onclick="kitchenLogin()">Entrar a cocina →</button>
       <div id="kitchen-err" class="notice notice-err" style="display:none"></div>
     </div>
@@ -854,8 +856,10 @@
       <h2 style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:var(--brand-d);letter-spacing:-.5px;margin-bottom:.25rem">manag<em style="color:var(--accent);font-style:normal">eat</em></h2>
       <p class="subtitle">Panel de administración del restaurante</p>
       <div class="spacer"></div>
-      <div class="field"><label>Email del restaurante</label><input id="admin-email" type="email" placeholder="tucorreo@restaurante.com" autocomplete="off"></div>
-      <div class="field"><label>Contraseña</label><input id="admin-pass" type="password" placeholder="••••••••"></div>
+      <div class="field"><label>Email del restaurante</label><input id="admin-email" type="email" placeholder="tucorreo@restaurante.com" autocomplete="off"
+        onkeydown="if(event.key==='Enter') document.getElementById('admin-pass').focus()"></div>
+      <div class="field"><label>Contraseña</label><input id="admin-pass" type="password" placeholder="••••••••"
+        onkeydown="if(event.key==='Enter') adminLogin()"></div>
       <button class="btn btn-primary mt" onclick="adminLogin()">Entrar</button>
       <div id="admin-err" class="notice notice-err" style="display:none"></div>
       <hr>
@@ -4104,13 +4108,8 @@ async function kitchenLogin() {
   if (data.password_hash && data.password_hash !== pass) {
     errEl.textContent = 'Contraseña incorrecta.'; errEl.style.display = 'block'; return;
   }
-  state.adminRestaurantId = data.id;
-  state.adminRestaurantName = data.name;
-  state.adminRole = 'cocina';
-  go('s-admin');
-  renderAdminTabs();
-  showAdminTab('cocina');
-  loadAdminOrders();
+  // Go to standalone cookeat screen with all 3 tabs
+  openKitchen(data.id, data.name);
 }
 
 // ══════════════════════════════════════════════════════
