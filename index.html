@@ -254,6 +254,14 @@
   ════════════════════════════════════════ -->
   <div class="screen active" id="s0" style="background:#F3F7F5;flex-direction:column;min-height:100vh;padding:0;max-width:none!important;width:100%!important">
 
+    <!-- Top bar -->
+    <div style="position:absolute;top:0;right:0;z-index:10;padding:.85rem 1.25rem">
+      <button onclick="go('s-admin-login')"
+        style="padding:8px 16px;border-radius:99px;border:1.5px solid var(--brand-d);background:#fff;color:var(--brand-d);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap">
+        Acceso al restaurante →
+      </button>
+    </div>
+
     <!-- Full-width container -->
     <div style="max-width:900px;margin:0 auto;width:100%;min-height:100vh;display:flex;flex-direction:column">
 
@@ -287,11 +295,11 @@
           </div>
         </div>
 
-        <!-- Right: Features + acceso -->
+        <!-- Right: Features -->
         <div style="padding:3rem 2.5rem;display:flex;flex-direction:column;justify-content:center;background:#F3F7F5">
           <div style="font-size:11px;font-weight:600;color:var(--brand);text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem">Cómo funciona</div>
 
-          <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1.5rem">
+          <div style="display:flex;flex-direction:column;gap:.5rem">
             <div style="background:#fff;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.85rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
               <div style="width:34px;height:34px;border-radius:9px;background:var(--brand-l);flex-shrink:0;display:flex;align-items:center;justify-content:center">
                 <svg width="17" height="17" viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="6" height="6" rx="1.5" fill="var(--brand)"/><rect x="10" y="2" width="6" height="6" rx="1.5" fill="var(--brand)"/><rect x="2" y="10" width="6" height="6" rx="1.5" fill="var(--brand)"/><rect x="10" y="10" width="2.5" height="2.5" rx=".75" fill="var(--brand)"/><rect x="13.5" y="10" width="2.5" height="2.5" rx=".75" fill="var(--brand)"/><rect x="10" y="13.5" width="2.5" height="2.5" rx=".75" fill="var(--brand)"/><rect x="13.5" y="13.5" width="2.5" height="2.5" rx=".75" fill="var(--brand)"/></svg>
@@ -329,29 +337,17 @@
               </div>
             </div>
           </div>
-
-          <!-- Acceso restaurante -->
-          <button onclick="go('s-admin-login')"
-            style="width:100%;padding:11px;border-radius:10px;border:1px solid #D0E5DC;background:#fff;cursor:pointer;font-family:inherit;text-align:center;box-shadow:0 1px 2px rgba(0,0,0,.04)">
-            <span style="font-family:'Fraunces',serif;font-size:13px;color:var(--brand-d)">manag<em style="color:var(--accent);font-style:normal">eat</em></span>
-            <span style="color:#C8DDD5;margin:0 5px">·</span>
-            <span style="font-family:'Fraunces',serif;font-size:13px;color:var(--brand-d)">cook<em style="color:var(--accent);font-style:normal">eat</em></span>
-            <span style="color:#C8DDD5;margin:0 5px">·</span>
-            <span style="font-family:'Fraunces',serif;font-size:13px;color:var(--brand-d)">serv<em style="color:var(--accent);font-style:normal">eat</em></span>
-            <span style="font-size:11px;color:#9BB5AC;margin-left:5px">→</span>
-          </button>
         </div>
       </div>
     </div>
 
-    <!-- Mobile override: stack columns vertically -->
+    <!-- Mobile override -->
     <style>
       @media (max-width: 600px) {
-        #s0 > div > div { grid-template-columns: 1fr !important; min-height: unset !important; }
-        #s0 > div > div > div:first-child { padding: 2.5rem 1.5rem 2rem !important; justify-content: flex-start !important; min-height: unset !important; }
-        #s0 > div > div > div:last-child { padding: 1.25rem 1.25rem 1.5rem !important; justify-content: flex-start !important; }
-        #s0 { min-height: 100vh !important; }
-        #s0 > div { min-height: unset !important; }
+        #s0 > div:last-of-type > div { grid-template-columns: 1fr !important; min-height: unset !important; }
+        #s0 > div:last-of-type > div > div:first-child { padding: 2.5rem 1.5rem 2rem !important; justify-content: flex-start !important; }
+        #s0 > div:last-of-type > div > div:last-child { padding: 1.25rem 1.25rem 1.5rem !important; }
+        #s0 > div:first-child { padding: .65rem 1rem !important; }
       }
     </style>
   </div>
