@@ -1,63 +1,123 @@
 // ══════════════════════════════════════════════════════
-// spliteat — Service Worker
-// Maneja notificaciones push en segundo plano
-// Subir este archivo a la raíz del proyecto en GitHub
-// (al mismo nivel que index.html)
+// spliteat — Service Worker v2
+// Offline mode: cachea carta, assets y permite uso degradado
 // ══════════════════════════════════════════════════════
+const CACHE_VERSION = 'spliteat-v2';
+const ASSETS_CACHE = 'spliteat-assets-v2';
+const DATA_CACHE = 'spliteat-data-v2';
 
-const CACHE_NAME = 'spliteat-v1';
+// Assets estáticos a cachear siempre
+const STATIC_ASSETS = [
+  '/',
+  '/index.html',
+  'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,400&display=swap',
+];
 
-// Instalar SW
-self.addEventListener('install', e => {
+// ── Install: cachear assets estáticos ──
+self.addEventListener('install', event => {
   self.skipWaiting();
+  event.waitUntil(
+    caches.open(ASSETS_CACHE).then(cache => 
+      cache.addAll(STATIC_ASSETS).catch(e => console.warn('Cache partial:', e))
+    )
+  );
 });
 
-self.addEventListener('activate', e => {
-  e.waitUntil(clients.claim());
+// ── Activate: limpiar caches viejos ──
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys
+        .filter(k => k !== ASSETS_CACHE && k !== DATA_CACHE)
+        .map(k => caches.delete(k))
+      )
+    ).then(() => self.clients.claim())
+  );
 });
 
-// Recibir notificación push del servidor
-self.addEventListener('push', e => {
-  if (!e.data) return;
+// ── Fetch: estrategia por tipo de recurso ──
+self.addEventListener('fetch', event => {
+  const url = new URL(event.request.url);
 
-  let payload;
-  try {
-    payload = e.data.json();
-  } catch {
-    payload = { title: 'spliteat', body: e.data.text() };
+  // Supabase API calls: network-first, fallback cache para GET
+  if (url.hostname.includes('supabase.co')) {
+    if (event.request.method === 'GET') {
+      event.respondWith(networkFirstWithCache(event.request, DATA_CACHE));
+    }
+    return; // POST/PATCH/DELETE: no cachear
   }
 
-  const { title, body, icon, tag, data } = payload;
+  // Google Fonts: cache-first
+  if (url.hostname.includes('fonts.goog') || url.hostname.includes('fonts.gstat')) {
+    event.respondWith(cacheFirst(event.request, ASSETS_CACHE));
+    return;
+  }
 
-  e.waitUntil(
-    self.registration.showNotification(title || 'spliteat', {
-      body: body || '',
-      icon: icon || '/icon-192.png',
-      badge: '/icon-192.png',
-      tag: tag || 'spliteat',
-      renotify: true,
-      vibrate: [200, 100, 200], // vibración en móvil
-      data: data || {},
-      actions: [] // sin botones de acción por simplicidad
+  // App HTML: network-first con fallback
+  if (url.pathname === '/' || url.pathname.endsWith('.html')) {
+    event.respondWith(networkFirstWithCache(event.request, ASSETS_CACHE));
+    return;
+  }
+
+  // Default: network
+});
+
+async function networkFirstWithCache(request, cacheName) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(cacheName);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch(e) {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    // Offline fallback for API calls
+    if (request.url.includes('/rest/v1/menu_items')) {
+      return new Response(JSON.stringify({ data: [], error: null }), {
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    throw e;
+  }
+}
+
+async function cacheFirst(request, cacheName) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+  const response = await fetch(request);
+  if (response.ok) {
+    const cache = await caches.open(cacheName);
+    cache.put(request, response.clone());
+  }
+  return response;
+}
+
+// ── Push notifications ──
+self.addEventListener('push', event => {
+  const data = event.data?.json() || {};
+  const { title = 'spliteat', body = '', tag = 'spliteat', badge = '/icon-192.png' } = data;
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      tag,
+      badge,
+      icon: '/icon-192.png',
+      vibrate: [100, 50, 100],
+      data: data.url ? { url: data.url } : undefined,
+      requireInteraction: data.requireInteraction || false,
     })
   );
 });
 
-// Al pulsar la notificación — abrir la app
-self.addEventListener('notificationclick', e => {
-  e.notification.close();
-  e.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-      // Si la app ya está abierta, enfocarla
-      for (const client of clientList) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          return client.focus();
-        }
-      }
-      // Si no está abierta, abrirla
-      if (clients.openWindow) {
-        return clients.openWindow('/');
-      }
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const url = event.notification.data?.url || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window' }).then(clientList => {
+      const client = clientList.find(c => c.url === url && 'focus' in c);
+      return client ? client.focus() : clients.openWindow(url);
     })
   );
 });

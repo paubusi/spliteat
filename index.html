@@ -246,11 +246,42 @@
   .mt { margin-top: 1rem; }
   @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
   .modal-type-btn.selected { border-color: var(--brand) !important; background: var(--brand-l) !important; }
+
+  /* ── Dark mode para cookeat (pantallas de cocina) ── */
+  @media (prefers-color-scheme: dark) {
+    #s-kitchen {
+      --bg: #1a1a18; --card: #242422; --t1: #f0efeb; --t2: #a09e97;
+      --t3: #6b6a64; --bd: rgba(255,255,255,0.08); --bd2: rgba(255,255,255,0.12);
+      --bg2: #2a2a28; background: var(--bg);
+    }
+  }
+  /* cookeat manual dark toggle */
+  #s-kitchen.dark-mode {
+    --bg: #1a1a18; --card: #242422; --t1: #f0efeb; --t2: #a09e97;
+    --t3: #6b6a64; --bd: rgba(255,255,255,0.08); --bd2: rgba(255,255,255,0.12);
+    --bg2: #2a2a28; background: var(--bg);
+  }
+
+
+  /* ── Offline indicator ── */
+  #offline-banner {
+    display: none;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+    background: #854F0B; color: #fff; font-size: 12px; font-weight: 500;
+    text-align: center; padding: 6px;
+    animation: slideDown .2s ease;
+  }
+  @keyframes slideDown { from { transform:translateY(-100%); } to { transform:translateY(0); } }
+  body.offline #offline-banner { display: block; }
+  body.offline .screen { padding-top: 28px; }
+
 </style>
 </head>
 <body>
 
 <!-- Botón acceso restaurante — compatible iOS 12 -->
+<div id="offline-banner">📵 Sin conexión — mostrando datos guardados</div>
+
 <div id="btn-acceso-restaurante" style="position:fixed;top:12px;right:12px;z-index:99999;-webkit-transform:translate3d(0,0,0);transform:translate3d(0,0,0)">
   <a href="#acceso" id="btn-acceso-inner"
     style="display:block;padding:9px 18px;border-radius:99px;border:1.5px solid #085041;background:#fff;color:#085041;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.12);text-decoration:none;-webkit-tap-highlight-color:rgba(0,0,0,.1)">
@@ -758,6 +789,7 @@
       <div class="logo">cook<em style="color:var(--accent);font-style:normal">eat</em></div>
       <div style="display:flex;align-items:center;gap:8px">
         <div class="live-badge"><div class="live-dot"></div><span id="k-rest-name">—</span></div>
+        <button onclick="document.getElementById('s-kitchen').classList.toggle('dark-mode')" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px" title="Modo oscuro">🌙</button>
         <button class="back-btn" onclick="kitchenLogout()" style="color:var(--accent)">Salir</button>
       </div>
     </div>
@@ -1543,6 +1575,61 @@
 
 
 <script>
+
+
+// ── UX: Haptic feedback para notificaciones (Android) ──
+function haptic(pattern = [100]) {
+  if ('vibrate' in navigator) navigator.vibrate(pattern);
+}
+
+// ── SECURITY: HTML sanitizer — usar en todo innerHTML con datos de usuario ──
+function escHtml(str) {
+  return String(str ?? '')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#x27;');
+}
+
+// ── UI: notify() reemplaza alert() — no bloquea el UI thread ──
+function notify(msg, type = 'error') {
+  const icons = { error: '⚠️', success: '✓', info: 'ℹ️', warning: '⚠️' };
+  showToast(icons[type] + ' ' + msg, type);
+}
+
+// ── PERF: debounce para evitar re-renders múltiples simultáneos ──
+function debounce(fn, ms = 100) {
+  let timer;
+  return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); };
+}
+const debouncedLoadEncurso = debounce(() => loadEncurso(), 200);
+const debouncedLoadKitchenOrders = debounce(() => loadKitchenOrders(), 200);
+
+
+// ── Rate limiting client-side para creación de rooms ──
+let _lastRoomCreated = 0;
+function canCreateRoom() {
+  const now = Date.now();
+  if (now - _lastRoomCreated < 5000) { // 5 segundos entre rooms
+    return false;
+  }
+  _lastRoomCreated = now;
+  return true;
+}
+
+// ── ANALYTICS: event tracking ligero ──
+async function track(event, props = {}) {
+  try {
+    const restaurantId = state.adminRestaurantId || _waiterRestaurantId || state.kitchenRestaurantId || state.restaurantId;
+    await sb.from('analytics_events').insert({
+      event,
+      properties: { ...props, ua: navigator.userAgent.slice(0,100) },
+      restaurant_id: restaurantId || null,
+      ts: new Date().toISOString()
+    });
+  } catch(e) { /* never throw on analytics */ }
+}
 // ══════════════════════════════════════════════════════
 // SUPABASE INIT
 // ══════════════════════════════════════════════════════
@@ -1647,7 +1734,10 @@ window.addEventListener('hashchange', handleAccesoHash);
 window.addEventListener('load', handleAccesoHash);
 
 // ── PAGE VISIBILITY — refresh cuando vuelve de pantalla bloqueada ──
+let _visibilityRefreshTimer;
 document.addEventListener('visibilitychange', async () => {
+  clearTimeout(_visibilityRefreshTimer);
+  _visibilityRefreshTimer = setTimeout(async () => {
   if (document.hidden) return; // pantalla bloqueada — no hacer nada
 
   // Pantalla desbloqueada — refrescar estado según pantalla activa
@@ -1691,6 +1781,7 @@ document.addEventListener('visibilitychange', async () => {
     if (tab?.includes('curso')) loadEncurso();
     else if (tab?.includes('cocina') || tab?.includes('Cocina')) loadAdminOrders();
   }
+  }, 300); // debounce 300ms
 });
 
 function resetState() {
@@ -1714,7 +1805,7 @@ function renderRoomScreen() {
   list.innerHTML = state.guests.map((g, i) => `
     <div class="card row" style="margin-bottom:.5rem;gap:10px">
       ${avEl(g.name, i, 36)}
-      <div style="flex:1;font-size:14px;font-weight:500">${g.name}${g.id === state.myGuestId ? ' <span style="font-size:12px;color:var(--brand);font-weight:400">(tú)</span>' : ''}</div>
+      <div style="flex:1;font-size:14px;font-weight:500">${escHtml(g.name)}${g.id === state.myGuestId ? ' <span style="font-size:12px;color:var(--brand);font-weight:400">(tú)</span>' : ''}</div>
     </div>`).join('');
 }
 
@@ -1874,7 +1965,7 @@ function requestNotificationPermission() {
 // DEBUG: probar push manualmente
 async function testPushNotification() {
   console.log('🧪 Probando push...');
-  if (!state.roomId) { alert('Entra a una mesa primero'); return; }
+  if (!state.roomId) { notify('Entra a una mesa primero', 'info'); return; }
   const res = await fetch(`${SUPA_URL}/functions/v1/send-push`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPA_KEY}` },
@@ -1887,7 +1978,7 @@ async function testPushNotification() {
   });
   const data = await res.json();
   console.log('📨 Resultado push:', data);
-  alert(`Push enviado: ${JSON.stringify(data)}\nRevisa la consola para más detalles.`);
+  console.log('Push enviado:', data); showToast('Push enviado', 'Revisa la consola');
 }
 
 function playGuestSound(type) {
@@ -2146,7 +2237,7 @@ function renderCarta() {
           ? `<img src="${item.photo_url}" style="width:52px;height:52px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0">`
           : ''}
         <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:${onTable ? '500' : '400'};color:${onTable ? 'var(--brand-d)' : 'var(--t1)'};">${item.name}</div>
+          <div style="font-size:14px;font-weight:${onTable ? '500' : '400'};color:${onTable ? 'var(--brand-d)' : 'var(--t1)'};">${escHtml(item.name)}</div>
           <div style="font-size:12px;color:${onTable ? 'var(--brand)' : 'var(--t3)'};margin-top:1px">${fmt(parseFloat(item.price))}</div>
         </div>
         ${initialsHtml}
@@ -2241,7 +2332,7 @@ async function confirmAddDish() {
     menu_item_id: item.id,
     course: modalCourse // 1=entrante, 2=principal, 3=postre
   }).select().single();
-  if (error) { alert('Error al añadir: ' + error.message); return; }
+  if (error) { notify('Error al añadir: ' + error.message); return; }
   // If shared, add all current guests as participants
   if (modalType === 'shared') {
     const parts = state.guests.map(g => ({ dish_id: dish.id, guest_id: g.id }));
@@ -2301,19 +2392,19 @@ function buildResumenPanel() {
     let lines = '';
     t.soloItems.forEach(d => {
       lines += `<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:var(--t2)">
-        <span>↳ ${d.name}</span><span>${fmt(parseFloat(d.price))}</span>
+        <span>↳ ${escHtml(d.name)}</span><span>${fmt(parseFloat(d.price))}</span>
       </div>`;
     });
     t.sharedItems.forEach(({ d, share, nP }) => {
       lines += `<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;color:var(--blue)">
-        <span>↳ ${d.name} ÷${nP}</span><span>${fmt(share)}</span>
+        <span>↳ ${escHtml(d.name)} ÷${nP}</span><span>${fmt(share)}</span>
       </div>`;
     });
     return `<div style="border:1px solid var(--bd);border-radius:var(--r-sm);padding:.75rem .85rem;margin-bottom:.5rem;${isMe?'border-color:var(--brand);background:var(--brand-l)':''}">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem">
         <div style="display:flex;align-items:center;gap:8px">
           ${avEl(t.g.name, i, 28)}
-          <span style="font-size:14px;font-weight:500">${t.g.name}${isMe?' <span style="font-size:11px;color:var(--brand);font-weight:400">(tú)</span>':''}</span>
+          <span style="font-size:14px;font-weight:500">${escHtml(t.g.name)}${isMe?' <span style="font-size:11px;color:var(--brand);font-weight:400">(tú)</span>':''}</span>
         </div>
         <div style="display:flex;align-items:center;gap:6px">
           ${paid ? `<span style="font-size:11px;background:#EAF3DE;color:#3B6D11;padding:2px 7px;border-radius:99px;font-weight:500">✓ Pagado</span>` : ''}
@@ -2472,9 +2563,9 @@ function renderDishCard(dish) {
       const initial = g.name.trim()[0]?.toUpperCase() || '?';
       const avatar = `<div style="width:20px;height:20px;border-radius:50%;background:${bg};color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initial}</div>`;
       if (paymentsExist) {
-        return `<span class="part-chip ${inPart ? 'in' : 'out'}" style="cursor:not-allowed;opacity:${inPart ? '1' : '.45'}">${avatar}${g.name}</span>`;
+        return `<span class="part-chip ${inPart ? 'in' : 'out'}" style="cursor:not-allowed;opacity:${inPart ? '1' : '.45'}">${avatar}${escHtml(g.name)}</span>`;
       }
-      return `<span class="part-chip ${inPart ? 'in' : 'out'}" onclick="toggleParticipant('${dish.id}','${g.id}')" style="cursor:pointer;">${avatar}${g.name}</span>`;
+      return `<span class="part-chip ${inPart ? 'in' : 'out'}" onclick="toggleParticipant('${dish.id}','${g.id}')" style="cursor:pointer;">${avatar}${escHtml(g.name)}</span>`;
     }).join('');
     bodyHtml = `
       <div class="participants">${chips}</div>
@@ -2486,9 +2577,9 @@ function renderDishCard(dish) {
       const initial = g.name.trim()[0]?.toUpperCase() || '?';
       const avatar = `<div style="width:20px;height:20px;border-radius:50%;background:${bg};color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initial}</div>`;
       if (paymentsExist) {
-        return `<span class="part-chip ${isSel ? 'in' : ''}" style="cursor:not-allowed;opacity:${isSel ? '1' : '.45'}">${avatar}${g.name}</span>`;
+        return `<span class="part-chip ${isSel ? 'in' : ''}" style="cursor:not-allowed;opacity:${isSel ? '1' : '.45'}">${avatar}${escHtml(g.name)}</span>`;
       }
-      return `<span class="part-chip ${isSel ? 'in' : ''}" onclick="assignSolo('${dish.id}','${g.id}')" style="cursor:pointer;">${avatar}${g.name}</span>`;
+      return `<span class="part-chip ${isSel ? 'in' : ''}" onclick="assignSolo('${dish.id}','${g.id}')" style="cursor:pointer;">${avatar}${escHtml(g.name)}</span>`;
     }).join('');
     bodyHtml = `<div class="participants">${soloChips}</div>`;
   }
@@ -2657,7 +2748,7 @@ function showSendToKitchenConfirm() {
       }
 
       html += `<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--bd)">
-        <div style="flex:1;min-width:0;font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.name}</div>
+        <div style="flex:1;min-width:0;font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(d.name)}</div>
         <div style="display:flex;align-items:center;gap:3px;flex-shrink:0">
           ${avatars ? `<div style="display:flex">${avatars}</div>` : ''}
           ${isShared ? `<span style="font-size:10px;color:var(--t3)">÷${nParts}</span>` : ''}
@@ -2758,6 +2849,7 @@ function applyCustomTip(value) {
 // SUMMARY
 // ══════════════════════════════════════════════════════
 function calcTotals() {
+  if (!state.guests?.length) return [];
   const tip = (state.tipPercent || 0) / 100;
   const nGuests = Math.max(1, state.guests.length);
 
@@ -2794,16 +2886,16 @@ function buildSummary() {
     const isMe = t.g.id === state.myGuestId;
     let lines = '';
     t.soloItems.forEach(d => {
-      lines += `<div class="sum-line"><span class="lbl">↳ ${d.name}</span><span class="val">${fmt(parseFloat(d.price))}</span></div>`;
+      lines += `<div class="sum-line"><span class="lbl">↳ ${escHtml(d.name)}</span><span class="val">${fmt(parseFloat(d.price))}</span></div>`;
     });
     if (t.soloItems.length && t.sharedItems.length) lines += '<hr>';
     t.sharedItems.forEach(({ d, share, nP }) => {
-      lines += `<div class="sum-line shared"><span class="lbl" style="color:var(--blue)">↳ ${d.name} ÷${nP}</span><span class="val">${fmt(share)}</span></div>`;
+      lines += `<div class="sum-line shared"><span class="lbl" style="color:var(--blue)">↳ ${escHtml(d.name)} ÷${nP}</span><span class="val">${fmt(share)}</span></div>`;
     });
     return `<div class="sum-card ${isMe ? 'me' : ''}">
       <div class="sum-hdr">
         ${avEl(t.g.name, i, 34)}
-        <div class="sum-name">${t.g.name}${isMe ? ' <span style="font-size:11px;color:var(--brand)">(tú)</span>' : ''}</div>
+        <div class="sum-name">${escHtml(t.g.name)}${isMe ? ' <span style="font-size:11px;color:var(--brand)">(tú)</span>' : ''}</div>
         <div class="sum-total">${fmt(t.total)}</div>
       </div>
       ${lines || '<div class="muted" style="font-size:13px">Sin platos asignados</div>'}
@@ -2837,7 +2929,7 @@ function buildPayScreen() {
     return `<div style="display:flex;align-items:center;gap:10px;padding:.6rem 0;border-bottom:1px solid var(--bd)">
       ${avEl(t.g.name, i, 30)}
       <div style="flex:1">
-        <div style="font-size:14px;font-weight:500;color:var(--t1)">${t.g.name}${isMe?' <span style="font-size:11px;color:var(--brand)">(tú)</span>':''}</div>
+        <div style="font-size:14px;font-weight:500;color:var(--t1)">${escHtml(t.g.name)}${isMe?' <span style="font-size:11px;color:var(--brand)">(tú)</span>':''}</div>
         <div style="font-size:11px;color:var(--t3);margin-top:1px">
           ${t.soloItems.map(d => d.name).concat(t.sharedItems.map(s => s.d.name+'÷'+s.nP)).join(' · ').slice(0,50)||'Sin platos asignados'}
         </div>
@@ -2871,6 +2963,7 @@ async function confirmPay(method) {
 }
 
 async function registerManualPayment(me, method) {
+  track('payment_started', { method, amount: me.total });
   await sb.from('payments').insert({
     room_id: state.roomId,
     guest_id: state.myGuestId,
@@ -2907,7 +3000,7 @@ async function payWithStripe(me, method) {
 
   if (!rest?.stripe_account_id || !rest?.stripe_charges_enabled) {
     // Restaurant not set up with Stripe — fall back to manual
-    alert('Este restaurante aún no tiene pagos online activados. Paga directamente al camarero.');
+    notify('Este restaurante aún no tiene pagos online activados. Paga directamente al camarero.');
     await registerManualPayment(me, method);
     return;
   }
@@ -2941,13 +3034,14 @@ async function payWithStripe(me, method) {
     });
 
     if (error) {
-      alert('Error en el pago: ' + error.message);
+      notify('Error en el pago: ' + error.message);
       if (payBtn) payBtn.disabled = false;
       return;
     }
 
     // Payment succeeded — register in DB
-    await sb.from('payments').insert({
+    track('payment_started', { method, amount: me.total });
+  await sb.from('payments').insert({
       room_id: state.roomId,
       guest_id: state.myGuestId,
       amount: me.total,
@@ -2963,7 +3057,7 @@ async function payWithStripe(me, method) {
 
   } catch (err) {
     console.error('Stripe error:', err);
-    alert('Error procesando el pago. Inténtalo de nuevo o paga en efectivo.');
+    notify('Error procesando el pago. Inténtalo de nuevo o paga en efectivo.');
   }
 }
 
@@ -3137,7 +3231,7 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
         return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid rgba(0,0,0,.05);opacity:${isDone?'.5':'1'}">
           <span style="font-size:12px;flex-shrink:0">${dot}</span>
           <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:${isDone?'400':'500'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${isDone?'text-decoration:line-through;color:var(--t3)':''}">${d.name}</div>
+            <div style="font-size:13px;font-weight:${isDone?'400':'500'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${isDone?'text-decoration:line-through;color:var(--t3)':''}">${escHtml(d.name)}</div>
             ${prep && !isDone ? `<div style="font-size:10px;color:var(--t3)">⏱ ${prep} min · ${dishElapsed} min esperando</div>` : ''}
           </div>
           ${btn}
@@ -3217,7 +3311,7 @@ async function loadKitchenCarta() {
         <div style="display:flex;align-items:center;gap:8px">
           ${item.photo_url ? `<img src="${item.photo_url}" style="width:38px;height:38px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0">` : ''}
           <div style="flex:1;min-width:0">
-            <div style="font-size:14px;font-weight:${item.active?'500':'400'}">${item.name}</div>
+            <div style="font-size:14px;font-weight:${item.active?'500':'400'}">${escHtml(item.name)}</div>
             <div style="font-size:12px;color:var(--t2)">${fmt(parseFloat(item.price))}${item.prep_time_minutes?' · ⏱ '+item.prep_time_minutes+' min':''}</div>
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
@@ -3267,7 +3361,7 @@ async function loadKitchenPrepTimes() {
     grouped[cat].forEach(item => {
       html += `<div class="card" style="margin-bottom:.35rem;padding:.6rem .75rem">
         <div style="display:flex;align-items:center;gap:10px">
-          <div style="flex:1;font-size:14px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.name}</div>
+          <div style="flex:1;font-size:14px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(item.name)}</div>
           <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
             <input type="number" min="0" max="120" value="${item.prep_time_minutes || ''}"
               placeholder="min" inputmode="numeric"
@@ -3377,6 +3471,7 @@ function subscribeWaiterNotifications() {
         : { 0:'Bebidas', 1:'Entrantes', 2:'Principales', 3:'Postres' }[triggerCourse] || 'Platos';
 
       playKitchenSound();
+      haptic([100, 50, 100]);
       addWaiterNotif({
         id: Date.now(),
         tableLabel,
@@ -3473,7 +3568,7 @@ function openWaiterNotifDetail(id) {
   const dishList = n.dishes.length
     ? n.dishes.map(d => `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd)">
         <span style="font-size:18px">${emoji}</span>
-        <span style="font-size:14px;flex:1">${d.name}</span>
+        <span style="font-size:14px;flex:1">${escHtml(d.name)}</span>
       </div>`).join('')
     : '<div style="font-size:13px;color:var(--t2)">Sin detalle disponible</div>';
 
@@ -3594,11 +3689,11 @@ async function loadWaiters(email) {
   chips.innerHTML = waiters.map((w, i) => {
     const colors = ['#D85A30','#185FA5','#7B3FA0','#C0392B','#117A65','#B7770D'];
     const bg = colors[i % colors.length];
-    return `<button onclick="selectWaiter('${w.id}','${w.name}')"
+    return `<button onclick="selectWaiter('${w.id}','${escHtml(w.name)}')"
       id="wchip-${w.id}"
       style="display:flex;align-items:center;gap:12px;padding:.85rem 1rem;border-radius:var(--r);border:2px solid var(--bd);background:var(--card);cursor:pointer;font-family:inherit;text-align:left;transition:all .15s;width:100%">
       <div style="width:40px;height:40px;border-radius:50%;background:${bg};color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0">${w.name[0].toUpperCase()}</div>
-      <div style="font-size:15px;font-weight:500">${w.name}</div>
+      <div style="font-size:15px;font-weight:500">${escHtml(w.name)}</div>
     </button>`;
   }).join('');
 }
@@ -3631,58 +3726,71 @@ async function waiterLogin() {
     errEl.style.display = 'block'; return;
   }
 
-  const { data: waiter, error } = await sb.from('waiters')
-    .select('*')
-    .eq('email', email)
-    .eq('password', password)
-    .eq('active', true)
-    .maybeSingle();
+  try {
+    // Use Edge Function for secure bcrypt verification
+    const res = await fetch(`${SUPA_URL}/functions/v1/auth-waiter`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY },
+      body: JSON.stringify({ action: 'login', email, password })
+    });
+    const json = await res.json();
 
-  if (error || !waiter) {
-    errEl.textContent = 'Email o contraseña incorrectos.';
-    errEl.style.display = 'block'; return;
+    if (!res.ok || json.error) {
+      errEl.textContent = json.error || 'Email o contraseña incorrectos.';
+      errEl.style.display = 'block'; return;
+    }
+
+    const waiter = json.waiter;
+    _waiterId = waiter.id;
+    _waiterName = waiter.name;
+    _waiterRestaurantId = waiter.restaurant_id;
+    _waiterLoginAt = Date.now();
+
+    // Auto-logout after 12h
+    if (window._waiterAutoLogoutTimer) clearTimeout(window._waiterAutoLogoutTimer);
+    window._waiterAutoLogoutTimer = setTimeout(() => {
+      waiterLogout();
+      showToast('Sesión caducada', 'Inicia sesión de nuevo');
+    }, 12 * 60 * 60 * 1000);
+
+    const { data: rest } = await sb.from('restaurants')
+      .select('name').eq('id', waiter.restaurant_id).maybeSingle();
+    _waiterRestaurantName = rest?.name || '';
+
+    track('waiter_login', { waiter_id: waiter.id });
+    document.getElementById('waiter-name-badge').textContent = escHtml(waiter.name);
+    go('s-waiter');
+    loadWaiterMesas();
+    loadWaiterTableSelects();
+    subscribeWaiterNotifications();
+
+  } catch(err) {
+    // Fallback to direct DB if edge function not deployed yet
+    const { data: waiter, error } = await sb.from('waiters')
+      .select('*').eq('email', email).eq('password', password).eq('active', true).maybeSingle();
+    if (error || !waiter) {
+      errEl.textContent = 'Email o contraseña incorrectos.'; errEl.style.display = 'block'; return;
+    }
+    await sb.from('waiters').update({ is_active: true, last_login_at: new Date().toISOString() }).eq('id', waiter.id);
+    _waiterId = waiter.id; _waiterName = waiter.name; _waiterRestaurantId = waiter.restaurant_id; _waiterLoginAt = Date.now();
+    document.getElementById('waiter-name-badge').textContent = escHtml(waiter.name);
+    go('s-waiter'); loadWaiterMesas(); loadWaiterTableSelects(); subscribeWaiterNotifications();
   }
-
-  // Mark waiter as active in DB + record login time
-  const loginTime = new Date().toISOString();
-  await sb.from('waiters').update({ is_active: true, last_login_at: loginTime }).eq('id', waiter.id);
-
-  _waiterId = waiter.id;
-  _waiterName = waiter.name;
-  _waiterRestaurantId = waiter.restaurant_id;
-  _waiterLoginAt = Date.now();
-
-  // Schedule auto-logout after 12 hours
-  if (window._waiterAutoLogoutTimer) clearTimeout(window._waiterAutoLogoutTimer);
-  window._waiterAutoLogoutTimer = setTimeout(() => {
-    waiterLogout();
-    alert('Sesión caducada por inactividad (12 horas). Inicia sesión de nuevo.');
-  }, 12 * 60 * 60 * 1000);
-
-  const { data: rest } = await sb.from('restaurants')
-    .select('name').eq('id', waiter.restaurant_id).maybeSingle();
-  _waiterRestaurantName = rest?.name || '';
-
-  document.getElementById('waiter-name-badge').textContent = waiter.name;
-  go('s-waiter');
-  loadWaiterMesas();
-  loadWaiterTableSelects();
-  subscribeWaiterNotifications();
 }
 
 async function waiterForgotPassword() {
   const email = document.getElementById('waiter-email')?.value?.trim();
   if (!email) {
-    alert('Introduce tu email primero, luego pulsa "He olvidado mi contraseña".');
+    notify('Introduce tu email primero, luego pulsa "He olvidado mi contraseña".');
     return;
   }
   const { data: waiter } = await sb.from('waiters')
     .select('id, name, restaurant_id').eq('email', email).maybeSingle();
   if (!waiter) {
-    alert('No se encontró ningún empleado con ese email. Contacta con el administrador.');
+    notify('No se encontró ningún empleado con ese email. Contacta con el administrador.');
     return;
   }
-  alert(`Contacta con el responsable de tu restaurante para que restablezca tu contraseña desde el panel manageat → Gestión → Camareros.`);
+  notify(`Contacta con el responsable de tu restaurante para que restablezca tu contraseña desde el panel manageat → Gestión → Camareros.`);
 }
 
 async function waiterLogout() {
@@ -3785,7 +3893,7 @@ async function loadWaiterMesas() {
           const isSentBeb = isBebGroup && d.kitchen_status === 'sent';
           return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0">
             <span style="font-size:12px;flex-shrink:0">${STATUS_ICON[d.kitchen_status] || '⬜'}</span>
-            <span style="font-size:12px;flex:1;${isDel ? 'text-decoration:line-through;color:var(--t3)' : (isReady||isSentBeb) ? 'color:var(--brand-d);font-weight:500' : ''}">${d.name}</span>
+            <span style="font-size:12px;flex:1;${isDel ? 'text-decoration:line-through;color:var(--t3)' : (isReady||isSentBeb) ? 'color:var(--brand-d);font-weight:500' : ''}">${escHtml(d.name)}</span>
             ${isReady ? `<button onclick="markDishDelivered('${d.id}')"
               style="padding:2px 8px;border-radius:99px;border:none;background:var(--brand);color:#fff;font-size:10px;cursor:pointer;font-family:inherit;flex-shrink:0">
               Llevado ✓
@@ -3827,6 +3935,7 @@ async function loadWaiterMesas() {
 }
 
 async function markDishDelivered(dishId) {
+  track('dish_delivered', { dish_id: dishId, waiter_id: _waiterId });
   await sb.from('dishes').update({ kitchen_status: 'delivered' }).eq('id', dishId);
   loadWaiterMesas();
 }
@@ -3922,14 +4031,14 @@ async function loadWaiterCarta() {
     grouped[cat].forEach(item => {
       html += `<div style="display:flex;align-items:center;padding:.65rem .85rem;border-radius:var(--r-sm);margin-bottom:.35rem;border:1px solid var(--bd);background:var(--card);gap:10px">
         <div style="flex:1">
-          <div style="font-size:14px;font-weight:400">${item.name}</div>
+          <div style="font-size:14px;font-weight:400">${escHtml(item.name)}</div>
           <div style="font-size:12px;color:var(--t3)">${fmt(parseFloat(item.price))}</div>
         </div>
         <div style="display:flex;align-items:center;gap:6px">
           <button onclick="waiterCartRemove('${item.id}')"
             style="width:28px;height:28px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit">−</button>
           <span id="wcart-qty-${item.id}" style="font-size:14px;font-weight:500;min-width:16px;text-align:center">0</span>
-          <button onclick="waiterCartAdd('${item.id}','${item.name}',${item.price},${item.is_shared})"
+          <button onclick="waiterCartAdd('${item.id}','${escHtml(item.name)}',${item.price},${item.is_shared})"
             style="width:28px;height:28px;border-radius:50%;border:none;background:var(--brand);color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit">+</button>
         </div>
       </div>`;
@@ -4126,7 +4235,8 @@ async function loadWaiterCobrar() {
 async function waiterCobrarMesaCompleta(roomId, amount, method) {
   // Crear un pago único por el total de la mesa
   // Usar un guest_id especial = null con room_id para indicar pago de mesa completa
-  const { error } = await sb.from('payments').insert({
+  const { error } = track('payment_started', { method, amount: me.total });
+  await sb.from('payments').insert({
     room_id: roomId,
     guest_id: null, // pago de mesa completa sin comensal específico
     amount,
@@ -4134,7 +4244,7 @@ async function waiterCobrarMesaCompleta(roomId, amount, method) {
     waiter_id: _waiterId,
     stripe_status: 'manual'
   });
-  if (error) { alert('Error al registrar pago: ' + error.message); return; }
+  if (error) { notify('Error al registrar pago: ' + error.message); return; }
   await sb.from('rooms').update({ closed: true }).eq('id', roomId);
   showToast('✅ Mesa cobrada', `${fmt(amount)} cobrados. Mesa cerrada.`);
   playPaymentSound(true);
@@ -4165,6 +4275,7 @@ async function waiterCobrarPartesIguales(roomId, total) {
 }
 
 async function waiterMarkPaid(guestId, amount, roomId) {
+  track('payment_started', { method, amount: me.total });
   await sb.from('payments').insert({
     room_id: roomId,
     guest_id: guestId,
@@ -4191,7 +4302,7 @@ function openNewTableModal() {
 
 async function waiterOpenTable() {
   const tableId = document.getElementById('new-table-sel').value;
-  if (!tableId) { alert('Selecciona una mesa'); return; }
+  if (!tableId) { notify('Selecciona una mesa primero'); return; }
 
   const { data: table } = await sb.from('tables').select('*').eq('id', tableId).single();
   const code = String(Math.floor(1000 + Math.random() * 9000));
@@ -4242,11 +4353,11 @@ async function loadAdminWaiters() {
     return `<div class="card" style="margin-bottom:.5rem;display:flex;align-items:center;gap:10px">
       ${avatar}
       <div style="flex:1;min-width:0">
-        <div style="font-size:14px;font-weight:500">${w.name}</div>
+        <div style="font-size:14px;font-weight:500">${escHtml(w.name)}</div>
         <div style="font-size:12px;color:var(--t2)">${w.email || 'Sin email'} · ${roleLabel} · ${w.active ? '✓ Activo' : '✗ Inactivo'}</div>
       </div>
       <div style="display:flex;align-items:center;gap:6px">
-        <button onclick="resetWaiterPassword('${w.id}','${w.name}')"
+        <button onclick="resetWaiterPassword('${w.id}','${escHtml(w.name)}')"
           style="font-size:11px;padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);cursor:pointer;color:var(--t2);font-family:inherit">
           🔑 Reset
         </button>
@@ -4265,20 +4376,20 @@ async function saveWaiter() {
   const password = document.getElementById('wf-password').value.trim();
   const role = document.getElementById('wf-role')?.value || 'waiter';
 
-  if (!name) { alert('Escribe el nombre del camarero.'); return; }
-  if (!email || !email.includes('@')) { alert('Introduce un email válido.'); return; }
-  if (password.length < 6) { alert('La contraseña debe tener al menos 6 caracteres.'); return; }
+  if (!name) { notify('Escribe el nombre del camarero'); return; }
+  if (!email || !email.includes('@')) { notify('Introduce un email válido'); return; }
+  if (password.length < 6) { notify('La contraseña debe tener mínimo 6 caracteres'); return; }
 
   // Check email not already used
   const { data: existing } = await sb.from('waiters')
     .select('id').eq('email', email).maybeSingle();
-  if (existing) { alert('Ya existe un empleado con ese email.'); return; }
+  if (existing) { notify('Ya existe un empleado con ese email'); return; }
 
   const { error } = await sb.from('waiters').insert({
     restaurant_id: state.adminRestaurantId,
     name, email, password, role, active: true
   });
-  if (error) { alert('Error: ' + error.message); return; }
+  if (error) { notify('Error: ' + (error.message || error)); return; }
   hideAddWaiterForm();
   loadAdminWaiters();
 }
@@ -4286,10 +4397,10 @@ async function saveWaiter() {
 async function resetWaiterPassword(waiterId, waiterName) {
   const newPass = prompt(`Nueva contraseña para ${waiterName} (mínimo 6 caracteres):`);
   if (!newPass) return;
-  if (newPass.length < 6) { alert('La contraseña debe tener al menos 6 caracteres.'); return; }
+  if (newPass.length < 6) { notify('La contraseña debe tener mínimo 6 caracteres'); return; }
   const { error } = await sb.from('waiters').update({ password: newPass }).eq('id', waiterId);
-  if (error) { alert('Error: ' + error.message); return; }
-  alert(`✓ Contraseña actualizada. Comunícasela a ${waiterName}.`);
+  if (error) { notify('Error: ' + (error.message || error)); return; }
+  showToast('✓ Contraseña actualizada', `Comunícasela a ${waiterName}`);
 }
 
 async function toggleWaiter(id, active) {
@@ -4303,7 +4414,7 @@ async function deleteWaiter(id) {
   await sb.from('rooms').update({ waiter_id: null }).eq('waiter_id', id);
   await sb.from('payments').update({ waiter_id: null }).eq('waiter_id', id);
   const { error } = await sb.from('waiters').delete().eq('id', id);
-  if (error) { alert('Error al eliminar: ' + error.message); return; }
+  if (error) { notify('Error al eliminar: ' + error.message); return; }
   loadAdminWaiters();
 }
 
@@ -4504,7 +4615,7 @@ async function loadAdminCartaMobile() {
         <div style="display:flex;align-items:center;gap:8px">
           ${photoEl}
           <div style="flex:1;min-width:0">
-            <div style="font-size:14px;font-weight:500">${item.name}</div>
+            <div style="font-size:14px;font-weight:500">${escHtml(item.name)}</div>
             <div style="font-size:12px;color:var(--t2)">${fmt(parseFloat(item.price))} · ${item.is_shared?'🤝':'👤'}${!item.active?' · <span style="color:var(--accent);font-size:11px">Inactivo</span>':''}</div>
           </div>
           <div style="display:flex;gap:4px;flex-shrink:0">
@@ -4528,11 +4639,11 @@ async function saveMenuItemMobile() {
   const price = parseFloat(document.getElementById('aim-price')?.value);
   const cat = document.getElementById('aim-cat')?.value;
   const isShared = document.getElementById('aim-shared-track')?.classList.contains('on');
-  if (!name || isNaN(price) || price <= 0) { alert('Rellena nombre y precio.'); return; }
+  if (!name || isNaN(price) || price <= 0) { notify('Rellena nombre y precio.'); return; }
   const { error } = await sb.from('menu_items').insert({
     restaurant_id: state.adminRestaurantId, name, price, category: cat, is_shared: isShared, active: true
   });
-  if (error) { alert('Error: ' + error.message); return; }
+  if (error) { notify('Error: ' + (error.message || error)); return; }
   document.getElementById('add-item-form-mobile').style.display = 'none';
   loadAdminCartaMobile();
   loadAdminCarta(); // also refresh desktop
@@ -4636,11 +4747,11 @@ async function saveWaiterMobile() {
   const name = document.getElementById('awm-name')?.value.trim();
   const email = document.getElementById('awm-email')?.value.trim();
   const password = document.getElementById('awm-pass')?.value.trim();
-  if (!name || !email || password.length < 6) { alert('Rellena todos los campos (contraseña mínimo 6 caracteres).'); return; }
+  if (!name || !email || password.length < 6) { notify('Rellena todos los campos (contraseña mínimo 6 caracteres).'); return; }
   const { error } = await sb.from('waiters').insert({
     restaurant_id: state.adminRestaurantId, name, email, password, role: 'waiter', active: true
   });
-  if (error) { alert('Error: ' + error.message); return; }
+  if (error) { notify('Error: ' + (error.message || error)); return; }
   document.getElementById('add-waiter-form-mobile').style.display = 'none';
   loadAdminWaitersMobile();
 }
@@ -4654,7 +4765,7 @@ async function loadAdminWaitersMobile() {
   el.innerHTML = data.map(w => `
     <div class="card row" style="margin-bottom:.5rem;justify-content:space-between">
       <div>
-        <div style="font-size:14px;font-weight:500">${w.name}</div>
+        <div style="font-size:14px;font-weight:500">${escHtml(w.name)}</div>
         <div style="font-size:12px;color:var(--t2)">${w.email||'Sin email'} · ${w.active?'Activo':'Inactivo'}</div>
       </div>
       <div style="display:flex;gap:5px;align-items:center">
@@ -4764,7 +4875,7 @@ async function loadKPIPlatos() {
     return `<div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.9rem 1rem;margin-bottom:.5rem">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:.6rem">
         <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:500;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.name}</div>
+          <div style="font-size:14px;font-weight:500;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(item.name)}</div>
           <div style="font-size:11px;color:var(--t3);margin-top:1px">${item.times.length} pedido${item.times.length !== 1 ? 's' : ''}</div>
         </div>
         <div style="text-align:right;flex-shrink:0">
@@ -4835,7 +4946,7 @@ async function loadAdminCarta() {
         <div style="display:flex;align-items:center;gap:8px">
           <div onclick="uploadDishPhoto('${item.id}')" style="cursor:pointer;flex-shrink:0">${photoHtml}</div>
           <div style="flex:1;min-width:0">
-            <div style="font-size:14px;font-weight:${item.active ? '500' : '400'}">${item.name}</div>
+            <div style="font-size:14px;font-weight:${item.active ? '500' : '400'}">${escHtml(item.name)}</div>
             <div style="font-size:12px;color:var(--t2)">${fmt(parseFloat(item.price))} · ${item.is_shared ? '🤝' : '👤'}${item.prep_time_minutes ? ' · ⏱ ' + item.prep_time_minutes + ' min' : ''}${!item.active ? ' · <span style="color:var(--accent);font-size:11px">Inactivo</span>' : ''}</div>
           </div>
           <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
@@ -4859,7 +4970,7 @@ async function toggleItemActive(itemId, newActive, toggleEl) {
   if (card) card.style.opacity = newActive ? '1' : '0.6';
   const { error } = await sb.from('menu_items').update({ active: newActive }).eq('id', itemId);
   if (error) {
-    alert('Error: ' + error.message);
+    notify('Error: ' + (error.message || error));
     if (toggleEl) toggleEl.classList.toggle('on', !newActive);
     if (card) card.style.opacity = newActive ? '0.6' : '1';
   }
@@ -4871,7 +4982,7 @@ async function deleteItem(itemId) {
   if (card) card.style.display = 'none';
   const { error } = await sb.from('menu_items').delete().eq('id', itemId);
   if (error) {
-    alert('Error: ' + error.message);
+    notify('Error: ' + (error.message || error));
     if (card) card.style.display = '';
   }
 }
@@ -4989,7 +5100,7 @@ async function processCartaPhoto(input) {
 
 async function confirmCartaImport() {
   const selected = _importedDishes.filter((_, i) => document.getElementById(`imp-${i}`)?.checked);
-  if (!selected.length) { alert('Selecciona al menos un plato.'); return; }
+  if (!selected.length) { notify('Selecciona al menos un plato', 'info'); return; }
   const inserts = selected.map(p => ({
     restaurant_id: state.adminRestaurantId,
     name: p.nombre, price: p.precio || 0,
@@ -4997,7 +5108,7 @@ async function confirmCartaImport() {
     is_shared: p.compartido || false, active: true
   }));
   const { error } = await sb.from('menu_items').insert(inserts);
-  if (error) { alert('Error importando: ' + error.message); return; }
+  if (error) { notify('Error importando la carta: ' + error.message); return; }
   document.getElementById('import-carta-modal').remove();
   loadAdminCarta();
   loadAdminCartaMobile();
@@ -5020,13 +5131,13 @@ async function saveMenuItem() {
   const cat = document.getElementById('ai-cat').value;
   const isShared = document.getElementById('ai-shared-track').classList.contains('on');
   const prepTime = parseInt(document.getElementById('ai-prep')?.value) || null;
-  if (!name || isNaN(price) || price <= 0) { alert('Rellena nombre y precio correctamente.'); return; }
+  if (!name || isNaN(price) || price <= 0) { notify('Rellena nombre y precio correctamente.'); return; }
   const { error } = await sb.from('menu_items').insert({
     restaurant_id: state.adminRestaurantId, name, price, category: cat,
     is_shared: isShared, active: true,
     ...(prepTime ? { prep_time_minutes: prepTime } : {})
   });
-  if (error) { alert('Error: ' + error.message); return; }
+  if (error) { notify('Error: ' + (error.message || error)); return; }
   hideAddItemForm();
   loadAdminCarta();
 }
@@ -5093,7 +5204,7 @@ async function adminOpenTable(tableId, tableNum, tableLabel) {
     tip_percent: 0,
     opened_at: new Date().toISOString().split('T')[0]
   });
-  if (error) { alert('Error: ' + error.message); return; }
+  if (error) { notify('Error: ' + (error.message || error)); return; }
   loadAdminTables();
 }
 
@@ -5166,7 +5277,7 @@ function downloadQR() {
   } else if (img) {
     link.href = img.src;
   } else {
-    alert('El QR todavía se está generando, espera un momento.'); return;
+    notify('El QR todavía se está generando, espera un momento', 'info'); return;
   }
   link.click();
 }
@@ -5373,7 +5484,7 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
         return `<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.05)">
           <span style="font-size:12px">${statusDot}</span>
           <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.name}</div>
+            <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(d.name)}</div>
             ${prepTime > 0 ? `<div style="font-size:10px;color:var(--t3)">⏱ ${prepTime} min · ${dishElapsed} min esperando</div>` : ''}
           </div>
           ${actionBtn}
@@ -5518,7 +5629,7 @@ function renderKDSKanban(dishes, roomTableMap, tablesById, prepTimeByItem) {
       }
       return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--bd)">
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${courseBadge}${d.name}</div>
+          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${courseBadge}${escHtml(d.name)}</div>
           ${prepTime > 0 ? `<div style="font-size:10px;color:var(--t3)">⏱ ${prepTime} min</div>` : ''}
         </div>${btn}
       </div>`;
@@ -5674,13 +5785,13 @@ async function loadReservas() {
       <div style="flex:1;background:${s.bg};border:1.5px solid ${s.border};border-radius:var(--r);padding:.75rem .9rem;margin-bottom:.1rem">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
           <div style="flex:1;min-width:0">
-            <div style="font-size:14px;font-weight:600;color:var(--t1)">${r.name}</div>
+            <div style="font-size:14px;font-weight:600;color:var(--t1)">${escHtml(r.name)}</div>
             <div style="font-size:12px;color:var(--t2);margin-top:1px">
               👥 ${r.party_size} persona${r.party_size !== 1 ? 's' : ''}
               ${r.phone ? ` · 📞 ${r.phone}` : ''}
             </div>
             <div style="font-size:12px;color:var(--t2)">${tableLabel}</div>
-            ${r.notes ? `<div style="font-size:12px;color:var(--t3);margin-top:2px;font-style:italic">💬 ${r.notes}</div>` : ''}
+            ${r.notes ? `<div style="font-size:12px;color:var(--t3);margin-top:2px;font-style:italic">💬 ${escHtml(r.notes||"")}</div>` : ''}
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
             <span style="font-size:11px;font-weight:500;color:${s.txt};background:rgba(255,255,255,0.6);padding:2px 8px;border-radius:99px">${s.label}</span>
@@ -5702,7 +5813,7 @@ async function loadReservas() {
           <button onclick="deleteReserva('${r.id}')"
             style="padding:4px 10px;border-radius:99px;border:1px solid #FCCACA;background:#FFF5F5;color:#A32D2D;font-size:11px;cursor:pointer;font-family:inherit">✕</button>
           ${r.phone ? `<a href="tel:${r.phone}" style="padding:4px 10px;border-radius:99px;border:1px solid var(--bd);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit;text-decoration:none">📞 Llamar</a>` : ''}
-          ${r.email ? `<a href="mailto:${r.email}?subject=Reserva ${timeStr} ${r.name}" style="padding:4px 10px;border-radius:99px;border:1px solid var(--bd);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit;text-decoration:none">✉️ Email</a>` : ''}
+          ${r.email ? `<a href="mailto:${r.email}?subject=Reserva ${timeStr} ${escHtml(r.name)}" style="padding:4px 10px;border-radius:99px;border:1px solid var(--bd);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit;text-decoration:none">✉️ Email</a>` : ''}
         </div>
       </div>
     </div>`;
@@ -6333,7 +6444,7 @@ function saveCustomKPI() {
   const name = document.getElementById('ckpi-name')?.value.trim();
   const value = document.getElementById('ckpi-value')?.value.trim();
   const target = document.getElementById('ckpi-target')?.value.trim();
-  if (!name) { alert('Escribe un nombre para el KPI.'); return; }
+  if (!name) { notify('Escribe un nombre para el KPI', 'info'); return; }
 
   const key = 'spliteat_kpis_' + state.adminRestaurantId;
   let kpis = [];
@@ -6406,7 +6517,7 @@ async function loadPropinas() {
     return `<div style="display:flex;align-items:center;gap:12px;padding:.85rem;border-radius:var(--r-sm);border:1px solid var(--bd);background:var(--card);margin-bottom:.5rem">
       <div style="width:40px;height:40px;border-radius:50%;background:${COLORS[i % COLORS.length]};color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0">${w.name[0].toUpperCase()}</div>
       <div style="flex:1">
-        <div style="font-size:14px;font-weight:500">${w.name}</div>
+        <div style="font-size:14px;font-weight:500">${escHtml(w.name)}</div>
         <div style="font-size:12px;color:var(--t2)">${stats.count} mesas cobradas</div>
       </div>
       <div style="text-align:right">
@@ -6573,7 +6684,7 @@ async function saveRestaurantProfile() {
     booking_slug: slug || null
   };
   const { error } = await sb.from('restaurants').update(payload).eq('id', state.adminRestaurantId);
-  if (error) { alert('Error: ' + error.message); return; }
+  if (error) { notify('Error: ' + (error.message || error)); return; }
   document.getElementById('prf-ok').style.display = 'block';
   setTimeout(() => { document.getElementById('prf-ok').style.display = 'none'; }, 2000);
   // Update booking URL display
@@ -6855,7 +6966,7 @@ function showFactura(idx) {
           <tbody>
             ${dishes.map(d => `
               <tr style="border-bottom:1px solid var(--bg2)">
-                <td style="padding:4px 0">${d.name}</td>
+                <td style="padding:4px 0">${escHtml(d.name)}</td>
                 <td style="padding:4px 0;text-align:right;font-weight:500">${parseFloat(d.price).toFixed(2)} €</td>
               </tr>`).join('')}
           </tbody>
@@ -6999,7 +7110,7 @@ async function loadStripeStatus() {
 
 async function startStripeOnboarding() {
   if (!STRIPE_ENABLED) {
-    alert('Los pagos online se activarán próximamente. Por ahora los comensales confirman el pago manualmente.');
+    notify('Pagos online próximamente. Los comensales confirman el pago manualmente.', 'info');
     return;
   }
 
@@ -7026,7 +7137,7 @@ async function startStripeOnboarding() {
     window.location.href = result.onboardingUrl;
 
   } catch(e) {
-    alert('Error iniciando la conexión con Stripe: ' + e.message);
+    notify('Error con Stripe: ' + e.message);
     btn.disabled = false;
     btn.textContent = 'Conectar cuenta bancaria →';
   }
@@ -7208,6 +7319,7 @@ async function enterMesa() {
       if (re) throw new Error('Error creando sala: ' + re.message);
       roomId = newRoom.id;
       _qrActiveRoomId = roomId;
+      track('table_opened', { room_id: roomId, restaurant_id: String(_qrRestaurantId) });
     }
 
     // Añadir comensal
@@ -7338,6 +7450,15 @@ async function restoreSession() {
     return false;
   }
 }
+
+
+// ── Offline detection ──
+function updateOnlineStatus() {
+  document.body.classList.toggle('offline', !navigator.onLine);
+}
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+updateOnlineStatus();
 
 // ══════════════════════════════════════════════════════
 // INIT
