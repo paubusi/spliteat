@@ -448,7 +448,7 @@
     <div id="dtab-mesa" class="body" style="display:none">
 
       <!-- Steps indicator -->
-      <div style="display:flex;align-items:center;gap:4px;margin-bottom:1rem;font-size:11px;font-weight:500">
+      <div style="display:flex;align-items:center;gap:4px;margin-bottom:1rem;font-size:11px;font-weight:500;flex-wrap:wrap">
         <span style="color:var(--brand)">✓ Carta</span>
         <span style="color:var(--bd2)">——</span>
         <span style="color:var(--brand-d);font-weight:600">Revisar</span>
@@ -480,6 +480,13 @@
         ✓ Pedido enviado. Cocina lo está preparando.
       </div>
 
+      <!-- Botón ver resumen — solo visible cuando hay platos listos o todo entregado -->
+      <div id="btn-ver-resumen-area" style="display:none;margin-top:.65rem">
+        <button class="btn btn-primary" onclick="go('s4-summary')" style="width:100%">
+          Ver resumen y cuenta →
+        </button>
+      </div>
+
       <!-- MODAL CONFIRMACIÓN ENVÍO A COCINA -->
       <div id="send-confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:200;align-items:flex-end;justify-content:center">
         <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:1.5rem 1.25rem;width:100%;max-width:430px;animation:slideUp .2s ease">
@@ -498,15 +505,6 @@
             Volver y seguir añadiendo
           </button>
         </div>
-      </div>
-
-      <div style="display:flex;gap:.5rem;margin-top:.75rem">
-        <button class="btn btn-secondary" onclick="openResumenPanel()" style="flex:1">
-          📊 Ver cuentas
-        </button>
-        <button class="btn btn-primary" onclick="go('s5-pay')" style="flex:1">
-          Pagar →
-        </button>
       </div>
     </div>
 
@@ -2148,12 +2146,13 @@ function openModal(itemId) {
 
   // Auto-assign course from menu item category
   const catToCourse = {
+    'bebidas': 0,  // bebidas = pase especial, prioridad
     'entrantes': 1, 'tapas': 1, 'aperitivos': 1,
     'principales': 2, 'carnes': 2, 'pescados': 2, 'arroces': 2, 'pastas': 2,
     'postres': 3
   };
   const cat = (item.category || '').toLowerCase();
-  modalCourse = catToCourse[cat] || 1;
+  modalCourse = catToCourse[cat] ?? 1;
 
   document.getElementById('modal-dish-name').textContent = item.name;
   document.getElementById('modal-dish-price').textContent = fmt(parseFloat(item.price));
@@ -2300,7 +2299,7 @@ function renderMesaDishes() {
     const sentDishes = state.dishes.filter(d => d.kitchen_status && d.kitchen_status !== 'new');
 
     // Group sent dishes by course for display
-    const courseLabels = { 1: '🥗 Entrantes', 2: '🍽 Principales', 3: '🍰 Postres' };
+    const courseLabels = { 0: '🥤 Bebidas', 1: '🥗 Entrantes', 2: '🍽 Principales', 3: '🍰 Postres' };
     const readyDishes = sentDishes.filter(d => d.kitchen_status === 'ready');
 
     let html = '';
@@ -2355,15 +2354,23 @@ function renderMesaDishes() {
   if (reviewArea) reviewArea.style.display = unsentCount > 0 ? 'block' : 'none';
   if (reviewCount) reviewCount.textContent = unsentCount + ' plato' + (unsentCount !== 1 ? 's' : '');
 
-  // Update send button label
+  // Update send button
   const sendBtn = document.getElementById('btn-send-kitchen');
   const sentMsg = document.getElementById('kitchen-sent-msg');
   const unsentDishes = state.dishes.filter(d => !d.kitchen_status || d.kitchen_status === 'new');
+  const sentOrActiveDishes = state.dishes.filter(d => d.kitchen_status && d.kitchen_status !== 'new');
   if (sendBtn) {
     sendBtn.style.display = unsentDishes.length > 0 ? '' : 'none';
     sendBtn.textContent = `Revisar y enviar a cocina (${unsentDishes.length}) →`;
   }
   if (sentMsg) sentMsg.style.display = state.dishes.length > 0 && unsentDishes.length === 0 ? 'block' : 'none';
+
+  // Show "Ver resumen" button when dishes have been sent (at least some in progress)
+  const resumenBtn = document.getElementById('btn-ver-resumen-area');
+  if (resumenBtn) {
+    const hasProgress = sentOrActiveDishes.length > 0;
+    resumenBtn.style.display = hasProgress ? 'block' : 'none';
+  }
 }
 
 function renderDishCard(dish) {
@@ -2376,7 +2383,7 @@ function renderDishCard(dish) {
   const isSent = ks === 'sent' || isConfirmed;
 
   // Course badge
-  const courseLabels = { 1: '1º', 2: '2º', 3: '3º' };
+  const courseLabels = { 0: '🥤', 1: '1º', 2: '2º', 3: '3º' };
   const courseBadge = dish.course
     ? `<span style="font-size:10px;padding:1px 6px;border-radius:99px;background:var(--bg2);color:var(--t3);border:1px solid var(--bd);margin-left:4px">${courseLabels[dish.course] || ''}</span>`
     : '';
@@ -2569,6 +2576,7 @@ function showSendToKitchenConfirm() {
   let lastLabel = null;
   sorted.forEach(d => {
     const label = d.category === 'bebidas' ? 'Bebidas'
+      : d.category === 'bebidas' ? 'Bebidas'
       : d.course === 1 ? 'Entrantes'
       : d.course === 2 ? 'Principales'
       : d.course === 3 ? 'Postres' : 'Platos';
@@ -2637,8 +2645,15 @@ async function sendToKitchen() {
 
   const sentAt = new Date().toISOString();
   for (const dish of unsentDishes) {
-    await sb.from('dishes').update({ kitchen_status: 'sent', sent_at: sentAt }).eq('id', dish.id);
-    dish.kitchen_status = 'sent';
+    const isBebidas = dish.category === 'bebidas' || dish.course === 0;
+    // Bebidas go directly to ready — don't need kitchen preparation
+    const newStatus = isBebidas ? 'ready' : 'sent';
+    await sb.from('dishes').update({
+      kitchen_status: newStatus,
+      sent_at: sentAt,
+      ...(isBebidas ? { making_at: sentAt, ready_at: sentAt } : {})
+    }).eq('id', dish.id);
+    dish.kitchen_status = newStatus;
     dish.sent_at = sentAt;
   }
 
@@ -2992,7 +3007,7 @@ async function loadKitchenOrders() {
 }
 
 function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
-  const COURSE_LABELS = { 1:'1º Entrantes', 2:'2º Principales', 3:'3º Postres' };
+  const COURSE_LABELS = { 0:'🥤 Bebidas', 1:'1º Entrantes', 2:'2º Principales', 3:'3º Postres' };
   const COURSE_COLORS = {
     1: { bg:'#FFF5F5', border:'#FCCACA', hdr:'#FCEBEB', txt:'#A32D2D' },
     2: { bg:'#FFFBF2', border:'#F5DEB3', hdr:'#FAEEDA', txt:'#854F0B' },
@@ -3302,12 +3317,17 @@ function subscribeWaiterNotifications() {
         ? `Mesa ${table.number}${table.label ? ' — ' + table.label : ''}`
         : 'Mesa';
 
-      // Get all ready dishes for this room to show in detail
-      const { data: readyDishes } = await sb.from('dishes')
-        .select('name, course').eq('room_id', dish.room_id)
-        .eq('kitchen_status', 'ready');
+      // Get ONLY dishes of this same course that are ready (not already delivered)
+      const triggerCourse = dish.course || 1;
+      const { data: courseDishes } = await sb.from('dishes')
+        .select('name, course, category')
+        .eq('room_id', dish.room_id)
+        .eq('kitchen_status', 'ready')
+        .eq('course', triggerCourse);
 
-      const courseLabel = { 1:'Entrantes', 2:'Principales', 3:'Postres' }[dish.course || 1] || 'Platos';
+      const isBebidas = dish.category === 'bebidas' || triggerCourse === 0;
+      const courseLabel = isBebidas ? 'Bebidas'
+        : { 0:'Bebidas', 1:'Entrantes', 2:'Principales', 3:'Postres' }[triggerCourse] || 'Platos';
 
       playKitchenSound();
       addWaiterNotif({
@@ -3315,8 +3335,9 @@ function subscribeWaiterNotifications() {
         tableLabel,
         roomId: dish.room_id,
         courseLabel,
-        course: dish.course || 1,
-        dishes: readyDishes || [],
+        course: triggerCourse,
+        isBebidas,
+        dishes: courseDishes || [{ name: dish.name, course: triggerCourse }],
         time: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
         seen: false
       });
@@ -3399,29 +3420,54 @@ function openWaiterNotifDetail(id) {
     return el;
   })();
 
-  const courseEmoji = { 1:'🥗', 2:'🍽', 3:'🍰' };
+  const emoji = n.isBebidas ? '🥤' : { 1:'🥗', 2:'🍽', 3:'🍰' }[n.course] || '🍽';
+  const bannerColor = n.isBebidas ? '#185FA5' : '#085041';
+
   const dishList = n.dishes.length
-    ? n.dishes.map(d => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--bd)">
-        <span style="font-size:14px">${courseEmoji[d.course] || '🍽'}</span>
-        <span style="font-size:14px">${d.name}</span>
+    ? n.dishes.map(d => `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd)">
+        <span style="font-size:18px">${emoji}</span>
+        <span style="font-size:14px;flex:1">${d.name}</span>
       </div>`).join('')
     : '<div style="font-size:13px;color:var(--t2)">Sin detalle disponible</div>';
 
-  modal.innerHTML = `<div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:1.5rem 1.25rem;width:100%;max-width:430px;animation:slideUp .2s ease">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+  modal.innerHTML = `<div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;animation:slideUp .2s ease;overflow:hidden">
+    <div style="background:${bannerColor};padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between">
       <div>
-        <div style="font-size:16px;font-weight:600">${n.tableLabel}</div>
-        <div style="font-size:12px;color:var(--t2)">${n.courseLabel} listos · ${n.time}</div>
+        <div style="font-size:16px;font-weight:600;color:#fff">${n.tableLabel}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.75)">${n.courseLabel} listo${n.dishes.length > 1 ? 's' : ''} · ${n.time}</div>
       </div>
       <button onclick="document.getElementById('waiter-notif-modal').style.display='none'"
-        style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+        style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:99px;width:28px;height:28px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
     </div>
-    <div style="margin-bottom:1rem">${dishList}</div>
-    <button onclick="document.getElementById('waiter-notif-modal').style.display='none'"
-      class="btn btn-primary">✓ Entendido, voy a servir</button>
+    <div style="padding:1rem 1.25rem">
+      <div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem">
+        Llevar a mesa (${n.dishes.length} plato${n.dishes.length !== 1 ? 's' : ''})
+      </div>
+      ${dishList}
+      <button onclick="markCourseDelivered('${n.roomId}',${n.course},${n.isBebidas||false});document.getElementById('waiter-notif-modal').style.display='none'"
+        class="btn btn-primary" style="margin-top:1rem;background:${bannerColor}">
+        ✓ Llevado a mesa
+      </button>
+    </div>
   </div>`;
 
   modal.style.display = 'flex';
+}
+
+async function markCourseDelivered(roomId, course, isBebidas) {
+  // Mark all ready dishes of this course in this room as delivered
+  const filter = sb.from('dishes')
+    .update({ kitchen_status: 'delivered' })
+    .eq('room_id', roomId)
+    .eq('kitchen_status', 'ready');
+
+  if (isBebidas) {
+    await filter.eq('category', 'bebidas');
+  } else {
+    await filter.eq('course', course);
+  }
+  // Refresh waiter mesa list
+  loadWaiterMesas();
 }
 
 function openWaiterNotifHistory() {
@@ -3622,48 +3668,97 @@ async function loadWaiterMesas() {
   const emptyEl = document.getElementById('waiter-mesas-empty');
   el.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--t3);font-size:13px">Cargando...</div>';
 
-  const { data: rooms } = await sb.from('rooms').select('*')
+  // Show only assigned rooms (or all if none assigned)
+  let roomsQ = sb.from('rooms').select('*')
     .eq('restaurant_id', _waiterRestaurantId).eq('closed', false)
     .order('created_at', { ascending: false });
+  const { data: rooms } = await roomsQ;
 
   const { data: tables } = await sb.from('tables').select('*').eq('restaurant_id', _waiterRestaurantId);
   const tablesById = {};
   (tables || []).forEach(t => { tablesById[t.id] = t; });
 
-  if (!rooms || !rooms.length) {
+  // Filter to assigned tables for this waiter (+ unassigned)
+  const myRooms = (rooms || []).filter(r =>
+    !r.assigned_waiter_id || r.assigned_waiter_id === _waiterId
+  );
+
+  if (!myRooms.length) {
     el.innerHTML = ''; emptyEl.style.display = 'block'; return;
   }
   emptyEl.style.display = 'none';
 
-  const roomIds = rooms.map(r => r.id);
-  const [{ data: allGuests }, { data: allPayments }] = await Promise.all([
+  const roomIds = myRooms.map(r => r.id);
+  const [{ data: allGuests }, { data: allPayments }, { data: allDishes }] = await Promise.all([
     sb.from('guests').select('*').in('room_id', roomIds),
-    sb.from('payments').select('*').in('room_id', roomIds)
+    sb.from('payments').select('*').in('room_id', roomIds),
+    sb.from('dishes').select('id,name,course,category,kitchen_status,room_id')
+      .in('room_id', roomIds).order('course')
   ]);
-  const guestsByRoom = {}, paysByRoom = {};
+
+  const guestsByRoom = {}, paysByRoom = {}, dishesByRoom = {};
   (allGuests || []).forEach(g => { if (!guestsByRoom[g.room_id]) guestsByRoom[g.room_id] = []; guestsByRoom[g.room_id].push(g); });
   (allPayments || []).forEach(p => { if (!paysByRoom[p.room_id]) paysByRoom[p.room_id] = []; paysByRoom[p.room_id].push(p); });
+  (allDishes || []).forEach(d => { if (!dishesByRoom[d.room_id]) dishesByRoom[d.room_id] = []; dishesByRoom[d.room_id].push(d); });
 
-  el.innerHTML = rooms.map(room => {
+  const STATUS_ICON = { new:'⬜', sent:'⏳', making:'🍳', ready:'🛎', delivered:'✅' };
+  const STATUS_LABEL = { new:'Pendiente', sent:'Enviado', making:'Preparando', ready:'Listo', delivered:'Servido' };
+  const COURSE_EMOJI = { 0:'🥤', 1:'🥗', 2:'🍽', 3:'🍰' };
+
+  el.innerHTML = myRooms.map(room => {
     const table = room.table_id ? tablesById[room.table_id] : null;
     const label = table ? `Mesa ${table.number}${table.label ? ' — ' + table.label : ''}` : 'Mesa sin asignar';
     const guests = guestsByRoom[room.id] || [];
     const pays = paysByRoom[room.id] || [];
+    const dishes = dishesByRoom[room.id] || [];
     const allPaid = guests.length > 0 && pays.length >= guests.length;
     const timeStr = new Date(room.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
-    return `<div style="background:${allPaid ? '#EAF3DE' : 'var(--card)'};border:1.5px solid ${allPaid ? '#3B6D11' : 'var(--bd)'};border-radius:var(--r);padding:.85rem 1rem;margin-bottom:.5rem">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem">
-        <div style="font-size:15px;font-weight:500">${label}</div>
-        <div style="font-size:12px;color:${allPaid ? '#3B6D11' : 'var(--t2)'}">
-          ${allPaid ? '✅ Pagada' : `${pays.length}/${guests.length} pagados`}
+    // Group dishes by course — bebidas first
+    const bebidas = dishes.filter(d => d.category === 'bebidas' || d.course === 0);
+    const courseGroups = [
+      { course: 0, label: '🥤 Bebidas', dishes: bebidas },
+      { course: 1, label: '🥗 Entrantes', dishes: dishes.filter(d => d.course === 1) },
+      { course: 2, label: '🍽 Principales', dishes: dishes.filter(d => d.course === 2) },
+      { course: 3, label: '🍰 Postres', dishes: dishes.filter(d => d.course === 3) },
+    ].filter(g => g.dishes.length > 0);
+
+    const readyCount = dishes.filter(d => d.kitchen_status === 'ready').length;
+    const hasReady = readyCount > 0;
+
+    const dishesHtml = courseGroups.map(({ label: cLabel, dishes: cDishes }) => {
+      const allDelivered = cDishes.every(d => d.kitchen_status === 'delivered');
+      return `<div style="margin-bottom:.35rem">
+        <div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.2rem">${cLabel}</div>
+        ${cDishes.map(d => {
+          const isDel = d.kitchen_status === 'delivered';
+          const isReady = d.kitchen_status === 'ready';
+          return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0">
+            <span style="font-size:12px;flex-shrink:0">${STATUS_ICON[d.kitchen_status] || '⬜'}</span>
+            <span style="font-size:12px;flex:1;${isDel ? 'text-decoration:line-through;color:var(--t3)' : isReady ? 'color:var(--brand-d);font-weight:500' : ''}">${d.name}</span>
+            ${isReady ? `<button onclick="markDishDelivered('${d.id}')"
+              style="padding:2px 8px;border-radius:99px;border:none;background:var(--brand);color:#fff;font-size:10px;cursor:pointer;font-family:inherit;flex-shrink:0">
+              Llevado ✓
+            </button>` : ''}
+          </div>`;
+        }).join('')}
+      </div>`;
+    }).join('');
+
+    return `<div style="background:${allPaid ? '#EAF3DE' : 'var(--card)'};border:1.5px solid ${hasReady ? 'var(--brand)' : allPaid ? '#3B6D11' : 'var(--bd)'};border-radius:var(--r);padding:.85rem 1rem;margin-bottom:.5rem${hasReady ? ';box-shadow:0 0 0 3px rgba(29,158,117,.15)' : ''}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem">
+        <div style="font-size:15px;font-weight:600">${label}</div>
+        <div style="display:flex;gap:.35rem;align-items:center">
+          ${hasReady ? `<span style="font-size:11px;font-weight:600;color:var(--brand);background:var(--brand-l);padding:2px 8px;border-radius:99px">${readyCount} listo${readyCount>1?'s':''} 🛎</span>` : ''}
+          <span style="font-size:11px;color:${allPaid ? '#3B6D11' : 'var(--t2)'}">${allPaid ? '✅ Pagada' : `${pays.length}/${guests.length} pagados`}</span>
         </div>
       </div>
-      <div style="font-size:12px;color:var(--t2);margin-bottom:.5rem">Abierta ${timeStr} · ${guests.length} comensales</div>
+      <div style="font-size:11px;color:var(--t3);margin-bottom:.5rem">${timeStr} · ${guests.length} personas</div>
+      ${dishes.length > 0 ? `<div style="background:var(--bg2);border-radius:var(--r-sm);padding:.5rem .65rem;margin-bottom:.5rem">${dishesHtml}</div>` : ''}
       <div style="display:flex;gap:.4rem">
         <button onclick="waiterGoToPedido('${room.id}')"
           style="flex:1;padding:7px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--brand-l);color:var(--brand-d);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
-          + Añadir pedido
+          + Pedido
         </button>
         <button onclick="waiterGoToCobrar('${room.id}')"
           style="flex:1;padding:7px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg2);color:var(--t1);font-size:12px;cursor:pointer;font-family:inherit">
@@ -3676,6 +3771,11 @@ async function loadWaiterMesas() {
       </div>
     </div>`;
   }).join('');
+}
+
+async function markDishDelivered(dishId) {
+  await sb.from('dishes').update({ kitchen_status: 'delivered' }).eq('id', dishId);
+  loadWaiterMesas();
 }
 
 function waiterGoToPedido(roomId) {
@@ -5135,7 +5235,7 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
     return oldestA - oldestB;
   });
 
-  const COURSE_LABELS = { 1: '1º Entrantes', 2: '2º Principales', 3: '3º Postres' };
+  const COURSE_LABELS = { 0:'🥤 Bebidas', 1:'1º Entrantes', 2:'2º Principales', 3:'3º Postres' };
   const COURSE_COLORS = {
     1: { bg: '#FFF5F5', border: '#FCCACA', hdr: '#FCEBEB', txt: '#A32D2D' },
     2: { bg: '#FFFBF2', border: '#F5DEB3', hdr: '#FAEEDA', txt: '#854F0B' },
@@ -5286,7 +5386,7 @@ async function fireNextCourse(roomId, course, dishIds) {
       .then(({ data: t }) => t ? `Mesa ${t.number}${t.label ? ' — ' + t.label : ''}` : 'Una mesa')
     : 'Una mesa';
 
-  const courseLabels = { 1: 'entrantes', 2: 'principales', 3: 'postres' };
+  const courseLabels = { 0: 'bebidas', 1: 'entrantes', 2: 'principales', 3: 'postres' };
   const courseLabel = courseLabels[course] || `pase ${course}`;
 
   // Push notification to waiters
