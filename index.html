@@ -249,12 +249,12 @@
 </head>
 <body>
 
-<!-- Botón acceso restaurante — fuera del #app, siempre visible en cualquier dispositivo -->
-<div id="btn-acceso-restaurante" style="position:fixed;top:12px;right:12px;z-index:99999;-webkit-transform:translateZ(0);transform:translateZ(0)">
-  <button id="btn-acceso-inner"
-    style="padding:9px 18px;border-radius:99px;border:1.5px solid var(--brand-d);background:#fff;color:var(--brand-d);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.12);-webkit-appearance:none;appearance:none;display:block">
+<!-- Botón acceso restaurante — compatible iOS 12 -->
+<div id="btn-acceso-restaurante" style="position:fixed;top:12px;right:12px;z-index:99999;-webkit-transform:translate3d(0,0,0);transform:translate3d(0,0,0)">
+  <a href="#acceso" id="btn-acceso-inner"
+    style="display:block;padding:9px 18px;border-radius:99px;border:1.5px solid #085041;background:#fff;color:#085041;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.12);text-decoration:none;-webkit-tap-highlight-color:rgba(0,0,0,.1)">
     Acceso al restaurante →
-  </button>
+  </a>
 </div>
 
 <div id="app">
@@ -1629,24 +1629,15 @@ function go(screenId) {
   }
 }
 
-// iOS 12 fix: wire up acceso button with touchstart fallback
-(function() {
-  function bindAccesoBtn() {
-    const btn = document.getElementById('btn-acceso-inner');
-    if (!btn) return;
-    const handler = function(e) {
-      e.preventDefault();
-      go('s-admin-login');
-    };
-    btn.addEventListener('click', handler);
-    btn.addEventListener('touchstart', handler, { passive: false });
+// iOS 12 fix: hash-based navigation for acceso button
+function handleAccesoHash() {
+  if (window.location.hash === '#acceso') {
+    window.location.hash = '';
+    go('s-admin-login');
   }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bindAccesoBtn);
-  } else {
-    bindAccesoBtn();
-  }
-})();
+}
+window.addEventListener('hashchange', handleAccesoHash);
+window.addEventListener('load', handleAccesoHash);
 
 function resetState() {
   state.realtimeSubs.forEach(s => { try { sb.removeChannel(s); } catch(e){} });
