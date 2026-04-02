@@ -1631,12 +1631,12 @@
       <div style="flex:1;overflow-y:auto">
         <!-- Stats bar -->
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;padding:.75rem 1rem;background:var(--bg2);border-bottom:1px solid var(--bd)">
-          <div class="kpi-card" style="text-align:center;padding:.65rem .5rem"><div id="hist-stat-total" class="kpi-value" style="font-size:18px">—</div><div class="kpi-label">Facturado</div></div>
-          <div class="kpi-card" style="text-align:center;padding:.65rem .5rem"><div id="hist-stat-mesas" class="kpi-value" style="font-size:18px">—</div><div class="kpi-label">Mesas</div></div>
-          <div class="kpi-card" style="text-align:center;padding:.65rem .5rem"><div id="hist-stat-ticket" class="kpi-value" style="font-size:18px">—</div><div class="kpi-label">Ticket</div></div>
-          <div class="kpi-card" style="text-align:center;padding:.65rem .5rem"><div id="hist-stat-personas" class="kpi-value" style="font-size:18px">—</div><div class="kpi-label">Personas</div></div>
+          <div class="kpi-card" style="text-align:center;padding:.65rem .5rem"><div id="hist-stat-total-old" class="kpi-value" style="font-size:18px">—</div><div class="kpi-label">Facturado</div></div>
+          <div class="kpi-card" style="text-align:center;padding:.65rem .5rem"><div id="hist-stat-mesas-old" class="kpi-value" style="font-size:18px">—</div><div class="kpi-label">Mesas</div></div>
+          <div class="kpi-card" style="text-align:center;padding:.65rem .5rem"><div id="hist-stat-ticket-old" class="kpi-value" style="font-size:18px">—</div><div class="kpi-label">Ticket</div></div>
+          <div class="kpi-card" style="text-align:center;padding:.65rem .5rem"><div id="hist-stat-personas-old" class="kpi-value" style="font-size:18px">—</div><div class="kpi-label">Personas</div></div>
         </div>
-        <div id="historial-list" style="padding:.75rem 1rem">
+        <div id="historial-list-old" style="padding:.75rem 1rem">
           <div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando historial...</div>
         </div>
       </div>
@@ -2683,19 +2683,40 @@ function subscribeRealtime() {
     subscribeToPush(state.myGuestId, state.roomId);
   });
 
-  const guestSub = sb.channel('guests-' + state.roomId)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'guests', filter: 'room_id=eq.' + state.roomId }, async () => {
-      const { data } = await sb.from('guests').select('*').eq('room_id', state.roomId);
-      state.guests = data || [];
+  // NOTE: Requires REPLICA IDENTITY FULL on guests table for filter to work
+  // See push_setup_v2.sql — run: ALTER TABLE public.guests REPLICA IDENTITY FULL;
+  const refreshGuests = async () => {
+    const { data } = await sb.from('guests').select('*').eq('room_id', state.roomId);
+    if (data) {
+      state.guests = data;
       renderRoomScreen();
       renderMesaDishes();
-      document.getElementById('s3-online').textContent = state.guests.length;
-      if (document.getElementById('s4-summary').classList.contains('active')) buildSummary();
-      if (document.getElementById('s5-pay').classList.contains('active')) buildPayScreen();
-    }).subscribe();
+      const onlineEl = document.getElementById('s3-online');
+      if (onlineEl) onlineEl.textContent = state.guests.length;
+      if (document.getElementById('s4-summary')?.classList.contains('active')) buildSummary();
+      if (document.getElementById('s5-pay')?.classList.contains('active')) buildPayScreen();
+    }
+  };
+  const guestSub = sb.channel('guests-' + state.roomId)
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'guests',
+      filter: 'room_id=eq.' + state.roomId
+    }, refreshGuests)
+    .subscribe((status) => {
+      // If subscription fails, poll every 10s as fallback
+      if (status === 'SUBSCRIBED') {
+        if (window._guestPollTimer) clearInterval(window._guestPollTimer);
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.warn('[Guests] Realtime sub failed, polling...');
+        window._guestPollTimer = setInterval(refreshGuests, 10000);
+      }
+    });
 
   const dishSub = sb.channel('dishes-' + state.roomId)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'dishes', filter: 'room_id=eq.' + state.roomId }, async () => {
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'dishes',
+      filter: 'room_id=eq.' + state.roomId
+    }, async () => {
       const prevDishes = [...state.dishes];
       const { data } = await sb.from('dishes').select('*').eq('room_id', state.roomId);
       const newDishes = data || [];
@@ -4543,36 +4564,62 @@ async function waiterLogin() {
     subscribeWaiterNotifications();
 
   } catch(err) {
-    // Fallback: direct DB check (when edge function not deployed or errors)
+    // Fallback directo a DB (cuando edge function no está desplegada o falla)
     try {
-      const { data: waiter } = await sb.from('waiters')
-        .select('*').eq('email', email).maybeSingle();
-      
-      if (!waiter) {
-        errEl.textContent = 'Email o contraseña incorrectos.'; errEl.style.display = 'block'; return;
-      }
-      // Check both plaintext and hash (hash checked via bcrypt not available here — just plaintext)
-      const validPlaintext = waiter.password === password;
-      const validHash = waiter.password_hash && password === '1234'; // temp allow demo
-      // More robust: if password_hash exists, we can't verify here → try anyway
-      const canLogin = validPlaintext || (waiter.password === null && waiter.password_hash);
-      
-      if (!canLogin && !validPlaintext) {
-        // Last attempt: check if password matches hash prefix (demo mode)
-        if (!waiter.active && waiter.password === null) {
-          errEl.textContent = 'Contraseña incorrecta. Si olvidaste tu contraseña usa "He olvidado mi contraseña".';
-        } else {
-          errEl.textContent = 'Email o contraseña incorrectos.';
-        }
+      // Buscar camarero por email sin filtro de contraseña
+      const { data: waiter, error: dbErr } = await sb.from('waiters')
+        .select('id,name,email,password,password_hash,restaurant_id,active')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (dbErr || !waiter) {
+        errEl.textContent = 'Email no encontrado. Comprueba tu email.';
         errEl.style.display = 'block'; return;
       }
-      
-      await sb.from('waiters').update({ is_active: true, last_login_at: new Date().toISOString() }).eq('id', waiter.id);
-      _waiterId = waiter.id; _waiterName = waiter.name; _waiterRestaurantId = waiter.restaurant_id; _waiterLoginAt = Date.now();
+
+      // Verificar contraseña en plaintext (cuando no hay hash)
+      if (waiter.password && waiter.password !== password) {
+        errEl.textContent = 'Contraseña incorrecta.';
+        errEl.style.display = 'block'; return;
+      }
+
+      // Si solo hay hash, no podemos verificar en cliente → dejamos entrar con aviso
+      // (La edge function auth-waiter es la vía correcta para bcrypt)
+      if (!waiter.password && waiter.password_hash) {
+        // Intentar verificar mostrando error útil
+        errEl.textContent = 'La contraseña está cifrada. Despliega la Edge Function auth-waiter en Supabase o usa "He olvidado mi contraseña" para restablecerla.';
+        errEl.style.display = 'block'; return;
+      }
+
+      if (!waiter.password && !waiter.password_hash) {
+        errEl.textContent = 'Este camarero no tiene contraseña configurada. Establécela desde manageat → Ajustes → Camareros.';
+        errEl.style.display = 'block'; return;
+      }
+
+      // Login OK
+      await sb.from('waiters').update({
+        is_active: true,
+        last_login_at: new Date().toISOString()
+      }).eq('id', waiter.id);
+
+      _waiterId = waiter.id;
+      _waiterName = waiter.name;
+      _waiterRestaurantId = waiter.restaurant_id;
+      _waiterLoginAt = Date.now();
+
+      if (window._waiterAutoLogoutTimer) clearTimeout(window._waiterAutoLogoutTimer);
+      window._waiterAutoLogoutTimer = setTimeout(() => {
+        waiterLogout(); showToast('Sesión caducada', 'Inicia sesión de nuevo');
+      }, 12 * 60 * 60 * 1000);
+
+      const { data: rest } = await sb.from('restaurants').select('name').eq('id', waiter.restaurant_id).maybeSingle();
+      _waiterRestaurantName = rest?.name || '';
+
       document.getElementById('waiter-name-badge').textContent = escHtml(waiter.name);
       go('s-waiter'); loadWaiterMesas(); loadWaiterTableSelects(); subscribeWaiterNotifications();
+
     } catch(fallbackErr) {
-      errEl.textContent = 'Error de conexión. Inténtalo de nuevo.';
+      errEl.textContent = 'Error de conexión: ' + fallbackErr.message;
       errEl.style.display = 'block';
     }
   }
@@ -5301,7 +5348,8 @@ function adminLogout() {
 // ADMIN TABS
 // ══════════════════════════════════════════════════════
 function showAdminTab(name) {
-  ['encurso','gestion','cocina','reservas','reportes'].forEach(t => {
+  closeMobileSidebar();
+  ['encurso','gestion','cocina','reservas','reportes','facturas','calleat'].forEach(t => {
     const el = document.getElementById('atab-' + t);
     if (el) el.style.display = t === name ? 'flex' : 'none';
   });
