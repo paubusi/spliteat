@@ -665,6 +665,9 @@
           Ver resumen y pagar →
         </button>
         <div id="resumen-wait-msg" style="display:none;text-align:center;font-size:12px;color:var(--t2);margin-top:.5rem;padding:.5rem;background:var(--bg2);border-radius:var(--r-sm);line-height:1.5"></div>
+        <button id="resumen-refresh-btn" onclick="refreshDishStatus()" style="display:none;margin-top:.35rem;width:100%;padding:7px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:none;color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit">
+          ↻ Actualizar estado de los platos
+        </button>
       </div>
 
       <!-- MODAL CONFIRMACIÓN ENVÍO A COCINA -->
@@ -3004,8 +3007,10 @@ function renderMesaDishes() {
   if (resumenBtn && state.dishes.length > 0) {
     const allDishes = state.dishes;
     const sentDishes = allDishes.filter(d => d.kitchen_status && d.kitchen_status !== 'new');
-    const deliveredDishes = allDishes.filter(d => d.kitchen_status === 'delivered');
-    const allDelivered = sentDishes.length > 0 && deliveredDishes.length >= sentDishes.length;
+    // 'ready' = confirmado por cocina (llegado o a punto de llegar), 'delivered' = confirmado por camarero
+    const atTableDishes = allDishes.filter(d => d.kitchen_status === 'delivered' || d.kitchen_status === 'ready');
+    const pendingDishes = sentDishes.filter(d => d.kitchen_status !== 'delivered' && d.kitchen_status !== 'ready');
+    const allDelivered = sentDishes.length > 0 && pendingDishes.length === 0;
     const anyInProgress = sentDishes.length > 0;
 
     resumenBtn.style.display = anyInProgress ? 'block' : 'none';
@@ -3019,16 +3024,19 @@ function renderMesaDishes() {
       } else {
         resumenBtnInner.disabled = true;
         resumenBtnInner.style.opacity = '.55';
-        resumenBtnInner.innerHTML = '⏳ Esperando que lleguen los platos…';
+        const nPending = pendingDishes.length;
+        resumenBtnInner.innerHTML = `⏳ ${nPending} plato${nPending!==1?'s':''} pendiente${nPending!==1?'s':''}…`;
         resumenBtnInner.style.background = 'var(--t3)';
       }
     }
     if (resumenWaitMsg) {
-      const pending = sentDishes.filter(d => d.kitchen_status !== 'delivered').length;
       resumenWaitMsg.style.display = (!allDelivered && anyInProgress) ? 'block' : 'none';
-      resumenWaitMsg.textContent = pending === 1
-        ? '1 plato todavía no ha llegado a la mesa'
-        : `${pending} platos todavía no han llegado a la mesa`;
+      const refreshBtn = document.getElementById('resumen-refresh-btn');
+      if (refreshBtn) refreshBtn.style.display = (!allDelivered && anyInProgress) ? 'block' : 'none';
+      const nP = pendingDishes.length;
+      resumenWaitMsg.textContent = nP === 1
+        ? `1 plato todavía en preparación (${pendingDishes[0]?.name || ''})`
+        : `${nP} platos todavía en camino: ${pendingDishes.map(d=>d.name).join(', ')}`;
     }
   } else if (resumenBtn) {
     resumenBtn.style.display = 'none';
@@ -9028,6 +9036,18 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('mouseout', () => { if (btn.style.borderColor !== 'var(--brand)') btn.style.background = 'var(--card)'; });
   });
 });
+
+
+async function refreshDishStatus() {
+  if (!state.roomId) return;
+  const btn = document.getElementById('resumen-refresh-btn');
+  if (btn) { btn.textContent = '↻ Actualizando…'; btn.disabled = true; }
+  const { data } = await sb.from('dishes').select('*').eq('room_id', state.roomId);
+  if (data) state.dishes = data;
+  await loadParticipants();
+  renderMesaDishes();
+  if (btn) { btn.textContent = '↻ Actualizar estado de los platos'; btn.disabled = false; }
+}
 
 // ══════════════════════════════════════════════════════
 // INIT
