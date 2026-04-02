@@ -3560,9 +3560,12 @@ function buildSummary() {
   const grand = totals.reduce((a, t) => a + t.total, 0);
   document.getElementById('grand-total').textContent = fmt(grand);
 
-  // Unassigned dishes — not yet attributed to anyone
-  const unassigned = state.dishes.filter(d => {
-    if (!d.kitchen_status || d.kitchen_status === 'new') return false; // not sent yet
+  // Dishes the guest is NOT part of (can be assigned to them)
+  // Includes: unassigned, AND solo dishes assigned to someone else
+  const sentDishesAll = state.dishes.filter(d =>
+    d.kitchen_status && d.kitchen_status !== 'new'
+  );
+  const unassigned = sentDishesAll.filter(d => {
     if (d.type === 'solo' && !d.assignee_id) return true;
     if (d.type === 'shared') {
       const parts = state.participants[d.id] || [];
@@ -3613,18 +3616,30 @@ function buildSummary() {
         <div class="sum-total">${fmt(t.total)}</div>
       </div>
       ${lines || '<div class="muted" style="font-size:12px;color:var(--t3)">Sin platos asignados</div>'}
-      ${unassigned.length > 0 ? `
-        <div style="margin-top:.5rem;padding-top:.5rem;border-top:1px dashed var(--bd)">
-          <div style="font-size:11px;color:var(--t3);margin-bottom:.35rem">Asignar plato pendiente:</div>
+      ${(() => {
+        // Dishes this guest is NOT yet part of
+        const notMine = sentDishesAll.filter(d => {
+          if (d.type === 'solo') return d.assignee_id !== t.g.id;
+          if (d.type === 'shared') return !(state.participants[d.id]||[]).includes(t.g.id);
+          return false;
+        });
+        if (!notMine.length) return '';
+        return `<div style="margin-top:.5rem;padding-top:.5rem;border-top:1px dashed var(--bd)">
+          <div style="font-size:11px;color:var(--t3);margin-bottom:.35rem">Añadir a un plato:</div>
           <div style="display:flex;flex-direction:column;gap:4px">
-            ${unassigned.map(d => `
-              <button onclick="assignDishToGuest('${d.id}','${t.g.id}','${d.type}')"
+            ${notMine.map(d => {
+              const alreadyAssigned = d.type === 'solo' && d.assignee_id;
+              const currentOwner = alreadyAssigned ? state.guests.find(g => g.id === d.assignee_id) : null;
+              const hint = currentOwner ? ` (con ${escHtml(currentOwner.name)})` : '';
+              return `<button onclick="assignDishToGuest('${d.id}','${t.g.id}','${d.type}')"
                 style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-size:12px;cursor:pointer;font-family:inherit;text-align:left;gap:8px">
-                <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(d.name)}</span>
-                <span style="color:var(--t3);font-size:11px;flex-shrink:0">${fmt(parseFloat(d.price))} +</span>
-              </button>`).join('')}
+                <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(d.name)}${hint}</span>
+                <span style="color:var(--brand);font-size:11px;flex-shrink:0;font-weight:500">+ Añadir</span>
+              </button>`;
+            }).join('')}
           </div>
-        </div>` : ''}
+        </div>`;
+      })()}
       ${isManual ? `
         <button onclick="removeManualGuest('${t.g.id}')"
           style="margin-top:.5rem;width:100%;padding:5px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:none;color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit">
@@ -9251,13 +9266,30 @@ async function removeManualGuest(guestId) {
 }
 
 async function assignDishToGuest(dishId, guestId, type) {
+  const dish = state.dishes.find(d => d.id === dishId);
+  if (!dish) return;
+
   if (type === 'solo') {
-    // Assign solo dish to this guest
-    await sb.from('dishes').update({ assignee_id: guestId }).eq('id', dishId);
-    const dish = state.dishes.find(d => d.id === dishId);
-    if (dish) dish.assignee_id = guestId;
+    const currentAssignee = dish.assignee_id;
+    if (currentAssignee && currentAssignee !== guestId) {
+      // Dish already assigned to someone else → convert to shared, keep both
+      await sb.from('dishes').update({ type: 'shared', assignee_id: null }).eq('id', dishId);
+      dish.type = 'shared';
+      dish.assignee_id = null;
+      // Add both the current assignee and the new guest as participants
+      const newParts = [
+        { dish_id: dishId, guest_id: currentAssignee },
+        { dish_id: dishId, guest_id: guestId }
+      ];
+      await sb.from('dish_participants').upsert(newParts, { onConflict: 'dish_id,guest_id' });
+      state.participants[dishId] = [currentAssignee, guestId];
+    } else {
+      // No current assignee → simply assign
+      await sb.from('dishes').update({ assignee_id: guestId }).eq('id', dishId);
+      dish.assignee_id = guestId;
+    }
   } else {
-    // Add guest to shared dish participants
+    // shared: add this guest to participants
     const existing = state.participants[dishId] || [];
     if (!existing.includes(guestId)) {
       await sb.from('dish_participants').insert({ dish_id: dishId, guest_id: guestId });
