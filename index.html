@@ -36,7 +36,6 @@
     #atab-cocina { width: 100% !important; }
     /* Gestión: 3 columnas en desktop */
     #atab-gestion { width: 100%; }
-    #atab-gestion > .gestion-subtab-bar { padding: 0 2rem; }
     #gtab-carta, #gtab-mesas, #gtab-camareros { padding: 1.5rem 2rem; }
     /* Gestión: mostrar las 3 secciones en columnas cuando hay espacio */
     .gestion-grid {
@@ -247,7 +246,118 @@
   @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
   .modal-type-btn.selected { border-color: var(--brand) !important; background: var(--brand-l) !important; }
 
-  /* ── Dark mode para cookeat (pantallas de cocina) ── */
+  /* ── calleat: cola virtual de espera ── */
+  .pax-btn {
+    width: 42px; height: 42px; border-radius: var(--r-sm);
+    border: 1.5px solid var(--bd2); background: var(--card);
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    font-family: inherit; color: var(--t1); transition: all .12s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pax-btn.sel { background: var(--brand); border-color: var(--brand); color: #fff; }
+  @keyframes calleat-bounce { from { transform: translateY(0); } to { transform: translateY(-8px); } }
+  .calleat-entry {
+    display: flex; align-items: center; gap: 12px; padding: .75rem 1rem;
+    background: var(--card); border: 1px solid var(--bd); border-radius: var(--r);
+    margin-bottom: .45rem;
+  }
+  .calleat-pos {
+    width: 36px; height: 36px; border-radius: 50%; background: var(--brand-l);
+    color: var(--brand-d); font-family: 'Fraunces', serif; font-size: 16px;
+    font-weight: 700; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .calleat-entry.ready { border-color: var(--brand); background: var(--brand-l); }
+  .calleat-entry.ready .calleat-pos { background: var(--brand); color: #fff; }
+
+  /* ── KPI period buttons ── */
+  .kpi-period-btn {
+    padding: 5px 12px; border-radius: var(--r-full);
+    border: 1px solid var(--bd2); background: var(--card);
+    font-size: 12px; font-weight: 500; cursor: pointer;
+    font-family: inherit; color: var(--t2); transition: all .12s;
+  }
+  .kpi-period-btn.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+  /* ── manageat: Sidebar layout system ── */
+  #admin-sidebar { display: none; } /* hidden on mobile */
+  .admin-mobile-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: .75rem 1.25rem; border-bottom: 1px solid var(--bd);
+    background: var(--card); flex-shrink: 0;
+  }
+  .admin-mobile-tabs {
+    display: flex; background: var(--card); border-top: 1px solid var(--bd);
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
+    box-shadow: 0 -1px 12px rgba(0,0,0,.08);
+  }
+  .adm-mob-tab {
+    flex: 1; padding: 8px 4px 10px; border: none; background: none;
+    font-family: inherit; font-size: 9.5px; color: var(--t3);
+    cursor: pointer; line-height: 1.4; transition: color .15s;
+  }
+  .adm-mob-tab.on { color: var(--brand); }
+  .adm-mob-tab br { display: block; }
+  /* Sidebar nav items */
+  .adm-nav {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    padding: .65rem 1.25rem; border: none; background: none;
+    color: rgba(255,255,255,.55); font-family: inherit; font-size: 13.5px;
+    cursor: pointer; text-align: left; border-radius: 0;
+    transition: background .12s, color .12s;
+    position: relative;
+  }
+  .adm-nav:hover { background: rgba(255,255,255,.06); color: rgba(255,255,255,.85); }
+  .adm-nav.on { background: rgba(29,158,117,.2); color: #fff; }
+  .adm-nav.on::before {
+    content: ''; position: absolute; left: 0; top: 20%; bottom: 20%;
+    width: 3px; background: var(--brand); border-radius: 0 2px 2px 0;
+  }
+  .adm-nav-icon { font-size: 16px; width: 22px; text-align: center; }
+  /* Main area adapts to sidebar */
+  #admin-main { height: 100%; }
+  #admin-main > [id^="atab-"] { padding-bottom: 70px; } /* mobile bottom tabs offset */
+  @media (min-width: 900px) {
+    #admin-sidebar { display: flex !important; }
+    .admin-mobile-bar { display: none !important; }
+    .admin-mobile-tabs { display: none !important; }
+    #admin-main > [id^="atab-"] { padding-bottom: 0; }
+  }
+  /* Rename tab labels via CSS content (graceful) */
+  #atab-encurso, #atab-gestion, #atab-reportes { flex: 1; overflow-y: auto; }
+  /* KPI cards */
+  .kpi-card {
+    background: var(--card); border: 1px solid var(--bd); border-radius: var(--r);
+    padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: 4px;
+  }
+  .kpi-value { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 700; color: var(--brand-d); line-height: 1.1; }
+  .kpi-label { font-size: 11.5px; color: var(--t2); font-weight: 500; }
+  .kpi-change { font-size: 11px; color: var(--t3); margin-top: 2px; }
+  .kpi-card.highlight { background: var(--brand-l); border-color: var(--brand); }
+  .kpi-card.highlight .kpi-value { color: var(--brand-d); }
+  .kpi-card.amber { background: var(--amber-l); border-color: #E5A85A; }
+  .kpi-card.amber .kpi-value { color: #633806; }
+  /* Ajustes (settings) layout */
+  .settings-section {
+    border: 1px solid var(--bd); border-radius: var(--r); overflow: hidden; margin-bottom: 1rem;
+  }
+  .settings-section-header {
+    padding: .75rem 1rem; background: var(--bg2); font-size: 11px; font-weight: 600;
+    color: var(--t3); text-transform: uppercase; letter-spacing: .07em;
+    border-bottom: 1px solid var(--bd);
+  }
+  .settings-row {
+    display: flex; align-items: center; gap: 12px; padding: .85rem 1rem;
+    border-bottom: 1px solid var(--bd); cursor: pointer; transition: background .1s;
+  }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-row:hover { background: var(--bg2); }
+  .settings-row-icon { font-size: 18px; flex-shrink: 0; width: 28px; text-align: center; }
+  .settings-row-content { flex: 1; }
+  .settings-row-title { font-size: 14px; font-weight: 500; color: var(--t1); }
+  .settings-row-desc { font-size: 12px; color: var(--t3); margin-top: 1px; }
+  .settings-row-arrow { color: var(--t3); font-size: 13px; }
+
+
   @media (prefers-color-scheme: dark) {
     #s-kitchen {
       --bg: #1a1a18; --card: #242422; --t1: #f0efeb; --t2: #a09e97;
@@ -274,6 +384,28 @@
   @keyframes slideDown { from { transform:translateY(-100%); } to { transform:translateY(0); } }
   body.offline #offline-banner { display: block; }
   body.offline .screen { padding-top: 28px; }
+
+
+  /* ── Allergen icons ── */
+  .allergen-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 4px; font-size: 12px;
+    border: 1px solid var(--bd2); background: var(--bg2);
+    cursor: default; position: relative;
+  }
+  .allergen-icon[title]:hover::after {
+    content: attr(title); position: absolute; bottom: 100%; left: 50%;
+    transform: translateX(-50%); background: #1a1a18; color: #fff;
+    font-size: 10px; padding: 3px 7px; border-radius: 4px; white-space: nowrap;
+    z-index: 100; pointer-events: none; margin-bottom: 4px;
+  }
+  .allergen-chips { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+
+
+  /* ── Pay method modal ── */
+  #pay-method-modal { display: none; }
+  #pay-method-modal.show { display: flex !important; }
+  .pay-method-btn:active { transform: scale(.98); }
 
 </style>
 </head>
@@ -327,7 +459,15 @@
               </div>
             </div>
           </div>
-        </div>
+        </di            <!-- calleat secondary CTA -->
+            <div onclick="openCalleatFromLanding()" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:var(--r);padding:.75rem 1rem;cursor:pointer;margin-top:.65rem">
+              <span style="font-size:20px">🪑</span>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600;color:#fff">call<em style="color:#D85A30;font-style:normal">eat</em> — Sin mesa</div>
+                <div style="font-size:11px;color:rgba(255,255,255,.55)">Lista de espera virtual</div>
+              </div>
+            </div>
+
 
         <!-- Right: Features -->
         <div style="padding:3rem 2.5rem;display:flex;flex-direction:column;justify-content:center;background:#F3F7F5">
@@ -511,11 +651,12 @@
         ✓ Pedido enviado. Cocina lo está preparando.
       </div>
 
-      <!-- Botón ver resumen — solo visible cuando hay platos listos o todo entregado -->
+      <!-- Botón ver resumen — visible cuando hay platos enviados, activo solo cuando todos están delivered -->
       <div id="btn-ver-resumen-area" style="display:none;margin-top:.65rem">
-        <button class="btn btn-primary" onclick="go('s4-summary')" style="width:100%">
-          Ver resumen y cuenta →
+        <button id="btn-ver-resumen-inner" class="btn btn-primary" onclick="goToSummary()" style="width:100%;transition:opacity .2s,background .2s">
+          Ver resumen y pagar →
         </button>
+        <div id="resumen-wait-msg" style="display:none;text-align:center;font-size:12px;color:var(--t2);margin-top:.5rem;padding:.5rem;background:var(--bg2);border-radius:var(--r-sm);line-height:1.5"></div>
       </div>
 
       <!-- MODAL CONFIRMACIÓN ENVÍO A COCINA -->
@@ -564,7 +705,7 @@
 
         <div style="display:flex;gap:.5rem;margin-top:1rem">
           <button class="btn btn-secondary" onclick="closeResumenPanel()" style="flex:1">Cerrar</button>
-          <button class="btn btn-primary" onclick="closeResumenPanel();go('s5-pay')" style="flex:1">Pagar →</button>
+          <button class="btn btn-primary" onclick="closeResumenPanel();showPayMethodModal()" style="flex:1">Pagar →</button>
         </div>
       </div>
     </div>
@@ -615,6 +756,78 @@
   <!-- ════════════════════════════════════════
        S4: RESUMEN
   ════════════════════════════════════════ -->
+
+  <!-- ════════════════════════════════════════
+       MODAL: CÓMO QUIERES PAGAR
+  ════════════════════════════════════════ -->
+  <div id="pay-method-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;align-items:flex-end;justify-content:center">
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;padding:1.5rem 1.25rem 2rem;animation:slideUp .22s ease">
+
+      <!-- Handle -->
+      <div style="width:36px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto 1.25rem"></div>
+
+      <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--t1);margin-bottom:.35rem">¿Cómo pagáis?</div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:1.5rem;line-height:1.5">Elige cómo quieres dividir la cuenta de la mesa.</div>
+
+      <!-- Opción 1 — spliteat -->
+      <button onclick="selectPayMethod('split')" class="pay-method-btn"
+        style="width:100%;text-align:left;padding:1rem 1.1rem;border-radius:var(--r);border:1.5px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.65rem;display:flex;align-items:center;gap:.85rem;transition:all .15s">
+        <div style="width:42px;height:42px;border-radius:var(--r-sm);background:var(--brand-l);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">✂️</div>
+        <div style="flex:1;text-align:left">
+          <div style="font-size:15px;font-weight:600;color:var(--t1)">Dividir con split<em style="color:var(--accent);font-style:normal">eat</em></div>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">Cada uno paga exactamente lo suyo, al céntimo</div>
+        </div>
+        <div style="color:var(--t3);font-size:18px">›</div>
+      </button>
+
+      <!-- Opción 2 — invito yo -->
+      <button onclick="selectPayMethod('full')" class="pay-method-btn"
+        style="width:100%;text-align:left;padding:1rem 1.1rem;border-radius:var(--r);border:1.5px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.65rem;display:flex;align-items:center;gap:.85rem;transition:all .15s">
+        <div style="width:42px;height:42px;border-radius:var(--r-sm);background:var(--amber-l);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🤑</div>
+        <div style="flex:1;text-align:left">
+          <div style="font-size:15px;font-weight:600;color:var(--t1)">Me siento generoso… invito yo</div>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">Pagas la cuenta completa de la mesa tú solo</div>
+        </div>
+        <div style="color:var(--t3);font-size:18px">›</div>
+      </button>
+
+      <!-- Opción 3 — partes iguales -->
+      <button onclick="selectPayMethod('equal')" class="pay-method-btn"
+        style="width:100%;text-align:left;padding:1rem 1.1rem;border-radius:var(--r);border:1.5px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:1rem;display:flex;align-items:center;gap:.85rem;transition:all .15s">
+        <div style="width:42px;height:42px;border-radius:var(--r-sm);background:#E6F1FB;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">➗</div>
+        <div style="flex:1;text-align:left">
+          <div style="font-size:15px;font-weight:600;color:var(--t1)">Dividir a partes iguales</div>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">Total entre el número de personas, sin complicaciones</div>
+        </div>
+        <div style="color:var(--t3);font-size:18px">›</div>
+      </button>
+
+      <!-- Sub-panel: partes iguales — número de personas -->
+      <div id="equal-split-panel" style="display:none;background:var(--bg2);border-radius:var(--r);padding:1rem;margin-bottom:1rem;border:1.5px solid var(--blue)">
+        <div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:.75rem">¿Cuántas personas sois?</div>
+        <div style="display:flex;align-items:center;gap:.75rem;justify-content:center;margin-bottom:.75rem">
+          <button onclick="changeEqualPax(-1)"
+            style="width:40px;height:40px;border-radius:50%;border:1.5px solid var(--bd2);background:var(--card);font-size:22px;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">−</button>
+          <div style="text-align:center">
+            <div id="equal-pax-num" style="font-family:'Fraunces',serif;font-size:40px;font-weight:700;color:var(--t1);line-height:1">2</div>
+            <div style="font-size:11px;color:var(--t3)">personas</div>
+          </div>
+          <button onclick="changeEqualPax(1)"
+            style="width:40px;height:40px;border-radius:50%;border:1.5px solid var(--bd2);background:var(--card);font-size:22px;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">+</button>
+        </div>
+        <div id="equal-per-person" style="text-align:center;font-size:13px;color:var(--t2);margin-bottom:.75rem"></div>
+        <button onclick="confirmEqualSplit()" class="btn btn-primary" style="background:var(--blue)">
+          Confirmar — pagar mi parte →
+        </button>
+      </div>
+
+      <button onclick="document.getElementById('pay-method-modal').style.display='none'"
+        style="width:100%;padding:11px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:none;color:var(--t2);font-size:14px;cursor:pointer;font-family:inherit">
+        Cancelar
+      </button>
+    </div>
+  </div>
+
   <div class="screen" id="s4-summary">
     <div class="hdr">
       <button class="back-btn" onclick="go('s3-dishes')">← Mesa</button>
@@ -632,7 +845,35 @@
         <span style="color:var(--bd2)">——</span>
         <span style="color:var(--t3)">Pagar</span>
       </div>
-      <div class="sec-label">Lo que debe cada uno</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem">
+        <div class="sec-label" style="margin:0">Lo que debe cada uno</div>
+        <button onclick="showAddManualGuest()" id="btn-add-manual-guest"
+          style="font-size:12px;padding:4px 12px;border-radius:99px;border:1.5px solid var(--brand);background:none;color:var(--brand);cursor:pointer;font-family:inherit;font-weight:500;display:flex;align-items:center;gap:4px">
+          + Añadir persona
+        </button>
+      </div>
+
+      <!-- Panel: añadir persona manual -->
+      <div id="add-manual-guest-panel" style="display:none;background:var(--bg2);border:1.5px solid var(--brand);border-radius:var(--r);padding:1rem;margin-bottom:.75rem">
+        <div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:.5rem">👤 Añadir persona que no escaneó el QR</div>
+        <div style="font-size:12px;color:var(--t2);margin-bottom:.75rem;line-height:1.5">
+          Añade a alguien de la mesa para asignarle sus platos y que quede reflejado en el reparto.
+        </div>
+        <div style="display:flex;gap:.5rem">
+          <input id="manual-guest-name" type="text" placeholder="Nombre de la persona"
+            style="flex:1;padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-size:14px;font-family:inherit;background:var(--card);outline:none"
+            onfocus="this.style.borderColor='var(--brand)'" onblur="this.style.borderColor='var(--bd2)'"
+            onkeydown="if(event.key==='Enter')addManualGuest()">
+          <button onclick="addManualGuest()" class="btn btn-primary btn-sm" style="flex-shrink:0;padding:10px 16px">
+            Añadir
+          </button>
+        </div>
+        <button onclick="document.getElementById('add-manual-guest-panel').style.display='none'"
+          style="margin-top:.5rem;background:none;border:none;font-size:12px;color:var(--t3);cursor:pointer;font-family:inherit;width:100%">
+          Cancelar
+        </button>
+      </div>
+
       <div id="summary-list"></div>
       <div class="grand-bar">
         <div class="gl">Total mesa</div>
@@ -642,7 +883,7 @@
         <button class="btn btn-secondary" style="flex:1" onclick="go('s3-dishes');showDishTab('mesa')">
           ✏️ Editar reparto
         </button>
-        <button class="btn btn-primary" style="flex:2" onclick="go('s5-pay')">
+        <button class="btn btn-primary" style="flex:2" onclick="showPayMethodModal()">
           ✓ Confirmar y pagar →
         </button>
       </div>
@@ -782,6 +1023,89 @@
   </div>
 
   <!-- ════════════════════════════════════════
+       CALLEAT — Lista de espera (cola virtual)
+  ════════════════════════════════════════ -->
+  <div class="screen" id="s-calleat">
+    <div style="background:#085041;padding:1.5rem 1.25rem 2rem;position:relative;overflow:hidden;flex-shrink:0">
+      <div style="position:absolute;right:-30px;top:-30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.05)"></div>
+      <div style="position:absolute;left:-20px;bottom:-40px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,.04)"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;position:relative;z-index:1">
+        <div style="font-family:'Fraunces',serif;font-size:22px;color:#fff;letter-spacing:-.5px">call<em style="color:#D85A30;font-style:normal">eat</em></div>
+        <button onclick="go('s0')" style="background:rgba(255,255,255,.12);border:none;border-radius:99px;padding:6px 14px;font-size:12px;color:#fff;cursor:pointer;font-family:inherit">← Inicio</button>
+      </div>
+      <div style="position:relative;z-index:1">
+        <div style="font-family:'Fraunces',serif;font-size:24px;font-weight:700;color:#fff;line-height:1.25;margin-bottom:.5rem">No hay mesa ahora.<br><em style="color:#6FE8B0;font-style:italic">Espera sin agobios.</em></div>
+        <div style="font-size:13px;color:rgba(255,255,255,.7);line-height:1.5">Te avisamos cuando tu mesa esté lista y limpia.</div>
+      </div>
+    </div>
+
+    <div class="body" style="padding-top:1.25rem;overflow-y:auto">
+      <!-- FORM: Apuntarse -->
+      <div id="calleat-form-area">
+        <div style="font-size:15px;font-weight:600;margin-bottom:1rem">Únete a la lista de espera</div>
+        <div class="field">
+          <label>Tu nombre</label>
+          <input id="calleat-name" type="text" placeholder="ej. María" autocomplete="given-name">
+        </div>
+        <div class="field">
+          <label>Número de personas</label>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="pax-btn" data-n="1" onclick="selectCalleatPax(1)">1</button>
+            <button class="pax-btn" data-n="2" onclick="selectCalleatPax(2)">2</button>
+            <button class="pax-btn" data-n="3" onclick="selectCalleatPax(3)">3</button>
+            <button class="pax-btn" data-n="4" onclick="selectCalleatPax(4)">4</button>
+            <button class="pax-btn" data-n="5" onclick="selectCalleatPax(5)">5</button>
+            <button class="pax-btn" data-n="6" onclick="selectCalleatPax(6)">6+</button>
+          </div>
+        </div>
+        <div style="background:var(--brand-l);border-radius:var(--r-sm);padding:.65rem .85rem;font-size:12px;color:var(--brand-d);line-height:1.5;margin:.75rem 0">
+          🔔 Activa las notificaciones para recibir el aviso aunque tengas la pantalla bloqueada.
+        </div>
+        <button class="btn btn-primary" onclick="joinCalleatQueue()">Apuntarme → </button>
+      </div>
+
+      <!-- WAITING: en cola -->
+      <div id="calleat-waiting-area" style="display:none;text-align:center">
+        <div style="width:72px;height:72px;border-radius:50%;background:var(--brand-l);display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:32px">⏳</div>
+        <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;margin-bottom:.35rem">Estás en la lista</div>
+        <div style="font-size:13px;color:var(--t2);margin-bottom:1.5rem;line-height:1.5">Te llamamos en cuanto tu mesa esté lista.<br>Puedes cerrar la app — te llegará de todas formas.</div>
+        <div style="background:var(--brand-l);border:1.5px solid var(--brand);border-radius:var(--r);padding:1.25rem;margin-bottom:1rem">
+          <div style="font-size:11px;color:var(--brand);font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.25rem">Tu posición</div>
+          <div id="calleat-position" style="font-family:'Fraunces',serif;font-size:52px;font-weight:900;color:var(--brand-d);line-height:1">1</div>
+          <div id="calleat-ahead-text" style="font-size:12px;color:var(--t2);margin-top:.25rem">Ningún grupo delante</div>
+        </div>
+        <div id="calleat-est-wait" style="font-size:13px;color:var(--t2);margin-bottom:1.25rem"></div>
+        <button onclick="leaveCalleatQueue()" style="width:100%;padding:11px;border-radius:var(--r);border:1px solid var(--bd2);background:none;color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit">
+          Cancelar mi espera
+        </button>
+      </div>
+
+      <!-- READY: mesa lista -->
+      <div id="calleat-ready-area" style="display:none;text-align:center">
+        <div style="font-size:72px;margin-bottom:1rem;display:inline-block;animation:calleat-bounce .7s ease infinite alternate">🪑</div>
+        <div style="font-family:'Fraunces',serif;font-size:28px;font-weight:900;color:var(--t1);line-height:1.2;margin-bottom:.75rem">¡Tu mesa<br>está lista!</div>
+        <div style="font-size:14px;color:var(--t2);margin-bottom:1.5rem;line-height:1.5">Acércate al restaurante.<br>Te guardan la mesa <strong style="color:var(--brand)">5 minutos</strong>.</div>
+        <div id="calleat-table-label" style="background:var(--brand-l);border:1.5px solid var(--brand);border-radius:var(--r);padding:.85rem;margin-bottom:.75rem;font-size:15px;font-weight:500;color:var(--brand-d)"></div>
+        <div id="calleat-countdown-bar" style="margin-bottom:1.5rem">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--t3);margin-bottom:4px">
+            <span>Tiempo para llegar</span>
+            <span id="calleat-countdown-text">5:00</span>
+          </div>
+          <div style="height:6px;background:var(--bg2);border-radius:3px;overflow:hidden">
+            <div id="calleat-countdown-fill" style="height:100%;background:var(--brand);border-radius:3px;width:100%;transition:width 1s linear"></div>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="confirmCalleatArrival()">✓ Ya voy para allá</button>
+        <button onclick="leaveCalleatQueue()" style="width:100%;padding:10px;margin-top:.5rem;border-radius:var(--r);border:1px solid var(--bd2);background:none;color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit">
+          Ya no necesito mesa
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+
+  <!-- ════════════════════════════════════════
        COCINA: PANTALLA DE COCINA
   ════════════════════════════════════════ -->
   <div class="screen" id="s-kitchen" style="height:100vh;overflow:hidden">
@@ -795,16 +1119,28 @@
     </div>
     <div class="tab-bar">
       <button class="tab on" id="ktab-btn-pedidos" onclick="showKitchenTab('pedidos')">
-        Pedidos <span id="k-pedidos-badge" style="display:none;background:#E24B4A;color:#fff;border-radius:99px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:3px">0</span>
+        🎯 KDS <span id="k-pedidos-badge" style="display:none;background:#E24B4A;color:#fff;border-radius:99px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:3px">0</span>
       </button>
       <button class="tab" id="ktab-btn-carta" onclick="showKitchenTab('carta')">Carta</button>
       <button class="tab" id="ktab-btn-config" onclick="showKitchenTab('config')">Tiempos</button>
     </div>
 
-    <!-- TAB PEDIDOS — vista por pases (única vista) -->
+    <!-- TAB KDS — vista por pases -->
     <div id="ktab-pedidos" style="height:calc(100vh - 110px);overflow-y:auto;padding:.65rem">
+      <!-- Disabled dishes warning -->
+      <div id="k-disabled-warning" style="display:none;background:#FAEEDA;border:1px solid #E5A85A;border-radius:var(--r-sm);padding:.6rem .85rem;margin-bottom:.65rem;font-size:12px;color:#854F0B;display:flex;align-items:center;justify-content:space-between">
+        <span id="k-disabled-warning-text"></span>
+        <button onclick="showKitchenTab('carta')" style="background:none;border:none;color:#854F0B;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600;flex-shrink:0">Gestionar →</button>
+      </div>
       <div id="k-mesas-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:.65rem;align-items:start">
         <div style="text-align:center;padding:3rem 1rem;color:var(--t3);font-size:14px;grid-column:1/-1">Cargando pedidos...</div>
+      </div>
+      <!-- Historial de mesas completadas -->
+      <div style="margin-top:.65rem">
+        <button onclick="toggleKitchenHistory()" id="k-history-toggle" style="font-size:12px;color:var(--t3);background:none;border:1px solid var(--bd);border-radius:var(--r-sm);padding:5px 12px;cursor:pointer;font-family:inherit;width:100%">
+          🗂 Ver historial de mesas completadas <span id="k-history-count" style="background:var(--bg2);border-radius:99px;padding:1px 7px;margin-left:4px">0</span>
+        </button>
+        <div id="k-history-list" style="display:none;margin-top:.5rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.5rem;align-items:start"></div>
       </div>
     </div>
 
@@ -812,7 +1148,9 @@
     <div id="ktab-carta" style="display:none;height:calc(100vh - 110px);overflow-y:auto;padding:.65rem">
       <div style="max-width:860px;margin:0 auto">
         <div style="font-size:12px;color:var(--t2);margin-bottom:.75rem;line-height:1.5;background:var(--bg2);padding:.65rem .85rem;border-radius:var(--r-sm)">
-          Activa o desactiva platos según disponibilidad. Los desactivados no aparecen en la carta del comensal.
+          Activa o desactiva platos según disponibilidad. <strong>Los desactivados no aparecen en la carta del comensal.</strong><br>
+          Para añadir platos nuevos o cambiar precios, hazlo desde manageat.<br>
+          <span style="color:#854F0B;font-weight:500">⚠️ Reactiva los platos tan pronto vuelvan a estar disponibles.</span>
         </div>
         <div id="k-carta-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.4rem">
           <div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px;grid-column:1/-1">Cargando carta...</div>
@@ -1022,6 +1360,22 @@
       </div>
     </div>
 
+    <!-- TAB PROPINAS -->
+    <div id="wtab-propinas" class="body" style="display:none;overflow-y:auto">
+      <div style="font-size:15px;font-weight:600;margin-bottom:.25rem">🌟 Mis propinas</div>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:1rem;line-height:1.5">Propinas de las mesas atendidas por ti.</div>
+      <select id="waiter-propinas-filter" onchange="loadWaiterPropinas()" style="font-size:13px;padding:8px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-family:inherit;width:100%;margin-bottom:1rem">
+        <option value="0">Hoy</option>
+        <option value="7" selected>Últimos 7 días</option>
+        <option value="30">Últimos 30 días</option>
+      </select>
+      <div style="background:var(--amber-l);border:1px solid #E5A85A;border-radius:var(--r);padding:1rem;text-align:center;margin-bottom:1rem">
+        <div id="waiter-propinas-amount" style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:#633806">—</div>
+        <div style="font-size:12px;color:#854F0B;margin-top:2px">Total propinas recibidas</div>
+      </div>
+      <div id="waiter-propinas-list"></div>
+    </div>
+
     <!-- Modal: abrir mesa nueva -->
     <div id="waiter-new-table-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;align-items:flex-end;justify-content:center">
       <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:1.5rem 1.25rem;width:100%;max-width:430px;animation:slideUp .2s ease">
@@ -1041,24 +1395,67 @@
   </div>
 
   <!-- ════════════════════════════════════════
-       ADMIN: PANEL PRINCIPAL
+       ADMIN: PANEL PRINCIPAL — manageat
   ════════════════════════════════════════ -->
   <div class="screen" id="s-admin">
-    <div class="hdr">
-      <div class="logo">manag<em style="color:var(--accent);font-style:normal">eat</em></div>
-      <button class="back-btn" onclick="adminLogout()" style="color:var(--accent)">Salir</button>
-    </div>
-    <div class="tab-bar" style="overflow-x:auto;white-space:nowrap">
-      <button class="tab on" onclick="showAdminTab('encurso')" id="tab-encurso">
-        En curso <span id="encurso-badge" style="display:none;background:#E24B4A;color:#fff;border-radius:99px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:3px">0</span>
-      </button>
-      <button class="tab" onclick="showAdminTab('gestion')">Gestión</button>
-      <button class="tab" onclick="showAdminTab('cocina')">Cocina</button>
-      <button class="tab" onclick="showAdminTab('reservas')">
-        Reservas <span id="reservas-badge" style="display:none;background:#185FA5;color:#fff;border-radius:99px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:3px">0</span>
-      </button>
-      <button class="tab" onclick="showAdminTab('reportes')">Reportes</button>
-    </div>
+    <!-- SIDEBAR (desktop) + TOPBAR mobile hybrid -->
+    <div id="admin-shell" style="display:flex;height:100vh;overflow:hidden">
+
+      <!-- ── Sidebar (desktop only) ── -->
+      <div id="admin-sidebar" style="width:220px;background:#0F2620;display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto">
+        <div style="padding:1.25rem 1.25rem .75rem;display:flex;align-items:center;justify-content:space-between">
+          <div class="logo" style="color:#fff;font-size:20px">manag<em style="color:#D85A30;font-style:normal">eat</em></div>
+        </div>
+        <div id="admin-restaurant-label" style="padding:.25rem 1.25rem .85rem;font-size:12px;color:rgba(255,255,255,.4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+
+        <!-- Nav items -->
+        <nav style="flex:1;padding:.25rem 0">
+          <button class="adm-nav on" data-tab="encurso" onclick="showAdminTab('encurso')">
+            <span class="adm-nav-icon">🏠</span>
+            <span>Sala</span>
+            <span id="encurso-badge" style="display:none;background:#E24B4A;color:#fff;border-radius:99px;padding:0px 6px;font-size:10px;font-weight:700;margin-left:auto">0</span>
+          </button>
+          <button class="adm-nav" data-tab="reportes" onclick="showAdminTab('reportes')">
+            <span class="adm-nav-icon">📊</span><span>Dashboard</span>
+          </button>
+          <button class="adm-nav" data-tab="cocina" onclick="showAdminTab('cocina')">
+            <span class="adm-nav-icon">🍳</span><span>Cocina</span>
+          </button>
+          <button class="adm-nav" data-tab="reservas" onclick="showAdminTab('reservas')">
+            <span class="adm-nav-icon">📅</span>
+            <span>Reservas</span>
+            <span id="reservas-badge" style="display:none;background:#185FA5;color:#fff;border-radius:99px;padding:0px 6px;font-size:10px;font-weight:700;margin-left:auto">0</span>
+          </button>
+          <button class="adm-nav" data-tab="gestion" onclick="showAdminTab('gestion')">
+            <span class="adm-nav-icon">⚙️</span><span>Ajustes</span>
+          </button>
+        </nav>
+
+        <div style="padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,.08)">
+          <div id="admin-user-info" style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:.65rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+          <button onclick="adminLogout()" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:rgba(255,255,255,.6);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">
+            ← Cerrar sesión
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Main content area ── -->
+      <div id="admin-main" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0">
+
+        <!-- Mobile topbar (visible only on small screens) -->
+        <div class="admin-mobile-bar">
+          <div class="logo" style="font-size:17px">manag<em style="color:#D85A30;font-style:normal">eat</em></div>
+          <button onclick="adminLogout()" style="background:none;border:none;font-size:12px;color:var(--t2);cursor:pointer;font-family:inherit">Salir</button>
+        </div>
+
+        <!-- Mobile bottom tabs -->
+        <div class="admin-mobile-tabs">
+          <button class="adm-mob-tab on" data-tab="encurso" onclick="showAdminTab('encurso')">🏠<br><span>Sala</span></button>
+          <button class="adm-mob-tab" data-tab="reportes" onclick="showAdminTab('reportes')">📊<br><span>Dashboard</span></button>
+          <button class="adm-mob-tab" data-tab="cocina" onclick="showAdminTab('cocina')">🍳<br><span>Cocina</span></button>
+          <button class="adm-mob-tab" data-tab="reservas" onclick="showAdminTab('reservas')">📅<br><span>Reservas</span></button>
+          <button class="adm-mob-tab" data-tab="gestion" onclick="showAdminTab('gestion')">⚙️<br><span>Ajustes</span></button>
+        </div>
 
     <!-- TAB EN CURSO — Mesas activas con estado de pago -->
     <div id="atab-encurso" style="display:none;flex-direction:column;height:calc(100vh - 110px);overflow:hidden">
@@ -1089,7 +1486,16 @@
       </div>
 
       <!-- Click-to-manage panel (slides in from right) -->
-      <div id="mesa-detail-panel" style="display:none;position:absolute;right:0;top:110px;bottom:0;width:280px;background:var(--card);border-left:1px solid var(--bd);z-index:50;overflow-y:auto;padding:1rem;box-shadow:-4px 0 16px rgba(0,0,0,.08)">
+      <!-- calleat: cola de espera -->
+    <div id="calleat-section" style="padding:.75rem 1.25rem;border-top:1px solid var(--bd);flex-shrink:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
+        <div style="font-size:13px;font-weight:600">🪑 call<span style="color:#D85A30">eat</span> — Lista de espera <span id="calleat-badge" style="display:none;background:var(--brand);color:#fff;border-radius:99px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:4px">0</span></div>
+        <button onclick="loadCalleatQueue()" style="font-size:11px;color:var(--t2);background:none;border:none;cursor:pointer;font-family:inherit">↻ Actualizar</button>
+      </div>
+      <div id="calleat-queue-list" style="max-height:200px;overflow-y:auto"></div>
+    </div>
+
+    <div id="mesa-detail-panel" style="display:none;position:absolute;right:0;top:110px;bottom:0;width:280px;background:var(--card);border-left:1px solid var(--bd);z-index:50;overflow-y:auto;padding:1rem;box-shadow:-4px 0 16px rgba(0,0,0,.08)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
           <div id="detail-title" style="font-size:15px;font-weight:500"></div>
           <button onclick="document.getElementById('mesa-detail-panel').style.display='none'" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--t2)">✕</button>
@@ -1098,89 +1504,22 @@
       </div>
     </div>
 
-    <!-- TAB GESTIÓN — 3 columnas en desktop, subtabs en móvil -->
-    <div id="atab-gestion" style="display:none;flex-direction:column;width:100%;height:calc(100vh - 110px)">
-
-      <!-- Subtab bar — solo visible en móvil (<600px) -->
-      <div id="gestion-subtab-bar" style="display:flex;border-bottom:1px solid var(--bd);background:var(--bg2);padding:0 1rem">
-        <button class="tab on" id="gtab-btn-carta" onclick="showGestionTab('carta')" style="font-size:13px;padding:.5rem .75rem">Carta</button>
-        <button class="tab" id="gtab-btn-mesas" onclick="showGestionTab('mesas')" style="font-size:13px;padding:.5rem .75rem">Mesas</button>
-        <button class="tab" id="gtab-btn-camareros" onclick="showGestionTab('camareros')" style="font-size:13px;padding:.5rem .75rem">Camareros</button>
-      </div>
-
-      <!-- DESKTOP: 3 columnas simultáneas -->
-      <div id="gestion-cols" style="display:none;grid-template-columns:1fr 1fr 1fr;gap:0;flex:1;overflow:hidden">
-
-        <!-- Col Carta -->
-        <div style="border-right:1px solid var(--bd);overflow-y:auto;padding:1.25rem 1.5rem;display:flex;flex-direction:column">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
-            <div style="font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.06em">Carta</div>
-            <div style="display:flex;gap:.4rem">
-              <button class="btn btn-secondary btn-sm" onclick="showImportCartaModal()" title="Importar carta desde foto con IA">📷 Importar</button>
-              <button class="btn btn-primary btn-sm" onclick="showAddItemForm()">+ Añadir</button>
-            </div>
-          </div>
-          <div id="add-item-form" style="display:none" class="card">
-            <div class="field"><label>Nombre del plato</label><input id="ai-name" type="text" placeholder="ej. Croquetas caseras" autocomplete="off"></div>
-            <div class="row" style="gap:.5rem">
-              <div class="field" style="flex:1;margin:0"><label>Precio €</label><input id="ai-price" type="number" step="0.01" min="0" inputmode="decimal" placeholder="9.50"></div>
-              <div class="field" style="flex:1;margin:0"><label>Categoría</label>
-                <select id="ai-cat"><option value="entrantes">Entrantes</option><option value="principales">Principales</option><option value="postres">Postres</option><option value="bebidas">Bebidas</option><option value="otros">Otros</option></select>
-              </div>
-            </div>
-            <div class="field" style="margin-top:.35rem"><label>Tiempo de preparación (min) <span style="font-weight:400;color:var(--t3)">— para alertas en cocina</span></label><input id="ai-prep" type="number" min="0" max="120" inputmode="numeric" placeholder="ej. 12"></div>
-            <div class="toggle">
-              <span style="font-size:13px;color:var(--t2)">Suele pedirse para compartir</span>
-              <div class="toggle-track" id="ai-shared-track" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></div>
-            </div>
-            <div class="row mt">
-              <button class="btn btn-primary btn-sm" onclick="saveMenuItem()">Guardar</button>
-              <button class="btn btn-secondary btn-sm" onclick="hideAddItemForm()">Cancelar</button>
-            </div>
-          </div>
-          <div id="admin-carta-list"></div>
-        </div>
-
-        <!-- Col Mesas -->
-        <div style="border-right:1px solid var(--bd);overflow-y:auto;padding:1.25rem 1.5rem">
-          <div style="font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.75rem">Mesas</div>
-          <div id="admin-tables-list"></div>
-          <button class="btn btn-secondary" onclick="addTable()" style="width:100%;margin-top:.75rem">+ Añadir mesa</button>
-        </div>
-
-        <!-- Col Camareros -->
-        <div style="overflow-y:auto;padding:1.25rem 1.5rem">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
-            <div style="font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.06em">Camareros</div>
-            <button class="btn btn-primary btn-sm" onclick="showAddWaiterForm()">+ Añadir</button>
-          </div>
-          <div id="add-waiter-form" style="display:none" class="card">
-            <div class="field"><label>Nombre</label><input id="wf-name" type="text" placeholder="ej. Carlos" autocomplete="off"></div>
-            <div class="field"><label>Email del empleado</label><input id="wf-email" type="email" placeholder="carlos@restaurante.com" autocomplete="off"></div>
-            <div class="field"><label>Contraseña</label><input id="wf-password" type="password" placeholder="mínimo 6 caracteres"></div>
-            <div class="field"><label>Rol</label>
-              <select id="wf-role" style="width:100%;padding:10px;border-radius:var(--r-sm);border:1px solid var(--bd2);font-family:inherit;font-size:14px">
-                <option value="waiter">Camarero</option>
-                <option value="manager">Responsable de turno</option>
-              </select>
-            </div>
-            <div class="row mt">
-              <button class="btn btn-primary btn-sm" onclick="saveWaiter()">Guardar</button>
-              <button class="btn btn-secondary btn-sm" onclick="hideAddWaiterForm()">Cancelar</button>
-            </div>
-          </div>
-          <div id="admin-waiters-list"></div>
-          <div id="admin-waiters-empty" class="empty" style="display:none">
-            <div class="empty-icon">🧑‍🍳</div>
-            <div class="empty-text">No hay camareros. Añade el primero.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- MÓVIL: una sección a la vez -->
-      <div id="gtab-carta" class="body" style="display:block;overflow-y:auto"></div>
-      <div id="gtab-mesas" class="body" style="display:none;overflow-y:auto"></div>
-      <div id="gtab-camareros" class="body" style="display:none;overflow-y:auto"></div>
+    <!-- Hidden containers — IDs needed by JS for carta/mesas/camareros  -->
+    <div style="display:none" aria-hidden="true">
+      <!-- Carta form and list — rendered into ajustes panel by loadAdminCarta() -->
+      <div id="add-item-form"></div>
+      <div id="admin-carta-list"></div>
+      <!-- Mesas list -->
+      <div id="admin-tables-list"></div>
+      <!-- Camareros list -->
+      <div id="add-waiter-form"></div>
+      <div id="admin-waiters-list"></div>
+      <div id="admin-waiters-empty"></div>
+      <!-- Legacy mobile tabs — kept for JS compat -->
+      <div id="gtab-carta"></div>
+      <div id="gtab-mesas"></div>
+      <div id="gtab-camareros"></div>
+      <div id="gestion-cols"></div>
     </div>
 
     <!-- TAB COCINA (admin) — Vista por pases -->
@@ -1320,69 +1659,89 @@
     </div>
 
     <!-- TAB REPORTES -->
-    <div id="atab-reportes" style="display:none;flex-direction:column">
-      <div style="display:flex;border-bottom:1px solid var(--bd);background:var(--bg2);padding:0 1rem;overflow-x:auto">
-        <button class="tab on" id="rtab-btn-kpis" onclick="showReportesTab('kpis')" style="font-size:13px;padding:.5rem .75rem;white-space:nowrap">📊 KPIs</button>
-        <button class="tab" id="rtab-btn-platos" onclick="showReportesTab('platos')" style="font-size:13px;padding:.5rem .75rem;white-space:nowrap">⏱ Platos</button>
-        <button class="tab" id="rtab-btn-historial" onclick="showReportesTab('historial')" style="font-size:13px;padding:.5rem .75rem;white-space:nowrap">Historial</button>
-        <button class="tab" id="rtab-btn-propinas" onclick="showReportesTab('propinas')" style="font-size:13px;padding:.5rem .75rem;white-space:nowrap">Propinas</button>
-        <button class="tab" id="rtab-btn-pagos" onclick="showReportesTab('pagos')" style="font-size:13px;padding:.5rem .75rem;white-space:nowrap">Pagos</button>
-        <button class="tab" id="rtab-btn-perfil" onclick="showReportesTab('perfil')" style="font-size:13px;padding:.5rem .75rem;white-space:nowrap">Perfil</button>
+    <!-- ═══════════════ DASHBOARD (old: Reportes) ═══════════════ -->
+    <div id="atab-reportes" style="display:none;flex-direction:column;height:calc(100vh - 57px);overflow:hidden">
+      <!-- Sub-nav -->
+      <div style="display:flex;border-bottom:1px solid var(--bd);background:var(--card);padding:0 1rem;overflow-x:auto;flex-shrink:0;gap:2px">
+        <button class="tab on" id="rtab-btn-kpis" onclick="showReportesTab('kpis')" style="font-size:13px;padding:.6rem .85rem;white-space:nowrap">📊 Resumen</button>
+        <button class="tab" id="rtab-btn-platos" onclick="showReportesTab('platos')" style="font-size:13px;padding:.6rem .85rem;white-space:nowrap">⏱ Platos</button>
+        <button class="tab" id="rtab-btn-historial" onclick="showReportesTab('historial')" style="font-size:13px;padding:.6rem .85rem;white-space:nowrap">🧾 Facturas</button>
+        <button class="tab" id="rtab-btn-propinas" onclick="showReportesTab('propinas')" style="font-size:13px;padding:.6rem .85rem;white-space:nowrap">🌟 Propinas</button>
+        <button class="tab" id="rtab-btn-pagos" onclick="showReportesTab('pagos')" style="font-size:13px;padding:.6rem .85rem;white-space:nowrap">💳 Pagos</button>
       </div>
 
-      <!-- KPIs -->
-      <div id="rtab-kpis" class="body">        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
-          <div style="font-size:15px;font-weight:500">Resumen</div>
-          <select id="kpi-filter" onchange="loadKPIs()" style="font-size:12px;padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-family:inherit">
-            <option value="0">Hoy</option>
-            <option value="7" selected>Últimos 7 días</option>
-            <option value="30">Últimos 30 días</option>
-            <option value="90">Últimos 3 meses</option>
-            <option value="all">Todo</option>
-          </select>
-        </div>
-        <!-- KPI grid -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:1rem" id="kpi-grid">
-          <div style="background:var(--brand-l);border-radius:var(--r);padding:1rem;border:1px solid var(--brand)">
-            <div id="kpi-facturado" style="font-family:'Fraunces',serif;font-size:24px;font-weight:700;color:var(--brand-d)">—</div>
-            <div style="font-size:12px;color:var(--brand);margin-top:2px">💰 Facturado</div>
-          </div>
-          <div style="background:var(--bg2);border-radius:var(--r);padding:1rem;border:1px solid var(--bd)">
-            <div id="kpi-mesas" style="font-family:'Fraunces',serif;font-size:24px;font-weight:700;color:var(--brand-d)">—</div>
-            <div style="font-size:12px;color:var(--t2);margin-top:2px">🍽 Mesas</div>
-          </div>
-          <div style="background:var(--bg2);border-radius:var(--r);padding:1rem;border:1px solid var(--bd)">
-            <div id="kpi-ticket-medio" style="font-family:'Fraunces',serif;font-size:24px;font-weight:700;color:var(--brand-d)">—</div>
-            <div style="font-size:12px;color:var(--t2);margin-top:2px">🧾 Ticket medio/mesa</div>
-          </div>
-          <div style="background:var(--bg2);border-radius:var(--r);padding:1rem;border:1px solid var(--bd)">
-            <div id="kpi-comensales" style="font-family:'Fraunces',serif;font-size:24px;font-weight:700;color:var(--brand-d)">—</div>
-            <div style="font-size:12px;color:var(--t2);margin-top:2px">👥 Comensales</div>
-          </div>
-          <div style="background:var(--bg2);border-radius:var(--r);padding:1rem;border:1px solid var(--bd)">
-            <div id="kpi-ticket-persona" style="font-family:'Fraunces',serif;font-size:24px;font-weight:700;color:var(--brand-d)">—</div>
-            <div style="font-size:12px;color:var(--t2);margin-top:2px">👤 Gasto medio/persona</div>
-          </div>
-          <div style="background:#FAEEDA;border-radius:var(--r);padding:1rem;border:1px solid #E5A85A">
-            <div id="kpi-propinas" style="font-family:'Fraunces',serif;font-size:24px;font-weight:700;color:#633806">—</div>
-            <div style="font-size:12px;color:#854F0B;margin-top:2px">🌟 Total propinas</div>
-          </div>
-          <div style="background:var(--bg2);border-radius:var(--r);padding:1rem;border:1px solid var(--bd)">
-            <div id="kpi-plato-top" style="font-size:15px;font-weight:600;color:var(--brand-d)">—</div>
-            <div style="font-size:12px;color:var(--t2);margin-top:2px">🏆 Plato más pedido</div>
-          </div>
-          <div style="background:var(--bg2);border-radius:var(--r);padding:1rem;border:1px solid var(--bd)">
-            <div id="kpi-spliteat-rate" style="font-family:'Fraunces',serif;font-size:24px;font-weight:700;color:var(--brand-d)">—</div>
-            <div style="font-size:12px;color:var(--t2);margin-top:2px">📱 Adopción spliteat</div>
+      <!-- ── KPIs / Resumen ── -->
+      <div id="rtab-kpis" class="body" style="overflow-y:auto">
+        <select id="kpi-filter" style="display:none"><option value="0" selected>Hoy</option><option value="7">7d</option><option value="30">30d</option><option value="90">3m</option><option value="all">Todo</option></select>
+        <!-- Date filter bar -->
+        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap">
+          <div style="font-size:16px;font-weight:600;color:var(--t1);flex:1">Resumen</div>
+          <div style="display:flex;gap:.25rem;flex-wrap:wrap">
+            <button class="kpi-period-btn on" data-val="0" onclick="setKpiPeriod(0)">Hoy</button>
+            <button class="kpi-period-btn" data-val="7" onclick="setKpiPeriod(7)">7d</button>
+            <button class="kpi-period-btn" data-val="30" onclick="setKpiPeriod(30)">30d</button>
+            <button class="kpi-period-btn" data-val="90" onclick="setKpiPeriod(90)">3m</button>
+            <button class="kpi-period-btn" data-val="all" onclick="setKpiPeriod('all')">Todo</button>
           </div>
         </div>
-        <div id="kpi-loading" style="text-align:center;padding:1rem;color:var(--t3);font-size:13px">Cargando datos...</div>
+
+        <!-- Primary KPIs — 2x2 hero grid -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:.65rem" id="kpi-grid">
+          <div class="kpi-card highlight" style="grid-column:1/-1">
+            <div class="kpi-value" id="kpi-facturado">—</div>
+            <div class="kpi-label">💰 Facturación total</div>
+            <div class="kpi-change" id="kpi-facturado-change"></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" id="kpi-ticket-medio">—</div>
+            <div class="kpi-label">🧾 Ticket medio/mesa</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" id="kpi-ticket-persona">—</div>
+            <div class="kpi-label">👤 Gasto/persona</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" id="kpi-mesas">—</div>
+            <div class="kpi-label">🍽 Mesas servidas</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" id="kpi-comensales">—</div>
+            <div class="kpi-label">👥 Comensales</div>
+          </div>
+          <div class="kpi-card amber">
+            <div class="kpi-value" id="kpi-propinas">—</div>
+            <div class="kpi-label">🌟 Propinas</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" id="kpi-spliteat-rate">—</div>
+            <div class="kpi-label">📱 Uso spliteat</div>
+          </div>
+          <div class="kpi-card" style="grid-column:1/-1">
+            <div class="kpi-value" id="kpi-plato-top" style="font-size:16px">—</div>
+            <div class="kpi-label">🏆 Plato más pedido</div>
+          </div>
+        </div>
+        <div id="kpi-loading" style="text-align:center;padding:.75rem;color:var(--t3);font-size:13px;display:none">Cargando...</div>
+
+        <!-- Margen por plato (nuevo KPI) -->
+        <div style="margin-top:1rem;border-top:1px solid var(--bd);padding-top:1rem">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem">
+            <div style="font-size:14px;font-weight:600">💹 Margen por plato</div>
+            <button onclick="toggleMargenInfo()" style="font-size:11px;color:var(--brand);background:none;border:none;cursor:pointer;font-family:inherit">¿Qué es esto?</button>
+          </div>
+          <div id="margen-info" style="display:none;font-size:12px;color:var(--t2);background:var(--bg2);padding:.65rem;border-radius:var(--r-sm);margin-bottom:.65rem;line-height:1.5">
+            Introduce el coste estimado de cada plato en Ajustes → Carta para ver el margen real. Se calcula como: (Precio venta − Coste) ÷ Precio venta × 100.
+          </div>
+          <div id="kpi-margen-list" style="display:flex;flex-direction:column;gap:.4rem">
+            <div style="text-align:center;padding:1rem;color:var(--t3);font-size:13px">Añade costes en Ajustes → Carta</div>
+          </div>
+        </div>
 
         <!-- KPIs personalizados -->
-        <div style="margin-top:1.25rem;border-top:1px solid var(--bd);padding-top:1rem">
+        <div style="margin-top:1rem;border-top:1px solid var(--bd);padding-top:1rem">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem">
-            <div style="font-size:13px;font-weight:500">📌 Mis KPIs personalizados</div>
-            <button onclick="showAddCustomKPI()" style="font-size:12px;padding:4px 10px;border-radius:99px;border:1px solid var(--brand);background:none;color:var(--brand);cursor:pointer;font-family:inherit">+ Añadir</button>
+            <div style="font-size:14px;font-weight:600">📌 KPIs personalizados</div>
+            <button onclick="showAddCustomKPI()" style="font-size:12px;padding:4px 12px;border-radius:99px;border:1px solid var(--brand);background:none;color:var(--brand);cursor:pointer;font-family:inherit">+ Añadir</button>
           </div>
           <div id="custom-kpis-list"></div>
           <div id="add-custom-kpi-form" style="display:none" class="card">
@@ -1397,11 +1756,10 @@
         </div>
       </div>
 
-
-      <!-- Platos — tiempos reales vs estimados -->
-      <div id="rtab-platos" class="body" style="display:none">
+      <!-- ── Platos: tiempos reales vs estimados ── -->
+      <div id="rtab-platos" class="body" style="display:none;overflow-y:auto">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
-          <div class="sec-label" style="margin:0">Tiempos de preparación</div>
+          <div style="font-size:16px;font-weight:600">⏱ Tiempos por plato</div>
           <select id="platos-filter" onchange="loadKPIPlatos()" style="font-size:12px;padding:5px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-family:inherit">
             <option value="7" selected>7 días</option>
             <option value="30">30 días</option>
@@ -1409,18 +1767,18 @@
             <option value="all">Todo</option>
           </select>
         </div>
-        <div style="font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:1rem;background:var(--bg2);padding:.65rem .85rem;border-radius:var(--r-sm)">
-          Tiempo real desde que cocina empieza a preparar hasta que marca el plato como listo. Compara con el tiempo estimado configurado en cookeat.
+        <div style="font-size:12px;color:var(--t2);background:var(--bg2);padding:.65rem .85rem;border-radius:var(--r-sm);margin-bottom:1rem;line-height:1.5">
+          Tiempo real de preparación (cocina empieza → listo) comparado con el estimado. Toca "Ajustar" para actualizar el tiempo con la media real.
         </div>
         <div id="kpi-platos-list">
           <div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando...</div>
         </div>
       </div>
 
-      <!-- Historial -->
-      <div id="rtab-historial" class="body" style="display:none">
+      <!-- ── Facturas (old: Historial) ── -->
+      <div id="rtab-historial" class="body" style="display:none;overflow-y:auto">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
-          <div class="sec-label" style="margin:0">Dashboard</div>
+          <div style="font-size:16px;font-weight:600">🧾 Facturas</div>
           <select id="historial-filter" onchange="loadHistorial()" style="font-size:12px;padding:5px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-family:inherit">
             <option value="1">Hoy</option>
             <option value="7" selected>7 días</option>
@@ -1429,83 +1787,58 @@
             <option value="all">Todo</option>
           </select>
         </div>
-
-        <!-- KPIs principales -->
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-bottom:1rem">
-          <div style="background:var(--brand-l);border-radius:var(--r);padding:.75rem;text-align:center;border:1px solid var(--brand)">
-            <div id="hist-stat-total" style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--brand-d)">—</div>
-            <div style="font-size:11px;color:var(--brand);font-weight:500">Facturado</div>
+          <div class="kpi-card highlight" style="text-align:center;padding:.75rem">
+            <div id="hist-stat-total" class="kpi-value" style="font-size:20px">—</div>
+            <div class="kpi-label">Facturado</div>
           </div>
-          <div style="background:var(--bg2);border-radius:var(--r);padding:.75rem;text-align:center">
-            <div id="hist-stat-mesas" style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--brand-d)">—</div>
-            <div style="font-size:11px;color:var(--t2)">Mesas</div>
+          <div class="kpi-card" style="text-align:center;padding:.75rem">
+            <div id="hist-stat-mesas" class="kpi-value" style="font-size:20px">—</div>
+            <div class="kpi-label">Mesas</div>
           </div>
-          <div style="background:var(--bg2);border-radius:var(--r);padding:.75rem;text-align:center">
-            <div id="hist-stat-comensales" style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--brand-d)">—</div>
-            <div style="font-size:11px;color:var(--t2)">Comensales</div>
+          <div class="kpi-card" style="text-align:center;padding:.75rem">
+            <div id="hist-stat-ticket" class="kpi-value" style="font-size:20px">—</div>
+            <div class="kpi-label">Ticket/mesa</div>
           </div>
-          <div style="background:var(--bg2);border-radius:var(--r);padding:.75rem;text-align:center">
-            <div id="hist-stat-ticket" style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--brand-d)">—</div>
-            <div style="font-size:11px;color:var(--t2)">Ticket medio</div>
-          </div>
-        </div>
-
-        <!-- KPIs secundarios -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.5rem;margin-bottom:1.25rem">
-          <div style="background:var(--amber-l);border-radius:var(--r-sm);padding:.6rem;text-align:center">
-            <div id="hist-stat-propinas" style="font-size:16px;font-weight:700;color:#854F0B">—</div>
-            <div style="font-size:10px;color:var(--amber)">Propinas</div>
-          </div>
-          <div style="background:#EAF3DE;border-radius:var(--r-sm);padding:.6rem;text-align:center">
-            <div id="hist-stat-spliteat" style="font-size:16px;font-weight:700;color:#3B6D11">—</div>
-            <div style="font-size:10px;color:#3B6D11">Mesas spliteat</div>
-          </div>
-          <div style="background:#FCEBEB;border-radius:var(--r-sm);padding:.6rem;text-align:center">
-            <div id="hist-stat-unpaid" style="font-size:16px;font-weight:700;color:#A32D2D">—</div>
-            <div style="font-size:10px;color:#A32D2D">Sin pago completo</div>
+          <div class="kpi-card" style="text-align:center;padding:.75rem">
+            <div id="hist-stat-personas" class="kpi-value" style="font-size:20px">—</div>
+            <div class="kpi-label">Personas</div>
           </div>
         </div>
-
-        <!-- Propinas por camarero -->
-        <div style="margin-bottom:1.25rem">
-          <div class="sec-label">Propinas por camarero</div>
-          <div id="hist-propinas-camarero"></div>
-        </div>
-
-        <!-- Lista de mesas -->
-        <div class="sec-label">Registro de mesas</div>
-        <div id="historial-list"></div>
-        <div id="historial-empty" class="empty" style="display:none">
-          <div class="empty-icon">📋</div>
-          <div class="empty-text">No hay mesas registradas aún.</div>
+        <div id="historial-list">
+          <div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando...</div>
         </div>
       </div>
 
-      <!-- Propinas por camarero -->
-      <div id="rtab-propinas" class="body" style="display:none">
-        <div style="font-size:15px;font-weight:500;margin-bottom:1rem">Propinas por camarero</div>
+      <!-- ── Propinas por camarero ── -->
+      <div id="rtab-propinas" class="body" style="display:none;overflow-y:auto">
+        <div style="font-size:16px;font-weight:600;margin-bottom:.65rem">🌟 Propinas por camarero</div>
+        <div style="font-size:12px;color:var(--t2);margin-bottom:1rem;line-height:1.5">
+          Propinas generadas por camarero según mesas asignadas. El porcentaje refleja la satisfacción media de sus mesas.
+        </div>
         <div id="propinas-list">
           <div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando...</div>
         </div>
       </div>
 
-      <!-- Pagos / Stripe -->
-      <div id="rtab-pagos" class="body" style="display:none">
-        <div style="font-size:15px;font-weight:500;margin-bottom:1rem">Estado de pagos</div>
-        <div id="pagos-recientes-list" style="margin-bottom:1rem"></div>
-        <div style="border-top:1px solid var(--bd);padding-top:1rem;margin-top:.5rem">
-          <div style="font-size:13px;font-weight:500;color:var(--t2);margin-bottom:.5rem">Stripe Connect</div>
-          <div id="stripe-not-enabled" style="display:block">
+      <!-- ── Pagos ── -->
+      <div id="rtab-pagos" class="body" style="display:none;overflow-y:auto">
+        <div style="font-size:16px;font-weight:600;margin-bottom:.65rem">💳 Métodos de pago</div>
+        <div style="font-size:12px;color:var(--t2);margin-bottom:1rem">Distribución de métodos de pago usados.</div>
+        <div id="pagos-chart-area" style="margin-bottom:1.25rem">
+          <div id="pagos-chart-bars" style="display:flex;flex-direction:column;gap:.5rem"></div>
+        </div>
+        <div style="margin-top:.75rem;border-top:1px solid var(--bd);padding-top:.75rem">
+          <div style="font-size:13px;font-weight:500;margin-bottom:.5rem">Stripe Connect</div>
+          <div id="stripe-disabled" style="display:block">
             <div class="notice" style="margin-bottom:1rem">
               <strong>Pagos online — Próximamente</strong><br>
-              Activa Stripe Connect para que tus comensales paguen con tarjeta directamente.
+              Activa Stripe Connect para que tus comensales paguen con tarjeta directamente desde la app.
             </div>
-            <button class="btn btn-primary" onclick="startStripeOnboarding()" id="btn-stripe-connect" disabled>
+            <button class="btn btn-primary" onclick="startStripeOnboarding()" id="stripe-connect-btn">
               Conectar cuenta bancaria →
             </button>
-            <div style="font-size:12px;color:var(--t3);margin-top:.5rem;text-align:center">
-              Disponible próximamente
-            </div>
+            <div style="font-size:12px;color:var(--t3);margin-top:.5rem;text-align:center">Disponible próximamente</div>
           </div>
           <div id="stripe-enabled" style="display:none">
             <div id="stripe-status-card" class="card" style="margin-bottom:.75rem"></div>
@@ -1514,61 +1847,119 @@
         </div>
       </div>
 
-      <!-- Perfil del restaurante (para facturas) -->
-      <div id="rtab-perfil" class="body" style="display:none">
-        <div style="font-size:15px;font-weight:500;margin-bottom:.25rem">Perfil del restaurante</div>
-        <div style="font-size:12px;color:var(--t2);margin-bottom:1rem">Datos necesarios para generar facturas según normativa española</div>
-        <div class="field"><label>Nombre del restaurante / razón social *</label><input id="prf-nombre" type="text" placeholder="ej. Taberna El Marino S.L."></div>
-        <div class="field"><label>NIF / CIF *</label><input id="prf-nif" type="text" placeholder="ej. B12345678"></div>
-        <div class="field"><label>Dirección *</label><input id="prf-dir" type="text" placeholder="Calle Mayor 1, 28001 Madrid"></div>
-        <div class="field"><label>Teléfono</label><input id="prf-tel" type="tel" placeholder="+34 91 123 45 67"></div>
-        <div class="field"><label>Email de contacto</label><input id="prf-email" type="email" placeholder="info@restaurante.com"></div>
-        <div class="field"><label>Web (opcional)</label><input id="prf-web" type="url" placeholder="www.restaurante.com"></div>
-        <div class="field"><label>Número de serie para facturas</label><input id="prf-serie" type="text" placeholder="ej. F-2024-" value="F-2024-"></div>
-        <div class="field"><label>Tipo de IVA aplicado</label>
-          <select id="prf-iva" style="width:100%;padding:10px;border-radius:var(--r-sm);border:1px solid var(--bd2);font-family:inherit;font-size:14px">
-            <option value="10">10% — Restauración (general)</option>
-            <option value="21">21% — General</option>
-            <option value="4">4% — Reducido especial</option>
-          </select>
-        </div>
-
-        <!-- RESERVAS -->
-        <div style="border-top:1px solid var(--bd);margin:.75rem 0;padding-top:.75rem">
-          <div style="font-size:13px;font-weight:500;margin-bottom:.75rem">🗓 Reservas online</div>
-          <div class="field"><label>Aforo máximo del restaurante</label><input id="prf-capacity" type="number" min="1" max="500" placeholder="ej. 45" inputmode="numeric"></div>
-          <div class="field"><label>URL personalizada de reservas <span style="font-weight:400;color:var(--t3)">(solo letras, números y guiones)</span></label>
-            <div style="display:flex;align-items:center;gap:0;border:1px solid var(--bd2);border-radius:var(--r-sm);overflow:hidden">
-              <span style="padding:10px 10px;background:var(--bg2);font-size:13px;color:var(--t3);white-space:nowrap;border-right:1px solid var(--bd2)">spliteat.es/reservar?r=</span>
-              <input id="prf-slug" type="text" placeholder="taberna-el-marino"
-                style="flex:1;padding:10px;border:none;font-size:14px;font-family:inherit;background:var(--card)">
-            </div>
-          </div>
-          <div id="prf-booking-url" style="font-size:12px;color:var(--brand);background:var(--brand-l);border-radius:var(--r-sm);padding:.5rem .75rem;margin-top:.35rem;display:none">
-            🔗 <span id="prf-booking-url-txt"></span>
-            <button onclick="copyBookingUrl()" style="margin-left:8px;font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid var(--brand);background:none;color:var(--brand);cursor:pointer;font-family:inherit">Copiar</button>
-          </div>
-        </div>
-        <button class="btn btn-primary mt" onclick="saveRestaurantProfile()">Guardar perfil</button>
-        <div id="prf-ok" style="display:none;color:var(--brand);font-size:13px;margin-top:.5rem;text-align:center">✓ Guardado correctamente</div>
-      </div>
-
       <!-- Factura modal -->
-      <div id="factura-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;overflow-y:auto;padding:1rem">
-        <div style="background:var(--card);border-radius:var(--r-lg);max-width:430px;margin:0 auto;padding:1.5rem">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
-            <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--brand-d)">Factura</div>
-            <button onclick="document.getElementById('factura-modal').style.display='none'"
-              style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+      <div id="factura-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:500;display:none;align-items:center;justify-content:center;padding:1rem">
+        <div style="background:var(--card);border-radius:var(--r-lg);max-width:480px;width:100%;padding:1.5rem;max-height:90vh;overflow-y:auto">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+            <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700">Factura</div>
+            <button onclick="document.getElementById('factura-modal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
           </div>
           <div id="factura-content"></div>
           <div style="display:flex;gap:.5rem;margin-top:1.25rem">
-            <button class="btn btn-primary" onclick="downloadFactura()" style="flex:1">Descargar PDF</button>
+            <button class="btn btn-primary" onclick="downloadFactura()" style="flex:1">⬇ Descargar PDF</button>
             <button class="btn btn-secondary" onclick="document.getElementById('factura-modal').style.display='none'" style="flex:1">Cerrar</button>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- ═══════════════ AJUSTES (old: Gestión + Perfil merged) ═══════════════ -->
+    <div id="atab-gestion" style="display:none;flex-direction:column;height:calc(100vh - 57px);overflow-y:auto">
+      <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--bd);background:var(--card);flex-shrink:0">
+        <div style="font-size:16px;font-weight:600">⚙️ Ajustes</div>
+      </div>
+
+      <!-- Sub-sections as settings list -->
+      <div style="padding:1rem 1.25rem">
+
+        <!-- Carta -->
+        <div class="settings-section">
+          <div class="settings-section-header">🍽 Carta</div>
+          <div class="settings-row" onclick="openAjustesSection('carta')">
+            <span class="settings-row-icon">📋</span>
+            <div class="settings-row-content">
+              <div class="settings-row-title">Gestionar platos</div>
+              <div class="settings-row-desc">Añadir, editar y activar/desactivar platos · <span id="carta-disabled-count" style="color:#854F0B"></span></div>
+            </div>
+            <span class="settings-row-arrow">›</span>
+          </div>
+          <div class="settings-row" onclick="openAjustesSection('importar')">
+            <span class="settings-row-icon">🤖</span>
+            <div class="settings-row-content">
+              <div class="settings-row-title">Importar carta con IA</div>
+              <div class="settings-row-desc">Sube una foto de tu carta y la importamos automáticamente</div>
+            </div>
+            <span class="settings-row-arrow">›</span>
+          </div>
+          <div class="settings-row" onclick="openAjustesSection('costes')">
+            <span class="settings-row-icon">💹</span>
+            <div class="settings-row-content">
+              <div class="settings-row-title">Costes por plato</div>
+              <div class="settings-row-desc">Introduce costes para calcular margen de beneficio</div>
+            </div>
+            <span class="settings-row-arrow">›</span>
+          </div>
+        </div>
+
+        <!-- Mesas -->
+        <div class="settings-section">
+          <div class="settings-section-header">🪑 Mesas</div>
+          <div class="settings-row" onclick="openAjustesSection('mesas')">
+            <span class="settings-row-icon">🗺</span>
+            <div class="settings-row-content">
+              <div class="settings-row-title">Gestionar mesas</div>
+              <div class="settings-row-desc">Añadir, numerar y configurar mesas del restaurante</div>
+            </div>
+            <span class="settings-row-arrow">›</span>
+          </div>
+        </div>
+
+        <!-- Equipo -->
+        <div class="settings-section">
+          <div class="settings-section-header">👥 Equipo</div>
+          <div class="settings-row" onclick="openAjustesSection('camareros')">
+            <span class="settings-row-icon">🧑‍🍳</span>
+            <div class="settings-row-content">
+              <div class="settings-row-title">Camareros</div>
+              <div class="settings-row-desc">Añadir accesos, gestionar turnos y contraseñas</div>
+            </div>
+            <span class="settings-row-arrow">›</span>
+          </div>
+        </div>
+
+        <!-- Perfil del restaurante -->
+        <div class="settings-section">
+          <div class="settings-section-header">🏪 Restaurante</div>
+          <div class="settings-row" onclick="openAjustesSection('perfil')">
+            <span class="settings-row-icon">📝</span>
+            <div class="settings-row-content">
+              <div class="settings-row-title">Perfil y datos fiscales</div>
+              <div class="settings-row-desc">Nombre, NIF, dirección, datos para facturas</div>
+            </div>
+            <span class="settings-row-arrow">›</span>
+          </div>
+          <div class="settings-row" onclick="openAjustesSection('reservas-config')">
+            <span class="settings-row-icon">📅</span>
+            <div class="settings-row-content">
+              <div class="settings-row-title">Configuración de reservas</div>
+              <div class="settings-row-desc">URL pública, aforo, horarios de reserva</div>
+            </div>
+            <span class="settings-row-arrow">›</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Ajustes panels (shown inline when row clicked) -->
+      <div id="ajustes-panel" style="display:none;flex:1;overflow-y:auto">
+        <div style="padding:.75rem 1.25rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:.5rem;background:var(--card);position:sticky;top:0;z-index:5">
+          <button onclick="closeAjustesPanel()" style="background:none;border:none;font-size:13px;color:var(--t2);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px">← Ajustes</button>
+          <div id="ajustes-panel-title" style="font-size:14px;font-weight:600;color:var(--t1)"></div>
+        </div>
+        <div id="ajustes-panel-content" style="padding:1.25rem"></div>
+      </div>
+
+    </div>    </div>
   </div>
     </div>
   </div>
@@ -1616,6 +2007,87 @@ function canCreateRoom() {
   }
   _lastRoomCreated = now;
   return true;
+}
+
+
+// ── ALÉRGENOS — 14 alérgenos obligatorios EU ──
+const ALLERGENS = [
+  { id: 'gluten',      emoji: '🌾', label: 'Gluten' },
+  { id: 'crustaceos',  emoji: '🦐', label: 'Crustáceos' },
+  { id: 'huevos',      emoji: '🥚', label: 'Huevos' },
+  { id: 'pescado',     emoji: '🐟', label: 'Pescado' },
+  { id: 'cacahuetes',  emoji: '🥜', label: 'Cacahuetes' },
+  { id: 'soja',        emoji: '🫘', label: 'Soja' },
+  { id: 'lacteos',     emoji: '🥛', label: 'Lácteos' },
+  { id: 'frutos_secos',emoji: '🌰', label: 'Frutos secos' },
+  { id: 'apio',        emoji: '🌿', label: 'Apio' },
+  { id: 'mostaza',     emoji: '🟡', label: 'Mostaza' },
+  { id: 'sesamo',      emoji: '⚪', label: 'Sésamo' },
+  { id: 'sulfitos',    emoji: '🍷', label: 'Sulfitos' },
+  { id: 'moluscos',    emoji: '🦑', label: 'Moluscos' },
+  { id: 'altramuces',  emoji: '🌸', label: 'Altramuces' },
+];
+
+function renderAllergenBadges(allergens) {
+  if (!allergens?.length) return '';
+  return allergens.map(id => {
+    const a = ALLERGENS.find(x => x.id === id);
+    return a ? `<span title="${a.label}" style="font-size:13px" aria-label="${a.label}">${a.emoji}</span>` : '';
+  }).join('');
+}
+
+function renderAllergenPicker(currentAllergens, itemId) {
+  const current = currentAllergens || [];
+  return ALLERGENS.map(a => `
+    <label style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:99px;border:1.5px solid ${current.includes(a.id)?'var(--brand)':'var(--bd2)'};background:${current.includes(a.id)?'var(--brand-l)':'var(--card)'};cursor:pointer;font-size:11px;margin:2px">
+      <input type="checkbox" value="${a.id}" ${current.includes(a.id)?'checked':''} onchange="toggleAllergen('${itemId}',this)" style="display:none">
+      ${a.emoji} ${a.label}
+    </label>`).join('');
+}
+
+async function toggleAllergen(itemId, checkbox) {
+  const { data: item } = await sb.from('menu_items').select('allergens').eq('id', itemId).maybeSingle();
+  let current = item?.allergens || [];
+  if (checkbox.checked) {
+    current = [...new Set([...current, checkbox.value])];
+  } else {
+    current = current.filter(a => a !== checkbox.value);
+  }
+  await sb.from('menu_items').update({ allergens: current }).eq('id', itemId);
+  // Update label styling
+  const lbl = checkbox.closest('label');
+  if (lbl) {
+    lbl.style.borderColor = checkbox.checked ? 'var(--brand)' : 'var(--bd2)';
+    lbl.style.background = checkbox.checked ? 'var(--brand-l)' : 'var(--card)';
+  }
+}
+
+// ALLERGENS object removed — using existing ALLERGENS array
+
+function renderAllergenChips(selected = [], onToggle = null) {
+  return ALLERGENS.map(({ id: key, emoji, label }) => {
+    const active = (selected||[]).includes(key);
+    return `<div class="allergen-chip${active?' active':''}" data-key="${key}"
+      onclick="${onToggle ? `${onToggle}('${key}')` : ''}"
+      title="${label}"
+      style="display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:var(--r-full);
+        border:1.5px solid ${active?'var(--accent)':'var(--bd2)'};
+        background:${active?'var(--accent-l)':'var(--card)'};
+        font-size:11px;cursor:${onToggle?'pointer':'default'};
+        margin:2px;transition:all .12s;user-select:none">
+      <span>${emoji}</span>
+      ${active ? `<span style="color:var(--accent);font-weight:500">${label}</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function getAllergenIcons(allergens = []) {
+  if (!allergens?.length) return '';
+  return `<div class="allergen-chips">${allergens.map(key => {
+    const a = ALLERGENS.find(x => x.id === key);
+    if (!a) return '';
+    return `<span class="allergen-icon" title="${a.label}">${a.emoji}</span>`;
+  }).join('')}</div>`;
 }
 
 // ── ANALYTICS: event tracking ligero ──
@@ -1715,7 +2187,10 @@ function go(screenId) {
   const btnAcceso = document.getElementById('btn-acceso-restaurante');
   if (btnAcceso) btnAcceso.style.display = screenId === 's0' ? 'block' : 'none';
   if (screenId === 's4-summary') buildSummary();
-  if (screenId === 's5-pay') buildPayScreen();
+  if (screenId === 's5-pay') {
+    // Only rebuild for split method — full/equal have their own builders
+    if (!_payMethod || _payMethod === 'split') buildPayScreen();
+  }
   if (screenId === 's3-dishes') {
     loadCarta();
     renderMesaDishes();
@@ -2505,11 +2980,41 @@ function renderMesaDishes() {
   }
   if (sentMsg) sentMsg.style.display = state.dishes.length > 0 && unsentDishes.length === 0 ? 'block' : 'none';
 
-  // Show "Ver resumen" button when dishes have been sent (at least some in progress)
+  // Show "Ver resumen" ONLY when all dishes are delivered (arrived at table)
   const resumenBtn = document.getElementById('btn-ver-resumen-area');
-  if (resumenBtn) {
-    const hasProgress = sentOrActiveDishes.length > 0;
-    resumenBtn.style.display = hasProgress ? 'block' : 'none';
+  const resumenBtnInner = document.getElementById('btn-ver-resumen-inner');
+  const resumenWaitMsg = document.getElementById('resumen-wait-msg');
+  if (resumenBtn && state.dishes.length > 0) {
+    const allDishes = state.dishes;
+    const sentDishes = allDishes.filter(d => d.kitchen_status && d.kitchen_status !== 'new');
+    const deliveredDishes = allDishes.filter(d => d.kitchen_status === 'delivered');
+    const allDelivered = sentDishes.length > 0 && deliveredDishes.length >= sentDishes.length;
+    const anyInProgress = sentDishes.length > 0;
+
+    resumenBtn.style.display = anyInProgress ? 'block' : 'none';
+
+    if (resumenBtnInner) {
+      if (allDelivered) {
+        resumenBtnInner.disabled = false;
+        resumenBtnInner.style.opacity = '1';
+        resumenBtnInner.innerHTML = '🧾 Ver resumen y pagar →';
+        resumenBtnInner.style.background = 'var(--brand)';
+      } else {
+        resumenBtnInner.disabled = true;
+        resumenBtnInner.style.opacity = '.55';
+        resumenBtnInner.innerHTML = '⏳ Esperando que lleguen los platos…';
+        resumenBtnInner.style.background = 'var(--t3)';
+      }
+    }
+    if (resumenWaitMsg) {
+      const pending = sentDishes.filter(d => d.kitchen_status !== 'delivered').length;
+      resumenWaitMsg.style.display = (!allDelivered && anyInProgress) ? 'block' : 'none';
+      resumenWaitMsg.textContent = pending === 1
+        ? '1 plato todavía no ha llegado a la mesa'
+        : `${pending} platos todavía no han llegado a la mesa`;
+    }
+  } else if (resumenBtn) {
+    resumenBtn.style.display = 'none';
   }
 }
 
@@ -2881,26 +3386,91 @@ function buildSummary() {
   const totals = calcTotals();
   const grand = totals.reduce((a, t) => a + t.total, 0);
   document.getElementById('grand-total').textContent = fmt(grand);
+
+  // Unassigned dishes — not yet attributed to anyone
+  const unassigned = state.dishes.filter(d => {
+    if (!d.kitchen_status || d.kitchen_status === 'new') return false; // not sent yet
+    if (d.type === 'solo' && !d.assignee_id) return true;
+    if (d.type === 'shared') {
+      const parts = state.participants[d.id] || [];
+      return parts.length === 0;
+    }
+    return false;
+  });
+
+  const GUEST_COLORS = ['#D85A30','#185FA5','#7B3FA0','#C0392B','#117A65','#B7770D','#1A5276','#6E2C00'];
+
   const el = document.getElementById('summary-list');
   el.innerHTML = totals.map((t, i) => {
     const isMe = t.g.id === state.myGuestId;
+    const isManual = t.g._manual === true;
     let lines = '';
     t.soloItems.forEach(d => {
-      lines += `<div class="sum-line"><span class="lbl">↳ ${escHtml(d.name)}</span><span class="val">${fmt(parseFloat(d.price))}</span></div>`;
+      lines += `<div class="sum-line">
+        <span class="lbl">↳ ${escHtml(d.name)}</span>
+        <span style="display:flex;align-items:center;gap:6px">
+          <span class="val">${fmt(parseFloat(d.price))}</span>
+          <button onclick="unassignDish('${d.id}','solo')" title="Desasignar"
+            style="background:none;border:none;font-size:11px;color:var(--t3);cursor:pointer;padding:1px 4px;border-radius:3px;line-height:1">✕</button>
+        </span>
+      </div>`;
     });
-    if (t.soloItems.length && t.sharedItems.length) lines += '<hr>';
+    if (t.soloItems.length && t.sharedItems.length) lines += '<hr style="border:none;border-top:1px solid var(--bd);margin:3px 0">';
     t.sharedItems.forEach(({ d, share, nP }) => {
-      lines += `<div class="sum-line shared"><span class="lbl" style="color:var(--blue)">↳ ${escHtml(d.name)} ÷${nP}</span><span class="val">${fmt(share)}</span></div>`;
+      lines += `<div class="sum-line shared">
+        <span class="lbl" style="color:var(--blue)">↳ ${escHtml(d.name)} ÷${nP}</span>
+        <span style="display:flex;align-items:center;gap:6px">
+          <span class="val">${fmt(share)}</span>
+          <button onclick="unassignDish('${d.id}','shared','${t.g.id}')" title="Quitar de este plato"
+            style="background:none;border:none;font-size:11px;color:var(--t3);cursor:pointer;padding:1px 4px;border-radius:3px;line-height:1">✕</button>
+        </span>
+      </div>`;
     });
-    return `<div class="sum-card ${isMe ? 'me' : ''}">
+
+    const color = GUEST_COLORS[i % GUEST_COLORS.length];
+
+    return `<div class="sum-card ${isMe ? 'me' : ''}" style="${isManual ? 'border-color:var(--amber);border-style:dashed' : ''}">
       <div class="sum-hdr">
         ${avEl(t.g.name, i, 34)}
-        <div class="sum-name">${escHtml(t.g.name)}${isMe ? ' <span style="font-size:11px;color:var(--brand)">(tú)</span>' : ''}</div>
+        <div class="sum-name">
+          ${escHtml(t.g.name)}
+          ${isMe ? '<span style="font-size:11px;color:var(--brand)">(tú)</span>' : ''}
+          ${isManual ? '<span style="font-size:10px;color:var(--amber);background:var(--amber-l);padding:1px 6px;border-radius:99px;margin-left:4px">Manual</span>' : ''}
+        </div>
         <div class="sum-total">${fmt(t.total)}</div>
       </div>
-      ${lines || '<div class="muted" style="font-size:13px">Sin platos asignados</div>'}
+      ${lines || '<div class="muted" style="font-size:12px;color:var(--t3)">Sin platos asignados</div>'}
+      ${unassigned.length > 0 ? `
+        <div style="margin-top:.5rem;padding-top:.5rem;border-top:1px dashed var(--bd)">
+          <div style="font-size:11px;color:var(--t3);margin-bottom:.35rem">Asignar plato pendiente:</div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            ${unassigned.map(d => `
+              <button onclick="assignDishToGuest('${d.id}','${t.g.id}','${d.type}')"
+                style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-size:12px;cursor:pointer;font-family:inherit;text-align:left;gap:8px">
+                <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(d.name)}</span>
+                <span style="color:var(--t3);font-size:11px;flex-shrink:0">${fmt(parseFloat(d.price))} +</span>
+              </button>`).join('')}
+          </div>
+        </div>` : ''}
+      ${isManual ? `
+        <button onclick="removeManualGuest('${t.g.id}')"
+          style="margin-top:.5rem;width:100%;padding:5px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:none;color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit">
+          Quitar persona
+        </button>` : ''}
     </div>`;
   }).join('');
+
+  // Show unassigned dishes section if any
+  if (unassigned.length > 0) {
+    el.innerHTML += `<div style="background:#FAEEDA;border:1px solid #E5A85A;border-radius:var(--r);padding:.75rem 1rem;margin-top:.5rem">
+      <div style="font-size:12px;font-weight:600;color:#854F0B;margin-bottom:.35rem">
+        ⚠️ ${unassigned.length} plato${unassigned.length>1?'s':''} sin asignar
+      </div>
+      <div style="font-size:11px;color:#854F0B;line-height:1.5">
+        Asígnalos desde las tarjetas de arriba, o añade una persona si alguien no escaneó el QR.
+      </div>
+    </div>`;
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -3093,18 +3663,27 @@ async function loadKitchenOrders() {
   const el = document.getElementById('k-mesas-list');
   if (!el) return;
 
-  const { data: rooms } = await sb.from('rooms')
-    .select('id, table_id')
-    .eq('restaurant_id', state.kitchenRestaurantId)
-    .eq('closed', false);
+  const [{ data: rooms }, { data: disabledItems }] = await Promise.all([
+    sb.from('rooms').select('id, table_id').eq('restaurant_id', state.kitchenRestaurantId).eq('closed', false),
+    sb.from('menu_items').select('name').eq('restaurant_id', state.kitchenRestaurantId).eq('active', false)
+  ]);
+
+  // Show disabled dishes warning
+  const warningEl = document.getElementById('k-disabled-warning');
+  const warningText = document.getElementById('k-disabled-warning-text');
+  if (warningEl && disabledItems?.length > 0) {
+    warningEl.style.display = 'flex';
+    warningText.textContent = `⚠️ ${disabledItems.length} plato${disabledItems.length>1?'s':''} desactivado${disabledItems.length>1?'s':''}: ${disabledItems.slice(0,3).map(i=>i.name).join(', ')}${disabledItems.length>3?' y más...':''}`;
+  } else if (warningEl) {
+    warningEl.style.display = 'none';
+  }
 
   if (!rooms?.length) {
     el.innerHTML = `<div style="text-align:center;padding:3rem 1rem;color:var(--t3)">
       <div style="font-size:32px;margin-bottom:.5rem">✅</div>
       <div style="font-size:14px">Todo al día — sin pedidos pendientes</div>
     </div>`;
-    const badge = document.getElementById('k-pedidos-badge');
-    if (badge) badge.style.display = 'none';
+    document.getElementById('k-pedidos-badge')?.style && (document.getElementById('k-pedidos-badge').style.display = 'none');
     return;
   }
 
@@ -3114,7 +3693,7 @@ async function loadKitchenOrders() {
 
   const [{ data: dishes }, { data: tables }, { data: menuItems }] = await Promise.all([
     sb.from('dishes').select('*').in('room_id', roomIds)
-      .in('kitchen_status', ['sent','making','ready']).order('created_at'),
+      .in('kitchen_status', ['sent','making','ready','delivered']).order('created_at'),
     sb.from('tables').select('*').eq('restaurant_id', state.kitchenRestaurantId),
     sb.from('menu_items').select('id,prep_time_minutes').eq('restaurant_id', state.kitchenRestaurantId)
   ]);
@@ -3124,27 +3703,67 @@ async function loadKitchenOrders() {
   const prepByItem = {};
   (menuItems || []).forEach(m => { if (m.prep_time_minutes) prepByItem[m.id] = m.prep_time_minutes; });
 
-  // Update badge
-  const sentCount = (dishes || []).filter(d => d.kitchen_status === 'sent').length;
+  const activeDishes = (dishes || []).filter(d => d.kitchen_status !== 'delivered');
+  const sentCount = activeDishes.filter(d => d.kitchen_status === 'sent').length;
   const badge = document.getElementById('k-pedidos-badge');
-  if (badge) {
-    badge.textContent = sentCount;
-    badge.style.display = sentCount > 0 ? 'inline' : 'none';
-  }
+  if (badge) { badge.textContent = sentCount; badge.style.display = sentCount > 0 ? 'inline' : 'none'; }
 
-  // Sound on new orders
   if (sentCount > _prevNewCount && _prevNewCount >= 0) playKitchenSound();
   _prevNewCount = sentCount;
 
-  if (!dishes?.length) {
-    el.innerHTML = `<div style="text-align:center;padding:3rem 1rem;color:var(--t3)">
+  // Separate: active rooms vs fully-delivered rooms
+  const dishesByRoom = {};
+  (dishes || []).forEach(d => { if (!dishesByRoom[d.room_id]) dishesByRoom[d.room_id] = []; dishesByRoom[d.room_id].push(d); });
+
+  const activeRooms = roomIds.filter(rid => {
+    const rd = dishesByRoom[rid] || [];
+    return rd.some(d => d.kitchen_status !== 'delivered');
+  });
+  const doneRooms = roomIds.filter(rid => {
+    const rd = dishesByRoom[rid] || [];
+    return rd.length > 0 && rd.every(d => d.kitchen_status === 'delivered');
+  });
+
+  if (!activeDishes.length) {
+    el.innerHTML = `<div style="text-align:center;padding:3rem 1rem;color:var(--t3);grid-column:1/-1">
       <div style="font-size:32px;margin-bottom:.5rem">✅</div>
       <div style="font-size:14px">Todo al día</div>
     </div>`;
-    return;
+  } else {
+    renderKitchenPases(el, activeDishes.filter(d => activeRooms.includes(d.room_id)), roomTableMap, tablesById, prepByItem);
   }
 
-  renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem);
+  // Update history
+  const histCount = document.getElementById('k-history-count');
+  if (histCount) histCount.textContent = doneRooms.length;
+
+  // Render history if visible
+  const histList = document.getElementById('k-history-list');
+  if (histList && histList.style.display !== 'none' && doneRooms.length > 0) {
+    renderKitchenHistory(histList, doneRooms, dishesByRoom, roomTableMap, tablesById);
+  }
+}
+
+function renderKitchenHistory(el, doneRooms, dishesByRoom, roomTableMap, tablesById) {
+  el.innerHTML = doneRooms.map(roomId => {
+    const tableId = roomTableMap[roomId];
+    const table = tableId ? tablesById[tableId] : null;
+    const label = table ? `Mesa ${table.number}${table.label?' — '+table.label:''}` : 'Mesa';
+    const rd = dishesByRoom[roomId] || [];
+    return `<div class="card" style="padding:.65rem .85rem;opacity:.75">
+      <div style="font-size:13px;font-weight:500;color:var(--t2);margin-bottom:.25rem">✅ ${label} — completa</div>
+      <div style="font-size:11px;color:var(--t3)">${rd.map(d=>d.name).join(' · ')}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleKitchenHistory() {
+  const list = document.getElementById('k-history-list');
+  const btn = document.getElementById('k-history-toggle');
+  if (!list) return;
+  const isVisible = list.style.display !== 'none';
+  list.style.display = isVisible ? 'none' : 'grid';
+  if (btn) btn.style.opacity = isVisible ? '1' : '.7';
 }
 
 function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
@@ -3807,14 +4426,16 @@ async function waiterLogout() {
 
 // ── TABS CAMARERO ──
 function showWaiterTab(name) {
-  ['mesas','pedido','cobrar'].forEach(t => {
+  ['mesas','pedido','cobrar','propinas'].forEach(t => {
     document.getElementById('wtab-' + t).style.display = t === name ? 'block' : 'none';
   });
   document.querySelectorAll('#s-waiter .tab').forEach((tab, i) => {
-    tab.classList.toggle('on', ['mesas','pedido','cobrar'][i] === name);
+    tab.classList.toggle('on', ['mesas','pedido','cobrar','propinas'][i] === name);
   });
   if (name === 'mesas') loadWaiterMesas();
   if (name === 'cobrar') loadWaiterCobrar();
+  if (name === 'propinas') loadWaiterPropinas();
+  if (name === 'propinas') loadWaiterPropinas();
 }
 
 // ── MESAS ──
@@ -3910,6 +4531,7 @@ async function loadWaiterMesas() {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem">
         <div style="font-size:15px;font-weight:600">${label}</div>
         <div style="display:flex;gap:.35rem;align-items:center">
+          ${room.needs_cleaning ? `<span style="font-size:11px;font-weight:600;color:#854F0B;background:#FAEEDA;padding:2px 8px;border-radius:99px">🧹 Limpiar</span>` : ''}
           ${hasReady ? `<span style="font-size:11px;font-weight:600;color:var(--brand);background:var(--brand-l);padding:2px 8px;border-radius:99px">${readyCount} listo${readyCount>1?'s':''} 🛎</span>` : ''}
           <span style="font-size:11px;color:${allPaid ? '#3B6D11' : 'var(--t2)'}">${allPaid ? '✅ Pagada' : `${pays.length}/${guests.length} pagados`}</span>
         </div>
@@ -3925,10 +4547,13 @@ async function loadWaiterMesas() {
           style="flex:1;padding:7px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg2);color:var(--t1);font-size:12px;cursor:pointer;font-family:inherit">
           💳 Cobrar
         </button>
-        <button onclick="adminCloseTable('${room.id}')"
+        ${room.needs_cleaning ? `<button onclick="confirmTableClean('${room.id}')"
+          style="padding:7px 10px;border-radius:var(--r-sm);border:none;background:#FAEEDA;color:#854F0B;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500">
+          🧹 Limpia
+        </button>` : `<button onclick="adminCloseTable('${room.id}')"
           style="padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit">
           ✕
-        </button>
+        </button>`}
       </div>
     </div>`;
   }).join('');
@@ -4497,47 +5122,53 @@ function adminLogout() {
 function showAdminTab(name) {
   ['encurso','gestion','cocina','reservas','reportes'].forEach(t => {
     const el = document.getElementById('atab-' + t);
-    if (!el) return;
-    el.style.display = t === name ? 'flex' : 'none';
+    if (el) el.style.display = t === name ? 'flex' : 'none';
   });
-  document.querySelectorAll('#s-admin .tab-bar > .tab').forEach((tab, i) => {
-    tab.classList.toggle('on', ['encurso','gestion','cocina','reservas','reportes'][i] === name);
+  // Update sidebar nav
+  document.querySelectorAll('.adm-nav').forEach(btn => {
+    btn.classList.toggle('on', btn.dataset.tab === name);
   });
-  if (name === 'encurso') loadEncurso();
-  if (name === 'gestion') initGestionTab();
+  // Update mobile bottom tabs
+  document.querySelectorAll('.adm-mob-tab').forEach(btn => {
+    btn.classList.toggle('on', btn.dataset.tab === name);
+  });
+  // Load data for active tab
+  if (name === 'encurso') { loadEncurso(); loadCalleatQueue(); subscribeCalleatRealtime(); }
+  if (name === 'gestion') { initGestionTab(); setTimeout(updateDisabledPlatosCount, 500); }
   if (name === 'cocina') loadAdminOrders();
   if (name === 'reservas') initReservasTab();
   if (name === 'reportes') { loadKPIs(); showReportesTab('kpis'); }
+  // Populate sidebar restaurant name if available
+  const restLabel = document.getElementById('admin-restaurant-label');
+  const userInfo = document.getElementById('admin-user-info');
+  if (restLabel && state.restaurantName) restLabel.textContent = escHtml(state.restaurantName);
+  if (userInfo && state.adminEmail) userInfo.textContent = escHtml(state.adminEmail);
 }
 
 function initGestionTab() {
-  const isDesktop = window.innerWidth >= 600;
-  const cols = document.getElementById('gestion-cols');
-  const subBar = document.getElementById('gestion-subtab-bar');
-  const gtabCarta = document.getElementById('gtab-carta');
-  const gtabMesas = document.getElementById('gtab-mesas');
-  const gtabCamareros = document.getElementById('gtab-camareros');
-
-  if (isDesktop) {
-    // Show 3 columns, hide subtab bar and mobile single views
-    if (cols) cols.style.display = 'grid';
-    if (subBar) subBar.style.display = 'none';
-    if (gtabCarta) gtabCarta.style.display = 'none';
-    if (gtabMesas) gtabMesas.style.display = 'none';
-    if (gtabCamareros) gtabCamareros.style.display = 'none';
-  } else {
-    // Show subtab bar and default to carta
-    if (cols) cols.style.display = 'none';
-    if (subBar) subBar.style.display = 'flex';
-    showGestionTab('carta');
-  }
-  // Load data
-  loadAdminCarta();
-  loadAdminTables();
+  // New: Ajustes panel — just load disabled count for the subtitle
+  loadAdminCarta(); // loads the carta data for disabled count
+  loadAdminTables(); // for desktop cols if needed
   loadAdminWaiters();
+  // Update disabled platos count
+  updateDisabledPlatosCount();
+}
+
+async function updateDisabledPlatosCount() {
+  const el = document.getElementById('carta-disabled-count');
+  if (!el || !state.adminRestaurantId) return;
+  const { data } = await sb.from('menu_items')
+    .select('id', { count: 'exact' })
+    .eq('restaurant_id', state.adminRestaurantId)
+    .eq('active', false);
+  const count = data?.length || 0;
+  el.textContent = count > 0 ? `⚠️ ${count} desactivado${count > 1 ? 's' : ''}` : '';
 }
 
 function showGestionTab(name) {
+  // Legacy function — now routes to openAjustesSection
+  openAjustesSection(name === 'carta' ? 'carta' : name === 'mesas' ? 'mesas' : 'camareros');
+  // Keep old selectors for compat
   ['carta','mesas','camareros'].forEach(t => {
     const el = document.getElementById('gtab-' + t);
     if (el) el.style.display = t === name ? 'block' : 'none';
@@ -4776,7 +5407,7 @@ async function loadAdminWaitersMobile() {
 }
 
 function showReportesTab(name) {
-  ['kpis','platos','historial','propinas','pagos','perfil'].forEach(t => {
+  ['kpis','platos','historial','propinas','pagos'].forEach(t => {
     const el = document.getElementById('rtab-' + t);
     if (el) el.style.display = t === name ? 'block' : 'none';
     const btn = document.getElementById('rtab-btn-' + t);
@@ -4787,12 +5418,266 @@ function showReportesTab(name) {
   if (name === 'historial') loadHistorial();
   if (name === 'propinas') loadPropinas();
   if (name === 'pagos') { loadPagosRecientes(); loadStripeStatus(); }
-  if (name === 'perfil') loadRestaurantProfile();
+}
+
+function setKpiPeriod(val) {
+  const sel = document.getElementById('kpi-filter');
+  if (sel) sel.value = val;
+  document.querySelectorAll('.kpi-period-btn').forEach(btn => {
+    btn.classList.toggle('on', btn.dataset.val == val);
+  });
+  loadKPIs();
+}
+
+function toggleMargenInfo() {
+  const el = document.getElementById('margen-info');
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+// ── Ajustes panel navigation ──
+function openAjustesSection(section) {
+  const panel = document.getElementById('ajustes-panel');
+  const title = document.getElementById('ajustes-panel-title');
+  const content = document.getElementById('ajustes-panel-content');
+  const list = document.querySelector('#atab-gestion > div:nth-child(2)'); // settings list
+  if (!panel || !content) return;
+
+  const titles = {
+    carta: 'Gestionar carta', importar: 'Importar con IA', costes: 'Costes por plato',
+    mesas: 'Gestionar mesas', camareros: 'Camareros',
+    perfil: 'Perfil del restaurante', 'reservas-config': 'Configuración de reservas'
+  };
+  if (title) title.textContent = titles[section] || section;
+
+  // Hide settings list, show panel
+  if (list) list.style.display = 'none';
+  panel.style.display = 'flex';
+  panel.style.flexDirection = 'column';
+
+  // Render section content
+  if (section === 'carta') {
+    content.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+        <div style="font-size:14px;font-weight:600">Platos de la carta</div>
+        <div style="display:flex;gap:.4rem">
+          <button class="btn btn-secondary btn-sm" onclick="showImportCartaModal()">🤖 IA</button>
+          <button class="btn btn-primary btn-sm" onclick="showAddItemFormInline()">+ Añadir</button>
+        </div>
+      </div>
+      <div id="add-item-form-inline" style="display:none" class="card" style="margin-bottom:.75rem">
+        <div class="field"><label>Nombre del plato</label><input id="ai-name" type="text" placeholder="ej. Tortilla española" autocomplete="off"></div>
+        <div style="display:flex;gap:.5rem">
+          <div class="field" style="flex:1;margin:0"><label>Precio €</label><input id="ai-price" type="number" step="0.01" placeholder="12.50" autocomplete="off"></div>
+          <div class="field" style="flex:1;margin:0"><label>Categoría</label>
+            <select id="ai-cat" style="width:100%;padding:12px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-size:14px;font-family:inherit;background:var(--card)">
+              <option value="entrantes">Entrantes</option><option value="principales">Principales</option>
+              <option value="postres">Postres</option><option value="bebidas">Bebidas</option><option value="otros">Otros</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="margin-top:.5rem"><label>⏱ Tiempo prep. (min)</label><input id="ai-prep" type="number" min="0" max="120" placeholder="15" autocomplete="off"></div>
+        <div class="toggle" style="margin:.25rem 0">
+          <span style="font-size:13px;color:var(--t2)">Plato compartido (se divide entre comensales)</span>
+          <div class="toggle-track" id="ai-shared-track" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></div>
+        </div>
+        <div class="field" style="margin-top:.35rem">
+          <label>Alérgenos</label>
+          <div id="ai-allergens-area" style="display:flex;flex-wrap:wrap;gap:2px;padding:8px;border:1px solid var(--bd2);border-radius:var(--r-sm);min-height:36px;cursor:pointer">
+            <span style="font-size:11px;color:var(--t3)">Ninguno seleccionado</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:.5rem;margin-top:.5rem">
+          <button class="btn btn-primary btn-sm" onclick="saveMenuItemInline()">Guardar</button>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('add-item-form-inline').style.display='none'">Cancelar</button>
+        </div>
+      </div>
+      <div id="ajustes-carta-list"><div style="text-align:center;padding:2rem;color:var(--t3)">Cargando...</div></div>`;
+    loadAdminCartaInline();
+  } else if (section === 'mesas') {
+    content.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+        <div style="font-size:14px;font-weight:600">Mesas del restaurante</div>
+        <button class="btn btn-primary btn-sm" onclick="addTable()">+ Mesa</button>
+      </div>
+      <div id="ajustes-mesas-list"><div style="text-align:center;padding:2rem;color:var(--t3)">Cargando...</div></div>`;
+    loadAdminTablesInline();
+  } else if (section === 'camareros') {
+    content.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+        <div style="font-size:14px;font-weight:600">Equipo</div>
+        <button class="btn btn-primary btn-sm" onclick="showAddWaiterFormAjustes()">+ Camarero</button>
+      </div>
+      <div id="add-waiter-form-ajustes" style="display:none" class="card">
+        <div class="field"><label>Nombre</label><input id="awf-name" type="text" placeholder="ej. Carlos" autocomplete="off"></div>
+        <div class="field"><label>Email</label><input id="awf-email" type="email" placeholder="carlos@restaurante.com" autocomplete="off"></div>
+        <div class="field"><label>Contraseña temporal</label><input id="awf-password" type="password" placeholder="mín. 6 caracteres" autocomplete="new-password"></div>
+        <div style="display:flex;gap:.5rem;margin-top:.5rem">
+          <button class="btn btn-primary btn-sm" onclick="saveWaiterAjustes()">Guardar</button>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('add-waiter-form-ajustes').style.display='none'">Cancelar</button>
+        </div>
+      </div>
+      <div id="ajustes-waiters-list"><div style="text-align:center;padding:2rem;color:var(--t3)">Cargando...</div></div>`;
+    loadAdminWaitersInline();
+  } else if (section === 'perfil') {
+    content.innerHTML = renderPerfilContent();
+    loadRestaurantProfile();
+  } else if (section === 'costes') {
+    renderCostesSection(content);
+  } else {
+    content.innerHTML = `<div class="notice notice-warn">Sección "${titles[section]}" — próximamente</div>`;
+  }
+}
+
+function closeAjustesPanel() {
+  const panel = document.getElementById('ajustes-panel');
+  const list = document.querySelector('#atab-gestion > div:nth-child(2)');
+  if (panel) panel.style.display = 'none';
+  if (list) list.style.display = 'block';
+  // Refresh disabled count
+  loadAdminCarta();
+}
+
+function renderPerfilContent() {
+  return `
+    <div class="field"><label>Nombre del restaurante / razón social *</label>
+      <input id="prf-name" type="text" placeholder="Taberna El Marino" autocomplete="organization"></div>
+    <div class="field"><label>NIF / CIF *</label>
+      <input id="prf-nif" type="text" placeholder="B12345678"></div>
+    <div class="field"><label>Dirección *</label>
+      <input id="prf-dir" type="text" placeholder="Calle Mayor 1, Madrid"></div>
+    <div class="field"><label>Teléfono</label>
+      <input id="prf-tel" type="tel" placeholder="+34 91 123 45 67"></div>
+    <div class="field"><label>Email de contacto</label>
+      <input id="prf-email" type="email" placeholder="info@restaurante.com"></div>
+    <div class="field"><label>Web (opcional)</label>
+      <input id="prf-web" type="url" placeholder="https://..."></div>
+    <div class="field"><label>Número de serie para facturas</label>
+      <input id="prf-invoice-prefix" type="text" placeholder="FAC-2024-"></div>
+    <div class="field"><label>Tipo de IVA aplicado</label>
+      <select id="prf-iva" style="width:100%;padding:12px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-size:15px;font-family:inherit;background:var(--card)">
+        <option value="10">10% (restauración)</option>
+        <option value="21">21% (general)</option>
+        <option value="0">0% (exento)</option>
+      </select></div>
+    <div class="field"><label>Aforo máximo</label>
+      <input id="prf-capacity" type="number" placeholder="50"></div>
+    <div class="field"><label>URL de reservas</label>
+      <div style="display:flex;align-items:center;border:1px solid var(--bd2);border-radius:var(--r-sm);overflow:hidden">
+        <span style="padding:10px;background:var(--bg2);font-size:13px;color:var(--t3);white-space:nowrap;border-right:1px solid var(--bd2)">spliteat.es/reservar?r=</span>
+        <input id="prf-slug" type="text" placeholder="taberna-el-marino" style="flex:1;padding:10px;border:none;font-size:14px;font-family:inherit;outline:none;background:var(--card)">
+      </div></div>
+    <div id="prf-booking-url" style="display:none;font-size:12px;color:var(--brand);background:var(--brand-l);padding:.5rem .75rem;border-radius:var(--r-sm);margin-bottom:.5rem">
+      🔗 <span id="prf-booking-url-txt"></span>
+      <button onclick="copyBookingUrl()" style="margin-left:8px;font-size:11px;background:none;border:none;color:var(--brand);cursor:pointer;font-family:inherit">Copiar</button>
+    </div>
+    <button class="btn btn-primary mt" onclick="saveRestaurantProfile()">Guardar cambios</button>
+    <div id="prf-ok" style="display:none;color:var(--brand);font-size:13px;margin-top:.5rem;text-align:center">✓ Guardado</div>`;
+}
+
+async function renderCostesSection(container) {
+  container.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3)">Cargando...</div>';
+  const { data: items } = await sb.from('menu_items').select('id,name,price,cost_price,category')
+    .eq('restaurant_id', state.adminRestaurantId).eq('active', true).order('category').order('name');
+  if (!items?.length) { container.innerHTML = '<div class="notice">No hay platos activos</div>'; return; }
+
+  const cats = [...new Set(items.map(i => i.category || 'otros'))];
+  let html = `<div style="font-size:12px;color:var(--t2);margin-bottom:1rem;line-height:1.5;background:var(--bg2);padding:.65rem;border-radius:var(--r-sm)">
+    Introduce el coste de materia prima por plato. El margen se calculará automáticamente en el Dashboard → Resumen.
+  </div>`;
+  cats.forEach(cat => {
+    const catItems = items.filter(i => (i.category || 'otros') === cat);
+    html += `<div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin:.85rem 0 .35rem">${cat}</div>`;
+    catItems.forEach(item => {
+      const margin = item.cost_price ? Math.round((1 - item.cost_price/item.price)*100) : null;
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:.5rem 0;border-bottom:1px solid var(--bd)">
+        <div style="flex:1;font-size:13px;font-weight:500">${escHtml(item.name)}</div>
+        <div style="font-size:12px;color:var(--t3)">${fmt(parseFloat(item.price))}</div>
+        <div style="display:flex;align-items:center;gap:4px">
+          <span style="font-size:11px;color:var(--t3)">Coste:</span>
+          <input type="number" step="0.01" min="0" value="${item.cost_price||''}" placeholder="0.00"
+            style="width:64px;padding:5px 7px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-size:13px;font-family:inherit;text-align:right"
+            onchange="saveCostPrice('${item.id}',this.value)"
+            onfocus="this.style.borderColor='var(--brand)'" onblur="this.style.borderColor='var(--bd2)'">
+          ${margin !== null ? `<span style="font-size:11px;font-weight:600;color:${margin>60?'var(--brand)':margin>30?'var(--amber)':'#A32D2D'}">${margin}%</span>` : ''}
+        </div>
+      </div>`;
+    });
+  });
+  container.innerHTML = html;
+}
+
+async function saveCostPrice(itemId, value) {
+  const cost = parseFloat(value) || null;
+  await sb.from('menu_items').update({ cost_price: cost }).eq('id', itemId);
 }
 
 // ══════════════════════════════════════════════════════
 // KPI PLATOS — tiempos reales vs estimados
 // ══════════════════════════════════════════════════════
+async function loadMargenKPIs() {
+  const el = document.getElementById('kpi-margen-list');
+  if (!el || !state.adminRestaurantId) return;
+  const { data: items } = await sb.from('menu_items')
+    .select('name,price,cost_price,category')
+    .eq('restaurant_id', state.adminRestaurantId)
+    .eq('active', true)
+    .not('cost_price', 'is', null)
+    .order('category');
+  if (!items?.length) {
+    el.innerHTML = '<div style="text-align:center;padding:1rem;font-size:12px;color:var(--t3)">Añade costes en Ajustes → Costes por plato</div>';
+    return;
+  }
+  const withMargin = items.map(i => ({ ...i, margin: Math.round((1 - i.cost_price/i.price)*100) }))
+    .sort((a,b) => b.margin - a.margin);
+  el.innerHTML = withMargin.map(item => {
+    const c = item.margin > 60 ? 'var(--brand)' : item.margin > 30 ? 'var(--amber)' : '#A32D2D';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:.5rem 0;border-bottom:1px solid var(--bd)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500">${escHtml(item.name)}</div>
+        <div style="height:4px;background:var(--bg2);border-radius:2px;margin-top:4px;overflow:hidden">
+          <div style="height:100%;background:${c};width:${Math.max(4,Math.min(100,item.margin))}%"></div>
+        </div>
+      </div>
+      <span style="font-size:13px;font-weight:600;color:${c}">${item.margin}%</span>
+      <span style="font-size:11px;color:var(--t3)">${fmt(parseFloat(item.price))}</span>
+    </div>`;
+  }).join('');
+}
+
+async function loadWaiterPropinas() {
+  const el = document.getElementById('waiter-propinas-list');
+  const amtEl = document.getElementById('waiter-propinas-amount');
+  if (!el || !_waiterId) return;
+  const days = document.getElementById('waiter-propinas-filter')?.value || '7';
+  let dateFilter = null;
+  if (days === '0') { const t = new Date(); t.setHours(0,0,0,0); dateFilter = t.toISOString(); }
+  else if (days !== 'all') dateFilter = new Date(Date.now() - parseInt(days)*86400000).toISOString();
+
+  // Get rooms assigned to this waiter in period
+  let q = sb.from('rooms').select('id,created_at,table_id').eq('assigned_waiter_id', _waiterId).eq('closed', true);
+  if (dateFilter) q = q.gte('created_at', dateFilter);
+  const { data: rooms } = await q;
+  if (!rooms?.length) { el.innerHTML = '<div class="empty"><div class="empty-text">Sin propinas en este período</div></div>'; if (amtEl) amtEl.textContent = '0,00€'; return; }
+
+  const roomIds = rooms.map(r => r.id);
+  const { data: tips } = await sb.from('payments').select('tip_amount,guest_id,room_id').in('room_id', roomIds);
+  const total = (tips||[]).reduce((s,p) => s + parseFloat(p.tip_amount||0), 0);
+  if (amtEl) amtEl.textContent = fmt(total);
+
+  // Group by room
+  const tipsByRoom = {};
+  (tips||[]).forEach(p => { if (!tipsByRoom[p.room_id]) tipsByRoom[p.room_id]=0; tipsByRoom[p.room_id]+=parseFloat(p.tip_amount||0); });
+
+  el.innerHTML = rooms.filter(r => tipsByRoom[r.id] > 0).map(r => {
+    const d = new Date(r.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short'});
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:.5rem 0;border-bottom:1px solid var(--bd)">
+      <div style="font-size:13px;color:var(--t2)">${d}</div>
+      <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:#633806">${fmt(tipsByRoom[r.id])}</div>
+    </div>`;
+  }).join('') || '<div style="text-align:center;padding:1rem;color:var(--t3);font-size:13px">Sin propinas registradas</div>';
+}
+
+
 async function loadKPIPlatos() {
   const el = document.getElementById('kpi-platos-list');
   if (!el) return;
@@ -5125,22 +6010,179 @@ function hideAddItemForm() {
   ['ai-name','ai-price'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
 }
 
-async function saveMenuItem() {
-  const name = document.getElementById('ai-name').value.trim();
-  const price = parseFloat(document.getElementById('ai-price').value);
-  const cat = document.getElementById('ai-cat').value;
-  const isShared = document.getElementById('ai-shared-track').classList.contains('on');
-  const prepTime = parseInt(document.getElementById('ai-prep')?.value) || null;
-  if (!name || isNaN(price) || price <= 0) { notify('Rellena nombre y precio correctamente.'); return; }
+function showAddItemFormInline() {
+  const f = document.getElementById('add-item-form-inline');
+  if (f) f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+
+async function saveMenuItemInline() {
+  const name = document.getElementById('ai-name')?.value?.trim();
+  const price = parseFloat(document.getElementById('ai-price')?.value);
+  const cat = document.getElementById('ai-cat')?.value;
+  const prep = parseInt(document.getElementById('ai-prep')?.value) || null;
+  const isShared = document.getElementById('ai-shared-track')?.classList.contains('on');
+  if (!name || isNaN(price)) { notify('Nombre y precio son obligatorios', 'error'); return; }
   const { error } = await sb.from('menu_items').insert({
     restaurant_id: state.adminRestaurantId, name, price, category: cat,
-    is_shared: isShared, active: true,
-    ...(prepTime ? { prep_time_minutes: prepTime } : {})
+    prep_time_minutes: prep, is_shared: isShared, active: true
   });
-  if (error) { notify('Error: ' + (error.message || error)); return; }
-  hideAddItemForm();
-  loadAdminCarta();
+  if (error) { notify('Error: ' + error.message); return; }
+  document.getElementById('add-item-form-inline').style.display = 'none';
+  ['ai-name','ai-price','ai-prep'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  loadAdminCartaInline();
+  track('menu_item_added', { restaurant_id: state.adminRestaurantId, name });
 }
+
+async function loadAdminCartaInline() {
+  const el = document.getElementById('ajustes-carta-list');
+  if (!el) { loadAdminCarta(); return; }
+  const { data } = await sb.from('menu_items').select('*')
+    .eq('restaurant_id', state.adminRestaurantId).order('category').order('name');
+  if (!data?.length) { el.innerHTML = '<div class="empty"><div class="empty-text">No hay platos. Añade el primero.</div></div>'; return; }
+
+  const cats = ['entrantes','principales','postres','bebidas','otros'];
+  const grouped = {};
+  data.forEach(item => { const c = item.category||'otros'; if(!grouped[c]) grouped[c]=[]; grouped[c].push(item); });
+
+  const disabled = data.filter(d => !d.active).length;
+  let html = '';
+  if (disabled > 0) {
+    html += `<div style="background:#FAEEDA;border:1px solid #E5A85A;border-radius:var(--r-sm);padding:.65rem .85rem;font-size:12px;color:#854F0B;margin-bottom:.75rem">
+      ⚠️ ${disabled} plato${disabled>1?'s':''} desactivado${disabled>1?'s':''}. Reactívalos cuando tengas disponibilidad.</div>`;
+  }
+  cats.forEach(cat => {
+    if (!grouped[cat]) return;
+    html += `<div class="sec-label" style="text-transform:capitalize;margin-top:.5rem">${cat}</div>`;
+    grouped[cat].forEach(item => {
+      const marginStr = item.cost_price ? ` · 💹 ${Math.round((1-item.cost_price/item.price)*100)}%` : '';
+      const allergenHtml = item.allergens?.length ? `<details style="margin-top:.35rem"><summary style="font-size:11px;color:var(--t3);cursor:pointer">Alérgenos (${item.allergens.length})</summary><div style="margin-top:.35rem;line-height:2">${renderAllergenPicker(item.allergens,'${item.id}')}</div></details>` : `<details style="margin-top:.35rem"><summary style="font-size:11px;color:var(--t3);cursor:pointer">+ Añadir alérgenos</summary><div style="margin-top:.35rem;line-height:2">${renderAllergenPicker([],'${item.id}')}</div></details>`;
+      html += `<div class="card" style="margin-bottom:.4rem;padding:.65rem .75rem;${!item.active?'opacity:.6':''}">
+        <div style="display:flex;align-items:center;gap:8px">
+          ${item.photo_url ? `<img src="${item.photo_url}" style="width:40px;height:40px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0">` : ''}
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:500">${escHtml(item.name)}</div>
+            <div style="font-size:11px;color:var(--t2)">${fmt(parseFloat(item.price))}${item.prep_time_minutes?' · ⏱'+item.prep_time_minutes+'m':''}${marginStr}${!item.active?' · <span style="color:var(--accent)">Inactivo</span>':''}</div>
+            ${item.allergens?.length ? getAllergenIcons(item.allergens) : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+            <div class="toggle-track ${item.active?'on':''}" onclick="toggleItemActive('${item.id}',${!item.active},this)"><div class="toggle-thumb"></div></div>
+            <button onclick="deleteItem('${item.id}')" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer">✕</button>
+          </div>
+        </div>
+      </div>`;
+    });
+  });
+  el.innerHTML = html;
+}
+
+async function loadAdminTablesInline() {
+  const el = document.getElementById('ajustes-mesas-list');
+  if (!el) return;
+  const { data: tables } = await sb.from('tables').select('*').eq('restaurant_id', state.adminRestaurantId).order('number');
+  const { data: rooms } = await sb.from('rooms').select('table_id').eq('restaurant_id', state.adminRestaurantId).eq('closed', false);
+  const activeTableIds = new Set((rooms||[]).map(r => r.table_id));
+  if (!tables?.length) { el.innerHTML = '<div class="notice">No hay mesas. Añade la primera.</div>'; return; }
+  el.innerHTML = tables.map(t => {
+    const isActive = activeTableIds.has(t.id);
+    return `<div class="card" style="margin-bottom:.4rem;padding:.65rem .85rem">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:14px;font-weight:500">Mesa ${escHtml(String(t.number))}${t.label?' — '+escHtml(t.label):''}</div>
+          <span style="font-size:11px;padding:2px 8px;border-radius:99px;${isActive?'background:var(--brand-l);color:var(--brand)':'background:var(--bg2);color:var(--t3)'}">${isActive?'● Activa':'Libre'}</span>
+        </div>
+        <div style="display:flex;gap:5px">
+          <button onclick="showQR('${t.id}','${state.adminRestaurantId}',${t.number},'${t.label||''}')" class="btn btn-secondary btn-sm">QR</button>
+          <button onclick="deleteTable('${t.id}')" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:14px;cursor:pointer">✕</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function addTable() {
+  const number = prompt('Número de mesa:');
+  if (!number) return;
+  const label = prompt('Zona (opcional, ej: "Terraza"):') || '';
+  const { error } = await sb.from('tables').insert({
+    restaurant_id: state.adminRestaurantId,
+    number: parseInt(number) || number,
+    label: label || null
+  });
+  if (error) { notify('Error: ' + error.message); return; }
+  loadAdminTablesInline();
+  loadAdminTables(); // refresh floor plan too
+}
+
+async function deleteTable(tableId) {
+  if (!confirm('¿Eliminar esta mesa?')) return;
+  await sb.from('tables').delete().eq('id', tableId);
+  loadAdminTablesInline();
+  loadAdminTables();
+}
+
+async function loadAdminWaitersInline() {
+  const el = document.getElementById('ajustes-waiters-list');
+  if (!el) return;
+  const { data: waiters } = await sb.from('waiters').select('*').eq('restaurant_id', state.adminRestaurantId).eq('active', true).order('name');
+  if (!waiters?.length) { el.innerHTML = '<div class="notice">No hay camareros. Añade el primero.</div>'; return; }
+  el.innerHTML = waiters.map(w => `
+    <div class="card" style="margin-bottom:.4rem;padding:.65rem .85rem">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:14px;font-weight:500">${escHtml(w.name)}</div>
+          <div style="font-size:12px;color:var(--t2)">${escHtml(w.email||'')} · ${w.is_active?'<span style="color:var(--brand)">● Activo</span>':'<span style="color:var(--t3)">Inactivo</span>'}</div>
+        </div>
+        <div style="display:flex;gap:4px">
+          <button onclick="promptResetWaiterPwd('${w.id}','${escHtml(w.name)}')" style="padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit">🔑 Contraseña</button>
+          <button onclick="deleteWaiter('${w.id}')" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer">✕</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function showAddWaiterFormAjustes() {
+  const f = document.getElementById('add-waiter-form-ajustes');
+  if (f) f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+
+async function saveWaiterAjustes() {
+  const name = document.getElementById('awf-name')?.value?.trim();
+  const email = document.getElementById('awf-email')?.value?.trim();
+  const password = document.getElementById('awf-password')?.value;
+  if (!name) { notify('Escribe el nombre del camarero'); return; }
+  if (!email || !email.includes('@')) { notify('Introduce un email válido'); return; }
+  if (!password || password.length < 6) { notify('La contraseña debe tener mínimo 6 caracteres'); return; }
+  const { data: existing } = await sb.from('waiters').select('id').eq('email', email).maybeSingle();
+  if (existing) { notify('Ya existe un empleado con ese email'); return; }
+  const { error } = await sb.from('waiters').insert({
+    restaurant_id: state.adminRestaurantId, name, email, password, active: true, is_active: false
+  });
+  if (error) { notify('Error al guardar: ' + error.message); return; }
+  document.getElementById('add-waiter-form-ajustes').style.display = 'none';
+  loadAdminWaitersInline();
+  track('waiter_created', { restaurant_id: state.adminRestaurantId });
+}
+
+async function promptResetWaiterPwd(waiterId, waiterName) {
+  const newPwd = prompt(`Nueva contraseña para ${waiterName} (mín. 6 caracteres):`);
+  if (!newPwd) return;
+  if (newPwd.length < 6) { notify('La contraseña debe tener mínimo 6 caracteres'); return; }
+  const { error } = await sb.from('waiters').update({ password: newPwd, password_hash: null }).eq('id', waiterId);
+  if (error) { notify('Error al actualizar: ' + error.message); return; }
+  showToast('✓ Contraseña actualizada', `Comunícasela a ${waiterName}`);
+}
+
+async function deleteWaiter(waiterId) {
+  if (!confirm('¿Eliminar este camarero? Esta acción no se puede deshacer.')) return;
+  await sb.from('waiters').update({ active: false }).eq('id', waiterId);
+  loadAdminWaitersInline();
+}
+
+async function saveMenuItem() {
+  return saveMenuItemInline();
+}
+
+
 
 async function loadAdminTables() {
   const { data: tables } = await sb.from('tables').select('*')
@@ -5208,7 +6250,33 @@ async function adminOpenTable(tableId, tableNum, tableLabel) {
   loadAdminTables();
 }
 
+// ── Table cleaning flow ──
+async function requestTableCleaning(roomId, tableLabel) {
+  await sb.from('rooms').update({ needs_cleaning: true, cleaning_requested_at: new Date().toISOString() }).eq('id', roomId);
+  // Notify all active waiters
+  const { data: waiters } = await sb.from('waiters')
+    .select('id').eq('restaurant_id', state.adminRestaurantId).eq('is_active', true);
+  showToast('🧹 Limpieza solicitada', tableLabel + ' necesita limpieza');
+  loadFloorPlan();
+}
+
+async function confirmTableClean(roomId) {
+  await sb.from('rooms').update({ needs_cleaning: false, cleaned_at: new Date().toISOString() }).eq('id', roomId);
+  showToast('✓ Mesa limpia', 'Lista para recibir nuevos comensales');
+  loadFloorPlan();
+  if (_waiterRestaurantId) loadWaiterMesas();
+}
+
 async function adminCloseTable(roomId) {
+  // Mark as needs cleaning before closing
+  await sb.from('rooms').update({ needs_cleaning: true, closed: true, closed_at: new Date().toISOString() }).eq('id', roomId);
+  // Notify active waiters for cleaning
+  loadFloorPlan();
+  loadEncurso();
+  showToast('🧹 Mesa cerrada', 'Solicita limpieza a los camareros');
+}
+
+async function _originalCloseTable_unused(roomId) {
   // Check payment status before allowing close
   const [{ data: guests }, { data: payments }] = await Promise.all([
     sb.from('guests').select('id').eq('room_id', roomId),
@@ -6368,7 +7436,7 @@ function updateEncursoBadge(count) {
 // REPORTES — KPIs
 // ══════════════════════════════════════════════════════
 async function loadKPIs() {
-  const days = document.getElementById('kpi-filter')?.value || '7';
+  const days = document.getElementById('kpi-filter')?.value ?? '0'; // default: today
   const loadingEl = document.getElementById('kpi-loading');
   if (loadingEl) loadingEl.style.display = 'block';
 
@@ -7459,6 +8527,490 @@ function updateOnlineStatus() {
 window.addEventListener('online', updateOnlineStatus);
 window.addEventListener('offline', updateOnlineStatus);
 updateOnlineStatus();
+
+
+// ══════════════════════════════════════════════════════
+// CALLEAT — Cola virtual de espera
+// ══════════════════════════════════════════════════════
+let _calleatState = {
+  restaurantId: null,
+  entryId: null,
+  position: null,
+  pax: 2,
+  sub: null,
+  countdownTimer: null,
+};
+
+function openCalleat(restaurantId) {
+  _calleatState.restaurantId = restaurantId;
+  showCalleatArea('form');
+  go('s-calleat');
+}
+
+function selectCalleatPax(n) {
+  _calleatState.pax = n;
+  document.querySelectorAll('.pax-btn').forEach(btn => {
+    btn.classList.toggle('sel', parseInt(btn.dataset.n) === n || (n >= 6 && btn.dataset.n === '6'));
+  });
+}
+
+async function joinCalleatQueue() {
+  const name = document.getElementById('calleat-name')?.value?.trim();
+  if (!name) { notify('Introduce tu nombre', 'error'); return; }
+  if (!_calleatState.pax) { notify('Selecciona el número de personas', 'error'); return; }
+
+  const btn = document.getElementById('calleat-join-btn') || document.querySelector('#calleat-form-area .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Apuntando...'; }
+
+  // Get push subscription for notifications
+  let pushSub = null;
+  try { pushSub = await getPushSubscriptionJson(); } catch(e) {}
+
+  const { data: entry, error } = await sb.from('calleat_queue').insert({
+    restaurant_id: _calleatState.restaurantId,
+    name,
+    pax: _calleatState.pax,
+    status: 'waiting',
+    push_subscription: pushSub,
+    joined_at: new Date().toISOString()
+  }).select().single();
+
+  if (error || !entry) {
+    notify('Error al apuntarte. Inténtalo de nuevo.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Apuntarme →'; }
+    return;
+  }
+
+  _calleatState.entryId = entry.id;
+  track('calleat_joined', { restaurant_id: _calleatState.restaurantId, pax: _calleatState.pax });
+  subscribeCalleatPosition();
+  showCalleatArea('waiting');
+  requestNotificationPermission();
+}
+
+function subscribeCalleatPosition() {
+  if (_calleatState.sub) sb.removeChannel(_calleatState.sub);
+  _calleatState.sub = sb.channel('calleat-' + _calleatState.entryId)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'calleat_queue',
+        filter: `id=eq.${_calleatState.entryId}` }, (payload) => {
+      const entry = payload.new;
+      if (entry.status === 'called') {
+        showCalleatArea('ready');
+        haptic([200, 100, 200, 100, 300]);
+        playGuestSound('ready');
+        document.getElementById('calleat-table-label').textContent =
+          entry.table_label ? `📍 ${entry.table_label}` : '📍 Mesa asignada — acércate a la entrada';
+        startCalleatCountdown(5 * 60);
+      } else if (entry.status === 'confirmed' || entry.status === 'cancelled') {
+        go('s0');
+      }
+    }).subscribe();
+
+  // Also poll position every 30s
+  updateCalleatPosition();
+  setInterval(updateCalleatPosition, 30000);
+}
+
+async function updateCalleatPosition() {
+  if (!_calleatState.restaurantId || !_calleatState.entryId) return;
+  const { data: myEntry } = await sb.from('calleat_queue')
+    .select('position_in_queue,pax,joined_at,status')
+    .eq('id', _calleatState.entryId).maybeSingle();
+  if (!myEntry) return;
+  if (myEntry.status === 'called') return; // handled by realtime
+
+  const { count } = await sb.from('calleat_queue')
+    .select('id', { count: 'exact' })
+    .eq('restaurant_id', _calleatState.restaurantId)
+    .eq('status', 'waiting')
+    .lt('joined_at', myEntry.joined_at);
+
+  const ahead = count || 0;
+  const posEl = document.getElementById('calleat-position');
+  const aheadEl = document.getElementById('calleat-ahead-text');
+  const waitEl = document.getElementById('calleat-est-wait');
+  if (posEl) posEl.textContent = ahead + 1;
+  if (aheadEl) aheadEl.textContent = ahead === 0 ? '¡Eres el siguiente!' : `${ahead} grupo${ahead !== 1 ? 's' : ''} delante`;
+  const estMin = ahead * 15; // estimate 15 min/table
+  if (waitEl) waitEl.textContent = estMin > 0 ? `Tiempo estimado: ~${estMin} min` : 'Preparando tu mesa...';
+  _calleatState.position = ahead + 1;
+}
+
+function startCalleatCountdown(seconds) {
+  let remaining = seconds;
+  if (_calleatState.countdownTimer) clearInterval(_calleatState.countdownTimer);
+  const fill = document.getElementById('calleat-countdown-fill');
+  const text = document.getElementById('calleat-countdown-text');
+  _calleatState.countdownTimer = setInterval(() => {
+    remaining--;
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    if (text) text.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+    if (fill) fill.style.width = (remaining / seconds * 100) + '%';
+    if (remaining <= 0) {
+      clearInterval(_calleatState.countdownTimer);
+      // Auto-cancel — time expired
+      leaveCalleatQueue();
+    }
+  }, 1000);
+}
+
+async function confirmCalleatArrival() {
+  if (_calleatState.entryId) {
+    await sb.from('calleat_queue').update({ status: 'confirmed' }).eq('id', _calleatState.entryId);
+  }
+  if (_calleatState.countdownTimer) clearInterval(_calleatState.countdownTimer);
+  go('s0');
+}
+
+async function leaveCalleatQueue() {
+  if (_calleatState.entryId) {
+    await sb.from('calleat_queue').update({ status: 'cancelled' }).eq('id', _calleatState.entryId);
+    track('calleat_cancelled', { entry_id: _calleatState.entryId });
+  }
+  if (_calleatState.sub) sb.removeChannel(_calleatState.sub);
+  if (_calleatState.countdownTimer) clearInterval(_calleatState.countdownTimer);
+  _calleatState = { restaurantId: null, entryId: null, position: null, pax: 2, sub: null, countdownTimer: null };
+  go('s0');
+}
+
+function showCalleatArea(area) {
+  ['form','waiting','ready'].forEach(a => {
+    const el = document.getElementById('calleat-' + a + '-area');
+    if (el) el.style.display = a === area ? 'block' : 'none';
+  });
+}
+
+async function getPushSubscriptionJson() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
+  const reg = await navigator.serviceWorker.getRegistration();
+  if (!reg) return null;
+  const sub = await reg.pushManager.getSubscription();
+  return sub ? sub.toJSON() : null;
+}
+
+// ── MANAGEAT: calleat panel ──
+async function loadCalleatQueue() {
+  const el = document.getElementById('calleat-queue-list');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--t3);font-size:13px">Cargando...</div>';
+
+  const { data: queue } = await sb.from('calleat_queue')
+    .select('*')
+    .eq('restaurant_id', state.adminRestaurantId)
+    .in('status', ['waiting','called'])
+    .order('joined_at');
+
+  const count = document.getElementById('calleat-badge');
+  if (count) { count.textContent = queue?.length || 0; count.style.display = queue?.length ? 'inline' : 'none'; }
+
+  if (!queue?.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">🪑</div><div class="empty-text">Sin grupos esperando</div></div>';
+    return;
+  }
+
+  el.innerHTML = queue.map((entry, idx) => {
+    const mins = Math.floor((Date.now() - new Date(entry.joined_at).getTime()) / 60000);
+    const isReady = entry.status === 'called';
+    return `<div class="calleat-entry ${isReady ? 'ready' : ''}">
+      <div class="calleat-pos">${idx + 1}</div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:600">${escHtml(entry.name)} · ${entry.pax} pers.</div>
+        <div style="font-size:12px;color:var(--t2)">${isReady ? '🔔 Llamado — esperando confirmación' : `Esperando ${mins} min`}</div>
+      </div>
+      ${!isReady ? `<button onclick="callCalleatEntry('${entry.id}')"
+        style="padding:7px 14px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
+        Llamar 🔔
+      </button>` : `<button onclick="cancelCalleatEntry('${entry.id}')"
+        style="padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit">
+        ✕
+      </button>`}
+    </div>`;
+  }).join('');
+}
+
+async function callCalleatEntry(entryId) {
+  // Mark entry as called + set table label
+  const tableLabel = prompt('¿Qué mesa le asignas? (ej: Mesa 4, Terraza 2)') || '';
+  await sb.from('calleat_queue').update({
+    status: 'called',
+    called_at: new Date().toISOString(),
+    table_label: tableLabel
+  }).eq('id', entryId);
+  showToast('🔔 Grupo llamado', 'Le notificaremos en su móvil');
+  loadCalleatQueue();
+}
+
+async function cancelCalleatEntry(entryId) {
+  await sb.from('calleat_queue').update({ status: 'cancelled' }).eq('id', entryId);
+  loadCalleatQueue();
+}
+
+// Auto-subscribe calleat realtime in manageat when sala tab open
+function subscribeCalleatRealtime() {
+  sb.channel('calleat-admin-' + state.adminRestaurantId)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'calleat_queue',
+        filter: `restaurant_id=eq.${state.adminRestaurantId}` }, () => {
+      loadCalleatQueue();
+    }).subscribe();
+}
+
+
+function openCalleatFromLanding() {
+  // Get restaurant from URL or prompt
+  const urlParams = new URLSearchParams(window.location.search);
+  const rId = urlParams.get('r') || _qrRestaurantId;
+  if (!rId) { notify('Escanea el QR del restaurante primero', 'info'); return; }
+  openCalleat(rId);
+}
+
+
+// ══════════════════════════════════════════════════════
+// MANUAL GUESTS — personas que no escanearon el QR
+// ══════════════════════════════════════════════════════
+function showAddManualGuest() {
+  const panel = document.getElementById('add-manual-guest-panel');
+  if (panel) {
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    if (panel.style.display !== 'none') {
+      const input = document.getElementById('manual-guest-name');
+      if (input) { input.value = ''; input.focus(); }
+    }
+  }
+}
+
+async function addManualGuest() {
+  const input = document.getElementById('manual-guest-name');
+  const name = input?.value?.trim();
+  if (!name) { notify('Escribe el nombre de la persona', 'error'); return; }
+  if (!state.roomId) { notify('No hay mesa activa', 'error'); return; }
+
+  // Insert into DB (same as a real guest, but flagged as manual)
+  const { data: guest, error } = await sb.from('guests').insert({
+    room_id: String(state.roomId),
+    name: String(name),
+    is_manual: true   // flag so we know this person didn't scan QR
+  }).select().single();
+
+  if (error || !guest) {
+    notify('Error al añadir persona: ' + (error?.message || ''));
+    return;
+  }
+
+  // Add to local state with _manual flag
+  guest._manual = true;
+  state.guests.push(guest);
+
+  // Close panel and rebuild
+  document.getElementById('add-manual-guest-panel').style.display = 'none';
+  if (input) input.value = '';
+  buildSummary();
+  track('manual_guest_added', { room_id: state.roomId, name });
+}
+
+async function removeManualGuest(guestId) {
+  // Remove from local state
+  state.guests = state.guests.filter(g => g.id !== guestId);
+  // Unassign all dishes from this guest
+  state.dishes.forEach(d => {
+    if (d.assignee_id === guestId) d.assignee_id = null;
+    if (state.participants[d.id]) {
+      state.participants[d.id] = state.participants[d.id].filter(id => id !== guestId);
+    }
+  });
+  // Remove from DB
+  await sb.from('guests').delete().eq('id', guestId);
+  // Remove dish_participants
+  await sb.from('dish_participants').delete().eq('guest_id', guestId);
+  buildSummary();
+}
+
+async function assignDishToGuest(dishId, guestId, type) {
+  if (type === 'solo') {
+    // Assign solo dish to this guest
+    await sb.from('dishes').update({ assignee_id: guestId }).eq('id', dishId);
+    const dish = state.dishes.find(d => d.id === dishId);
+    if (dish) dish.assignee_id = guestId;
+  } else {
+    // Add guest to shared dish participants
+    const existing = state.participants[dishId] || [];
+    if (!existing.includes(guestId)) {
+      await sb.from('dish_participants').insert({ dish_id: dishId, guest_id: guestId });
+      state.participants[dishId] = [...existing, guestId];
+    }
+  }
+  buildSummary();
+}
+
+async function unassignDish(dishId, type, guestId = null) {
+  if (type === 'solo') {
+    await sb.from('dishes').update({ assignee_id: null }).eq('id', dishId);
+    const dish = state.dishes.find(d => d.id === dishId);
+    if (dish) dish.assignee_id = null;
+  } else if (type === 'shared' && guestId) {
+    await sb.from('dish_participants').delete()
+      .eq('dish_id', dishId).eq('guest_id', guestId);
+    if (state.participants[dishId]) {
+      state.participants[dishId] = state.participants[dishId].filter(id => id !== guestId);
+    }
+  }
+  buildSummary();
+}
+
+// ══════════════════════════════════════════════════════
+// FLUJO DE PAGO — Selección de método
+// ══════════════════════════════════════════════════════
+let _payMethod = null;  // 'split' | 'full' | 'equal'
+let _equalPax = 2;      // número de personas para partes iguales
+
+function goToSummary() {
+  // Block if not all dishes delivered
+  const allDishes = state.dishes.filter(d => d.kitchen_status && d.kitchen_status !== 'new');
+  const delivered = allDishes.filter(d => d.kitchen_status === 'delivered');
+  if (allDishes.length > 0 && delivered.length < allDishes.length) {
+    notify('Espera a que todos los platos lleguen a la mesa antes de pagar', 'info');
+    return;
+  }
+  go('s4-summary');
+}
+
+function showPayMethodModal() {
+  // Reset equal split panel
+  document.getElementById('equal-split-panel').style.display = 'none';
+  document.querySelectorAll('.pay-method-btn').forEach(b => {
+    b.style.borderColor = 'var(--bd2)';
+    b.style.background = 'var(--card)';
+  });
+  _equalPax = Math.max(2, state.guests?.length || 2);
+  document.getElementById('equal-pax-num').textContent = _equalPax;
+  updateEqualPerPerson();
+  document.getElementById('pay-method-modal').style.display = 'flex';
+}
+
+function selectPayMethod(method) {
+  _payMethod = method;
+
+  // Highlight selected
+  document.querySelectorAll('.pay-method-btn').forEach((b, i) => {
+    const methods = ['split','full','equal'];
+    const isSelected = methods[i] === method;
+    b.style.borderColor = isSelected ? 'var(--brand)' : 'var(--bd2)';
+    b.style.background = isSelected ? 'var(--brand-l)' : 'var(--card)';
+  });
+
+  if (method === 'split') {
+    // Current flow — spliteat per-dish
+    document.getElementById('equal-split-panel').style.display = 'none';
+    document.getElementById('pay-method-modal').style.display = 'none';
+    go('s5-pay');
+    buildPayScreen();
+
+  } else if (method === 'full') {
+    // I pay everything
+    document.getElementById('pay-method-modal').style.display = 'none';
+    buildFullPayScreen();
+    go('s5-pay');
+
+  } else if (method === 'equal') {
+    // Show pax selector
+    const panel = document.getElementById('equal-split-panel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  }
+}
+
+function changeEqualPax(delta) {
+  _equalPax = Math.max(1, Math.min(20, _equalPax + delta));
+  document.getElementById('equal-pax-num').textContent = _equalPax;
+  updateEqualPerPerson();
+}
+
+function updateEqualPerPerson() {
+  const el = document.getElementById('equal-per-person');
+  if (!el) return;
+  const total = state.dishes.reduce((s, d) => s + parseFloat(d.price || 0), 0);
+  const perPerson = total / _equalPax;
+  el.textContent = `${fmt(total)} ÷ ${_equalPax} = ${fmt(perPerson)} por persona`;
+}
+
+function confirmEqualSplit() {
+  document.getElementById('pay-method-modal').style.display = 'none';
+  buildEqualPayScreen(_equalPax);
+  go('s5-pay');
+}
+
+// ── Build pay screen for: FULL (invito yo) ──
+function buildFullPayScreen() {
+  const total = state.dishes.reduce((s, d) => s + parseFloat(d.price || 0), 0);
+  const tipPct = (state.tipPercent || 0) / 100;
+  const tipAmt = total * tipPct;
+  const grandTotal = total + tipAmt;
+
+  const nameEl = document.getElementById('pay-name-label');
+  const amtEl = document.getElementById('pay-amount');
+  const breakdownEl = document.getElementById('pay-breakdown');
+  if (nameEl) nameEl.textContent = (state.myName || 'Tú') + ' — invitas';
+  if (amtEl) amtEl.textContent = fmt(grandTotal);
+  if (breakdownEl) {
+    if (tipAmt > 0) { breakdownEl.textContent = `${fmt(total)} + ${fmt(tipAmt)} propina`; breakdownEl.style.display = 'block'; }
+    else breakdownEl.style.display = 'none';
+  }
+
+  // Show full table breakdown
+  const list = document.getElementById('pay-status-list');
+  if (list) {
+    const guests = state.guests || [];
+    const guestStr = guests.length > 0 ? guests.map(g => escHtml(g.name)).join(', ') : 'toda la mesa';
+    list.innerHTML = `<div style="background:var(--amber-l);border-radius:var(--r);padding:.85rem 1rem;text-align:center;margin-bottom:.5rem">
+      <div style="font-size:13px;color:#854F0B;font-weight:500">🤑 Pagando la cuenta completa</div>
+      <div style="font-size:12px;color:#854F0B;margin-top:3px">Invitas a: ${guestStr}</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:.6rem 0;border-bottom:1px solid var(--bd)">
+      <div style="font-size:13px;color:var(--t2)">Total mesa</div>
+      <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--brand-d)">${fmt(grandTotal)}</div>
+    </div>`;
+  }
+}
+
+// ── Build pay screen for: EQUAL SPLIT ──
+function buildEqualPayScreen(numPax) {
+  const total = state.dishes.reduce((s, d) => s + parseFloat(d.price || 0), 0);
+  const tipPct = (state.tipPercent || 0) / 100;
+  const tipAmt = total * tipPct;
+  const grandTotal = total + tipAmt;
+  const perPerson = grandTotal / numPax;
+
+  const nameEl = document.getElementById('pay-name-label');
+  const amtEl = document.getElementById('pay-amount');
+  const breakdownEl = document.getElementById('pay-breakdown');
+  if (nameEl) nameEl.textContent = (state.myName || 'Tu parte') + ` (÷${numPax})`;
+  if (amtEl) amtEl.textContent = fmt(perPerson);
+  if (breakdownEl) {
+    breakdownEl.textContent = `${fmt(grandTotal)} ÷ ${numPax} personas`;
+    breakdownEl.style.display = 'block';
+  }
+
+  const list = document.getElementById('pay-status-list');
+  if (list) {
+    list.innerHTML = `<div style="background:#E6F1FB;border-radius:var(--r);padding:.85rem 1rem;text-align:center;margin-bottom:.5rem">
+      <div style="font-size:13px;color:var(--blue);font-weight:500">➗ Dividido en ${numPax} partes iguales</div>
+      <div style="font-size:12px;color:var(--blue);margin-top:3px">${fmt(grandTotal)} total · ${fmt(perPerson)} cada uno</div>
+    </div>
+    ${Array.from({length: numPax}, (_, i) => `
+      <div style="display:flex;align-items:center;gap:10px;padding:.6rem 0;border-bottom:1px solid var(--bd)">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--blue-l);color:var(--blue);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</div>
+        <div style="flex:1;font-size:13px;color:var(--t2)">Persona ${i + 1}${i === 0 ? ' (tú)' : ''}</div>
+        <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--brand-d)">${fmt(perPerson)}</div>
+      </div>`).join('')}`;
+  }
+}
+
+// Add hover effect for pay method buttons
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.pay-method-btn').forEach(btn => {
+    btn.addEventListener('mouseover', () => { if (btn.style.borderColor !== 'var(--brand)') btn.style.background = 'var(--bg2)'; });
+    btn.addEventListener('mouseout', () => { if (btn.style.borderColor !== 'var(--brand)') btn.style.background = 'var(--card)'; });
+  });
+});
 
 // ══════════════════════════════════════════════════════
 // INIT
