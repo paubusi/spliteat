@@ -270,6 +270,13 @@
   .calleat-entry.ready { border-color: var(--brand); background: var(--brand-l); }
   .calleat-entry.ready .calleat-pos { background: var(--brand); color: #fff; }
 
+
+  /* ── s0: Mobile-first responsive ── */
+  @media (min-width: 700px) {
+    #s0 .s0-grid { flex-direction: row !important; }
+    #s0 .s0-grid > div:first-child { min-height: 100vh; }
+  }
+
   /* ── KPI period buttons ── */
   .kpi-period-btn {
     padding: 5px 12px; border-radius: var(--r-full);
@@ -429,13 +436,13 @@
   <div class="screen active" id="s0" style="background:#F3F7F5;flex-direction:column;min-height:100vh;padding:0;max-width:none!important;width:100%!important">
 
     <!-- Full-width container -->
-    <div style="max-width:900px;margin:0 auto;width:100%;min-height:100vh;display:flex;flex-direction:column">
+    <div style="max-width:100%;margin:0 auto;width:100%;min-height:100vh;display:flex;flex-direction:column">
 
       <!-- DESKTOP: two column layout / MOBILE: single column -->
-      <div style="flex:1;display:grid;grid-template-columns:1fr 1fr;min-height:100vh">
+      <div style="flex:1;display:flex;flex-direction:column;min-height:100vh" class="s0-grid">
 
         <!-- Left: Hero -->
-        <div style="background:var(--brand-d);padding:3.5rem 3rem;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden">
+        <div style="background:var(--brand-d);padding:2.5rem 1.5rem;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden">
           <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 30% 0%,rgba(29,158,117,.5) 0%,transparent 60%),radial-gradient(ellipse at 80% 120%,rgba(8,80,65,.8) 0%,transparent 50%);pointer-events:none"></div>
           <div style="position:absolute;top:-40px;right:-40px;width:200px;height:200px;border-radius:50%;border:1px solid rgba(255,255,255,.06);pointer-events:none"></div>
           <div style="position:absolute;bottom:-60px;left:-30px;width:240px;height:240px;border-radius:50%;border:1px solid rgba(255,255,255,.04);pointer-events:none"></div>
@@ -460,7 +467,7 @@
             </div>
           </div>
         </di            <!-- calleat secondary CTA -->
-            <div onclick="openCalleatFromLanding()" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:var(--r);padding:.75rem 1rem;cursor:pointer;margin-top:.65rem">
+            <div onclick="openCalleatFromLanding()" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:var(--r);padding:.75rem 1rem;cursor:pointer;margin-top:.5rem;max-width:100%">
               <span style="font-size:20px">🪑</span>
               <div style="flex:1">
                 <div style="font-size:13px;font-weight:600;color:#fff">call<em style="color:#D85A30;font-style:normal">eat</em> — Sin mesa</div>
@@ -1959,10 +1966,10 @@
         <div id="ajustes-panel-content" style="padding:1.25rem"></div>
       </div>
 
-    </div>    </div>
-  </div>
-    </div>
-  </div>
+    </div><!-- /atab-gestion -->
+      </div><!-- /admin-main -->
+    </div><!-- /admin-shell -->
+  </div><!-- /s-admin -->
 
 
 <script>
