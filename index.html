@@ -4328,7 +4328,10 @@ function subscribeWaiterNotifications() {
   _waiterDishSub = sb.channel('waiter-dishes-' + _waiterRestaurantId)
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'dishes' }, async (payload) => {
       const dish = payload.new;
+      const prev = payload.old;
+      // Only fire when status TRANSITIONS to 'ready', not when other fields change on a ready dish
       if (dish.kitchen_status !== 'ready') return;
+      if (prev?.kitchen_status === 'ready') return; // was already ready — ignore (e.g. type change)
 
       const { data: room } = await sb.from('rooms')
         .select('table_id, id, assigned_waiter_id').eq('id', dish.room_id).maybeSingle();
@@ -4827,7 +4830,9 @@ function showWaiterTab(name) {
     tab.classList.toggle('on', ['mesas','pedido','cobrar','propinas'][i] === name);
   });
   if (name === 'mesas') loadWaiterMesas();
-  if (name === 'cobrar') loadWaiterCobrar();
+  if (name === 'cobrar') {
+    loadWaiterTableSelects().then(() => loadWaiterCobrar());
+  }
   if (name === 'propinas') loadWaiterPropinas();
   if (name === 'propinas') loadWaiterPropinas();
 }
@@ -5000,12 +5005,17 @@ async function loadWaiterTableSelects() {
   const makeRoomOpts = (selId) => {
     const sel = document.getElementById(selId);
     if (!sel) return;
+    const myRooms = (rooms || []).filter(r =>
+      !r.assigned_waiter_id || r.assigned_waiter_id === _waiterId
+    );
     sel.innerHTML = '<option value="">— Selecciona mesa —</option>' +
-      (rooms || []).map(r => {
+      myRooms.map(r => {
         const t = r.tables;
         const label = t ? `Mesa ${t.number}${t.label ? ' — ' + t.label : ''}` : `Sala ${r.code}`;
         return `<option value="${r.id}">${label}</option>`;
       }).join('');
+    // Auto-select if only one room
+    if (myRooms.length === 1) sel.value = myRooms[0].id;
   };
   makeRoomOpts('waiter-mesa-sel');
   makeRoomOpts('waiter-cobrar-sel');
