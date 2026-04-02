@@ -4564,62 +4564,63 @@ async function waiterLogin() {
     subscribeWaiterNotifications();
 
   } catch(err) {
-    // Fallback directo a DB (cuando edge function no está desplegada o falla)
+    // Fallback directo a DB — cuando edge function no está desplegada
     try {
-      // Buscar camarero por email sin filtro de contraseña
       const { data: waiter, error: dbErr } = await sb.from('waiters')
         .select('id,name,email,password,password_hash,restaurant_id,active')
         .eq('email', email)
+        .eq('active', true)
         .maybeSingle();
 
-      if (dbErr || !waiter) {
-        errEl.textContent = 'Email no encontrado. Comprueba tu email.';
+      if (dbErr) {
+        // Posible error de RLS — intentar sin filtro active
+        const { data: w2 } = await sb.from('waiters')
+          .select('id,name,email,password,password_hash,restaurant_id,active')
+          .eq('email', email).maybeSingle();
+        if (!w2) {
+          errEl.textContent = 'Email no encontrado. ¿Has ejecutado el SQL de configuración en Supabase?';
+          errEl.style.display = 'block'; return;
+        }
+        Object.assign(waiter || {}, w2);
+      }
+
+      if (!waiter) {
+        errEl.textContent = 'Email no encontrado.';
         errEl.style.display = 'block'; return;
       }
 
-      // Verificar contraseña en plaintext (cuando no hay hash)
-      if (waiter.password && waiter.password !== password) {
-        errEl.textContent = 'Contraseña incorrecta.';
+      // Verificar contraseña
+      if (waiter.password) {
+        // Plaintext comparison
+        if (waiter.password !== password) {
+          errEl.textContent = 'Contraseña incorrecta.';
+          errEl.style.display = 'block'; return;
+        }
+      } else if (waiter.password_hash) {
+        // Hash existe pero no podemos verificar bcrypt en cliente
+        // Resetear contraseña a plaintext para que funcione sin edge function
+        errEl.innerHTML = 'La contraseña está cifrada (bcrypt). <br><strong>Solución:</strong> Usa "He olvidado mi contraseña" para asignarte una nueva, o despliega la Edge Function <code>auth-waiter</code> en Supabase.';
+        errEl.style.display = 'block'; return;
+      } else {
+        errEl.textContent = 'Sin contraseña configurada. Establécela desde manageat → Ajustes → Camareros.';
         errEl.style.display = 'block'; return;
       }
 
-      // Si solo hay hash, no podemos verificar en cliente → dejamos entrar con aviso
-      // (La edge function auth-waiter es la vía correcta para bcrypt)
-      if (!waiter.password && waiter.password_hash) {
-        // Intentar verificar mostrando error útil
-        errEl.textContent = 'La contraseña está cifrada. Despliega la Edge Function auth-waiter en Supabase o usa "He olvidado mi contraseña" para restablecerla.';
-        errEl.style.display = 'block'; return;
-      }
-
-      if (!waiter.password && !waiter.password_hash) {
-        errEl.textContent = 'Este camarero no tiene contraseña configurada. Establécela desde manageat → Ajustes → Camareros.';
-        errEl.style.display = 'block'; return;
-      }
-
-      // Login OK
-      await sb.from('waiters').update({
-        is_active: true,
-        last_login_at: new Date().toISOString()
-      }).eq('id', waiter.id);
-
+      // ✓ Login correcto
+      await sb.from('waiters').update({ is_active: true, last_login_at: new Date().toISOString() }).eq('id', waiter.id);
       _waiterId = waiter.id;
       _waiterName = waiter.name;
       _waiterRestaurantId = waiter.restaurant_id;
       _waiterLoginAt = Date.now();
-
       if (window._waiterAutoLogoutTimer) clearTimeout(window._waiterAutoLogoutTimer);
-      window._waiterAutoLogoutTimer = setTimeout(() => {
-        waiterLogout(); showToast('Sesión caducada', 'Inicia sesión de nuevo');
-      }, 12 * 60 * 60 * 1000);
-
+      window._waiterAutoLogoutTimer = setTimeout(() => { waiterLogout(); showToast('Sesión caducada','Inicia sesión de nuevo'); }, 43200000);
       const { data: rest } = await sb.from('restaurants').select('name').eq('id', waiter.restaurant_id).maybeSingle();
       _waiterRestaurantName = rest?.name || '';
-
       document.getElementById('waiter-name-badge').textContent = escHtml(waiter.name);
       go('s-waiter'); loadWaiterMesas(); loadWaiterTableSelects(); subscribeWaiterNotifications();
 
     } catch(fallbackErr) {
-      errEl.textContent = 'Error de conexión: ' + fallbackErr.message;
+      errEl.textContent = 'Error de conexión: ' + (fallbackErr.message || fallbackErr);
       errEl.style.display = 'block';
     }
   }
@@ -5235,12 +5236,12 @@ async function saveWaiter() {
 
   // Check email not already used
   const { data: existing } = await sb.from('waiters')
-    .select('id').eq('email', email).maybeSingle();
-  if (existing) { notify('Ya existe un empleado con ese email'); return; }
+    .select('id').eq('email', email).eq('active', true).maybeSingle();
+  if (existing) { notify('Ya existe un empleado activo con ese email'); return; }
 
   const { error } = await sb.from('waiters').insert({
     restaurant_id: state.adminRestaurantId,
-    name, email, password, role, active: true
+    name, email, password, role: role || 'waiter', active: true
   });
   if (error) { notify('Error: ' + (error.message || error)); return; }
   hideAddWaiterForm();
@@ -5632,7 +5633,7 @@ async function loadAdminWaitersMobile() {
       </div>
       <div style="display:flex;gap:5px;align-items:center">
         <div class="toggle-track ${w.active?'on':''}" onclick="toggleWaiter('${w.id}',${!w.active})"><div class="toggle-thumb"></div></div>
-        <button onclick="deleteWaiter('${w.id}')" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:14px;cursor:pointer">✕</button>
+        <button onclick="deleteWaiterInline('${w.id}')" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:14px;cursor:pointer">✕</button>
       </div>
     </div>`).join('');
 }
@@ -6365,7 +6366,7 @@ async function loadAdminWaitersInline() {
         </div>
         <div style="display:flex;gap:4px">
           <button onclick="promptResetWaiterPwd('${w.id}','${escHtml(w.name)}')" style="padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit">🔑 Contraseña</button>
-          <button onclick="deleteWaiter('${w.id}')" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer">✕</button>
+          <button onclick="deleteWaiterInline('${w.id}')" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer">✕</button>
         </div>
       </div>
     </div>`).join('');
@@ -6383,8 +6384,8 @@ async function saveWaiterAjustes() {
   if (!name) { notify('Escribe el nombre del camarero'); return; }
   if (!email || !email.includes('@')) { notify('Introduce un email válido'); return; }
   if (!password || password.length < 6) { notify('La contraseña debe tener mínimo 6 caracteres'); return; }
-  const { data: existing } = await sb.from('waiters').select('id').eq('email', email).maybeSingle();
-  if (existing) { notify('Ya existe un empleado con ese email'); return; }
+  const { data: existing } = await sb.from('waiters').select('id').eq('email', email).eq('active', true).maybeSingle();
+  if (existing) { notify('Ya existe un empleado activo con ese email'); return; }
   const { error } = await sb.from('waiters').insert({
     restaurant_id: state.adminRestaurantId, name, email, password, active: true, is_active: false
   });
@@ -6403,10 +6404,14 @@ async function promptResetWaiterPwd(waiterId, waiterName) {
   showToast('✓ Contraseña actualizada', `Comunícasela a ${waiterName}`);
 }
 
-async function deleteWaiter(waiterId) {
+async function deleteWaiterInline(waiterId) {
   if (!confirm('¿Eliminar este camarero? Esta acción no se puede deshacer.')) return;
-  await sb.from('waiters').update({ active: false }).eq('id', waiterId);
+  // Limpiar referencias de foreign key
+  await sb.from('rooms').update({ assigned_waiter_id: null }).eq('assigned_waiter_id', waiterId);
+  const { error } = await sb.from('waiters').delete().eq('id', waiterId);
+  if (error) { notify('Error al eliminar: ' + error.message); return; }
   loadAdminWaitersInline();
+  loadAdminWaiters();
 }
 
 async function saveMenuItem() {
@@ -9445,13 +9450,14 @@ function closeMobileSidebar() {
 }
 
 async function loadFacturas() {
+  if (!state.adminRestaurantId) { console.warn('loadFacturas: no adminRestaurantId'); return; }
   const days = document.getElementById('facturas-filter')?.value || '7';
   let since = null;
   if (days === '0') { const d = new Date(); d.setHours(0,0,0,0); since = d.toISOString(); }
   else if (days !== 'all') since = new Date(Date.now() - parseInt(days)*86400000).toISOString();
 
-  let q = sb.from('rooms').select('*,tables(number,label)').eq('restaurant_id', state.adminRestaurantId).eq('closed', true).order('closed_at', { ascending: false }).limit(100);
-  if (since) q = q.gte('closed_at', since);
+  let q = sb.from('rooms').select('*,tables(number,label)').eq('restaurant_id', state.adminRestaurantId).eq('closed', true).order('created_at', { ascending: false }).limit(100);
+  if (since) q = q.gte('created_at', since);
   const { data: rooms } = await q;
 
   // Totals
