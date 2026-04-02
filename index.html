@@ -4305,6 +4305,9 @@ async function setOrderStatus(dishId, status) {
 let _waiterDishSub = null;
 let _waiterNotifHistory = []; // historial completo
 
+// ── Debounce timers: room+course → timeout handle ──
+const _waiterNotifDebounce = {};
+
 function subscribeWaiterNotifications() {
   if (_waiterDishSub) return;
   _waiterDishSub = sb.channel('waiter-dishes-' + _waiterRestaurantId)
@@ -4315,42 +4318,68 @@ function subscribeWaiterNotifications() {
       const { data: room } = await sb.from('rooms')
         .select('table_id, id, assigned_waiter_id').eq('id', dish.room_id).maybeSingle();
       if (!room) return;
-
-      // Only notify if this room is assigned to this waiter (or unassigned — notificar a todos)
       if (room.assigned_waiter_id && room.assigned_waiter_id !== _waiterId) return;
 
-      const { data: table } = room.table_id
-        ? await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle()
-        : { data: null };
-      const tableLabel = table
-        ? `Mesa ${table.number}${table.label ? ' — ' + table.label : ''}`
-        : 'Mesa';
+      const triggerCourse = dish.course ?? 1;
+      const debounceKey = dish.room_id + '_' + triggerCourse;
 
-      // Get ONLY dishes of this same course that are ready (not already delivered)
-      const triggerCourse = dish.course || 1;
-      const { data: courseDishes } = await sb.from('dishes')
-        .select('name, course, category')
-        .eq('room_id', dish.room_id)
-        .eq('kitchen_status', 'ready')
-        .eq('course', triggerCourse);
+      // Cancel any pending timer for this room+course
+      if (_waiterNotifDebounce[debounceKey]) {
+        clearTimeout(_waiterNotifDebounce[debounceKey]);
+      }
 
-      const isBebidas = dish.category === 'bebidas' || triggerCourse === 0;
-      const courseLabel = isBebidas ? 'Bebidas'
-        : { 0:'Bebidas', 1:'Entrantes', 2:'Principales', 3:'Postres' }[triggerCourse] || 'Platos';
+      // Wait 1.5s then fire ONE consolidated notification
+      _waiterNotifDebounce[debounceKey] = setTimeout(async () => {
+        delete _waiterNotifDebounce[debounceKey];
 
-      playKitchenSound();
-      haptic([100, 50, 100]);
-      addWaiterNotif({
-        id: Date.now(),
-        tableLabel,
-        roomId: dish.room_id,
-        courseLabel,
-        course: triggerCourse,
-        isBebidas,
-        dishes: courseDishes || [{ name: dish.name, course: triggerCourse }],
-        time: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-        seen: false
-      });
+        const { data: table } = room.table_id
+          ? await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle()
+          : { data: null };
+        const tableLabel = table
+          ? `Mesa ${table.number}${table.label ? ' — ' + table.label : ''}`
+          : 'Mesa';
+
+        // Fetch ALL ready dishes of this course for this room
+        const { data: courseDishes } = await sb.from('dishes')
+          .select('id, name, course, category, kitchen_status')
+          .eq('room_id', dish.room_id)
+          .eq('kitchen_status', 'ready')
+          .eq('course', triggerCourse);
+
+        if (!courseDishes?.length) return; // already delivered or none ready
+
+        const isBebidas = triggerCourse === 0 ||
+          (courseDishes.every(d => d.category === 'bebidas'));
+
+        const courseLabel = isBebidas ? 'Bebidas'
+          : { 1:'Entrantes', 2:'Principales', 3:'Postres' }[triggerCourse] || 'Platos';
+
+        // Deduplicate: if there's already an unseen notif for this room+course, update it
+        const existing = _waiterNotifHistory.find(
+          n => !n.seen && n.roomId === dish.room_id && n.course === triggerCourse
+        );
+        if (existing) {
+          existing.dishes = courseDishes;
+          existing.time = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        } else {
+          playKitchenSound();
+          haptic([200, 100, 200]);
+          addWaiterNotif({
+            id: Date.now(),
+            tableLabel,
+            roomId: dish.room_id,
+            courseLabel,
+            course: triggerCourse,
+            isBebidas,
+            dishes: courseDishes,
+            time: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+            seen: false,
+            checked: {} // per-dish check state
+          });
+        }
+        renderWaiterNotifBanner();
+        updateWaiterNotifBadge();
+      }, 1500); // 1.5s debounce — waits for all dishes of the pase
     })
     .subscribe();
 }
@@ -4417,51 +4446,108 @@ function updateWaiterNotifBadge() {
   }
 }
 
+// Per-notif dish check state
 function openWaiterNotifDetail(id) {
   const n = _waiterNotifHistory.find(n => n.id === id);
   if (!n) return;
   markWaiterNotifSeen(id);
+  if (!n.checked) n.checked = {};
 
   const modal = document.getElementById('waiter-notif-modal') || (() => {
     const el = document.createElement('div');
     el.id = 'waiter-notif-modal';
-    el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;display:flex;align-items:flex-end;justify-content:center';
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:600;display:flex;align-items:flex-end;justify-content:center';
     document.body.appendChild(el);
     return el;
   })();
 
-  const emoji = n.isBebidas ? '🥤' : { 1:'🥗', 2:'🍽', 3:'🍰' }[n.course] || '🍽';
-  const bannerColor = n.isBebidas ? '#185FA5' : '#085041';
+  _renderNotifModal(modal, n);
+  modal.style.display = 'flex';
+}
 
-  const dishList = n.dishes.length
-    ? n.dishes.map(d => `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd)">
-        <span style="font-size:18px">${emoji}</span>
-        <span style="font-size:14px;flex:1">${escHtml(d.name)}</span>
-      </div>`).join('')
-    : '<div style="font-size:13px;color:var(--t2)">Sin detalle disponible</div>';
+function _renderNotifModal(modal, n) {
+  const emoji = n.isBebidas ? '🥤' : { 1:'🥗', 2:'🍽', 3:'🍰' }[n.course] || '🍽';
+  const color = n.isBebidas ? '#185FA5' : '#085041';
+  const total = n.dishes.length;
+  const checkedCount = Object.values(n.checked || {}).filter(Boolean).length;
+  const allChecked = checkedCount >= total;
+
+  const dishRows = n.dishes.map((d, i) => {
+    const isChecked = n.checked[i] || false;
+    return `<div onclick="toggleWaiterDishCheck(${n.id},${i})"
+      style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--bd);cursor:pointer;transition:opacity .15s;${isChecked?'opacity:.45;':''}">
+      <div style="width:26px;height:26px;border-radius:50%;border:2px solid ${isChecked?color:'var(--bd2)'};background:${isChecked?color:'transparent'};
+        display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s">
+        ${isChecked?'<span style="color:#fff;font-size:13px;font-weight:700">✓</span>':''}
+      </div>
+      <span style="font-size:16px;flex-shrink:0">${emoji}</span>
+      <span style="font-size:14px;font-weight:${isChecked?'400':'500'};flex:1;${isChecked?'text-decoration:line-through;color:var(--t3);':'color:var(--t1)'}">${escHtml(d.name)}</span>
+    </div>`;
+  }).join('');
+
+  const progressBar = total > 1 ? `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:.85rem">
+      <div style="flex:1;height:4px;background:var(--bg2);border-radius:2px;overflow:hidden">
+        <div style="height:100%;background:${color};border-radius:2px;width:${Math.round(checkedCount/total*100)}%;transition:width .25s"></div>
+      </div>
+      <span style="font-size:12px;color:var(--t2);flex-shrink:0">${checkedCount}/${total}</span>
+    </div>` : '';
 
   modal.innerHTML = `<div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;animation:slideUp .2s ease;overflow:hidden">
-    <div style="background:${bannerColor};padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div style="font-size:16px;font-weight:600;color:#fff">${n.tableLabel}</div>
-        <div style="font-size:12px;color:rgba(255,255,255,.75)">${n.courseLabel} listo${n.dishes.length > 1 ? 's' : ''} · ${n.time}</div>
+    <!-- Header -->
+    <div style="background:${color};padding:1rem 1.25rem">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between">
+        <div>
+          <div style="font-size:17px;font-weight:700;color:#fff;margin-bottom:2px">${escHtml(n.tableLabel)}</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.8)">${n.courseLabel} · ${total} plato${total!==1?'s':''} · ${n.time}</div>
+        </div>
+        <button onclick="document.getElementById('waiter-notif-modal').style.display='none'"
+          style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:50%;width:30px;height:30px;font-size:16px;cursor:pointer;flex-shrink:0;margin-left:8px;display:flex;align-items:center;justify-content:center">✕</button>
       </div>
-      <button onclick="document.getElementById('waiter-notif-modal').style.display='none'"
-        style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:99px;width:28px;height:28px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
     </div>
+    <!-- Body -->
     <div style="padding:1rem 1.25rem">
-      <div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem">
-        Llevar a mesa (${n.dishes.length} plato${n.dishes.length !== 1 ? 's' : ''})
+      <div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.65rem">
+        ✅ Marca cada plato al recogerlo
       </div>
-      ${dishList}
-      <button onclick="markCourseDelivered('${n.roomId}',${n.course},${n.isBebidas||false});document.getElementById('waiter-notif-modal').style.display='none'"
-        class="btn btn-primary" style="margin-top:1rem;background:${bannerColor}">
-        ✓ Llevado a mesa
-      </button>
+      ${progressBar}
+      <div style="max-height:50vh;overflow-y:auto">${dishRows}</div>
+
+      <div style="display:flex;gap:.5rem;margin-top:1rem">
+        ${!allChecked ? `
+        <button onclick="_checkAllWaiterDishes(${n.id})"
+          style="flex:1;padding:10px;border-radius:var(--r);border:1.5px solid ${color};background:none;color:${color};font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">
+          Marcar todos
+        </button>` : ''}
+        <button onclick="markCourseDelivered('${n.roomId}',${n.course},${n.isBebidas||false});document.getElementById('waiter-notif-modal').style.display='none'"
+          class="btn btn-primary" style="flex:2;background:${allChecked?color:'var(--t3)'};font-size:14px">
+          ✓ ${allChecked ? 'Llevado a mesa' : 'Confirmar sin revisar'}
+        </button>
+      </div>
     </div>
   </div>`;
 
   modal.style.display = 'flex';
+}
+
+function toggleWaiterDishCheck(notifId, dishIdx) {
+  const n = _waiterNotifHistory.find(n => n.id === notifId);
+  if (!n) return;
+  if (!n.checked) n.checked = {};
+  n.checked[dishIdx] = !n.checked[dishIdx];
+  haptic([30]);
+  // Re-render modal in place
+  const modal = document.getElementById('waiter-notif-modal');
+  if (modal && modal.style.display !== 'none') _renderNotifModal(modal, n);
+}
+
+function _checkAllWaiterDishes(notifId) {
+  const n = _waiterNotifHistory.find(n => n.id === notifId);
+  if (!n || !n.dishes) return;
+  n.checked = {};
+  n.dishes.forEach((_, i) => { n.checked[i] = true; });
+  const modal = document.getElementById('waiter-notif-modal');
+  if (modal) _renderNotifModal(modal, n);
 }
 
 async function markCourseDelivered(roomId, course, isBebidas) {
