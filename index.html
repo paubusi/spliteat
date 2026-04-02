@@ -3695,14 +3695,90 @@ async function confirmPay(method) {
   const receiptEmail = emailInput?.value?.trim() || null;
   if (receiptEmail) state.receiptEmail = receiptEmail;
 
+  // ── INVITO YO — paga el total y cierra para todos ──
+  if (_payMethod === 'full') {
+    await registerFullPayment(me, method, totals);
+    return;
+  }
+
+  // ── PARTES IGUALES — paga su parte, cierra si todos pagaron ──
+  if (_payMethod === 'equal' && typeof _equalPax === 'number') {
+    await registerEqualPayment(me, method);
+    return;
+  }
+
   // ── MODO STRIPE ACTIVO ──────────────────────────────
   if (STRIPE_ENABLED && stripeInstance && method !== 'Efectivo') {
     await payWithStripe(me, method);
     return;
   }
 
-  // ── MODO MANUAL (sin Stripe o efectivo) ─────────────
+  // ── MODO MANUAL split (sin Stripe o efectivo) ────────
   await registerManualPayment(me, method);
+}
+
+// Paga la cuenta completa — marca a todos como pagados
+async function registerFullPayment(me, method, totals) {
+  const grand = totals.reduce((s, t) => s + t.total, 0);
+  track('payment_full', { method, amount: grand, guests: totals.length });
+
+  // Insertar pago del invitador por el total
+  await sb.from('payments').insert({
+    room_id: state.roomId,
+    guest_id: state.myGuestId,
+    amount: grand,
+    tip_amount: totals.reduce((s,t) => s + (t.tipAmt||0), 0),
+    method,
+    stripe_status: 'manual',
+    note: 'Pago completo — invitó'
+  });
+
+  // Insertar pago 0 para todos los demás → quedan como "pagados" (cubiertos)
+  const others = totals.filter(t => t.g.id !== state.myGuestId);
+  if (others.length) {
+    await sb.from('payments').insert(
+      others.map(t => ({
+        room_id: state.roomId,
+        guest_id: t.g.id,
+        amount: 0,
+        method: 'Invitado',
+        stripe_status: 'manual',
+        note: 'Cubierto por ' + me.g.name
+      }))
+    );
+  }
+
+  // Cerrar mesa
+  await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString() }).eq('id', state.roomId);
+  clearSession();
+  setTimeout(() => go('s6-done'), 400);
+}
+
+// Paga su parte en división equitativa
+async function registerEqualPayment(me, method) {
+  const total = state.dishes.reduce((s, d) => s + parseFloat(d.price||0), 0);
+  const myShare = total / _equalPax;
+  track('payment_equal', { method, amount: myShare, pax: _equalPax });
+
+  await sb.from('payments').insert({
+    room_id: state.roomId,
+    guest_id: state.myGuestId,
+    amount: myShare,
+    method,
+    stripe_status: 'manual',
+    note: 'División equitativa ÷' + _equalPax
+  });
+  state.payments.push({ guest_id: state.myGuestId, amount: myShare });
+  buildPayScreen();
+
+  // Si ya pagaron todos los del grupo (fuera de la app), cerrar
+  const { data: freshPayments } = await sb.from('payments').select('guest_id').eq('room_id', state.roomId);
+  const paidCount = new Set((freshPayments||[]).map(p => p.guest_id)).size;
+  if (paidCount >= _equalPax) {
+    await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString() }).eq('id', state.roomId);
+    clearSession();
+    setTimeout(() => go('s6-done'), 800);
+  }
 }
 
 async function registerManualPayment(me, method) {
