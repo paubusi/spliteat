@@ -5263,13 +5263,10 @@ async function toggleWaiter(id, active) {
 }
 
 async function deleteWaiter(id) {
-  if (!confirm('¿Eliminar este camarero? Se perderán todos sus datos.')) return;
-  // Nullificar referencias antes de borrar para evitar foreign key errors
-  await sb.from('rooms').update({ waiter_id: null }).eq('waiter_id', id);
-  await sb.from('payments').update({ waiter_id: null }).eq('waiter_id', id);
-  const { error } = await sb.from('waiters').delete().eq('id', id);
-  if (error) { notify('Error al eliminar: ' + error.message); return; }
+  if (!confirm('¿Eliminar este camarero? Esta acción no se puede deshacer.')) return;
+  await _cleanAndDeleteWaiter(id);
   loadAdminWaiters();
+  loadAdminWaitersInline();
 }
 
 // ══════════════════════════════════════════════════════
@@ -6406,12 +6403,21 @@ async function promptResetWaiterPwd(waiterId, waiterName) {
 
 async function deleteWaiterInline(waiterId) {
   if (!confirm('¿Eliminar este camarero? Esta acción no se puede deshacer.')) return;
-  // Limpiar referencias de foreign key
-  await sb.from('rooms').update({ assigned_waiter_id: null }).eq('assigned_waiter_id', waiterId);
-  const { error } = await sb.from('waiters').delete().eq('id', waiterId);
-  if (error) { notify('Error al eliminar: ' + error.message); return; }
+  await _cleanAndDeleteWaiter(waiterId);
   loadAdminWaitersInline();
   loadAdminWaiters();
+}
+
+async function _cleanAndDeleteWaiter(id) {
+  // Limpiar TODAS las foreign keys que apuntan al camarero
+  const nullify = { waiter_id: null, assigned_waiter_id: null };
+  await Promise.allSettled([
+    sb.from('rooms').update({ waiter_id: null }).eq('waiter_id', id),
+    sb.from('rooms').update({ assigned_waiter_id: null }).eq('assigned_waiter_id', id),
+    sb.from('payments').update({ waiter_id: null }).eq('waiter_id', id),
+  ]);
+  const { error } = await sb.from('waiters').delete().eq('id', id);
+  if (error) { notify('Error al eliminar: ' + error.message); }
 }
 
 async function saveMenuItem() {
