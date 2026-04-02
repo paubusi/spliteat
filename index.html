@@ -4591,9 +4591,9 @@ function selectWaiter(id, name) {
 }
 
 async function waiterLogin() {
-  const email = document.getElementById('waiter-email')?.value?.trim();
-  const password = document.getElementById('waiter-password')?.value;
-  const errEl = document.getElementById('waiter-err');
+  const email    = (document.getElementById('waiter-email')?.value    || '').trim();
+  const password =  document.getElementById('waiter-password')?.value || '';
+  const errEl    =  document.getElementById('waiter-err');
   errEl.style.display = 'none';
 
   if (!email || !password) {
@@ -4601,105 +4601,93 @@ async function waiterLogin() {
     errEl.style.display = 'block'; return;
   }
 
+  // ── Helper: complete login after finding a valid waiter record ──
+  async function _finishWaiterLogin(w) {
+    await sb.from('waiters')
+      .update({ is_active: true, last_login_at: new Date().toISOString() })
+      .eq('id', w.id);
+    _waiterId = w.id;
+    _waiterName = w.name;
+    _waiterRestaurantId = w.restaurant_id;
+    _waiterLoginAt = Date.now();
+    if (window._waiterAutoLogoutTimer) clearTimeout(window._waiterAutoLogoutTimer);
+    window._waiterAutoLogoutTimer = setTimeout(() => {
+      waiterLogout(); showToast('Sesión caducada', 'Inicia sesión de nuevo');
+    }, 43200000);
+    const { data: rest } = await sb.from('restaurants')
+      .select('name').eq('id', w.restaurant_id).maybeSingle();
+    _waiterRestaurantName = rest?.name || '';
+    track('waiter_login', { waiter_id: w.id });
+    document.getElementById('waiter-name-badge').textContent = escHtml(w.name);
+    go('s-waiter'); loadWaiterMesas(); loadWaiterTableSelects(); subscribeWaiterNotifications();
+  }
+
+  // ── 1. Try edge function (bcrypt) ──
   try {
-    // Use Edge Function for secure bcrypt verification
-    const res = await fetch(`${SUPA_URL}/functions/v1/auth-waiter`, {
+    const res  = await fetch(`${SUPA_URL}/functions/v1/auth-waiter`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY },
       body: JSON.stringify({ action: 'login', email, password })
     });
     const json = await res.json();
 
-    if (!res.ok || json.error) {
-      errEl.textContent = json.error || 'Email o contraseña incorrectos.';
+    if (res.ok && !json.error && json.waiter?.id) {
+      // Edge function returned a valid waiter → login OK
+      await _finishWaiterLogin(json.waiter);
+      return;
+    }
+    // Edge function returned an error → fall through to DB check
+    if (json.error && res.status === 401) {
+      // Explicit 401 from edge fn = wrong password
+      errEl.textContent = json.error || 'Contraseña incorrecta.';
       errEl.style.display = 'block'; return;
     }
-
-    const waiter = json.waiter;
-    _waiterId = waiter.id;
-    _waiterName = waiter.name;
-    _waiterRestaurantId = waiter.restaurant_id;
-    _waiterLoginAt = Date.now();
-
-    // Auto-logout after 12h
-    if (window._waiterAutoLogoutTimer) clearTimeout(window._waiterAutoLogoutTimer);
-    window._waiterAutoLogoutTimer = setTimeout(() => {
-      waiterLogout();
-      showToast('Sesión caducada', 'Inicia sesión de nuevo');
-    }, 12 * 60 * 60 * 1000);
-
-    const { data: rest } = await sb.from('restaurants')
-      .select('name').eq('id', waiter.restaurant_id).maybeSingle();
-    _waiterRestaurantName = rest?.name || '';
-
-    track('waiter_login', { waiter_id: waiter.id });
-    document.getElementById('waiter-name-badge').textContent = escHtml(waiter.name);
-    go('s-waiter');
-    loadWaiterMesas();
-    loadWaiterTableSelects();
-    subscribeWaiterNotifications();
-
-  } catch(err) {
-    // Fallback directo a DB — cuando edge function no está desplegada
-    try {
-      const { data: waiter, error: dbErr } = await sb.from('waiters')
-        .select('id,name,email,password,password_hash,restaurant_id,active')
-        .eq('email', email)
-        .eq('active', true)
-        .maybeSingle();
-
-      if (dbErr) {
-        // Posible error de RLS — intentar sin filtro active
-        const { data: w2 } = await sb.from('waiters')
-          .select('id,name,email,password,password_hash,restaurant_id,active')
-          .eq('email', email).maybeSingle();
-        if (!w2) {
-          errEl.textContent = 'Email no encontrado. ¿Has ejecutado el SQL de configuración en Supabase?';
-          errEl.style.display = 'block'; return;
-        }
-        Object.assign(waiter || {}, w2);
-      }
-
-      if (!waiter) {
-        errEl.textContent = 'Email no encontrado.';
-        errEl.style.display = 'block'; return;
-      }
-
-      // Verificar contraseña
-      if (waiter.password) {
-        // Plaintext comparison
-        if (waiter.password !== password) {
-          errEl.textContent = 'Contraseña incorrecta.';
-          errEl.style.display = 'block'; return;
-        }
-      } else if (waiter.password_hash) {
-        // Hash existe pero no podemos verificar bcrypt en cliente
-        // Resetear contraseña a plaintext para que funcione sin edge function
-        errEl.innerHTML = 'La contraseña está cifrada (bcrypt). <br><strong>Solución:</strong> Usa "He olvidado mi contraseña" para asignarte una nueva, o despliega la Edge Function <code>auth-waiter</code> en Supabase.';
-        errEl.style.display = 'block'; return;
-      } else {
-        errEl.textContent = 'Sin contraseña configurada. Establécela desde manageat → Ajustes → Camareros.';
-        errEl.style.display = 'block'; return;
-      }
-
-      // ✓ Login correcto
-      await sb.from('waiters').update({ is_active: true, last_login_at: new Date().toISOString() }).eq('id', waiter.id);
-      _waiterId = waiter.id;
-      _waiterName = waiter.name;
-      _waiterRestaurantId = waiter.restaurant_id;
-      _waiterLoginAt = Date.now();
-      if (window._waiterAutoLogoutTimer) clearTimeout(window._waiterAutoLogoutTimer);
-      window._waiterAutoLogoutTimer = setTimeout(() => { waiterLogout(); showToast('Sesión caducada','Inicia sesión de nuevo'); }, 43200000);
-      const { data: rest } = await sb.from('restaurants').select('name').eq('id', waiter.restaurant_id).maybeSingle();
-      _waiterRestaurantName = rest?.name || '';
-      document.getElementById('waiter-name-badge').textContent = escHtml(waiter.name);
-      go('s-waiter'); loadWaiterMesas(); loadWaiterTableSelects(); subscribeWaiterNotifications();
-
-    } catch(fallbackErr) {
-      errEl.textContent = 'Error de conexión: ' + (fallbackErr.message || fallbackErr);
-      errEl.style.display = 'block';
-    }
+    // Otherwise (hello-world template, 500, etc.) → fall through silently
+  } catch(_) {
+    // Network error or edge fn not deployed → fall through
   }
+
+  // ── 2. Fallback: direct DB plaintext check ──
+  let waiter = null;
+
+  // Try with active filter first
+  const { data: w1 } = await sb.from('waiters')
+    .select('id,name,email,password,password_hash,restaurant_id,active')
+    .eq('email', email).eq('active', true).maybeSingle();
+
+  if (w1) {
+    waiter = w1;
+  } else {
+    // Maybe RLS blocked it or active=false — try without filter
+    const { data: w2 } = await sb.from('waiters')
+      .select('id,name,email,password,password_hash,restaurant_id,active')
+      .eq('email', email).maybeSingle();
+    waiter = w2 || null;
+  }
+
+  if (!waiter) {
+    errEl.textContent = 'Email no encontrado. Comprueba que el email es correcto.';
+    errEl.style.display = 'block'; return;
+  }
+
+  // Check password
+  if (waiter.password) {
+    // Plaintext — direct comparison
+    if (waiter.password !== password) {
+      errEl.textContent = 'Contraseña incorrecta.';
+      errEl.style.display = 'block'; return;
+    }
+  } else if (waiter.password_hash) {
+    // Only hash — can't verify in browser without bcrypt
+    errEl.innerHTML = 'Contraseña cifrada. Despliega la Edge Function <strong>auth-waiter</strong> en Supabase con el código correcto, o resetea la contraseña desde <strong>manageat → Ajustes → Camareros</strong>.';
+    errEl.style.display = 'block'; return;
+  } else {
+    errEl.textContent = 'Sin contraseña configurada. Establécela desde manageat → Ajustes → Camareros.';
+    errEl.style.display = 'block'; return;
+  }
+
+  // ✓ Login OK via plaintext
+  await _finishWaiterLogin(waiter);
 }
 
 async function waiterForgotPassword() {
