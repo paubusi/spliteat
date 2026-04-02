@@ -495,108 +495,340 @@
   <!-- ════════════════════════════════════════
        S0: INICIO (solo para acceso directo sin QR)
   ════════════════════════════════════════ -->
-  <div class="screen active" id="s0" style="background:#F3F7F5;flex-direction:column;min-height:100vh;padding:0;max-width:none!important;width:100%!important">
+  <div class="screen active" id="s0" style="background:#F3F7F5;flex-direction:column;min-height:100vh;padding:0;max-width:none!important;width:100%!important;overflow-y:auto">
 
-    <!-- Full-width container -->
-    <div style="max-width:100%;margin:0 auto;width:100%;min-height:100vh;display:flex;flex-direction:column">
+<!-- ═══════════ NAV ═══════════ -->
+<nav style="position:sticky;top:0;z-index:50;background:rgba(243,247,245,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(8,80,65,.08);padding:.65rem 1.5rem;display:flex;align-items:center;justify-content:space-between">
+  <div style="font-family:'Fraunces',serif;font-size:22px;color:#0F1C17;letter-spacing:-.5px">split<em style="color:#D85A30;font-style:normal">eat</em></div>
+  <div style="display:flex;align-items:center;gap:.75rem">
+    <a href="#productos" onclick="event.preventDefault();document.getElementById('s0-productos').scrollIntoView({behavior:'smooth'})" style="font-size:13px;color:#5A7168;text-decoration:none;display:none" id="nav-link-productos">Productos</a>
+    <a href="#precios" onclick="event.preventDefault();document.getElementById('s0-precios').scrollIntoView({behavior:'smooth'})" style="font-size:13px;color:#5A7168;text-decoration:none;display:none" id="nav-link-precios">Precios</a>
+    <a href="#" onclick="event.preventDefault();go('s-admin-login')" style="font-size:13px;font-weight:500;color:#085041;background:rgba(8,80,65,.08);border-radius:99px;padding:7px 16px;text-decoration:none;white-space:nowrap">Acceso al restaurante →</a>
+  </div>
+</nav>
 
-      <!-- DESKTOP: two column layout / MOBILE: single column -->
-      <div style="flex:1;display:flex;flex-direction:column;min-height:100vh" class="s0-grid">
+<!-- ═══════════ HERO ═══════════ -->
+<section style="background:#085041;padding:5rem 1.5rem 4rem;position:relative;overflow:hidden">
+  <!-- Decorative circles -->
+  <div style="position:absolute;right:-80px;top:-80px;width:320px;height:320px;border-radius:50%;background:rgba(255,255,255,.04);pointer-events:none"></div>
+  <div style="position:absolute;left:-60px;bottom:-100px;width:280px;height:280px;border-radius:50%;background:rgba(29,158,117,.18);pointer-events:none"></div>
+  <div style="position:absolute;right:10%;bottom:-40px;width:160px;height:160px;border-radius:50%;background:rgba(216,90,48,.1);pointer-events:none"></div>
 
-        <!-- Left: Hero -->
-        <div style="background:var(--brand-d);padding:2.5rem 1.5rem;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden">
-          <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 30% 0%,rgba(29,158,117,.5) 0%,transparent 60%),radial-gradient(ellipse at 80% 120%,rgba(8,80,65,.8) 0%,transparent 50%);pointer-events:none"></div>
-          <div style="position:absolute;top:-40px;right:-40px;width:200px;height:200px;border-radius:50%;border:1px solid rgba(255,255,255,.06);pointer-events:none"></div>
-          <div style="position:absolute;bottom:-60px;left:-30px;width:240px;height:240px;border-radius:50%;border:1px solid rgba(255,255,255,.04);pointer-events:none"></div>
-          <div style="position:relative">
-            <div style="font-family:'Fraunces',serif;font-size:48px;font-weight:700;letter-spacing:-1px;line-height:1;margin-bottom:2rem">
-              <span style="color:#fff">split</span><em style="color:var(--accent);font-style:normal">eat</em>
-            </div>
-            <p style="font-size:16px;color:rgba(255,255,255,.85);line-height:1.9;margin:0 0 2.5rem">
-              Adiós a los bizums de 15,43€ que nunca llegan.<br>
-              Sin marear al camarero, sin perseguir a nadie.<br>
-              <strong style="color:#fff;font-weight:600;font-size:17px">La cuenta, resuelta.</strong>
-            </p>
-            <!-- CTA scan -->
-            <div style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:14px;padding:1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;cursor:pointer;backdrop-filter:blur(4px)">
-              <div>
-                <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:2px">Escanea el QR de tu mesa</div>
-                <div style="font-size:12px;color:rgba(255,255,255,.6)">Sin registro · Gratis para el comensal</div>
-              </div>
-              <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M7 5l4 4-4 4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </div>
-            </div>
+  <div style="max-width:760px;margin:0 auto;position:relative;z-index:1">
+    <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:99px;padding:5px 14px;font-size:12px;font-weight:500;color:rgba(255,255,255,.8);margin-bottom:2rem;letter-spacing:.04em">
+      🇪🇸 Hecho en España · Gratis para el comensal
+    </div>
+    <h1 style="font-family:'Fraunces',serif;font-size:clamp(2.4rem,7vw,4.2rem);font-weight:900;color:#fff;line-height:1.08;letter-spacing:-1.5px;margin-bottom:1.25rem">
+      Adiós a los bizums<br>de 15,43€ que<br><em style="color:#6FE8B0;font-style:italic">nunca llegan.</em>
+    </h1>
+    <p style="font-size:clamp(1rem,2.5vw,1.2rem);color:rgba(255,255,255,.75);line-height:1.65;margin-bottom:2.5rem;max-width:540px">
+      Sin marear al camarero, sin perseguir a nadie.<br>
+      <strong style="color:#fff;font-weight:600">La cuenta, resuelta.</strong>
+    </p>
+    <div style="display:flex;flex-wrap:wrap;gap:.75rem">
+      <div onclick="handleQRLanding()" style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.25);border-radius:var(--r);padding:.9rem 1.25rem;cursor:pointer;flex:1;min-width:220px;max-width:320px;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.18)'" onmouseout="this.style.background='rgba(255,255,255,.1)'">
+        <div>
+          <div style="font-size:15px;font-weight:600;color:#fff">Escanea el QR de tu mesa</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.6);margin-top:2px">Sin registro · Gratis para el comensal</div>
+        </div>
+        <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:auto">
+          <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M7 5l4 4-4 4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+      </div>
+      <div onclick="openCalleatFromLanding()" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:var(--r);padding:.9rem 1.1rem;cursor:pointer;flex:1;min-width:180px;max-width:260px" onmouseover="this.style.background='rgba(255,255,255,.12)'" onmouseout="this.style.background='rgba(255,255,255,.07)'">
+        <span style="font-size:20px">🪑</span>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:#fff">Lista de espera</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.5)">call<em style="color:#D85A30;font-style:normal">eat</em> — sin mesa libre</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ CÓMO FUNCIONA ═══════════ -->
+<section style="background:#F3F7F5;padding:3.5rem 1.5rem">
+  <div style="max-width:760px;margin:0 auto">
+    <div style="font-size:11px;font-weight:600;color:#085041;text-transform:uppercase;letter-spacing:.1em;margin-bottom:1.5rem">Cómo funciona</div>
+    <div style="display:flex;flex-direction:column;gap:.6rem">
+      <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:center;gap:.85rem;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+        <div style="width:38px;height:38px;border-radius:10px;background:#E1F5EE;flex-shrink:0;display:flex;align-items:center;justify-content:center">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="6" height="6" rx="1.5" fill="#085041"/><rect x="10" y="2" width="6" height="6" rx="1.5" fill="#085041"/><rect x="2" y="10" width="6" height="6" rx="1.5" fill="#085041"/><rect x="10" y="10" width="2.5" height="2.5" rx=".75" fill="#085041"/><rect x="13.5" y="10" width="2.5" height="2.5" rx=".75" fill="#085041"/><rect x="10" y="13.5" width="2.5" height="2.5" rx=".75" fill="#085041"/><rect x="13.5" y="13.5" width="2.5" height="2.5" rx=".75" fill="#085041"/></svg>
+        </div>
+        <div>
+          <div style="font-size:14px;font-weight:600;color:#0F1C17">Pide desde la mesa</div>
+          <div style="font-size:12px;color:#5A7168;margin-top:1px">Sin tener que perseguir al camarero</div>
+        </div>
+      </div>
+      <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:center;gap:.85rem;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+        <div style="width:38px;height:38px;border-radius:10px;background:#E1F5EE;flex-shrink:0;display:flex;align-items:center;justify-content:center">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="6.5" stroke="#085041" stroke-width="1.6"/><path d="M9 5.5V9.5l2.5 1.5" stroke="#085041" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div>
+          <div style="font-size:14px;font-weight:600;color:#0F1C17">Sigue tu pedido en tiempo real</div>
+          <div style="font-size:12px;color:#5A7168;margin-top:1px">Sabes cuándo está listo, sin preguntar</div>
+        </div>
+      </div>
+      <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:center;gap:.85rem;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+        <div style="width:38px;height:38px;border-radius:10px;background:#E1F5EE;flex-shrink:0;display:flex;align-items:center;justify-content:center">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9h12M9 3v12" stroke="#085041" stroke-width="1.6" stroke-linecap="round"/><circle cx="9" cy="9" r="6.5" stroke="#085041" stroke-width="1.6"/></svg>
+        </div>
+        <div>
+          <div style="font-size:14px;font-weight:600;color:#0F1C17">Divide la cuenta fácilmente</div>
+          <div style="font-size:12px;color:#5A7168;margin-top:1px">¿Bravas para compartir? Tú decides, spliteat calcula al céntimo</div>
+        </div>
+      </div>
+      <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:center;gap:.85rem;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+        <div style="width:38px;height:38px;border-radius:10px;background:#E1F5EE;flex-shrink:0;display:flex;align-items:center;justify-content:center">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1.5" y="4" width="15" height="10" rx="2" stroke="#085041" stroke-width="1.6"/><path d="M1.5 7.5h15" stroke="#085041" stroke-width="1.6"/><rect x="4" y="10.5" width="3.5" height="1.5" rx=".75" fill="#085041"/></svg>
+        </div>
+        <div>
+          <div style="font-size:14px;font-weight:600;color:#0F1C17">Paga en segundos</div>
+          <div style="font-size:12px;color:#5A7168;margin-top:1px">Apple Pay, Bizum o tarjeta. Sin esperar</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ SUITE DE PRODUCTOS ═══════════ -->
+<section id="s0-productos" style="background:#0F1C17;padding:4rem 1.5rem">
+  <div style="max-width:760px;margin:0 auto">
+    <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem">La suite completa</div>
+    <h2 style="font-family:'Fraunces',serif;font-size:clamp(1.6rem,5vw,2.4rem);font-weight:700;color:#fff;line-height:1.15;margin-bottom:.75rem;letter-spacing:-.5px">
+      Una plataforma.<br>Cinco herramientas.
+    </h2>
+    <p style="font-size:14px;color:rgba(255,255,255,.55);line-height:1.65;margin-bottom:2.5rem;max-width:480px">
+      Cada app del ecosistema <strong style="color:rgba(255,255,255,.8)">eat</strong>lab cubre un rol del restaurante. Todas conectadas, en tiempo real.
+    </p>
+
+    <div style="display:flex;flex-direction:column;gap:.75rem">
+      <!-- spliteat -->
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem 1.25rem">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:.5rem">
+          <div style="font-family:'Fraunces',serif;font-size:18px;color:#fff">split<em style="color:#D85A30;font-style:normal">eat</em></div>
+          <div style="font-size:10px;font-weight:600;color:#D85A30;background:rgba(216,90,48,.15);border-radius:99px;padding:2px 8px;letter-spacing:.06em">COMENSALES</div>
+        </div>
+        <p style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.6;margin:0">La app del cliente. Escanean el QR, piden, siguen su pedido en tiempo real y pagan exactamente lo que han consumido — dividido al céntimo. Sin registro, sin descarga.</p>
+      </div>
+      <!-- manageat -->
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem 1.25rem">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:.5rem">
+          <div style="font-family:'Fraunces',serif;font-size:18px;color:#fff">manag<em style="color:#D85A30;font-style:normal">eat</em></div>
+          <div style="font-size:10px;font-weight:600;color:#6FE8B0;background:rgba(111,232,176,.1);border-radius:99px;padding:2px 8px;letter-spacing:.06em">DIRECCIÓN</div>
+        </div>
+        <p style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.6;margin:0">El panel de administración. Gestiona la carta, mesas, camareros, reservas y visualiza el dashboard de KPIs, márgenes por plato y facturación histórica en tiempo real.</p>
+      </div>
+      <!-- cookeat -->
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem 1.25rem">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:.5rem">
+          <div style="font-family:'Fraunces',serif;font-size:18px;color:#fff">cook<em style="color:#D85A30;font-style:normal">eat</em></div>
+          <div style="font-size:10px;font-weight:600;color:#FAEEDA;background:rgba(250,238,218,.1);border-radius:99px;padding:2px 8px;letter-spacing:.06em">COCINA</div>
+        </div>
+        <p style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.6;margin:0">El KDS (Kitchen Display System). Los pedidos aparecen automáticamente agrupados por pase y mesa. Controla tiempos, activa platos y notifica al camarero cuando el pase está listo.</p>
+      </div>
+      <!-- serveat -->
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem 1.25rem">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:.5rem">
+          <div style="font-family:'Fraunces',serif;font-size:18px;color:#fff">serv<em style="color:#D85A30;font-style:normal">eat</em></div>
+          <div style="font-size:10px;font-weight:600;color:#B3D4FF;background:rgba(179,212,255,.1);border-radius:99px;padding:2px 8px;letter-spacing:.06em">SALA</div>
+        </div>
+        <p style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.6;margin:0">El panel del camarero. Recibe notificaciones de pases listos, gestiona sus mesas, confirma entregas, cobra en efectivo y lleva el control de sus propinas del turno.</p>
+      </div>
+      <!-- calleat -->
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem 1.25rem">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:.5rem">
+          <div style="font-family:'Fraunces',serif;font-size:18px;color:#fff">call<em style="color:#D85A30;font-style:normal">eat</em></div>
+          <div style="font-size:10px;font-weight:600;color:#FFD0B3;background:rgba(255,208,179,.1);border-radius:99px;padding:2px 8px;letter-spacing:.06em">LISTA DE ESPERA</div>
+        </div>
+        <p style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.6;margin:0">La cola virtual. Cuando no hay mesa libre, el cliente se apunta con su nombre y número de personas. El restaurante llama cuando hay hueco y el cliente recibe una notificación push aunque tenga la pantalla bloqueada.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ PARA RESTAURANTES ═══════════ -->
+<section style="background:#F3F7F5;padding:4rem 1.5rem">
+  <div style="max-width:760px;margin:0 auto">
+    <div style="font-size:11px;font-weight:600;color:#085041;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem">Para restaurantes</div>
+    <h2 style="font-family:'Fraunces',serif;font-size:clamp(1.5rem,5vw,2.2rem);font-weight:700;color:#0F1C17;line-height:1.15;letter-spacing:-.5px;margin-bottom:.75rem">
+      Tecnología de restaurante sin la complejidad
+    </h2>
+    <p style="font-size:14px;color:#5A7168;line-height:1.65;margin-bottom:2rem">
+      Sin hardware, sin instalaciones. spliteat funciona en cualquier dispositivo con navegador. Empieza en minutos.
+    </p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:2rem">
+      <div style="background:#fff;border-radius:12px;padding:1rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+        <div style="font-size:20px;margin-bottom:.4rem">⚡</div>
+        <div style="font-size:13px;font-weight:600;color:#0F1C17;margin-bottom:3px">Instalación en 5 min</div>
+        <div style="font-size:12px;color:#5A7168;line-height:1.5">Imprime los QRs, ponlos en las mesas y listo</div>
+      </div>
+      <div style="background:#fff;border-radius:12px;padding:1rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+        <div style="font-size:20px;margin-bottom:.4rem">📊</div>
+        <div style="font-size:13px;font-weight:600;color:#0F1C17;margin-bottom:3px">Dashboard en tiempo real</div>
+        <div style="font-size:12px;color:#5A7168;line-height:1.5">KPIs, márgenes y facturación de un vistazo</div>
+      </div>
+      <div style="background:#fff;border-radius:12px;padding:1rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+        <div style="font-size:20px;margin-bottom:.4rem">🤝</div>
+        <div style="font-size:13px;font-weight:600;color:#0F1C17;margin-bottom:3px">Sin comisiones por plato</div>
+        <div style="font-size:12px;color:#5A7168;line-height:1.5">Precio plano mensual, predecible</div>
+      </div>
+      <div style="background:#fff;border-radius:12px;padding:1rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+        <div style="font-size:20px;margin-bottom:.4rem">🔒</div>
+        <div style="font-size:13px;font-weight:600;color:#0F1C17;margin-bottom:3px">Datos seguros en Europa</div>
+        <div style="font-size:12px;color:#5A7168;line-height:1.5">Servidores en la UE, GDPR compliant</div>
+      </div>
+    </div>
+
+    <!-- Contacto / CTA restaurante -->
+    <div style="background:#085041;border-radius:16px;padding:1.75rem 1.5rem;text-align:center">
+      <div style="font-family:'Fraunces',serif;font-size:1.4rem;font-weight:700;color:#fff;margin-bottom:.5rem">¿Tu restaurante quiere empezar?</div>
+      <p style="font-size:13px;color:rgba(255,255,255,.7);margin-bottom:1.25rem;line-height:1.5">Escríbenos y lo tenemos funcionando este mismo día.</p>
+      <a href="mailto:hola@spliteat.es" style="display:inline-block;background:#D85A30;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:.75rem 2rem;border-radius:99px;font-family:'DM Sans',sans-serif">
+        hola@spliteat.es
+      </a>
+      <div style="margin-top:.85rem">
+        <button onclick="go('s-admin-login')" style="background:none;border:none;color:rgba(255,255,255,.6);font-size:12px;cursor:pointer;font-family:inherit;text-decoration:underline">
+          Ya soy cliente — acceder al panel
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ PRECIOS ═══════════ -->
+<section id="s0-precios" style="background:#fff;padding:4rem 1.5rem">
+  <div style="max-width:760px;margin:0 auto">
+    <div style="font-size:11px;font-weight:600;color:#085041;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem">Precios</div>
+    <h2 style="font-family:'Fraunces',serif;font-size:clamp(1.5rem,5vw,2.2rem);font-weight:700;color:#0F1C17;line-height:1.15;letter-spacing:-.5px;margin-bottom:2rem">Simple y transparente</h2>
+    <div style="display:flex;flex-direction:column;gap:.75rem">
+      <!-- Starter -->
+      <div style="border:1.5px solid #e0e0da;border-radius:16px;padding:1.5rem">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.65rem">
+          <div>
+            <div style="font-size:16px;font-weight:600;color:#0F1C17">Starter</div>
+            <div style="font-size:12px;color:#5A7168;margin-top:2px">Hasta 10 mesas</div>
           </div>
-        </di            <!-- calleat secondary CTA -->
-            <div onclick="openCalleatFromLanding()" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:var(--r);padding:.75rem 1rem;cursor:pointer;margin-top:.5rem;max-width:100%">
-              <span style="font-size:20px">🪑</span>
-              <div style="flex:1">
-                <div style="font-size:13px;font-weight:600;color:#fff">call<em style="color:#D85A30;font-style:normal">eat</em> — Sin mesa</div>
-                <div style="font-size:11px;color:rgba(255,255,255,.55)">Lista de espera virtual</div>
-              </div>
-            </div>
+          <div style="text-align:right">
+            <div style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:#085041;line-height:1">29€</div>
+            <div style="font-size:11px;color:#5A7168">/mes</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> split<em style="color:#D85A30;font-style:normal">eat</em> · manag<em style="color:#D85A30;font-style:normal">eat</em> · serv<em style="color:#D85A30;font-style:normal">eat</em></div>
+          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Carta digital + pedidos en tiempo real</div>
+          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Dashboard de KPIs</div>
+        </div>
+      </div>
+      <!-- Pro -->
+      <div style="border:2px solid #085041;border-radius:16px;padding:1.5rem;position:relative;background:#F3F7F5">
+        <div style="position:absolute;top:-11px;left:1.25rem;background:#085041;color:#fff;font-size:10px;font-weight:600;padding:3px 10px;border-radius:99px;letter-spacing:.06em">MÁS POPULAR</div>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.65rem">
+          <div>
+            <div style="font-size:16px;font-weight:600;color:#0F1C17">Pro</div>
+            <div style="font-size:12px;color:#5A7168;margin-top:2px">Mesas ilimitadas</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:#085041;line-height:1">59€</div>
+            <div style="font-size:11px;color:#5A7168">/mes</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Todo lo de Starter</div>
+          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> cook<em style="color:#D85A30;font-style:normal">eat</em> KDS · call<em style="color:#D85A30;font-style:normal">eat</em> lista de espera</div>
+          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Reservas + alérgenos + márgenes</div>
+          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Soporte prioritario</div>
+        </div>
+      </div>
+      <!-- Business -->
+      <div style="border:1.5px solid #e0e0da;border-radius:16px;padding:1.5rem">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.65rem">
+          <div>
+            <div style="font-size:16px;font-weight:600;color:#0F1C17">Business</div>
+            <div style="font-size:12px;color:#5A7168;margin-top:2px">Multi-local</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:#085041;line-height:1">99€</div>
+            <div style="font-size:11px;color:#5A7168">/mes</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Todo lo de Pro en varios locales</div>
+          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Dashboard consolidado</div>
+          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Onboarding personalizado</div>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:12px;color:#9A9990;text-align:center;margin-top:1rem;line-height:1.6">
+      Gratis para el comensal · Sin permanencia · Sin comisión por transacción
+    </p>
+  </div>
+</section>
 
-
-        <!-- Right: Features -->
-        <div style="padding:3rem 2.5rem;display:flex;flex-direction:column;justify-content:center;background:#F3F7F5">
-          <div style="font-size:11px;font-weight:600;color:var(--brand);text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem">Cómo funciona</div>
-
-          <div style="display:flex;flex-direction:column;gap:.5rem">
-            <div style="background:#fff;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.85rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-              <div style="width:34px;height:34px;border-radius:9px;background:var(--brand-l);flex-shrink:0;display:flex;align-items:center;justify-content:center">
-                <svg width="17" height="17" viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="6" height="6" rx="1.5" fill="var(--brand)"/><rect x="10" y="2" width="6" height="6" rx="1.5" fill="var(--brand)"/><rect x="2" y="10" width="6" height="6" rx="1.5" fill="var(--brand)"/><rect x="10" y="10" width="2.5" height="2.5" rx=".75" fill="var(--brand)"/><rect x="13.5" y="10" width="2.5" height="2.5" rx=".75" fill="var(--brand)"/><rect x="10" y="13.5" width="2.5" height="2.5" rx=".75" fill="var(--brand)"/><rect x="13.5" y="13.5" width="2.5" height="2.5" rx=".75" fill="var(--brand)"/></svg>
-              </div>
-              <div>
-                <div style="font-size:13px;font-weight:600;color:#0F1C17;margin-bottom:1px">Pide desde la mesa</div>
-                <div style="font-size:11px;color:#5A7168">Sin tener que perseguir al camarero</div>
-              </div>
-            </div>
-            <div style="background:#fff;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.85rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-              <div style="width:34px;height:34px;border-radius:9px;background:var(--brand-l);flex-shrink:0;display:flex;align-items:center;justify-content:center">
-                <svg width="17" height="17" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="6.5" stroke="var(--brand)" stroke-width="1.6"/><path d="M9 5.5V9.5l2.5 1.5" stroke="var(--brand)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </div>
-              <div>
-                <div style="font-size:13px;font-weight:600;color:#0F1C17;margin-bottom:1px">Sigue tu pedido en tiempo real</div>
-                <div style="font-size:11px;color:#5A7168">Sabes cuándo está listo, sin preguntar</div>
-              </div>
-            </div>
-            <div style="background:#fff;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.85rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-              <div style="width:34px;height:34px;border-radius:9px;background:var(--brand-l);flex-shrink:0;display:flex;align-items:center;justify-content:center">
-                <svg width="17" height="17" viewBox="0 0 18 18" fill="none"><path d="M3 9h12M9 3v12" stroke="var(--brand)" stroke-width="1.6" stroke-linecap="round"/><circle cx="9" cy="9" r="6.5" stroke="var(--brand)" stroke-width="1.6"/></svg>
-              </div>
-              <div>
-                <div style="font-size:13px;font-weight:600;color:#0F1C17;margin-bottom:1px">Divide la cuenta fácilmente</div>
-                <div style="font-size:11px;color:#5A7168">¿Bravas para compartir? Tú decides, spliteat calcula al céntimo</div>
-              </div>
-            </div>
-            <div style="background:#fff;border-radius:12px;padding:.85rem 1rem;display:flex;align-items:center;gap:.85rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
-              <div style="width:34px;height:34px;border-radius:9px;background:var(--brand-l);flex-shrink:0;display:flex;align-items:center;justify-content:center">
-                <svg width="17" height="17" viewBox="0 0 18 18" fill="none"><rect x="1.5" y="4" width="15" height="10" rx="2" stroke="var(--brand)" stroke-width="1.6"/><path d="M1.5 7.5h15" stroke="var(--brand)" stroke-width="1.6"/><rect x="4" y="10.5" width="3.5" height="1.5" rx=".75" fill="var(--brand)"/></svg>
-              </div>
-              <div>
-                <div style="font-size:13px;font-weight:600;color:#0F1C17;margin-bottom:1px">Paga en segundos</div>
-                <div style="font-size:11px;color:#5A7168">Apple Pay, Bizum o tarjeta. Sin esperar</div>
-              </div>
-            </div>
+<!-- ═══════════ FOOTER ═══════════ -->
+<footer style="background:#0F1C17;padding:2.5rem 1.5rem 2rem">
+  <div style="max-width:760px;margin:0 auto">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:2rem;flex-wrap:wrap;margin-bottom:2rem">
+      <div>
+        <div style="font-family:'Fraunces',serif;font-size:20px;color:#fff;margin-bottom:.35rem">split<em style="color:#D85A30;font-style:normal">eat</em></div>
+        <div style="font-size:12px;color:rgba(255,255,255,.35);line-height:1.6">Una marca de <strong style="color:rgba(255,255,255,.5)">eat</strong>lab<br>Madrid, España</div>
+      </div>
+      <div style="display:flex;gap:2.5rem;flex-wrap:wrap">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem">Producto</div>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <a onclick="document.getElementById('s0-productos').scrollIntoView({behavior:'smooth'})" style="font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;text-decoration:none">La suite</a>
+            <a onclick="document.getElementById('s0-precios').scrollIntoView({behavior:'smooth'})" style="font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;text-decoration:none">Precios</a>
+            <a href="mailto:hola@spliteat.es" style="font-size:13px;color:rgba(255,255,255,.6);text-decoration:none">Contacto</a>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem">Legal</div>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <a onclick="showLegalModal('privacidad')" style="font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;text-decoration:none">Privacidad</a>
+            <a onclick="showLegalModal('cookies')" style="font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;text-decoration:none">Cookies</a>
+            <a onclick="showLegalModal('terminos')" style="font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;text-decoration:none">Términos</a>
+            <a onclick="showLegalModal('aviso')" style="font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;text-decoration:none">Aviso legal</a>
           </div>
         </div>
       </div>
     </div>
-
-    </div><!-- /s0-grid -->
-    <!-- Mobile override -->
-    <style>
-      @media (max-width: 600px) {
-        #s0 > div:last-of-type > div { grid-template-columns: 1fr !important; min-height: unset !important; }
-        #s0 > div:last-of-type > div > div:first-child { padding: 2.5rem 1.5rem 2rem !important; justify-content: flex-start !important; }
-        #s0 > div:last-of-type > div > div:last-child { padding: 1.25rem 1.25rem 1.5rem !important; }
-        #s0 > div:first-child { padding: .65rem 1rem !important; }
-      }
-    </style>
+    <div style="border-top:1px solid rgba(255,255,255,.06);padding-top:1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
+      <div style="font-size:11px;color:rgba(255,255,255,.25)">© 2025 eatlab · spliteat.es</div>
+      <button onclick="showCookiesBanner()" style="font-size:11px;color:rgba(255,255,255,.25);background:none;border:none;cursor:pointer;font-family:inherit;text-decoration:underline">Gestionar cookies</button>
+    </div>
   </div>
+</footer>
 
-  <!-- ════════════════════════════════════════
+<!-- ═══════════ COOKIES BANNER ═══════════ -->
+<div id="cookies-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#0F1C17;border-top:1px solid rgba(255,255,255,.1);padding:1.1rem 1.25rem">
+  <div style="max-width:760px;margin:0 auto;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+    <div style="flex:1;min-width:200px">
+      <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:3px">🍪 Usamos cookies</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.55);line-height:1.5">Cookies técnicas necesarias para el funcionamiento. No usamos cookies de seguimiento ni publicidad.</div>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-shrink:0">
+      <button onclick="acceptCookies()" style="background:#085041;border:none;color:#fff;font-size:13px;font-weight:500;padding:8px 18px;border-radius:99px;cursor:pointer;font-family:inherit">Aceptar</button>
+      <button onclick="showLegalModal('cookies')" style="background:rgba(255,255,255,.08);border:none;color:rgba(255,255,255,.7);font-size:13px;padding:8px 14px;border-radius:99px;cursor:pointer;font-family:inherit">Más info</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ LEGAL MODAL ═══════════ -->
+<div id="legal-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;align-items:flex-end;justify-content:center">
+  <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:85vh;overflow-y:auto">
+    <div style="position:sticky;top:0;background:#fff;padding:1.25rem 1.25rem .75rem;border-bottom:1px solid #f0f0ea;display:flex;align-items:center;justify-content:space-between">
+      <div id="legal-modal-title" style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:#0F1C17"></div>
+      <button onclick="document.getElementById('legal-modal').style.display='none'" style="background:none;border:none;font-size:22px;cursor:pointer;color:#5A7168;line-height:1">✕</button>
+    </div>
+    <div id="legal-modal-body" style="padding:1.25rem;font-size:13px;color:#5A7168;line-height:1.75"></div>
+  </div>
+</div>
+
+</div>
+
+
+    <!-- ════════════════════════════════════════
        S1-QR: ENTRAR A MESA (via QR)
        Pantalla que ve el comensal al escanear
   ════════════════════════════════════════ -->
@@ -2326,6 +2558,7 @@ function go(screenId) {
     return;
   }
   window.scrollTo(0, 0);
+  if (screenId === 's0') initLanding();
   // Show acceso button only on s0
   const btnAcceso = document.getElementById('btn-acceso-restaurante');
   if (btnAcceso) btnAcceso.style.display = screenId === 's0' ? 'block' : 'none';
@@ -9761,12 +9994,136 @@ async function loadKPIPropinasEmbedded() {
   </div>`;
 }
 
+
+// ══════════════════════════════════════════════════════
+// LANDING PAGE — Cookies, Legal, Navigation
+// ══════════════════════════════════════════════════════
+
+function handleQRLanding() {
+  // If user arrived via QR (has mesa param), go to QR screen
+  // Otherwise show a prompt to scan QR
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('mesa')) {
+    go('s1-qr');
+  } else {
+    notify('Escanea el QR de tu mesa con la cámara del móvil para entrar', 'info');
+  }
+}
+
+function initLanding() {
+  // Show cookies banner if not accepted yet
+  if (!localStorage.getItem('cookies_accepted')) {
+    setTimeout(() => {
+      const banner = document.getElementById('cookies-banner');
+      if (banner) banner.style.display = 'block';
+    }, 1200);
+  }
+  // Show nav links on desktop
+  if (window.innerWidth >= 600) {
+    document.getElementById('nav-link-productos')?.style && (document.getElementById('nav-link-productos').style.display = 'inline');
+    document.getElementById('nav-link-precios')?.style && (document.getElementById('nav-link-precios').style.display = 'inline');
+  }
+}
+
+function acceptCookies() {
+  localStorage.setItem('cookies_accepted', '1');
+  const banner = document.getElementById('cookies-banner');
+  if (banner) banner.style.display = 'none';
+}
+
+function showCookiesBanner() {
+  const banner = document.getElementById('cookies-banner');
+  if (banner) banner.style.display = 'block';
+}
+
+const LEGAL_CONTENT = {
+  privacidad: {
+    title: 'Política de Privacidad',
+    body: `<p><strong>Responsable:</strong> eatlab (spliteat.es) · hola@spliteat.es</p>
+    <p style="margin-top:.75rem"><strong>¿Qué datos recogemos?</strong><br>
+    Únicamente los datos que el usuario introduce voluntariamente: nombre (seudónimo libre), email opcional para recibo, y datos de pago procesados por Stripe (nunca almacenamos datos de tarjeta).</p>
+    <p style="margin-top:.75rem"><strong>¿Para qué los usamos?</strong><br>
+    Exclusivamente para gestionar la experiencia de pedido y pago en el restaurante. No cedemos datos a terceros con fines comerciales.</p>
+    <p style="margin-top:.75rem"><strong>¿Cuánto tiempo los guardamos?</strong><br>
+    Los datos de sesión se eliminan automáticamente al cerrar la mesa. Los registros de pago se conservan según la legislación fiscal aplicable.</p>
+    <p style="margin-top:.75rem"><strong>Tus derechos:</strong><br>
+    Acceso, rectificación, supresión, portabilidad y oposición. Escríbenos a hola@spliteat.es.</p>
+    <p style="margin-top:.75rem"><strong>Transferencias internacionales:</strong><br>
+    Los datos se almacenan en servidores de Supabase (UE) y están sujetos al RGPD.</p>`
+  },
+  cookies: {
+    title: 'Política de Cookies',
+    body: `<p>spliteat.es usa exclusivamente cookies técnicas necesarias para el funcionamiento de la aplicación. <strong>No usamos cookies de seguimiento, analítica ni publicidad.</strong></p>
+    <p style="margin-top:.75rem"><strong>Cookies que usamos:</strong></p>
+    <table style="width:100%;border-collapse:collapse;margin-top:.5rem;font-size:12px">
+      <tr style="background:#f5f5f3">
+        <td style="padding:6px 8px;font-weight:600;border-radius:4px 0 0 4px">Nombre</td>
+        <td style="padding:6px 8px;font-weight:600">Finalidad</td>
+        <td style="padding:6px 8px;font-weight:600;border-radius:0 4px 4px 0">Duración</td>
+      </tr>
+      <tr style="border-bottom:1px solid #eee">
+        <td style="padding:6px 8px;font-family:monospace">spliteat_session</td>
+        <td style="padding:6px 8px">Mantener la sesión activa en la mesa</td>
+        <td style="padding:6px 8px">8 horas</td>
+      </tr>
+      <tr style="border-bottom:1px solid #eee">
+        <td style="padding:6px 8px;font-family:monospace">cookies_accepted</td>
+        <td style="padding:6px 8px">Recordar tu consentimiento</td>
+        <td style="padding:6px 8px">1 año</td>
+      </tr>
+      <tr>
+        <td style="padding:6px 8px;font-family:monospace">sidebar_collapsed</td>
+        <td style="padding:6px 8px">Preferencia visual del panel admin</td>
+        <td style="padding:6px 8px">Indefinida</td>
+      </tr>
+    </table>
+    <p style="margin-top:1rem">Puedes eliminar las cookies en cualquier momento desde la configuración de tu navegador.</p>`
+  },
+  terminos: {
+    title: 'Términos de Servicio',
+    body: `<p><strong>1. Aceptación</strong><br>Al usar spliteat, aceptas estos términos. El servicio es gratuito para comensales. Los restaurantes contratan el servicio mediante suscripción mensual.</p>
+    <p style="margin-top:.75rem"><strong>2. Servicio</strong><br>spliteat facilita la gestión de pedidos y pagos en restaurantes. No somos parte de la relación contractual entre el restaurante y el comensal.</p>
+    <p style="margin-top:.75rem"><strong>3. Pagos</strong><br>Los pagos online se procesan mediante Stripe. spliteat no almacena datos de tarjeta. El restaurante es responsable del servicio prestado.</p>
+    <p style="margin-top:.75rem"><strong>4. Disponibilidad</strong><br>Nos comprometemos a mantener el servicio disponible con el mayor nivel posible, pero no garantizamos disponibilidad ininterrumpida.</p>
+    <p style="margin-top:.75rem"><strong>5. Propiedad intelectual</strong><br>spliteat, manageat, cookeat, serveat y calleat son marcas de eatlab. Queda prohibida su reproducción sin autorización.</p>
+    <p style="margin-top:.75rem"><strong>6. Ley aplicable</strong><br>Estos términos se rigen por la legislación española. Para cualquier disputa, las partes se someten a los juzgados de Madrid.</p>`
+  },
+  aviso: {
+    title: 'Aviso Legal',
+    body: `<p><strong>Titular del sitio web:</strong> eatlab<br>
+    <strong>Sitio web:</strong> spliteat.es<br>
+    <strong>Email de contacto:</strong> hola@spliteat.es<br>
+    <strong>País de registro:</strong> España</p>
+    <p style="margin-top:.75rem">spliteat.es es una marca registrada en la Oficina Española de Patentes y Marcas (OEPM) en las clases 36 y 42.</p>
+    <p style="margin-top:.75rem">El presente aviso legal regula el uso del sitio web spliteat.es. Al acceder y navegar por este sitio, el usuario acepta las condiciones aquí establecidas.</p>
+    <p style="margin-top:.75rem"><strong>Propiedad intelectual:</strong> Todos los contenidos del sitio web (textos, imágenes, logotipos, código fuente) son propiedad de eatlab y están protegidos por la legislación española e internacional de propiedad intelectual.</p>`
+  }
+};
+
+function showLegalModal(type) {
+  const modal = document.getElementById('legal-modal');
+  const titleEl = document.getElementById('legal-modal-title');
+  const bodyEl = document.getElementById('legal-modal-body');
+  const content = LEGAL_CONTENT[type];
+  if (!modal || !content) return;
+  titleEl.textContent = content.title;
+  bodyEl.innerHTML = content.body;
+  modal.style.display = 'flex';
+}
+
+// Close legal modal on background click
+document.addEventListener('click', e => {
+  const modal = document.getElementById('legal-modal');
+  if (modal && e.target === modal) modal.style.display = 'none';
+});
+
 // ══════════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════════
 handleStripeReturn();
 
 // Primero intentar restaurar sesión, luego manejar QR
+initLanding();
 restoreSession().then(restored => {
   if (!restored) handleQRUrl();
 });
