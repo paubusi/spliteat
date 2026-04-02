@@ -422,7 +422,7 @@
 <div id="offline-banner">📵 Sin conexión — mostrando datos guardados</div>
 
 <div id="btn-acceso-restaurante" style="position:fixed;top:12px;right:12px;z-index:99999;-webkit-transform:translate3d(0,0,0);transform:translate3d(0,0,0)">
-  <a href="#acceso" id="btn-acceso-inner"
+  <a href="#" onclick="event.preventDefault();go('s-admin-login')" id="btn-acceso-inner"
     style="display:block;padding:9px 18px;border-radius:99px;border:1.5px solid #085041;background:#fff;color:#085041;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.12);text-decoration:none;-webkit-tap-highlight-color:rgba(0,0,0,.1)">
     Acceso al restaurante →
   </a>
@@ -522,6 +522,7 @@
       </div>
     </div>
 
+    </div><!-- /s0-grid -->
     <!-- Mobile override -->
     <style>
       @media (max-width: 600px) {
@@ -1509,7 +1510,7 @@
         </div>
         <div id="detail-content"></div>
       </div>
-    </div>
+    </div><!-- /atab-encurso -->
 
     <!-- Hidden containers — IDs needed by JS for carta/mesas/camareros  -->
     <div style="display:none" aria-hidden="true">
@@ -1970,6 +1971,7 @@
       </div><!-- /admin-main -->
     </div><!-- /admin-shell -->
   </div><!-- /s-admin -->
+</div><!-- /app -->
 
 
 <script>
@@ -2188,7 +2190,15 @@ const now = () => new Date().toLocaleTimeString('es-ES', {hour:'2-digit',minute:
 function go(screenId) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   const target = document.getElementById(screenId);
-  if (target) target.classList.add('active');
+  if (target) {
+    target.classList.add('active');
+  } else {
+    // Fallback: if screen not found, show s0
+    console.warn('Screen not found:', screenId);
+    const s0 = document.getElementById('s0');
+    if (s0) s0.classList.add('active');
+    return;
+  }
   window.scrollTo(0, 0);
   // Show acceso button only on s0
   const btnAcceso = document.getElementById('btn-acceso-restaurante');
