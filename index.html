@@ -3700,16 +3700,45 @@ async function sendToKitchen() {
   if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
 
   const sentAt = new Date().toISOString();
+  const bebidasSent = [];
+
   for (const dish of unsentDishes) {
     const isBebidas = dish.category === 'bebidas' || dish.course === 0;
-    // Bebidas go to 'sent' like other dishes — waiter confirms from serveat
-    const newStatus = 'sent';
+    // Bebidas bypass cocina — el camarero las prepara directamente
+    // Las marcamos como 'sent' para que aparezcan en serveat pero NO en cookeat
     await sb.from('dishes').update({
-      kitchen_status: newStatus,
+      kitchen_status: 'sent',
       sent_at: sentAt
     }).eq('id', dish.id);
-    dish.kitchen_status = newStatus;
+    dish.kitchen_status = 'sent';
     dish.sent_at = sentAt;
+    if (isBebidas) bebidasSent.push(dish);
+  }
+
+  // Notificar al camarero por las bebidas (via kitchen_notifications igual que un pase)
+  if (bebidasSent.length && state.roomId) {
+    const { data: room } = await sb.from('rooms')
+      .select('restaurant_id, assigned_waiter_id, waiter_id, table_id')
+      .eq('id', state.roomId).maybeSingle();
+    if (room?.restaurant_id) {
+      const { data: table } = room.table_id
+        ? await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle()
+        : { data: null };
+      const tableLabel = table
+        ? `Mesa ${table.number}${table.label ? ' — ' + table.label : ''}`
+        : 'Mesa';
+      await sb.from('kitchen_notifications').insert({
+        restaurant_id: room.restaurant_id,
+        room_id: state.roomId,
+        course: 0,
+        course_label: 'Bebidas',
+        table_label: tableLabel,
+        is_bebidas: true,
+        dishes: bebidasSent.map(d => ({ id: d.id, name: d.name, course: 0, category: 'bebidas' })),
+        assigned_waiter_id: room.assigned_waiter_id || null,
+        waiter_id: room.waiter_id || null,
+      });
+    }
   }
 
   if (btn) btn.disabled = false;
@@ -4222,7 +4251,12 @@ async function loadKitchenOrders() {
   const prepByItem = {};
   (menuItems || []).forEach(m => { if (m.prep_time_minutes) prepByItem[m.id] = m.prep_time_minutes; });
 
-  const activeDishes = (dishes || []).filter(d => d.kitchen_status !== 'delivered');
+  // Bebidas excluidas del KDS — las gestiona el camarero directamente desde serveat
+  const activeDishes = (dishes || []).filter(d =>
+    d.kitchen_status !== 'delivered' &&
+    d.category !== 'bebidas' &&
+    d.course !== 0
+  );
   const sentCount = activeDishes.filter(d => d.kitchen_status === 'sent').length;
   const badge = document.getElementById('k-pedidos-badge');
   if (badge) { badge.textContent = sentCount; badge.style.display = sentCount > 0 ? 'inline' : 'none'; }
@@ -4317,13 +4351,15 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
     const timerColor = elapsed > 20 ? '#C0392B' : elapsed > 10 ? '#E67E22' : 'var(--t3)';
     const timerBg = elapsed > 20 ? '#FCEBEB' : elapsed > 10 ? '#FAEEDA' : 'var(--bg2)';
 
-    // Group by course
+    // Group by course — exclude bebidas (course=0, category=bebidas)
     const byCourse = {};
-    roomDishes.forEach(d => {
-      const c = d.course || 1;
-      if (!byCourse[c]) byCourse[c] = [];
-      byCourse[c].push(d);
-    });
+    roomDishes
+      .filter(d => d.category !== 'bebidas' && d.course !== 0)
+      .forEach(d => {
+        const c = d.course || 1;
+        if (!byCourse[c]) byCourse[c] = [];
+        byCourse[c].push(d);
+      });
 
     const activeCourses = Object.keys(byCourse).map(Number).sort();
 
@@ -5258,11 +5294,13 @@ async function markDishDelivered(dishId) {
 }
 
 async function markBebidasReady(dishId) {
+  // Bebida preparada y entregada por el camarero — marcar como delivered directamente
   const now = new Date().toISOString();
   await sb.from('dishes').update({
-    kitchen_status: 'ready',
+    kitchen_status: 'delivered',
     making_at: now,
-    ready_at: now
+    ready_at: now,
+    delivered_at: now
   }).eq('id', dishId);
   loadWaiterMesas();
 }
