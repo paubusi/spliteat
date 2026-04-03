@@ -7338,10 +7338,26 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
 
 // ── FIRE NEXT COURSE — marca pase listo y notifica camarero ──
 async function fireNextCourse(roomId, course, dishIds) {
-  // Mark all dishes in this course as ready
+  // ── PASO 1: Leer cache ANTES de setAllOrderStatus ──
+  // setAllOrderStatus llama loadKitchenOrders() que re-renderiza y sobreescribe _kdsCache con []
+  const cacheKey = roomId + '_' + course;
+  let readyDishes = (window._kdsCache?.[cacheKey] || []).filter(d => d.name);
+  if (window._kdsCache) delete window._kdsCache[cacheKey];
+  console.log('[Kitchen] Cache leído ANTES de setAllOrderStatus:', readyDishes.length, 'platos', readyDishes.map(d=>d.name));
+
+  // ── PASO 2: Marcar platos como ready (re-renderiza KDS, limpia cache) ──
   await setAllOrderStatus(dishIds, 'ready');
 
-  // Get table + waiter info for notification
+  // ── PASO 3: Si cache estaba vacío, intentar fallback por DB ──
+  if (!readyDishes.length && dishIds?.length) {
+    const { data: dbDishes } = await sb.from('dishes')
+      .select('id, name, course, category')
+      .in('id', dishIds);
+    readyDishes = dbDishes || [];
+    console.log('[Kitchen] Fallback DB:', readyDishes.length, 'platos');
+  }
+
+  // ── PASO 4: Info de la mesa ──
   const { data: room } = await sb.from('rooms')
     .select('table_id, assigned_waiter_id, waiter_id')
     .eq('id', roomId).maybeSingle();
@@ -7370,19 +7386,6 @@ async function fireNextCourse(roomId, course, dishIds) {
     tag: 'kitchen-' + roomId + '-' + course,
     requireInteraction: true,
   });
-
-  // Use KDS cache (dish names already in memory — no DB query, no timing issues)
-  const cacheKey = roomId + '_' + course;
-  let readyDishes = window._kdsCache?.[cacheKey] || [];
-  if (!readyDishes.length) {
-    // Fallback: query DB if cache miss (e.g. page refresh between render and fire)
-    const { data: dbDishes } = await sb.from('dishes')
-      .select('id, name, course, category')
-      .in('id', dishIds);
-    readyDishes = dbDishes || [];
-  }
-  // Clear cache entry after use
-  if (window._kdsCache) delete window._kdsCache[cacheKey];
 
   // INSERT notification → camarero la recibe vía realtime postgres_changes (INSERT)
   // INSERT siempre lleva el payload completo, sin necesidad de REPLICA IDENTITY
