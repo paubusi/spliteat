@@ -1861,9 +1861,9 @@
             <option value="90">3 meses</option>
             <option value="all">Todo</option>
           </select>
-          <button onclick="exportFacturasExcel()"
-            style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-size:12px;font-weight:500;color:var(--brand-d);cursor:pointer;font-family:inherit;white-space:nowrap">
-            📊 Excel
+          <button onclick="showExcelExportModal()"
+            style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--r-sm);border:1.5px solid var(--brand);background:var(--brand-l);font-size:12px;font-weight:500;color:var(--brand-d);cursor:pointer;font-family:inherit;white-space:nowrap">
+            📊 Exportar a Excel
           </button>
         </div>
       </div>
@@ -8972,6 +8972,38 @@ function downloadFactura() {
     </div>
   </div>
 </div>
+
+<!-- ══ EXCEL EXPORT MODAL ══ -->
+<div id="excel-export-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9001;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--card);border-radius:var(--r-lg);max-width:360px;width:100%;padding:1.5rem;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
+      <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--brand-d)">Exportar a Excel</div>
+      <button onclick="document.getElementById('excel-export-modal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2);line-height:1">✕</button>
+    </div>
+    <div style="font-size:13px;color:var(--t2);margin-bottom:1rem">Selecciona el período a exportar:</div>
+
+    <!-- Quick options -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:1rem">
+      <button onclick="runExcelExport('1')" style="padding:10px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--bg);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;color:var(--t1)">Hoy</button>
+      <button onclick="runExcelExport('7')" style="padding:10px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--bg);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;color:var(--t1)">Últimos 7 días</button>
+      <button onclick="runExcelExport('30')" style="padding:10px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--bg);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;color:var(--t1)">Este mes</button>
+      <button onclick="runExcelExport('all')" style="padding:10px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--bg);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;color:var(--t1)">Todo</button>
+    </div>
+
+    <!-- Custom date range -->
+    <div style="border-top:1px solid var(--bd);padding-top:1rem">
+      <div style="font-size:12px;font-weight:500;color:var(--t2);margin-bottom:.5rem">Período personalizado:</div>
+      <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.75rem">
+        <input type="date" id="excel-date-from" style="flex:1;padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);font-family:inherit;font-size:13px;background:var(--bg)">
+        <span style="font-size:12px;color:var(--t3)">a</span>
+        <input type="date" id="excel-date-to" style="flex:1;padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);font-family:inherit;font-size:13px;background:var(--bg)">
+      </div>
+      <button onclick="runExcelExportCustom()" style="width:100%;padding:10px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">
+        📊 Exportar período
+      </button>
+    </div>
+  </div>
+</div>
 </body></html>
   `);
   printWindow.document.close();
@@ -10385,29 +10417,161 @@ let _facturasData = []; // populated by loadFacturas
 
 // Descargar PDF de una factura directamente (sin abrir modal)
 async function downloadFacturaPDF(roomId) {
-  // Open modal invisibly to render content, then print
-  const modal = document.getElementById('factura-modal');
+  // Load factura data, render HTML, then print — without showing the modal visually
   const content = document.getElementById('factura-content');
-  if (!modal || !content) return;
-  content.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3)">Preparando PDF...</div>';
-  modal.style.display = 'flex';
-  await openFactura(roomId);
-  // Wait for content to render then print
-  setTimeout(() => downloadFactura(), 600);
+  if (!content) return;
+
+  // Fetch data fresh
+  const [{ data: room }, { data: guests }, { data: dishes }, { data: payments }] = await Promise.all([
+    sb.from('rooms').select('*').eq('id', roomId).maybeSingle(),
+    sb.from('guests').select('*').eq('room_id', roomId),
+    sb.from('dishes').select('*').eq('room_id', roomId),
+    sb.from('payments').select('*').eq('room_id', roomId),
+  ]);
+
+  if (!room) { notify('Error: factura no encontrada'); return; }
+
+  let table = null;
+  if (room.table_id) {
+    const { data: t } = await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle();
+    table = t;
+  }
+
+  const entry = { room, table, guests: guests||[], dishes: dishes||[], payments: payments||[] };
+  if (!window._historialData) window._historialData = [];
+  window._historialData.push(entry);
+  const idx = window._historialData.length - 1;
+
+  // Render to a hidden div to build the print content
+  const hiddenDiv = document.createElement('div');
+  hiddenDiv.id = 'factura-content';
+  hiddenDiv.style.cssText = 'position:absolute;left:-9999px;top:-9999px;';
+  document.body.appendChild(hiddenDiv);
+
+  // Temporarily swap content element
+  const realContent = document.getElementById('factura-content');
+
+  // Build HTML (reuse showFactura logic inline)
+  const { data: rest } = await sb.from('restaurants').select('*').eq('id', state.adminRestaurantId).single();
+  const parts = await loadFacturaParticipants(entry);
+  const tableLabel = table ? `Mesa ${table.number}${table.label?' — '+table.label:''}` : 'Mesa';
+  const subtotal = dishes.reduce((s,d) => s+parseFloat(d.price||0), 0);
+  const openedAt = new Date(room.created_at);
+  const ivaRate = rest?.iva_rate || 10;
+  const baseImponible = subtotal / (1 + ivaRate/100);
+  const cuotaIva = subtotal - baseImponible;
+  const year = openedAt.getFullYear();
+  const serie = rest?.invoice_series || 'F';
+  const invoiceNum = `${serie}-${year}-${String(idx+1).padStart(4,'0')}`;
+  const dateStr = openedAt.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'});
+
+  const printHtml = `<div id="factura-printable" style="font-family:'DM Sans',sans-serif;font-size:13px;color:#1a1a18">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:2px solid #085041">
+      <div><div style="font-family:serif;font-size:22px;font-weight:700;color:#085041">split<span style="color:#D85A30">eat</span></div><div style="font-size:11px;color:#888;margin-top:2px">spliteat.es</div></div>
+      <div style="text-align:right"><div style="font-size:16px;font-weight:700;color:#085041">FACTURA</div><div style="font-size:12px;color:#666">Nº ${invoiceNum}</div><div style="font-size:12px;color:#666">Fecha: ${dateStr}</div></div>
+    </div>
+    <div style="margin-bottom:1rem"><div style="font-size:11px;font-weight:500;color:#888;text-transform:uppercase;margin-bottom:.35rem">Emisor</div>
+      <div style="font-size:13px;font-weight:500">${rest?.name||''}</div>
+      ${rest?.nif?`<div style="font-size:12px;color:#666">NIF/CIF: ${rest.nif}</div>`:''}
+      ${rest?.address?`<div style="font-size:12px;color:#666">${rest.address}</div>`:''}
+    </div>
+    <div style="background:#f5f5f3;border-radius:6px;padding:.5rem .75rem;font-size:12px;color:#666;margin-bottom:1rem">${tableLabel} · ${openedAt.toLocaleDateString('es-ES',{weekday:'long',day:'2-digit',month:'long',year:'numeric'})} · ${openedAt.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})}</div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:1rem;font-size:12px">
+      <thead><tr style="border-bottom:1px solid #ddd"><th style="text-align:left;padding:4px 0;color:#888;font-weight:500">Descripción</th><th style="text-align:right;padding:4px 0;color:#888;font-weight:500">Importe</th></tr></thead>
+      <tbody>${dishes.map(d=>`<tr style="border-bottom:1px solid #f0f0f0"><td style="padding:4px 0">${escHtml(d.name)}</td><td style="padding:4px 0;text-align:right;font-weight:500">${parseFloat(d.price).toFixed(2)} €</td></tr>`).join('')}</tbody>
+    </table>
+    <div style="border-top:1px solid #ddd;padding-top:.65rem;margin-bottom:1rem">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:3px"><span>Base imponible</span><span>${baseImponible.toFixed(2)} €</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:3px"><span>IVA (${ivaRate}%)</span><span>${cuotaIva.toFixed(2)} €</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:700;color:#085041;padding-top:.35rem;border-top:1px solid #ddd"><span>TOTAL</span><span style="font-family:serif;font-size:18px">${subtotal.toFixed(2)} €</span></div>
+    </div>
+    <div style="margin-top:1.25rem;font-size:10px;color:#999;text-align:center;line-height:1.6">Factura emitida según art. 164 Ley 37/1992 del IVA y RD 1619/2012.<br>Operación sujeta a IVA. Régimen general.</div>
+  </div>`;
+
+  // Open print window directly
+  const tableNum = table ? `Mesa_${table.number}` : 'Mesa';
+  const datePDF = openedAt.toLocaleDateString('es-ES').replace(/\//g,'-');
+  const printWindow = window.open('','_blank');
+  if (!printWindow) { notify('Permite ventanas emergentes para descargar el PDF'); return; }
+  printWindow.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>Factura spliteat — ${tableNum} ${datePDF}</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <style>body{font-family:'DM Sans',sans-serif;max-width:400px;margin:2rem auto;padding:1rem;color:#1a1a18}*{box-sizing:border-box}@media print{@page{margin:1cm}}</style>
+    </head><body>${printHtml}<script>window.onload=()=>{setTimeout(()=>{window.print();},500);}<\/script></body></html>`);
+  printWindow.document.close();
+}
+
+function showExcelExportModal() {
+  // Pre-fill dates with today
+  const today = new Date().toISOString().split('T')[0];
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+  const fromEl = document.getElementById('excel-date-from');
+  const toEl = document.getElementById('excel-date-to');
+  if (fromEl) fromEl.value = monthStart;
+  if (toEl) toEl.value = today;
+  document.getElementById('excel-export-modal').style.display = 'flex';
+}
+
+async function runExcelExport(period) {
+  document.getElementById('excel-export-modal').style.display = 'none';
+  let since = null;
+  const now = new Date();
+  if (period === '1') { const d = new Date(); d.setHours(0,0,0,0); since = d.toISOString(); }
+  else if (period !== 'all') since = new Date(now - parseInt(period)*86400000).toISOString();
+  await exportFacturasExcel(since, null, period);
+}
+
+async function runExcelExportCustom() {
+  const from = document.getElementById('excel-date-from')?.value;
+  const to = document.getElementById('excel-date-to')?.value;
+  if (!from || !to) { notify('Selecciona fecha de inicio y fin'); return; }
+  document.getElementById('excel-export-modal').style.display = 'none';
+  const since = new Date(from + 'T00:00:00').toISOString();
+  const until = new Date(to + 'T23:59:59').toISOString();
+  await exportFacturasExcel(since, until, from + ' a ' + to);
 }
 
 // Exportar todas las facturas del período como Excel
-async function exportFacturasExcel() {
-  if (!_facturasData.length) {
-    notify('Sin facturas en este período para exportar');
-    return;
-  }
+async function exportFacturasExcel(since = null, until = null, label = 'Todo') {
+  // Fetch fresh data for the requested period
+  if (!state.adminRestaurantId) { notify('Error: no hay restaurante seleccionado'); return; }
+  showToast('⏳ Preparando Excel…', 'Obteniendo datos...');
+
+  let q = sb.from('rooms').select('*,tables(number,label)').eq('restaurant_id', state.adminRestaurantId).eq('closed', true).order('created_at', { ascending: false });
+  if (since) q = q.gte('created_at', since);
+  if (until) q = q.lte('created_at', until);
+  const { data: rooms } = await q;
+
+  if (!rooms?.length) { notify('Sin facturas en este período para exportar'); return; }
+
+  const roomIds = rooms.map(r => r.id);
+  const { data: pays } = await sb.from('payments').select('*').in('room_id', roomIds);
+  const { data: guests } = await sb.from('guests').select('id,room_id').in('room_id', roomIds);
+  const { data: dishes } = await sb.from('dishes').select('id,room_id,price').in('room_id', roomIds);
+
+  const paysByRoom = {};
+  (pays||[]).forEach(p => { if (!paysByRoom[p.room_id]) paysByRoom[p.room_id]=[]; paysByRoom[p.room_id].push(p); });
+  const guestsByRoom = {};
+  (guests||[]).forEach(g => { if (!guestsByRoom[g.room_id]) guestsByRoom[g.room_id]=[]; guestsByRoom[g.room_id].push(g); });
+  const dishesByRoom = {};
+  (dishes||[]).forEach(d => { if (!dishesByRoom[d.room_id]) dishesByRoom[d.room_id]=[]; dishesByRoom[d.room_id].push(d); });
+
+  const exportData = rooms.map(r => ({
+    ...r,
+    rPays: paysByRoom[r.id]||[],
+    nGuests: (guestsByRoom[r.id]||[]).length,
+    nDishes: (dishesByRoom[r.id]||[]).length,
+    total: (dishesByRoom[r.id]||[]).reduce((s,d)=>s+parseFloat(d.price||0),0),
+    tableLabel: r.tables ? `Mesa ${r.tables.number}${r.tables.label?' — '+r.tables.label:''}` : 'Mesa',
+    allPaid: (paysByRoom[r.id]||[]).length >= (guestsByRoom[r.id]||[]).length && (guestsByRoom[r.id]||[]).length > 0,
+  }));
 
   // Prepare rows
-  const rows = _facturasData.map(f => {
+  const rows = exportData.map(f => {
     const d = f.closed_at
-      ? new Date(f.closed_at).toLocaleString('es-ES', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
-      : new Date(f.created_at).toLocaleString('es-ES', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+      ? new Date(f.closed_at).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})
+      : new Date(f.created_at).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
     return {
       'Fecha': d,
       'Mesa': f.tableLabel || '—',
@@ -10440,8 +10604,7 @@ async function exportFacturasExcel() {
   XLSX.utils.book_append_sheet(wb, ws, 'Facturas');
 
   // Add summary sheet
-  const filter = document.getElementById('facturas-filter')?.value || '7';
-  const filterLabel = { '0':'Hoy', '7':'7 días', '30':'30 días', '90':'3 meses', 'all':'Todo' }[filter] || filter;
+  const filterLabel = label || 'Período personalizado';
   const totalFact = rows.reduce((s, r) => s + r['Total (€)'], 0);
   const summary = [
     { 'Concepto': 'Período', 'Valor': filterLabel },
