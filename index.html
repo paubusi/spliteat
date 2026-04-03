@@ -2213,20 +2213,7 @@
         </div>
       </div>
 
-      <!-- Factura modal -->
-      <div id="factura-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:500;align-items:center;justify-content:center;padding:1rem">
-        <div style="background:var(--card);border-radius:var(--r-lg);max-width:480px;width:100%;padding:1.5rem;max-height:90vh;overflow-y:auto">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-            <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700">Factura</div>
-            <button onclick="document.getElementById('factura-modal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
-          </div>
-          <div id="factura-content"></div>
-          <div style="display:flex;gap:.5rem;margin-top:1.25rem">
-            <button class="btn btn-primary" onclick="downloadFactura()" style="flex:1">⬇ Descargar PDF</button>
-            <button class="btn btn-secondary" onclick="document.getElementById('factura-modal').style.display='none'" style="flex:1">Cerrar</button>
-          </div>
-        </div>
-      </div>
+
     </div>
 
     <!-- ═══════════════ AJUSTES (old: Gestión + Perfil merged) ═══════════════ -->
@@ -8963,7 +8950,22 @@ function downloadFactura() {
     </head><body>
     ${content.innerHTML}
     <script>window.onload = () => { window.print(); window.close(); }<\/script>
-    </body></html>
+    
+<!-- ══ FACTURA MODAL — global overlay, outside all tabs ══ -->
+<div id="factura-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;align-items:center;justify-content:center;padding:1rem">
+  <div style="background:var(--card);border-radius:var(--r-lg);max-width:500px;width:100%;padding:1.5rem;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--brand-d)">Factura</div>
+      <button onclick="document.getElementById('factura-modal').style.display='none'" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--t2);line-height:1">✕</button>
+    </div>
+    <div id="factura-content"></div>
+    <div style="display:flex;gap:.5rem;margin-top:1.25rem">
+      <button class="btn btn-primary" onclick="downloadFactura()" style="flex:1">⬇ Descargar PDF</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('factura-modal').style.display='none'" style="flex:1">Cerrar</button>
+    </div>
+  </div>
+</div>
+</body></html>
   `);
   printWindow.document.close();
 }
@@ -10143,11 +10145,11 @@ async function loadFacturas() {
 }
 
 async function openFactura(roomId) {
-  // Show modal immediately with loading state
+  // Get modal — now a global overlay at body level
   const modal = document.getElementById('factura-modal');
   const content = document.getElementById('factura-content');
-  if (!modal) return;
-  if (content) content.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3)">Cargando factura...</div>';
+  if (!modal || !content) { console.error('[Factura] modal or content element missing'); return; }
+  content.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3)">Cargando factura...</div>';
   modal.style.display = 'flex';
 
   // Check if data already in _historialData (from loadKPIs)
