@@ -477,6 +477,7 @@
   .pay-method-btn:active { transform: scale(.98); }
 
 </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -1850,15 +1851,21 @@
 
     <!-- ── FACTURAS TAB ── -->
     <div id="atab-facturas" style="display:none;flex-direction:column;height:calc(100vh - 57px);overflow:hidden">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.25rem;border-bottom:1px solid var(--bd);flex-shrink:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.25rem;border-bottom:1px solid var(--bd);flex-shrink:0;gap:.5rem;flex-wrap:wrap">
         <div style="font-size:15px;font-weight:600">🧾 Facturas</div>
-        <select id="facturas-filter" onchange="loadFacturas()" style="font-size:12px;padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-family:inherit">
-          <option value="0">Hoy</option>
-          <option value="7" selected>7 días</option>
-          <option value="30">30 días</option>
-          <option value="90">3 meses</option>
-          <option value="all">Todo</option>
-        </select>
+        <div style="display:flex;align-items:center;gap:.5rem">
+          <select id="facturas-filter" onchange="loadFacturas()" style="font-size:12px;padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-family:inherit">
+            <option value="0">Hoy</option>
+            <option value="7" selected>7 días</option>
+            <option value="30">30 días</option>
+            <option value="90">3 meses</option>
+            <option value="all">Todo</option>
+          </select>
+          <button onclick="exportFacturasExcel()"
+            style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-size:12px;font-weight:500;color:var(--brand-d);cursor:pointer;font-family:inherit;white-space:nowrap">
+            📊 Excel
+          </button>
+        </div>
       </div>
       <div style="flex:1;overflow-y:auto">
         <!-- Stats bar -->
@@ -10123,23 +10130,39 @@ async function loadFacturas() {
   document.getElementById('hist-stat-ticket').textContent = totalMesas > 0 ? fmt(totalFact/totalMesas) : '—';
   document.getElementById('hist-stat-personas').textContent = totalPersonas;
 
+  // Cache for Excel export
+  _facturasData = rooms.map(r => {
+    const rPays = paysByRoom[r.id] || [];
+    const total = rPays.reduce((s,p) => s+parseFloat(p.amount||0), 0);
+    const nGuests = (guestsByRoom[r.id]||[]).length;
+    const nDishes = 0; // not loaded here
+    const tableLabel = r.tables ? `Mesa ${r.tables.number}${r.tables.label?' — '+r.tables.label:''}` : 'Mesa';
+    const allPaid = (rPays.length === nGuests && nGuests > 0);
+    return { ...r, rPays, total, nGuests, nDishes, tableLabel, allPaid };
+  });
+
   listEl.innerHTML = rooms.map(r => {
     const rPays = paysByRoom[r.id] || [];
     const total = rPays.reduce((s,p) => s+parseFloat(p.amount||0), 0);
     const nGuests = (guestsByRoom[r.id]||[]).length;
     const tableLabel = r.tables ? `Mesa ${r.tables.number}${r.tables.label?' — '+r.tables.label:''}` : 'Mesa';
     const d = r.closed_at ? new Date(r.closed_at).toLocaleString('es-ES',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
-    return `<div style="display:flex;align-items:center;gap:10px;padding:.6rem 0;border-bottom:1px solid var(--bd);cursor:pointer" onclick="openFactura('${r.id}')">
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:500">${escHtml(tableLabel)}</div>
+    return `<div style="display:flex;align-items:center;gap:10px;padding:.6rem 0;border-bottom:1px solid var(--bd)">
+      <div style="flex:1;cursor:pointer;min-width:0" onclick="openFactura('${r.id}')">
+        <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(tableLabel)}</div>
         <div style="font-size:11px;color:var(--t2)">${d} · ${nGuests} persona${nGuests!==1?'s':''}</div>
       </div>
-      <div style="text-align:right;flex-shrink:0">
+      <div style="text-align:right;flex-shrink:0;cursor:pointer" onclick="openFactura('${r.id}')">
         <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--brand-d)">${fmt(total)}</div>
         <div style="font-size:10px;color:${rPays.length===nGuests&&nGuests>0?'#3B6D11':'var(--t3)'}">
           ${rPays.length===nGuests&&nGuests>0?'✓ Pagada':'Pendiente'}
         </div>
       </div>
+      <button onclick="downloadFacturaPDF('${r.id}')"
+        title="Descargar PDF"
+        style="flex-shrink:0;padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);cursor:pointer;font-size:14px;line-height:1">
+        ⬇
+      </button>
     </div>`;
   }).join('');
 }
@@ -10355,6 +10378,86 @@ document.addEventListener('click', e => {
   const modal = document.getElementById('legal-modal');
   if (modal && e.target === modal) modal.style.display = 'none';
 });
+
+
+// ── Cache de datos de facturas para export ──
+let _facturasData = []; // populated by loadFacturas
+
+// Descargar PDF de una factura directamente (sin abrir modal)
+async function downloadFacturaPDF(roomId) {
+  // Open modal invisibly to render content, then print
+  const modal = document.getElementById('factura-modal');
+  const content = document.getElementById('factura-content');
+  if (!modal || !content) return;
+  content.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3)">Preparando PDF...</div>';
+  modal.style.display = 'flex';
+  await openFactura(roomId);
+  // Wait for content to render then print
+  setTimeout(() => downloadFactura(), 600);
+}
+
+// Exportar todas las facturas del período como Excel
+async function exportFacturasExcel() {
+  if (!_facturasData.length) {
+    notify('Sin facturas en este período para exportar');
+    return;
+  }
+
+  // Prepare rows
+  const rows = _facturasData.map(f => {
+    const d = f.closed_at
+      ? new Date(f.closed_at).toLocaleString('es-ES', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
+      : new Date(f.created_at).toLocaleString('es-ES', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    return {
+      'Fecha': d,
+      'Mesa': f.tableLabel || '—',
+      'Comensales': f.nGuests,
+      'Platos': f.nDishes,
+      'Total (€)': parseFloat(f.total.toFixed(2)),
+      'Estado': f.allPaid ? 'Pagada' : 'Pendiente',
+    };
+  });
+
+  // Check SheetJS loaded
+  if (typeof XLSX === 'undefined') {
+    notify('Error: librería Excel no cargada. Recarga la página.');
+    return;
+  }
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(rows);
+
+  // Column widths
+  ws['!cols'] = [
+    { wch: 18 }, // Fecha
+    { wch: 20 }, // Mesa
+    { wch: 12 }, // Comensales
+    { wch: 8  }, // Platos
+    { wch: 12 }, // Total
+    { wch: 10 }, // Estado
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Facturas');
+
+  // Add summary sheet
+  const filter = document.getElementById('facturas-filter')?.value || '7';
+  const filterLabel = { '0':'Hoy', '7':'7 días', '30':'30 días', '90':'3 meses', 'all':'Todo' }[filter] || filter;
+  const totalFact = rows.reduce((s, r) => s + r['Total (€)'], 0);
+  const summary = [
+    { 'Concepto': 'Período', 'Valor': filterLabel },
+    { 'Concepto': 'Facturas', 'Valor': rows.length },
+    { 'Concepto': 'Total facturado', 'Valor': parseFloat(totalFact.toFixed(2)) },
+    { 'Concepto': 'Ticket medio', 'Valor': rows.length > 0 ? parseFloat((totalFact / rows.length).toFixed(2)) : 0 },
+    { 'Concepto': 'Generado', 'Valor': new Date().toLocaleString('es-ES') },
+  ];
+  const ws2 = XLSX.utils.json_to_sheet(summary);
+  ws2['!cols'] = [{ wch: 20 }, { wch: 20 }];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Resumen');
+
+  const date = new Date().toISOString().split('T')[0];
+  XLSX.writeFile(wb, `spliteat_facturas_${date}.xlsx`);
+  showToast('✓ Excel exportado', rows.length + ' facturas descargadas');
+}
 
 // ══════════════════════════════════════════════════════
 // INIT
