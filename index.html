@@ -4573,119 +4573,122 @@ let _waiterNotifHistory = []; // historial completo
 const _waiterNotifDebounce = {};
 
 function subscribeWaiterNotifications() {
-  // Destroy stale subscription
+  if (!_waiterRestaurantId) return;
+
+  // Destroy stale subscriptions
   if (_waiterDishSub) {
-    try { _waiterDishSub.unsubscribe(); } catch(_) {}
+    try { sb.removeChannel(_waiterDishSub); } catch(_) {}
     _waiterDishSub = null;
   }
+  if (window._waiterBroadcastSub) {
+    try { sb.removeChannel(window._waiterBroadcastSub); } catch(_) {}
+    window._waiterBroadcastSub = null;
+  }
 
-  _waiterDishSub = sb.channel('waiter-notif-' + _waiterRestaurantId + '-' + Date.now())
+  // ── PRIMARY: Broadcast channel (cocina → camarero directo) ──
+  window._waiterBroadcastSub = sb.channel('restaurant-' + _waiterRestaurantId)
+    .on('broadcast', { event: 'pase_listo' }, ({ payload }) => {
+      if (!payload) return;
+      const { roomId, course, courseLabel, tableLabel, isBebidas, dishes, time } = payload;
+
+      // Deduplicate
+      const existing = _waiterNotifHistory.find(
+        n => !n.seen && n.roomId === roomId && n.course === course
+      );
+      if (existing) {
+        if (dishes?.length) existing.dishes = dishes;
+        existing.time = time || existing.time;
+      } else {
+        playKitchenSound();
+        haptic([200, 100, 200]);
+        addWaiterNotif({
+          id: Date.now(),
+          tableLabel: tableLabel || 'Mesa',
+          roomId,
+          courseLabel: courseLabel || 'Platos',
+          course: course ?? 1,
+          isBebidas: !!isBebidas,
+          dishes: dishes || [],
+          time: time || new Date().toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }),
+          seen: false,
+          checked: {}
+        });
+      }
+      renderWaiterNotifBanner();
+      updateWaiterNotifBadge();
+    })
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        console.log('[Waiter] Broadcast suscrito ✓ canal: restaurant-' + _waiterRestaurantId);
+      } else {
+        console.warn('[Waiter] Broadcast estado:', status);
+      }
+    });
+
+  // ── FALLBACK: postgres_changes (cubre cambios desde manageat) ──
+  _waiterDishSub = sb.channel('waiter-pg-' + _waiterRestaurantId + '-' + Date.now())
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'dishes' }, async (payload) => {
       try {
         let dish = payload.new;
         const prev = payload.old;
 
-        // Only care about transitions TO 'ready'
         if (dish.kitchen_status !== 'ready') return;
         if (prev?.kitchen_status === 'ready') return;
 
-        // FIX A: dish.room_id might be missing if REPLICA IDENTITY was not FULL
-        // when the record was created — fetch fresh from DB to be sure
-        if (!dish.room_id || !dish.name) {
-          const { data: freshDish } = await sb.from('dishes')
-            .select('*').eq('id', dish.id).maybeSingle();
-          if (!freshDish) return;
-          dish = freshDish;
+        // Fetch full dish if room_id missing (REPLICA IDENTITY issue)
+        if (!dish.room_id) {
+          const { data: d } = await sb.from('dishes').select('*').eq('id', dish.id).maybeSingle();
+          if (!d?.room_id) return;
+          dish = d;
         }
-        if (!dish.room_id) return;
 
-        // FIX B: Get room + verify it belongs to this waiter's restaurant
         const { data: room } = await sb.from('rooms')
           .select('id, table_id, restaurant_id, assigned_waiter_id, waiter_id')
-          .eq('id', dish.room_id)
-          .maybeSingle();
+          .eq('id', dish.room_id).maybeSingle();
 
-        if (!room) return;
-        if (room.restaurant_id !== _waiterRestaurantId) return; // different restaurant
+        if (!room || room.restaurant_id !== _waiterRestaurantId) return;
 
-        // FIX C: Notify if room is in our restaurant AND:
-        //   - no waiter assigned (notify everyone), OR
-        //   - we are the assigned waiter, OR
-        //   - we opened this table (waiter_id)
-        const isAssignedToMe = room.assigned_waiter_id === _waiterId;
-        const isMyTable = room.waiter_id === _waiterId;
-        const isUnassigned = !room.assigned_waiter_id && !room.waiter_id;
-        if (!isAssignedToMe && !isMyTable && !isUnassigned) return;
+        const isMyRoom = !room.assigned_waiter_id && !room.waiter_id
+          || room.assigned_waiter_id === _waiterId
+          || room.waiter_id === _waiterId;
+        if (!isMyRoom) return;
 
-        const triggerCourse = dish.course ?? 1;
-        const debounceKey = dish.room_id + '_' + triggerCourse;
-
-        if (_waiterNotifDebounce[debounceKey]) clearTimeout(_waiterNotifDebounce[debounceKey]);
-
-        _waiterNotifDebounce[debounceKey] = setTimeout(async () => {
-          delete _waiterNotifDebounce[debounceKey];
-
-          // Fetch table label
+        // Debounce per room+course
+        const key = dish.room_id + '_' + (dish.course ?? 1);
+        if (_waiterNotifDebounce[key]) clearTimeout(_waiterNotifDebounce[key]);
+        _waiterNotifDebounce[key] = setTimeout(async () => {
+          delete _waiterNotifDebounce[key];
+          const course = dish.course ?? 1;
           const { data: table } = room.table_id
             ? await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle()
             : { data: null };
-          const tableLabel = table
-            ? `Mesa ${table.number}${table.label ? ' — ' + table.label : ''}`
-            : 'Mesa';
-
-          // Fetch ALL ready dishes of this course for this room
+          const tableLabel = table ? `Mesa ${table.number}${table.label ? ' — ' + table.label : ''}` : 'Mesa';
           const { data: courseDishes } = await sb.from('dishes')
-            .select('id, name, course, category, kitchen_status')
-            .eq('room_id', dish.room_id)
-            .eq('kitchen_status', 'ready')
-            .eq('course', triggerCourse);
-
+            .select('id,name,course,category').eq('room_id', dish.room_id)
+            .eq('kitchen_status', 'ready').eq('course', course);
           if (!courseDishes?.length) return;
-
-          const isBebidas = triggerCourse === 0 || courseDishes.every(d => d.category === 'bebidas');
+          const isBebidas = course === 0 || courseDishes.every(d => d.category === 'bebidas');
           const courseLabel = isBebidas ? 'Bebidas'
-            : { 1:'Entrantes', 2:'Principales', 3:'Postres' }[triggerCourse] || 'Platos';
-
-          // Deduplicate
-          const existing = _waiterNotifHistory.find(
-            n => !n.seen && n.roomId === dish.room_id && n.course === triggerCourse
-          );
-          if (existing) {
-            existing.dishes = courseDishes;
-            existing.time = new Date().toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
-          } else {
-            playKitchenSound();
-            haptic([200, 100, 200]);
-            addWaiterNotif({
-              id: Date.now(),
-              tableLabel,
-              roomId: dish.room_id,
-              courseLabel,
-              course: triggerCourse,
-              isBebidas,
-              dishes: courseDishes,
-              time: new Date().toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }),
-              seen: false,
-              checked: {}
-            });
-          }
+            : { 1:'Entrantes', 2:'Principales', 3:'Postres' }[course] || 'Platos';
+          const existing = _waiterNotifHistory.find(n => !n.seen && n.roomId === dish.room_id && n.course === course);
+          if (existing) { existing.dishes = courseDishes; return; }
+          playKitchenSound();
+          haptic([200, 100, 200]);
+          addWaiterNotif({
+            id: Date.now(), tableLabel, roomId: dish.room_id, courseLabel,
+            course, isBebidas, dishes: courseDishes,
+            time: new Date().toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }),
+            seen: false, checked: {}
+          });
           renderWaiterNotifBanner();
           updateWaiterNotifBadge();
         }, 1500);
-
       } catch(err) {
-        console.warn('[Waiter notif] Error en subscription callback:', err);
+        console.warn('[Waiter pg_changes] Error:', err.message);
       }
     })
-    .subscribe((status, err) => {
-      if (status === 'SUBSCRIBED') {
-        console.log('[Waiter notif] Suscripción activa ✓ restaurante:', _waiterRestaurantId);
-      } else if (err) {
-        console.warn('[Waiter notif] Error suscripción:', status, err);
-      }
-    });
+    .subscribe();
 }
-
 
 function addWaiterNotif(notif) {
   _waiterNotifHistory.unshift(notif);
@@ -7360,8 +7363,26 @@ async function fireNextCourse(roomId, course, dishIds) {
     .select('id, name, course, category')
     .in('id', dishIds);
 
-  // In-app notification — only useful if kitchen + waiter on same device (dev/demo)
-  // Real notification comes via realtime subscription on waiter device
+  // BROADCAST to waiters in real-time (works across devices, no REPLICA IDENTITY needed)
+  const restaurantId = state.kitchenRestaurantId || state.adminRestaurantId;
+  if (restaurantId) {
+    const broadcastChannel = sb.channel('restaurant-' + restaurantId);
+    broadcastChannel.send({
+      type: 'broadcast',
+      event: 'pase_listo',
+      payload: {
+        roomId,
+        course,
+        courseLabel,
+        tableLabel,
+        isBebidas: course === 0,
+        dishes: readyDishes || [],
+        time: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+      }
+    }).catch(e => console.warn('[Broadcast] Error sending:', e));
+  }
+
+  // Also: local notification if kitchen+waiter on same device (demo mode)
   addWaiterNotif({
     id: Date.now(),
     tableLabel,
