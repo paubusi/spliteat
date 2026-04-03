@@ -4650,42 +4650,62 @@ function subscribeWaiterNotifications() {
       updateWaiterNotifBadge();
       showToast('📋 Mesa reasignada', tableLabel + ' — ' + pendingDishes.length + ' platos pendientes');
     })
-    .on('broadcast', { event: 'pase_listo' }, ({ payload }) => {
+    .on('broadcast', { event: 'pase_listo' }, async ({ payload }) => {
       if (!payload) return;
-      const { roomId, course, courseLabel, tableLabel, isBebidas, dishes, time,
+      const { roomId, course, courseLabel, tableLabel, isBebidas, time,
               assigned_waiter_id, waiter_id } = payload;
 
       // Filter: only notify if this is my table or unassigned
       const isMyTable = (
-        (!assigned_waiter_id && !waiter_id) ||   // sin asignar → todos
-        assigned_waiter_id === _waiterId ||        // asignado a mí
-        waiter_id === _waiterId                    // abrí esta mesa
+        (!assigned_waiter_id && !waiter_id) ||
+        assigned_waiter_id === _waiterId ||
+        waiter_id === _waiterId
       );
       if (!isMyTable) return;
+
+      // Fetch ALL ready/making dishes for this room (no course filter — course may be null)
+      const { data: freshDishes } = await sb.from('dishes')
+        .select('id, name, course, category, kitchen_status')
+        .eq('room_id', roomId)
+        .in('kitchen_status', ['ready', 'making', 'sent']);
+
+      // Prefer dishes matching the broadcast course, fall back to all ready dishes
+      const allReady = (freshDishes || []).filter(d =>
+        d.kitchen_status === 'ready' || d.kitchen_status === 'making'
+      );
+      const courseDishes = allReady.filter(d =>
+        d.course === course || d.course === parseInt(course) || d.course == null
+      );
+      let notifDishes = courseDishes.length ? courseDishes : allReady;
+
+      const now = new Date().toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
 
       // Deduplicate
       const existing = _waiterNotifHistory.find(
         n => !n.seen && n.roomId === roomId && n.course === course
       );
       if (existing) {
-        if (dishes?.length) existing.dishes = dishes;
-        existing.time = time || existing.time;
-      } else {
-        playKitchenSound();
-        haptic([200, 100, 200]);
-        addWaiterNotif({
-          id: Date.now(),
-          tableLabel: tableLabel || 'Mesa',
-          roomId,
-          courseLabel: courseLabel || 'Platos',
-          course: course ?? 1,
-          isBebidas: !!isBebidas,
-          dishes: dishes || [],
-          time: time || new Date().toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }),
-          seen: false,
-          checked: {}
-        });
+        existing.dishes = notifDishes.length ? notifDishes : existing.dishes;
+        existing.time = time || now;
+        renderWaiterNotifBanner();
+        updateWaiterNotifBadge();
+        return;
       }
+
+      playKitchenSound();
+      haptic([200, 100, 200]);
+      addWaiterNotif({
+        id: Date.now(),
+        tableLabel: tableLabel || 'Mesa',
+        roomId,
+        courseLabel: courseLabel || 'Platos',
+        course: course ?? 1,
+        isBebidas: !!isBebidas,
+        dishes: notifDishes,
+        time: time || now,
+        seen: false,
+        checked: {}
+      });
       renderWaiterNotifBanner();
       updateWaiterNotifBadge();
     })
