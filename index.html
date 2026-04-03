@@ -1863,12 +1863,12 @@
       <div style="flex:1;overflow-y:auto">
         <!-- Stats bar -->
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;padding:.75rem 1rem;background:var(--bg2);border-bottom:1px solid var(--bd)">
-          <div class="kpi-card" style="text-align:center;padding:.65rem .5rem"><div id="hist-stat-total-old" class="kpi-value" style="font-size:18px">—</div><div class="kpi-label">Facturado</div></div>
-          <div class="kpi-card" style="text-align:center;padding:.65rem .5rem"><div id="hist-stat-mesas-old" class="kpi-value" style="font-size:18px">—</div><div class="kpi-label">Mesas</div></div>
-          <div class="kpi-card" style="text-align:center;padding:.65rem .5rem"><div id="hist-stat-ticket-old" class="kpi-value" style="font-size:18px">—</div><div class="kpi-label">Ticket</div></div>
-          <div class="kpi-card" style="text-align:center;padding:.65rem .5rem"><div id="hist-stat-personas-old" class="kpi-value" style="font-size:18px">—</div><div class="kpi-label">Personas</div></div>
+          <div class="kpi-card" style="text-align:center;padding:.65rem .5rem"><div id="hist-stat-total" class="kpi-value" style="font-size:18px">—</div><div class="kpi-label">Facturado</div></div>
+          <div class="kpi-card" style="text-align:center;padding:.65rem .5rem"><div id="hist-stat-mesas" class="kpi-value" style="font-size:18px">—</div><div class="kpi-label">Mesas</div></div>
+          <div class="kpi-card" style="text-align:center;padding:.65rem .5rem"><div id="hist-stat-ticket" class="kpi-value" style="font-size:18px">—</div><div class="kpi-label">Ticket</div></div>
+          <div class="kpi-card" style="text-align:center;padding:.65rem .5rem"><div id="hist-stat-personas" class="kpi-value" style="font-size:18px">—</div><div class="kpi-label">Personas</div></div>
         </div>
-        <div id="historial-list-old" style="padding:.75rem 1rem">
+        <div id="historial-list" style="padding:.75rem 1rem">
           <div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando historial...</div>
         </div>
       </div>
@@ -2155,23 +2155,23 @@
         </div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-bottom:1rem">
           <div class="kpi-card highlight" style="text-align:center;padding:.75rem">
-            <div id="hist-stat-total" class="kpi-value" style="font-size:20px">—</div>
+            <div id="rtab-hist-stat-total" class="kpi-value" style="font-size:20px">—</div>
             <div class="kpi-label">Facturado</div>
           </div>
           <div class="kpi-card" style="text-align:center;padding:.75rem">
-            <div id="hist-stat-mesas" class="kpi-value" style="font-size:20px">—</div>
+            <div id="rtab-hist-stat-mesas" class="kpi-value" style="font-size:20px">—</div>
             <div class="kpi-label">Mesas</div>
           </div>
           <div class="kpi-card" style="text-align:center;padding:.75rem">
-            <div id="hist-stat-ticket" class="kpi-value" style="font-size:20px">—</div>
+            <div id="rtab-hist-stat-ticket" class="kpi-value" style="font-size:20px">—</div>
             <div class="kpi-label">Ticket/mesa</div>
           </div>
           <div class="kpi-card" style="text-align:center;padding:.75rem">
-            <div id="hist-stat-personas" class="kpi-value" style="font-size:20px">—</div>
+            <div id="rtab-hist-stat-personas" class="kpi-value" style="font-size:20px">—</div>
             <div class="kpi-label">Personas</div>
           </div>
         </div>
-        <div id="historial-list">
+        <div id="rtab-historial-list">
           <div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando...</div>
         </div>
       </div>
@@ -3394,9 +3394,11 @@ function renderMesaDishes() {
     // Unlock when ALL sent dishes are at least 'ready' (confirmed by kitchen = pase fired)
     // 'making', 'sent' = still in kitchen → still waiting
     // 'ready', 'delivered' = kitchen confirmed → allow payment
-    const pendingDishes = sentDishes.filter(d =>
-      d.kitchen_status === 'sent' || d.kitchen_status === 'making'
-    );
+    const pendingDishes = sentDishes.filter(d => {
+      // Bebidas: managed by waiter, not kitchen — don't block payment
+      if (d.category === 'bebidas' || d.course === 0) return false;
+      return d.kitchen_status === 'sent' || d.kitchen_status === 'making';
+    });
     const allDelivered = sentDishes.length > 0 && pendingDishes.length === 0;
     const anyInProgress = sentDishes.length > 0;
 
@@ -4866,9 +4868,9 @@ function _renderNotifModal(modal, n) {
           style="flex:1;padding:10px;border-radius:var(--r);border:1.5px solid ${color};background:none;color:${color};font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">
           Marcar todos
         </button>` : ''}
-        <button onclick="markCourseDelivered('${n.roomId}',${n.course},${n.isBebidas||false});document.getElementById('waiter-notif-modal').style.display='none'"
-          class="btn btn-primary" style="flex:2;background:${allChecked?color:'var(--t3)'};font-size:14px">
-          ✓ ${allChecked ? 'Llevado a mesa' : 'Confirmar sin revisar'}
+        <button onclick="${allChecked ? `markCourseDelivered('${n.roomId}',${n.course},${n.isBebidas||false});document.getElementById('waiter-notif-modal').style.display='none'` : `_checkAllWaiterDishes(${n.id})`}"
+          class="btn btn-primary" style="flex:2;background:${allChecked?color:'var(--bd2)'};color:${allChecked?'#fff':'var(--t2)'};font-size:14px;${!allChecked?'cursor:default;':''}">
+          ${allChecked ? '✓ Llevado a mesa' : '⬜ Marca todos los platos primero'}
         </button>
       </div>
     </div>
@@ -4912,7 +4914,12 @@ async function markCourseDelivered(roomId, course, isBebidas) {
     .eq('kitchen_status', 'ready');
 
   if (isBebidas) {
-    await filter.eq('category', 'bebidas');
+    // Mark ALL bebidas in the room as delivered (sent OR ready)
+    await sb.from('dishes')
+      .update({ kitchen_status: 'delivered' })
+      .eq('room_id', roomId)
+      .eq('category', 'bebidas')
+      .in('kitchen_status', ['sent', 'ready']);
   } else {
     await filter.eq('course', course);
   }
@@ -9750,7 +9757,10 @@ let _equalPax = 2;      // número de personas para partes iguales
 function goToSummary() {
   // Block if not all dishes delivered
   const allDishes = state.dishes.filter(d => d.kitchen_status && d.kitchen_status !== 'new');
-  const stillCooking = allDishes.filter(d => d.kitchen_status === 'sent' || d.kitchen_status === 'making');
+  const stillCooking = allDishes.filter(d =>
+    d.category !== 'bebidas' && d.course !== 0 &&
+    (d.kitchen_status === 'sent' || d.kitchen_status === 'making')
+  );
   if (allDishes.length > 0 && stillCooking.length > 0) {
     notify('Esperando confirmación de cocina para ' + stillCooking.length + ' plato' + (stillCooking.length > 1 ? 's' : ''), 'info');
     return;
@@ -10066,6 +10076,9 @@ function closeMobileSidebar() {
 
 async function loadFacturas() {
   if (!state.adminRestaurantId) { console.warn('loadFacturas: no adminRestaurantId'); return; }
+  // Show loading immediately
+  const listEl = document.getElementById('historial-list');
+  if (listEl) listEl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando...</div>';
   const days = document.getElementById('facturas-filter')?.value || '7';
   let since = null;
   if (days === '0') { const d = new Date(); d.setHours(0,0,0,0); since = d.toISOString(); }
@@ -10077,7 +10090,7 @@ async function loadFacturas() {
 
   // Totals
   let totalFact = 0, totalMesas = rooms?.length || 0, totalPersonas = 0;
-  const listEl = document.getElementById('historial-list');
+  // listEl already declared above
   if (!rooms?.length) {
     listEl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Sin facturas en este período</div>';
     document.getElementById('hist-stat-total').textContent = '0,00€';
