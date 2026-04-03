@@ -4019,13 +4019,23 @@ async function registerEqualPayment(me, method) {
   state.payments.push({ guest_id: state.myGuestId, amount: myShare });
   buildPayScreen();
 
-  // Si ya pagaron todos los del grupo (fuera de la app), cerrar
-  const { data: freshPayments } = await sb.from('payments').select('guest_id').eq('room_id', state.roomId);
-  const paidCount = new Set((freshPayments||[]).map(p => p.guest_id)).size;
-  if (paidCount >= _equalPax) {
+  // Cerrar cuando paguen todos los del grupo (_equalPax personas)
+  // O cuando todos los guests registrados hayan pagado
+  const [{ data: freshPayments }, { data: freshGuests }] = await Promise.all([
+    sb.from('payments').select('guest_id,amount').eq('room_id', state.roomId),
+    sb.from('guests').select('id').eq('room_id', state.roomId)
+  ]);
+  const paidGuestIds = new Set((freshPayments||[]).map(p => p.guest_id).filter(Boolean));
+  const allGuestsPaid = (freshGuests||[]).every(g => paidGuestIds.has(g.id));
+  const totalAmountPaid = (freshPayments||[]).reduce((s,p) => s + parseFloat(p.amount||0), 0);
+  const tableTotalCovered = totalAmountPaid >= (state.dishes.reduce((s,d) => s+parseFloat(d.price||0),0) * 0.99);
+
+  if (allGuestsPaid || tableTotalCovered) {
     await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString() }).eq('id', state.roomId);
     clearSession();
     setTimeout(() => go('s6-done'), 800);
+  } else {
+    showToast('✓ Tu parte pagada', `Esperando ${_equalPax - paidGuestIds.size} personas más`);
   }
 }
 
@@ -4049,7 +4059,13 @@ async function registerManualPayment(me, method) {
 
   const totalGuests = (freshGuests || []).length;
   const paidIds = new Set((freshPayments || []).map(p => p.guest_id));
-  const allPaid = totalGuests > 0 && (freshGuests || []).every(g => paidIds.has(g.id));
+  // Guest is "paid" if: has payment row, OR has 0€ assigned (nothing to pay)
+  const allPaid = totalGuests > 0 && (freshGuests || []).every(g => {
+    if (paidIds.has(g.id)) return true;
+    // Check if this guest has anything assigned
+    const gTotal = calcTotals().find(t => t.g.id === g.id)?.total || 0;
+    return gTotal <= 0.01;
+  });
 
   if (allPaid) {
     await sb.from('rooms').update({ closed: true }).eq('id', state.roomId);
@@ -5495,23 +5511,23 @@ async function loadWaiterCobrar() {
 }
 
 async function waiterCobrarMesaCompleta(roomId, amount, method) {
-  // Crear un pago único por el total de la mesa
-  // Usar un guest_id especial = null con room_id para indicar pago de mesa completa
-  const { error } = track('payment_started', { method, amount: me.total });
-  await sb.from('payments').insert({
+  track('payment_full_waiter', { method, amount, waiter_id: _waiterId });
+  const { error } = await sb.from('payments').insert({
     room_id: roomId,
-    guest_id: null, // pago de mesa completa sin comensal específico
+    guest_id: null,
     amount,
     method,
     waiter_id: _waiterId,
-    stripe_status: 'manual'
+    stripe_status: 'manual',
+    note: 'Cobrado por camarero — cuenta completa'
   });
   if (error) { notify('Error al registrar pago: ' + error.message); return; }
-  await sb.from('rooms').update({ closed: true }).eq('id', roomId);
-  showToast('✅ Mesa cobrada', `${fmt(amount)} cobrados. Mesa cerrada.`);
-  playPaymentSound(true);
+  await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString() }).eq('id', roomId);
+  showToast('✅ Mesa cobrada', `${fmt(amount)} · Mesa cerrada.`);
+  try { playPaymentSound(true); } catch(_) {}
   loadWaiterCobrar();
   loadWaiterMesas();
+  loadWaiterTableSelects();
 }
 
 async function waiterCobrarPartesIguales(roomId, total) {
@@ -5528,23 +5544,26 @@ async function waiterCobrarPartesIguales(roomId, total) {
     waiter_id: _waiterId,
     stripe_status: 'manual'
   }));
-  await sb.from('payments').insert(inserts);
-  // Mark all as paid — simple approach
-  await sb.from('rooms').update({ closed: true }).eq('id', roomId);
+  const { error: payErr } = await sb.from('payments').insert(inserts);
+  if (payErr) { notify('Error al registrar pagos: ' + payErr.message); return; }
+  await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString() }).eq('id', roomId);
   showToast('✅ Mesa cobrada', `${n} partes de ${fmt(porParte)}. Mesa cerrada.`);
-  playPaymentSound(true);
+  try { playPaymentSound(true); } catch(_) {}
   loadWaiterMesas();
+  loadWaiterTableSelects();
 }
 
 async function waiterMarkPaid(guestId, amount, roomId) {
-  track('payment_started', { method, amount: me.total });
-  await sb.from('payments').insert({
+  track('payment_waiter', { amount, waiter_id: _waiterId });
+  const { error } = await sb.from('payments').insert({
     room_id: roomId,
     guest_id: guestId,
     amount,
     method: 'Camarero',
-    waiter_id: _waiterId
+    waiter_id: _waiterId,
+    stripe_status: 'manual'
   });
+  if (error) { notify('Error al registrar pago: ' + error.message); return; }
   loadWaiterCobrar();
   // Check if all paid → close room
   const { data: guests } = await sb.from('guests').select('id').eq('room_id', roomId);
