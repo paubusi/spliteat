@@ -4587,9 +4587,74 @@ function subscribeWaiterNotifications() {
 
   // ── PRIMARY: Broadcast channel (cocina → camarero directo) ──
   window._waiterBroadcastSub = sb.channel('restaurant-' + _waiterRestaurantId)
+    .on('broadcast', { event: 'mesa_reasignada' }, ({ payload }) => {
+      if (!payload) return;
+      const { roomId, tableLabel, newWaiterId, pendingDishes, time } = payload;
+
+      // Only react if I am the new assigned waiter
+      if (newWaiterId !== _waiterId) return;
+
+      // Show notification for each pending course
+      if (!pendingDishes?.length) {
+        showToast('📋 Mesa asignada', tableLabel + ' — sin platos pendientes');
+        return;
+      }
+
+      // Group by course and show one notification per course
+      const byCourse = {};
+      pendingDishes.forEach(d => {
+        const c = d.course ?? 1;
+        if (!byCourse[c]) byCourse[c] = [];
+        byCourse[c].push(d);
+      });
+
+      Object.entries(byCourse).forEach(([course, dishes]) => {
+        const c = parseInt(course);
+        const isBebidas = c === 0 || dishes.every(d => d.category === 'bebidas');
+        const courseLabel = isBebidas ? 'Bebidas'
+          : { 1:'Entrantes', 2:'Principales', 3:'Postres' }[c] || 'Platos';
+
+        const existing = _waiterNotifHistory.find(
+          n => !n.seen && n.roomId === roomId && n.course === c
+        );
+        if (existing) {
+          existing.dishes = dishes;
+          existing.tableLabel = tableLabel;
+          return;
+        }
+
+        addWaiterNotif({
+          id: Date.now() + c,
+          tableLabel,
+          roomId,
+          courseLabel,
+          course: c,
+          isBebidas,
+          dishes,
+          time: time || new Date().toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }),
+          seen: false,
+          checked: {}
+        });
+      });
+
+      playKitchenSound();
+      haptic([200, 100, 200]);
+      renderWaiterNotifBanner();
+      updateWaiterNotifBadge();
+      showToast('📋 Mesa reasignada', tableLabel + ' — ' + pendingDishes.length + ' platos pendientes');
+    })
     .on('broadcast', { event: 'pase_listo' }, ({ payload }) => {
       if (!payload) return;
-      const { roomId, course, courseLabel, tableLabel, isBebidas, dishes, time } = payload;
+      const { roomId, course, courseLabel, tableLabel, isBebidas, dishes, time,
+              assigned_waiter_id, waiter_id } = payload;
+
+      // Filter: only notify if this is my table or unassigned
+      const isMyTable = (
+        (!assigned_waiter_id && !waiter_id) ||   // sin asignar → todos
+        assigned_waiter_id === _waiterId ||        // asignado a mí
+        waiter_id === _waiterId                    // abrí esta mesa
+      );
+      if (!isMyTable) return;
 
       // Deduplicate
       const existing = _waiterNotifHistory.find(
@@ -7330,8 +7395,10 @@ async function fireNextCourse(roomId, course, dishIds) {
   // Mark all dishes in this course as ready
   await setAllOrderStatus(dishIds, 'ready');
 
-  // Get table info for notification
-  const { data: room } = await sb.from('rooms').select('table_id').eq('id', roomId).maybeSingle();
+  // Get table + waiter info for notification
+  const { data: room } = await sb.from('rooms')
+    .select('table_id, assigned_waiter_id, waiter_id')
+    .eq('id', roomId).maybeSingle();
   const tableLabel = room?.table_id
     ? await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle()
       .then(({ data: t }) => t ? `Mesa ${t.number}${t.label ? ' — ' + t.label : ''}` : 'Una mesa')
@@ -7378,6 +7445,8 @@ async function fireNextCourse(roomId, course, dishIds) {
         isBebidas: course === 0,
         dishes: readyDishes || [],
         time: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+        assigned_waiter_id: room?.assigned_waiter_id || null,
+        waiter_id: room?.waiter_id || null,
       }
     }).catch(e => console.warn('[Broadcast] Error sending:', e));
   }
@@ -8140,10 +8209,49 @@ function showTableDetail(table, room, paidCount, guestCount) {
 async function reassignWaiter(roomId) {
   const sel = document.getElementById('detail-waiter-select');
   if (!sel) return;
-  const waiterId = sel.value || null;
-  await sb.from('rooms').update({ assigned_waiter_id: waiterId }).eq('id', roomId);
+  const newWaiterId = sel.value || null;
+
+  // Get room data before reassigning
+  const { data: room } = await sb.from('rooms')
+    .select('id, table_id, assigned_waiter_id, waiter_id, restaurant_id')
+    .eq('id', roomId).maybeSingle();
+
+  // Update DB
+  await sb.from('rooms').update({ assigned_waiter_id: newWaiterId }).eq('id', roomId);
+
+  // Get table label
+  let tableLabel = 'Mesa';
+  if (room?.table_id) {
+    const { data: t } = await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle();
+    if (t) tableLabel = `Mesa ${t.number}${t.label ? ' — ' + t.label : ''}`;
+  }
+
+  // Get pending ready dishes (not yet delivered) for this room
+  const { data: pendingDishes } = await sb.from('dishes')
+    .select('id, name, course, category, kitchen_status')
+    .eq('room_id', roomId)
+    .in('kitchen_status', ['ready'])
+    .order('course');
+
+  // Broadcast reassignment to ALL waiters — new waiter picks it up
+  if (room?.restaurant_id) {
+    const ch = sb.channel('restaurant-' + room.restaurant_id);
+    await ch.send({
+      type: 'broadcast',
+      event: 'mesa_reasignada',
+      payload: {
+        roomId,
+        tableLabel,
+        newWaiterId,
+        pendingDishes: pendingDishes || [],
+        time: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+      }
+    }).catch(() => {});
+  }
+
   document.getElementById('mesa-detail-panel').style.display = 'none';
   loadFloorPlan();
+  showToast('✓ Camarero reasignado', newWaiterId ? `Mesa transferida` : 'Mesa sin asignar');
 }
 
 async function loadEncurso() {
