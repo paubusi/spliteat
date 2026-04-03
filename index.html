@@ -4588,60 +4588,97 @@ const _waiterNotifDebounce = {};
 function subscribeWaiterNotifications() {
   if (!_waiterRestaurantId) return;
 
-  // Destroy stale subscriptions
-  if (_waiterDishSub) {
-    try { sb.removeChannel(_waiterDishSub); } catch(_) {}
-    _waiterDishSub = null;
-  }
-  if (window._waiterBroadcastSub) {
-    try { sb.removeChannel(window._waiterBroadcastSub); } catch(_) {}
-    window._waiterBroadcastSub = null;
-  }
+  // Clean up old subscriptions
+  [_waiterDishSub, window._waiterBroadcastSub].forEach(ch => {
+    if (ch) try { sb.removeChannel(ch); } catch(_) {}
+  });
+  _waiterDishSub = null;
+  window._waiterBroadcastSub = null;
 
-  // ── PRIMARY: Broadcast channel (cocina → camarero directo) ──
-  window._waiterBroadcastSub = sb.channel('restaurant-' + _waiterRestaurantId)
+  // ── MAIN: Listen to kitchen_notifications INSERTs ──────────────────
+  // INSERT events always carry full payload — no REPLICA IDENTITY needed
+  _waiterDishSub = sb.channel('knotif-' + _waiterRestaurantId)
+    .on('postgres_changes', {
+      event:  'INSERT',
+      schema: 'public',
+      table:  'kitchen_notifications',
+      filter: 'restaurant_id=eq.' + _waiterRestaurantId
+    }, (payload) => {
+      const n = payload.new;
+      if (!n) return;
+
+      // Filter: only show if it's my table or unassigned
+      const isMyTable = (
+        (!n.assigned_waiter_id && !n.waiter_id) ||
+        n.assigned_waiter_id === _waiterId ||
+        n.waiter_id === _waiterId
+      );
+      if (!isMyTable) return;
+
+      const dishes   = Array.isArray(n.dishes) ? n.dishes : [];
+      const course   = n.course ?? 1;
+      const isBebidas = !!n.is_bebidas;
+      const courseLabel = n.course_label || (isBebidas ? 'Bebidas' : { 1:'Entrantes', 2:'Principales', 3:'Postres' }[course] || 'Platos');
+      const tableLabel  = n.table_label || 'Mesa';
+      const time = new Date(n.created_at || Date.now()).toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
+
+      console.log('[Waiter] Notif recibida:', courseLabel, tableLabel, dishes.length, 'platos');
+
+      // Deduplicate
+      const existing = _waiterNotifHistory.find(
+        x => !x.seen && x.roomId === n.room_id && x.course === course
+      );
+      if (existing) {
+        if (dishes.length) existing.dishes = dishes;
+        existing.time = time;
+      } else {
+        playKitchenSound();
+        haptic([200, 100, 200]);
+        addWaiterNotif({
+          id: Date.now(),
+          tableLabel,
+          roomId: n.room_id,
+          courseLabel,
+          course,
+          isBebidas,
+          dishes,
+          time,
+          seen: false,
+          checked: {}
+        });
+      }
+      renderWaiterNotifBanner();
+      updateWaiterNotifBadge();
+    })
+    .subscribe((status) => {
+      console.log('[Waiter] Suscripción kitchen_notifications:', status, '— restaurante:', _waiterRestaurantId);
+    });
+
+  // ── FALLBACK: listen for reassignments via broadcast ────────────────
+  window._waiterBroadcastSub = sb.channel('restaurant-reassign-' + _waiterRestaurantId)
     .on('broadcast', { event: 'mesa_reasignada' }, ({ payload }) => {
-      if (!payload) return;
-      const { roomId, tableLabel, newWaiterId, pendingDishes, time } = payload;
-
-      // Only react if I am the new assigned waiter
-      if (newWaiterId !== _waiterId) return;
-
-      // Show notification for each pending course
+      if (!payload || payload.newWaiterId !== _waiterId) return;
+      const { roomId, tableLabel, pendingDishes, time } = payload;
       if (!pendingDishes?.length) {
-        showToast('📋 Mesa asignada', tableLabel + ' — sin platos pendientes');
+        showToast('📋 Mesa asignada', (tableLabel||'Mesa') + ' — sin platos pendientes');
         return;
       }
-
-      // Group by course and show one notification per course
       const byCourse = {};
       pendingDishes.forEach(d => {
         const c = d.course ?? 1;
         if (!byCourse[c]) byCourse[c] = [];
         byCourse[c].push(d);
       });
-
-      Object.entries(byCourse).forEach(([course, dishes]) => {
-        const c = parseInt(course);
-        const isBebidas = c === 0 || dishes.every(d => d.category === 'bebidas');
-        const courseLabel = isBebidas ? 'Bebidas'
-          : { 1:'Entrantes', 2:'Principales', 3:'Postres' }[c] || 'Platos';
-
-        const existing = _waiterNotifHistory.find(
-          n => !n.seen && n.roomId === roomId && n.course === c
-        );
-        if (existing) {
-          existing.dishes = dishes;
-          existing.tableLabel = tableLabel;
-          return;
-        }
-
+      Object.entries(byCourse).forEach(([c, dishes]) => {
+        const course = parseInt(c);
+        const isBebidas = course === 0 || dishes.every(d => d.category === 'bebidas');
+        const courseLabel = isBebidas ? 'Bebidas' : { 1:'Entrantes', 2:'Principales', 3:'Postres' }[course] || 'Platos';
         addWaiterNotif({
-          id: Date.now() + c,
-          tableLabel,
+          id: Date.now() + course,
+          tableLabel: tableLabel || 'Mesa',
           roomId,
           courseLabel,
-          course: c,
+          course,
           isBebidas,
           dishes,
           time: time || new Date().toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }),
@@ -4649,141 +4686,11 @@ function subscribeWaiterNotifications() {
           checked: {}
         });
       });
-
       playKitchenSound();
       haptic([200, 100, 200]);
       renderWaiterNotifBanner();
       updateWaiterNotifBadge();
-      showToast('📋 Mesa reasignada', tableLabel + ' — ' + pendingDishes.length + ' platos pendientes');
-    })
-    .on('broadcast', { event: 'pase_listo' }, async ({ payload }) => {
-      if (!payload) return;
-      const { roomId, course, courseLabel, tableLabel, isBebidas, time,
-              assigned_waiter_id, waiter_id } = payload;
-
-      // Filter: only notify if this is my table or unassigned
-      const isMyTable = (
-        (!assigned_waiter_id && !waiter_id) ||
-        assigned_waiter_id === _waiterId ||
-        waiter_id === _waiterId
-      );
-      if (!isMyTable) return;
-
-      // Fetch ALL ready/making dishes for this room (no course filter — course may be null)
-      const { data: freshDishes } = await sb.from('dishes')
-        .select('id, name, course, category, kitchen_status')
-        .eq('room_id', roomId)
-        .in('kitchen_status', ['ready', 'making', 'sent']);
-
-      // Prefer dishes matching the broadcast course, fall back to all ready dishes
-      const allReady = (freshDishes || []).filter(d =>
-        d.kitchen_status === 'ready' || d.kitchen_status === 'making'
-      );
-      const courseDishes = allReady.filter(d =>
-        d.course === course || d.course === parseInt(course) || d.course == null
-      );
-      let notifDishes = courseDishes.length ? courseDishes : allReady;
-
-      const now = new Date().toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
-
-      // Deduplicate
-      const existing = _waiterNotifHistory.find(
-        n => !n.seen && n.roomId === roomId && n.course === course
-      );
-      if (existing) {
-        existing.dishes = notifDishes.length ? notifDishes : existing.dishes;
-        existing.time = time || now;
-        renderWaiterNotifBanner();
-        updateWaiterNotifBadge();
-        return;
-      }
-
-      playKitchenSound();
-      haptic([200, 100, 200]);
-      addWaiterNotif({
-        id: Date.now(),
-        tableLabel: tableLabel || 'Mesa',
-        roomId,
-        courseLabel: courseLabel || 'Platos',
-        course: course ?? 1,
-        isBebidas: !!isBebidas,
-        dishes: notifDishes,
-        time: time || now,
-        seen: false,
-        checked: {}
-      });
-      renderWaiterNotifBanner();
-      updateWaiterNotifBadge();
-    })
-    .subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        console.log('[Waiter] Broadcast suscrito ✓ canal: restaurant-' + _waiterRestaurantId);
-      } else {
-        console.warn('[Waiter] Broadcast estado:', status);
-      }
-    });
-
-  // ── FALLBACK: postgres_changes (cubre cambios desde manageat) ──
-  _waiterDishSub = sb.channel('waiter-pg-' + _waiterRestaurantId + '-' + Date.now())
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'dishes' }, async (payload) => {
-      try {
-        let dish = payload.new;
-        const prev = payload.old;
-
-        if (dish.kitchen_status !== 'ready') return;
-        if (prev?.kitchen_status === 'ready') return;
-
-        // Fetch full dish if room_id missing (REPLICA IDENTITY issue)
-        if (!dish.room_id) {
-          const { data: d } = await sb.from('dishes').select('*').eq('id', dish.id).maybeSingle();
-          if (!d?.room_id) return;
-          dish = d;
-        }
-
-        const { data: room } = await sb.from('rooms')
-          .select('id, table_id, restaurant_id, assigned_waiter_id, waiter_id')
-          .eq('id', dish.room_id).maybeSingle();
-
-        if (!room || room.restaurant_id !== _waiterRestaurantId) return;
-
-        const isMyRoom = !room.assigned_waiter_id && !room.waiter_id
-          || room.assigned_waiter_id === _waiterId
-          || room.waiter_id === _waiterId;
-        if (!isMyRoom) return;
-
-        // Debounce per room+course
-        const key = dish.room_id + '_' + (dish.course ?? 1);
-        if (_waiterNotifDebounce[key]) clearTimeout(_waiterNotifDebounce[key]);
-        _waiterNotifDebounce[key] = setTimeout(async () => {
-          delete _waiterNotifDebounce[key];
-          const course = dish.course ?? 1;
-          const { data: table } = room.table_id
-            ? await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle()
-            : { data: null };
-          const tableLabel = table ? `Mesa ${table.number}${table.label ? ' — ' + table.label : ''}` : 'Mesa';
-          const { data: courseDishes } = await sb.from('dishes')
-            .select('id,name,course,category').eq('room_id', dish.room_id)
-            .eq('kitchen_status', 'ready').eq('course', course);
-          if (!courseDishes?.length) return;
-          const isBebidas = course === 0 || courseDishes.every(d => d.category === 'bebidas');
-          const courseLabel = isBebidas ? 'Bebidas'
-            : { 1:'Entrantes', 2:'Principales', 3:'Postres' }[course] || 'Platos';
-          const existing = _waiterNotifHistory.find(n => !n.seen && n.roomId === dish.room_id && n.course === course);
-          if (existing) { existing.dishes = courseDishes; return; }
-          playKitchenSound();
-          haptic([200, 100, 200]);
-          addWaiterNotif({
-            id: Date.now(), tableLabel, roomId: dish.room_id, courseLabel,
-            course, isBebidas, dishes: courseDishes,
-            time: new Date().toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }),
-            seen: false, checked: {}
-          });
-          renderWaiterNotifBanner();
-          updateWaiterNotifBadge();
-        }, 1500);
-      } catch(err) {
-        console.warn('[Waiter pg_changes] Error:', err.message);
-      }
+      showToast('📋 Mesa reasignada', (tableLabel||'Mesa') + ' — ' + pendingDishes.length + ' platos');
     })
     .subscribe();
 }
@@ -7477,48 +7384,23 @@ async function fireNextCourse(roomId, course, dishIds) {
   // Clear cache entry after use
   if (window._kdsCache) delete window._kdsCache[cacheKey];
 
-  // BROADCAST to waiters — use pre-subscribed channel (must be subscribed before .send())
+  // INSERT notification → camarero la recibe vía realtime postgres_changes (INSERT)
+  // INSERT siempre lleva el payload completo, sin necesidad de REPLICA IDENTITY
   const restaurantId = state.kitchenRestaurantId || state.adminRestaurantId;
   if (restaurantId) {
-    // Use pre-subscribed channel or subscribe+send
-    const ch = _kitchenBroadcastChannel || (() => {
-      const c = sb.channel('restaurant-' + restaurantId);
-      c.subscribe();
-      _kitchenBroadcastChannel = c;
-      return c;
-    })();
-
-    const broadcastPayload = {
-      roomId,
+    const { error: ne } = await sb.from('kitchen_notifications').insert({
+      restaurant_id: restaurantId,
+      room_id: roomId,
       course,
-      courseLabel,
-      tableLabel,
-      isBebidas: course === 0,
+      course_label: courseLabel,
+      table_label: tableLabel,
+      is_bebidas: course === 0,
       dishes: readyDishes || [],
-      time: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
       assigned_waiter_id: room?.assigned_waiter_id || null,
       waiter_id: room?.waiter_id || null,
-    };
-
-    // If channel not yet connected, wait briefly then send
-    const sendBroadcast = () => ch.send({
-      type: 'broadcast',
-      event: 'pase_listo',
-      payload: broadcastPayload
-    }).then(res => {
-      console.log('[Kitchen] Pase broadcast enviado:', courseLabel, 'a', tableLabel);
-    }).catch(e => {
-      console.warn('[Kitchen] Broadcast error:', e);
-      // Retry once after 500ms
-      setTimeout(() => ch.send({ type: 'broadcast', event: 'pase_listo', payload: broadcastPayload }).catch(() => {}), 500);
     });
-
-    // Small delay to ensure channel is subscribed if just created
-    if (ch.state === 'joined') {
-      sendBroadcast();
-    } else {
-      setTimeout(sendBroadcast, 300);
-    }
+    if (ne) console.warn('[Kitchen] Error insertando notificación:', ne.message);
+    else console.log('[Kitchen] Notificación enviada:', courseLabel, tableLabel, (readyDishes||[]).length, 'platos');
   }
 
   // Also: local notification if kitchen+waiter on same device (demo mode)
@@ -8305,19 +8187,17 @@ async function reassignWaiter(roomId) {
 
   // Broadcast reassignment to ALL waiters — new waiter picks it up
   if (room?.restaurant_id) {
-    const ch = _kitchenBroadcastChannel || sb.channel('restaurant-' + room.restaurant_id);
-    const sendIt = () => ch.send({
-      type: 'broadcast',
-      event: 'mesa_reasignada',
-      payload: {
-        roomId,
-        tableLabel,
-        newWaiterId,
-        pendingDishes: pendingDishes || [],
-        time: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-      }
-    }).catch(() => {});
-    if (ch.state === 'joined') sendIt(); else setTimeout(sendIt, 300);
+    // Broadcast reassignment (for waiter to know table changed hands)
+    const reassignCh = sb.channel('restaurant-reassign-' + room.restaurant_id);
+    reassignCh.subscribe();
+    setTimeout(() => {
+      reassignCh.send({
+        type: 'broadcast',
+        event: 'mesa_reasignada',
+        payload: { roomId, tableLabel, newWaiterId, pendingDishes: pendingDishes || [],
+          time: new Date().toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }) }
+      }).catch(() => {});
+    }, 500);
   }
 
   document.getElementById('mesa-detail-panel').style.display = 'none';
