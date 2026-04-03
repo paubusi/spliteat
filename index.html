@@ -7452,10 +7452,12 @@ async function fireNextCourse(roomId, course, dishIds) {
     requireInteraction: true,
   });
 
-  // Fetch real dish names for the waiter notification
+  // Fetch ready dishes for this room+course (más fiable que buscar por dishIds)
   const { data: readyDishes } = await sb.from('dishes')
-    .select('id, name, course, category')
-    .in('id', dishIds);
+    .select('id, name, course, category, kitchen_status')
+    .eq('room_id', roomId)
+    .eq('course', course)
+    .eq('kitchen_status', 'ready');
 
   // BROADCAST to waiters — use pre-subscribed channel (must be subscribed before .send())
   const restaurantId = state.kitchenRestaurantId || state.adminRestaurantId;
