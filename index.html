@@ -2214,7 +2214,7 @@
       </div>
 
       <!-- Factura modal -->
-      <div id="factura-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:500;display:none;align-items:center;justify-content:center;padding:1rem">
+      <div id="factura-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:500;align-items:center;justify-content:center;padding:1rem">
         <div style="background:var(--card);border-radius:var(--r-lg);max-width:480px;width:100%;padding:1.5rem;max-height:90vh;overflow-y:auto">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
             <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700">Factura</div>
@@ -10142,9 +10142,42 @@ async function loadFacturas() {
   }).join('');
 }
 
-function openFactura(roomId) {
+async function openFactura(roomId) {
+  // Show modal immediately with loading state
   const modal = document.getElementById('factura-modal');
-  if (modal) { modal.style.display = 'flex'; showFactura(roomId); }
+  const content = document.getElementById('factura-content');
+  if (!modal) return;
+  if (content) content.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3)">Cargando factura...</div>';
+  modal.style.display = 'flex';
+
+  // Check if data already in _historialData (from loadKPIs)
+  const existingIdx = (_historialData || []).findIndex(e => e.room?.id === roomId);
+  if (existingIdx >= 0) {
+    showFactura(existingIdx);
+    return;
+  }
+
+  // Fetch fresh from DB
+  const [{ data: room }, { data: guests }, { data: dishes }, { data: payments }] = await Promise.all([
+    sb.from('rooms').select('*,tables(number,label)').eq('id', roomId).maybeSingle(),
+    sb.from('guests').select('*').eq('room_id', roomId),
+    sb.from('dishes').select('*').eq('room_id', roomId),
+    sb.from('payments').select('*').eq('room_id', roomId),
+  ]);
+
+  if (!room) { if (content) content.innerHTML = '<div style="color:var(--accent)">Error: factura no encontrada</div>'; return; }
+
+  // Build entry and push to _historialData
+  if (!window._historialData) window._historialData = [];
+  const entry = {
+    room,
+    table: room.tables || null,
+    guests: guests || [],
+    dishes: dishes || [],
+    payments: payments || []
+  };
+  window._historialData.push(entry);
+  showFactura(window._historialData.length - 1);
 }
 
 
