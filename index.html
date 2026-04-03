@@ -2627,7 +2627,13 @@ document.addEventListener('visibilitychange', async () => {
 
   // Pantallas del restaurante
   if (id === 's-waiter' && _waiterRestaurantId) loadWaiterMesas();
-  if (id === 's-kitchen' && state.kitchenRestaurantId) loadKitchenOrders();
+  if (id === 's-kitchen' && state.kitchenRestaurantId) {
+    loadKitchenOrders();
+    // Ensure broadcast channel is ready for admin using kitchen view
+    if (!_kitchenBroadcastChannel && state.kitchenRestaurantId) {
+      _kitchenBroadcastChannel = sb.channel('restaurant-' + state.kitchenRestaurantId).subscribe();
+    }
+  }
   if (id === 's-admin' && state.adminRestaurantId) {
     const tab = document.querySelector('#s-admin .tab.on')?.textContent?.trim();
     if (tab?.includes('curso')) loadEncurso();
@@ -4567,6 +4573,7 @@ async function setOrderStatus(dishId, status) {
 
 // ── CAMARERO: notificaciones de platos listos ──
 let _waiterDishSub = null;
+let _kitchenBroadcastChannel = null; // Pre-subscribed channel for kitchen→waiter broadcast
 let _waiterNotifHistory = []; // historial completo
 
 // ── Debounce timers: room+course → timeout handle ──
@@ -7430,25 +7437,48 @@ async function fireNextCourse(roomId, course, dishIds) {
     .select('id, name, course, category')
     .in('id', dishIds);
 
-  // BROADCAST to waiters in real-time (works across devices, no REPLICA IDENTITY needed)
+  // BROADCAST to waiters — use pre-subscribed channel (must be subscribed before .send())
   const restaurantId = state.kitchenRestaurantId || state.adminRestaurantId;
   if (restaurantId) {
-    const broadcastChannel = sb.channel('restaurant-' + restaurantId);
-    broadcastChannel.send({
+    // Use pre-subscribed channel or subscribe+send
+    const ch = _kitchenBroadcastChannel || (() => {
+      const c = sb.channel('restaurant-' + restaurantId);
+      c.subscribe();
+      _kitchenBroadcastChannel = c;
+      return c;
+    })();
+
+    const broadcastPayload = {
+      roomId,
+      course,
+      courseLabel,
+      tableLabel,
+      isBebidas: course === 0,
+      dishes: readyDishes || [],
+      time: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+      assigned_waiter_id: room?.assigned_waiter_id || null,
+      waiter_id: room?.waiter_id || null,
+    };
+
+    // If channel not yet connected, wait briefly then send
+    const sendBroadcast = () => ch.send({
       type: 'broadcast',
       event: 'pase_listo',
-      payload: {
-        roomId,
-        course,
-        courseLabel,
-        tableLabel,
-        isBebidas: course === 0,
-        dishes: readyDishes || [],
-        time: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-        assigned_waiter_id: room?.assigned_waiter_id || null,
-        waiter_id: room?.waiter_id || null,
-      }
-    }).catch(e => console.warn('[Broadcast] Error sending:', e));
+      payload: broadcastPayload
+    }).then(res => {
+      console.log('[Kitchen] Pase broadcast enviado:', courseLabel, 'a', tableLabel);
+    }).catch(e => {
+      console.warn('[Kitchen] Broadcast error:', e);
+      // Retry once after 500ms
+      setTimeout(() => ch.send({ type: 'broadcast', event: 'pase_listo', payload: broadcastPayload }).catch(() => {}), 500);
+    });
+
+    // Small delay to ensure channel is subscribed if just created
+    if (ch.state === 'joined') {
+      sendBroadcast();
+    } else {
+      setTimeout(sendBroadcast, 300);
+    }
   }
 
   // Also: local notification if kitchen+waiter on same device (demo mode)
@@ -8235,8 +8265,8 @@ async function reassignWaiter(roomId) {
 
   // Broadcast reassignment to ALL waiters — new waiter picks it up
   if (room?.restaurant_id) {
-    const ch = sb.channel('restaurant-' + room.restaurant_id);
-    await ch.send({
+    const ch = _kitchenBroadcastChannel || sb.channel('restaurant-' + room.restaurant_id);
+    const sendIt = () => ch.send({
       type: 'broadcast',
       event: 'mesa_reasignada',
       payload: {
@@ -8247,6 +8277,7 @@ async function reassignWaiter(roomId) {
         time: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
       }
     }).catch(() => {});
+    if (ch.state === 'joined') sendIt(); else setTimeout(sendIt, 300);
   }
 
   document.getElementById('mesa-detail-panel').style.display = 'none';
