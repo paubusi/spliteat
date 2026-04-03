@@ -4573,83 +4573,119 @@ let _waiterNotifHistory = []; // historial completo
 const _waiterNotifDebounce = {};
 
 function subscribeWaiterNotifications() {
-  if (_waiterDishSub) return;
-  _waiterDishSub = sb.channel('waiter-dishes-' + _waiterRestaurantId)
+  // Destroy stale subscription
+  if (_waiterDishSub) {
+    try { _waiterDishSub.unsubscribe(); } catch(_) {}
+    _waiterDishSub = null;
+  }
+
+  _waiterDishSub = sb.channel('waiter-notif-' + _waiterRestaurantId + '-' + Date.now())
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'dishes' }, async (payload) => {
-      const dish = payload.new;
-      const prev = payload.old;
-      // Only fire when status TRANSITIONS to 'ready', not when other fields change on a ready dish
-      if (dish.kitchen_status !== 'ready') return;
-      if (prev?.kitchen_status === 'ready') return; // was already ready — ignore (e.g. type change)
+      try {
+        let dish = payload.new;
+        const prev = payload.old;
 
-      const { data: room } = await sb.from('rooms')
-        .select('table_id, id, assigned_waiter_id').eq('id', dish.room_id).maybeSingle();
-      if (!room) return;
-      if (room.assigned_waiter_id && room.assigned_waiter_id !== _waiterId) return;
+        // Only care about transitions TO 'ready'
+        if (dish.kitchen_status !== 'ready') return;
+        if (prev?.kitchen_status === 'ready') return;
 
-      const triggerCourse = dish.course ?? 1;
-      const debounceKey = dish.room_id + '_' + triggerCourse;
-
-      // Cancel any pending timer for this room+course
-      if (_waiterNotifDebounce[debounceKey]) {
-        clearTimeout(_waiterNotifDebounce[debounceKey]);
-      }
-
-      // Wait 1.5s then fire ONE consolidated notification
-      _waiterNotifDebounce[debounceKey] = setTimeout(async () => {
-        delete _waiterNotifDebounce[debounceKey];
-
-        const { data: table } = room.table_id
-          ? await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle()
-          : { data: null };
-        const tableLabel = table
-          ? `Mesa ${table.number}${table.label ? ' — ' + table.label : ''}`
-          : 'Mesa';
-
-        // Fetch ALL ready dishes of this course for this room
-        const { data: courseDishes } = await sb.from('dishes')
-          .select('id, name, course, category, kitchen_status')
-          .eq('room_id', dish.room_id)
-          .eq('kitchen_status', 'ready')
-          .eq('course', triggerCourse);
-
-        if (!courseDishes?.length) return; // already delivered or none ready
-
-        const isBebidas = triggerCourse === 0 ||
-          (courseDishes.every(d => d.category === 'bebidas'));
-
-        const courseLabel = isBebidas ? 'Bebidas'
-          : { 1:'Entrantes', 2:'Principales', 3:'Postres' }[triggerCourse] || 'Platos';
-
-        // Deduplicate: if there's already an unseen notif for this room+course, update it
-        const existing = _waiterNotifHistory.find(
-          n => !n.seen && n.roomId === dish.room_id && n.course === triggerCourse
-        );
-        if (existing) {
-          existing.dishes = courseDishes;
-          existing.time = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-        } else {
-          playKitchenSound();
-          haptic([200, 100, 200]);
-          addWaiterNotif({
-            id: Date.now(),
-            tableLabel,
-            roomId: dish.room_id,
-            courseLabel,
-            course: triggerCourse,
-            isBebidas,
-            dishes: courseDishes,
-            time: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-            seen: false,
-            checked: {} // per-dish check state
-          });
+        // FIX A: dish.room_id might be missing if REPLICA IDENTITY was not FULL
+        // when the record was created — fetch fresh from DB to be sure
+        if (!dish.room_id || !dish.name) {
+          const { data: freshDish } = await sb.from('dishes')
+            .select('*').eq('id', dish.id).maybeSingle();
+          if (!freshDish) return;
+          dish = freshDish;
         }
-        renderWaiterNotifBanner();
-        updateWaiterNotifBadge();
-      }, 1500); // 1.5s debounce — waits for all dishes of the pase
+        if (!dish.room_id) return;
+
+        // FIX B: Get room + verify it belongs to this waiter's restaurant
+        const { data: room } = await sb.from('rooms')
+          .select('id, table_id, restaurant_id, assigned_waiter_id, waiter_id')
+          .eq('id', dish.room_id)
+          .maybeSingle();
+
+        if (!room) return;
+        if (room.restaurant_id !== _waiterRestaurantId) return; // different restaurant
+
+        // FIX C: Notify if room is in our restaurant AND:
+        //   - no waiter assigned (notify everyone), OR
+        //   - we are the assigned waiter, OR
+        //   - we opened this table (waiter_id)
+        const isAssignedToMe = room.assigned_waiter_id === _waiterId;
+        const isMyTable = room.waiter_id === _waiterId;
+        const isUnassigned = !room.assigned_waiter_id && !room.waiter_id;
+        if (!isAssignedToMe && !isMyTable && !isUnassigned) return;
+
+        const triggerCourse = dish.course ?? 1;
+        const debounceKey = dish.room_id + '_' + triggerCourse;
+
+        if (_waiterNotifDebounce[debounceKey]) clearTimeout(_waiterNotifDebounce[debounceKey]);
+
+        _waiterNotifDebounce[debounceKey] = setTimeout(async () => {
+          delete _waiterNotifDebounce[debounceKey];
+
+          // Fetch table label
+          const { data: table } = room.table_id
+            ? await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle()
+            : { data: null };
+          const tableLabel = table
+            ? `Mesa ${table.number}${table.label ? ' — ' + table.label : ''}`
+            : 'Mesa';
+
+          // Fetch ALL ready dishes of this course for this room
+          const { data: courseDishes } = await sb.from('dishes')
+            .select('id, name, course, category, kitchen_status')
+            .eq('room_id', dish.room_id)
+            .eq('kitchen_status', 'ready')
+            .eq('course', triggerCourse);
+
+          if (!courseDishes?.length) return;
+
+          const isBebidas = triggerCourse === 0 || courseDishes.every(d => d.category === 'bebidas');
+          const courseLabel = isBebidas ? 'Bebidas'
+            : { 1:'Entrantes', 2:'Principales', 3:'Postres' }[triggerCourse] || 'Platos';
+
+          // Deduplicate
+          const existing = _waiterNotifHistory.find(
+            n => !n.seen && n.roomId === dish.room_id && n.course === triggerCourse
+          );
+          if (existing) {
+            existing.dishes = courseDishes;
+            existing.time = new Date().toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
+          } else {
+            playKitchenSound();
+            haptic([200, 100, 200]);
+            addWaiterNotif({
+              id: Date.now(),
+              tableLabel,
+              roomId: dish.room_id,
+              courseLabel,
+              course: triggerCourse,
+              isBebidas,
+              dishes: courseDishes,
+              time: new Date().toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }),
+              seen: false,
+              checked: {}
+            });
+          }
+          renderWaiterNotifBanner();
+          updateWaiterNotifBadge();
+        }, 1500);
+
+      } catch(err) {
+        console.warn('[Waiter notif] Error en subscription callback:', err);
+      }
     })
-    .subscribe();
+    .subscribe((status, err) => {
+      if (status === 'SUBSCRIBED') {
+        console.log('[Waiter notif] Suscripción activa ✓ restaurante:', _waiterRestaurantId);
+      } else if (err) {
+        console.warn('[Waiter notif] Error suscripción:', status, err);
+      }
+    });
 }
+
 
 function addWaiterNotif(notif) {
   _waiterNotifHistory.unshift(notif);
@@ -5593,6 +5629,7 @@ async function waiterOpenTable() {
     restaurant_name: _waiterRestaurantName,
     table_id: tableId,
     waiter_id: _waiterId,
+    assigned_waiter_id: _waiterId,
     closed: false,
     tip_percent: 0,
     opened_at: new Date().toISOString().split('T')[0]
@@ -7318,16 +7355,24 @@ async function fireNextCourse(roomId, course, dishIds) {
     requireInteraction: true,
   });
 
-  // Also show in-app notification for waiter
+  // Fetch real dish names for the waiter notification
+  const { data: readyDishes } = await sb.from('dishes')
+    .select('id, name, course, category')
+    .in('id', dishIds);
+
+  // In-app notification — only useful if kitchen + waiter on same device (dev/demo)
+  // Real notification comes via realtime subscription on waiter device
   addWaiterNotif({
     id: Date.now(),
     tableLabel,
     roomId,
     courseLabel,
     course,
-    dishes: dishIds.map(id => ({ name: '—', course })),
+    isBebidas: course === 0,
+    dishes: readyDishes || dishIds.map(id => ({ name: '—', course })),
     time: new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-    seen: false
+    seen: false,
+    checked: {}
   });
 }
 
@@ -9031,8 +9076,7 @@ async function enterMesa() {
         const { data: activeWaiters } = await sb.from('waiters')
           .select('id, name')
           .eq('restaurant_id', _qrRestaurantId)
-          .eq('is_active', true)
-          .eq('active', true);
+          .eq('active', true); // is_active may not be set yet on first login
 
         if (activeWaiters && activeWaiters.length > 0) {
           // Count open rooms per waiter
