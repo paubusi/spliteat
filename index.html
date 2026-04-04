@@ -1062,6 +1062,34 @@
           Se dividirá entre todos los comensales. Cualquiera puede cambiar quién participa después.
         </div>
 
+        <!-- Punto de cocción (solo para carnes) -->
+        <div id="modal-cooking-point" style="display:none;margin-bottom:1rem">
+          <div style="font-size:13px;color:var(--t2);margin-bottom:.5rem">🥩 ¿Punto de la carne?</div>
+          <div style="display:flex;flex-wrap:wrap;gap:.35rem">
+            <button class="cooking-pt-btn" data-pt="Muy poco hecho" onclick="selectCookingPoint('Muy poco hecho')"
+              style="padding:6px 11px;border-radius:99px;border:1.5px solid var(--bd2);background:var(--bg);font-size:12px;cursor:pointer;font-family:inherit;color:var(--t1);transition:all .15s">
+              🔴 Muy poco
+            </button>
+            <button class="cooking-pt-btn" data-pt="Poco hecho" onclick="selectCookingPoint('Poco hecho')"
+              style="padding:6px 11px;border-radius:99px;border:1.5px solid var(--bd2);background:var(--bg);font-size:12px;cursor:pointer;font-family:inherit;color:var(--t1);transition:all .15s">
+              🟠 Poco hecho
+            </button>
+            <button class="cooking-pt-btn" data-pt="Al punto" onclick="selectCookingPoint('Al punto')"
+              style="padding:6px 11px;border-radius:99px;border:1.5px solid var(--bd2);background:var(--bg);font-size:12px;cursor:pointer;font-family:inherit;color:var(--t1);transition:all .15s">
+              🟡 Al punto
+            </button>
+            <button class="cooking-pt-btn" data-pt="Hecho" onclick="selectCookingPoint('Hecho')"
+              style="padding:6px 11px;border-radius:99px;border:1.5px solid var(--bd2);background:var(--bg);font-size:12px;cursor:pointer;font-family:inherit;color:var(--t1);transition:all .15s">
+              🟤 Hecho
+            </button>
+            <button class="cooking-pt-btn" data-pt="Muy hecho" onclick="selectCookingPoint('Muy hecho')"
+              style="padding:6px 11px;border-radius:99px;border:1.5px solid var(--bd2);background:var(--bg);font-size:12px;cursor:pointer;font-family:inherit;color:var(--t1);transition:all .15s">
+              ⚫ Muy hecho
+            </button>
+          </div>
+          <div id="modal-cooking-point-err" style="display:none;font-size:11px;color:var(--accent);margin-top:.35rem">⚠ Selecciona el punto de cocción</div>
+        </div>
+
         <button class="btn btn-primary" id="modal-confirm-btn" onclick="confirmAddDish()" style="margin-bottom:.65rem">Añadir a la mesa</button>
         <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
       </div>
@@ -3198,6 +3226,7 @@ function renderCarta() {
 let modalItemId = null;
 let modalType = 'solo'; // default: individual
 let modalCourse = 1; // 1=entrante, 2=principal, 3=postre
+let modalCookingPoint = null; // punto de cocción seleccionado
 
 function setCourse(n, auto = false) {
   modalCourse = n;
@@ -3234,8 +3263,30 @@ function openModal(itemId) {
   document.getElementById('modal-shared-hint').style.display = 'none';
   setModalType(item.is_shared ? 'shared' : 'solo');
   setCourse(modalCourse, true); // true = auto-assigned from category
+  // Cooking point
+  modalCookingPoint = null;
+  const cpSection = document.getElementById('modal-cooking-point');
+  const cpErr = document.getElementById('modal-cooking-point-err');
+  if (cpSection) cpSection.style.display = item.requires_cooking_point ? 'block' : 'none';
+  if (cpErr) cpErr.style.display = 'none';
+  document.querySelectorAll('.cooking-pt-btn').forEach(b => {
+    b.style.borderColor = 'var(--bd2)'; b.style.background = 'var(--bg)'; b.style.fontWeight = '400';
+  });
   const modal = document.getElementById('dish-modal');
   modal.style.display = 'flex';
+}
+
+function selectCookingPoint(pt) {
+  modalCookingPoint = pt;
+  document.querySelectorAll('.cooking-pt-btn').forEach(b => {
+    const sel = b.dataset.pt === pt;
+    b.style.borderColor = sel ? 'var(--brand)' : 'var(--bd2)';
+    b.style.background = sel ? 'var(--brand-l)' : 'var(--bg)';
+    b.style.fontWeight = sel ? '500' : '400';
+    b.style.color = sel ? 'var(--brand-d)' : 'var(--t1)';
+  });
+  const err = document.getElementById('modal-cooking-point-err');
+  if (err) err.style.display = 'none';
 }
 
 function setModalType(type) {
@@ -3257,16 +3308,24 @@ async function confirmAddDish() {
   if (!modalItemId) return;
   const item = state.menuItems.find(i => i.id === modalItemId);
   if (!item) return;
+  // Validate cooking point if required
+  if (item.requires_cooking_point && !modalCookingPoint) {
+    const err = document.getElementById('modal-cooking-point-err');
+    if (err) err.style.display = 'block';
+    return;
+  }
   closeModal();
-  const { data: dish, error } = await sb.from('dishes').insert({
+  const dishPayload = {
     room_id: state.roomId,
     name: item.name,
     price: item.price,
     type: modalType,
     assignee_id: modalType === 'solo' ? state.myGuestId : null,
     menu_item_id: item.id,
-    course: modalCourse // 1=entrante, 2=principal, 3=postre
-  }).select().single();
+    course: modalCourse
+  };
+  if (modalCookingPoint) dishPayload.cooking_point = modalCookingPoint;
+  const { data: dish, error } = await sb.from('dishes').insert(dishPayload).select().single();
   if (error) { notify('Error al añadir: ' + error.message); return; }
   // If shared, add all current guests as participants
   if (modalType === 'shared') {
@@ -3503,6 +3562,11 @@ function renderDishCard(dish) {
   const courseBadge = dish.course
     ? `<span style="font-size:10px;padding:1px 6px;border-radius:99px;background:var(--bg2);color:var(--t3);border:1px solid var(--bd);margin-left:4px">${courseLabels[dish.course] || ''}</span>`
     : '';
+  // Cooking point badge
+  const cpColors = {'Muy poco hecho':'#E74C3C','Poco hecho':'#E67E22','Al punto':'#F39C12','Hecho':'#8B5E3C','Muy hecho':'#2C2C2C'};
+  const cookingBadge = dish.cooking_point
+    ? `<span style="font-size:10px;padding:2px 7px;border-radius:99px;background:${cpColors[dish.cooking_point]||'#666'};color:#fff;margin-left:4px;font-weight:500">🥩 ${dish.cooking_point}</span>`
+    : '';
 
   // Kitchen status badge (compact)
   const ksBadge = isSent
@@ -3577,7 +3641,7 @@ function renderDishCard(dish) {
 
   return `<div class="dish-card${isConfirmed?' confirmed':''}" id="dc-${dish.id}">
     <div class="dish-card-top" style="margin-bottom:${bodyHtml||actionBtns?'4px':'0'}">
-      <div class="dish-name" style="font-size:13px">${dish.name}${courseBadge}</div>
+      <div class="dish-name" style="font-size:13px">${dish.name}${courseBadge}${cookingBadge}</div>
       <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
         ${ksBadge}
         <div class="dish-price" style="font-size:13px">${fmt(parseFloat(dish.price))}</div>
@@ -4470,6 +4534,7 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
           <span style="font-size:12px;flex-shrink:0">${dot}</span>
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:${isDone?'400':'500'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${isDone?'text-decoration:line-through;color:var(--t3)':''}">${escHtml(d.name)}</div>
+            ${d.cooking_point ? `<div style="font-size:11px;font-weight:600;color:#8B5E3C;margin-top:1px">🥩 ${d.cooking_point}</div>` : ''}
             ${prep && !isDone ? `<div style="font-size:10px;color:var(--t3)">⏱ ${prep} min · ${dishElapsed} min esperando</div>` : ''}
           </div>
           ${btn}
@@ -5461,7 +5526,7 @@ async function loadWaiterCarta() {
           <button onclick="waiterCartRemove('${item.id}')"
             style="width:28px;height:28px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit">−</button>
           <span id="wcart-qty-${item.id}" style="font-size:14px;font-weight:500;min-width:16px;text-align:center">0</span>
-          <button onclick="waiterCartAdd('${item.id}','${escHtml(item.name)}',${item.price},${item.is_shared})"
+          <button onclick="waiterCartAdd('${item.id}','${escHtml(item.name)}',${item.price},${item.is_shared},${!!item.requires_cooking_point})"
             style="width:28px;height:28px;border-radius:50%;border:none;background:var(--brand);color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit">+</button>
         </div>
       </div>`;
@@ -5470,10 +5535,55 @@ async function loadWaiterCarta() {
   cartaEl.innerHTML = html;
 }
 
-function waiterCartAdd(id, name, price, isShared) {
-  const existing = _waiterCart.find(i => i.id === id);
+function waiterCartAdd(id, name, price, isShared, requiresCookingPoint) {
+  if (requiresCookingPoint) {
+    // Show cooking point modal before adding
+    showWaiterCookingPointModal(id, name, price, isShared);
+    return;
+  }
+  const existing = _waiterCart.find(i => i.id === id && !i.cookingPoint);
   if (existing) { existing.qty++; }
-  else { _waiterCart.push({ id, name, price: parseFloat(price), isShared: !!isShared, qty: 1 }); }
+  else { _waiterCart.push({ id, name, price: parseFloat(price), isShared: !!isShared, qty: 1, cookingPoint: null }); }
+  updateWaiterCart();
+}
+
+function showWaiterCookingPointModal(id, name, price, isShared) {
+  const existing = document.getElementById('waiter-cooking-point-modal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'waiter-cooking-point-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:700;display:flex;align-items:flex-end;justify-content:center';
+  const cpButtons = [
+    {pt:'Muy poco hecho', emoji:'🔴', desc:'Casi crudo, centro frío'},
+    {pt:'Poco hecho',     emoji:'🟠', desc:'Centro rojo templado'},
+    {pt:'Al punto',       emoji:'🟡', desc:'Centro rosado, jugoso'},
+    {pt:'Hecho',          emoji:'🟤', desc:'Poco rosado por dentro'},
+    {pt:'Muy hecho',      emoji:'⚫', desc:'Sin rosa, bien cocinado'},
+  ].map(({pt, emoji, desc}) => `
+    <button onclick="addWaiterDishWithPoint('${id}','${name}',${price},${isShared},'${pt}')"
+      style="display:flex;align-items:center;gap:12px;width:100%;padding:.75rem 1rem;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.35rem;text-align:left;transition:all .15s"
+      onmouseover="this.style.borderColor='var(--brand)';this.style.background='var(--brand-l)'"
+      onmouseout="this.style.borderColor='var(--bd2)';this.style.background='var(--card)'">
+      <span style="font-size:22px">${emoji}</span>
+      <div><div style="font-size:14px;font-weight:500;color:var(--t1)">${pt}</div><div style="font-size:11px;color:var(--t3)">${desc}</div></div>
+    </button>`).join('');
+  modal.innerHTML = `<div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:1.25rem;width:100%;max-width:430px;animation:slideUp .2s ease">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+      <div>
+        <div style="font-size:11px;color:var(--t3);font-weight:500;text-transform:uppercase;letter-spacing:.06em">Punto de cocción</div>
+        <div style="font-size:15px;font-weight:600">🥩 ${escHtml(name)}</div>
+      </div>
+      <button onclick="document.getElementById('waiter-cooking-point-modal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+    </div>
+    ${cpButtons}
+  </div>`;
+  document.body.appendChild(modal);
+}
+
+function addWaiterDishWithPoint(id, name, price, isShared, cookingPoint) {
+  const modal = document.getElementById('waiter-cooking-point-modal');
+  if (modal) modal.remove();
+  _waiterCart.push({ id, name, price: parseFloat(price), isShared: !!isShared, qty: 1, cookingPoint });
   updateWaiterCart();
 }
 
@@ -5505,7 +5615,7 @@ function updateWaiterCart() {
   const total = _waiterCart.reduce((s, i) => s + i.price * i.qty, 0);
   cartItems.innerHTML = _waiterCart.map(i =>
     `<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0">
-      <span>${i.qty}× ${i.name}</span>
+      <span>${i.qty}× ${i.name}${i.cookingPoint ? '<span style="font-size:10px;color:#8B5E3C;background:#FFF3E0;border-radius:99px;padding:1px 6px;margin-left:4px">🥩 '+i.cookingPoint+'</span>' : ''}</span>
       <span style="font-weight:500">${fmt(i.price * i.qty)}</span>
     </div>`
   ).join('') + `<div style="border-top:1px solid var(--bd);margin-top:5px;padding-top:5px;display:flex;justify-content:space-between;font-weight:500">
@@ -5523,15 +5633,17 @@ async function waiterSendOrder() {
 
   for (const item of _waiterCart) {
     for (let q = 0; q < item.qty; q++) {
-      const { data: dish } = await sb.from('dishes').insert({
+      const wDishPayload = {
         room_id: _waiterActiveRoomId,
-        name: item.name,
+        name: item.name + (item.cookingPoint ? ' — ' + item.cookingPoint : ''),
         price: item.price,
         type: item.isShared ? 'shared' : 'solo',
         menu_item_id: item.id,
-        kitchen_status: 'sent', // directo a cocina
-        assignee_id: item.isShared ? null : null
-      }).select().single();
+        kitchen_status: 'sent',
+        assignee_id: null
+      };
+      if (item.cookingPoint) wDishPayload.cooking_point = item.cookingPoint;
+      const { data: dish } = await sb.from('dishes').insert(wDishPayload).select().single();
 
       if (dish && item.isShared && guests?.length) {
         await sb.from('dish_participants').insert(
@@ -6282,6 +6394,10 @@ function openAjustesSection(section) {
           <span style="font-size:13px;color:var(--t2)">Plato compartido (se divide entre comensales)</span>
           <div class="toggle-track" id="ai-shared-track" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></div>
         </div>
+        <div class="toggle" style="margin:.25rem 0">
+          <span style="font-size:13px;color:var(--t2)">🥩 Requiere punto de cocción (carnes)</span>
+          <div class="toggle-track" id="ai-cooking-track" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></div>
+        </div>
         <div class="field" style="margin-top:.35rem">
           <label>Alérgenos</label>
           <div id="ai-allergens-area" style="display:flex;flex-wrap:wrap;gap:2px;padding:8px;border:1px solid var(--bd2);border-radius:var(--r-sm);min-height:36px;cursor:pointer">
@@ -6823,10 +6939,11 @@ async function saveMenuItemInline() {
   const cat = document.getElementById('ai-cat')?.value;
   const prep = parseInt(document.getElementById('ai-prep')?.value) || null;
   const isShared = document.getElementById('ai-shared-track')?.classList.contains('on');
+  const requiresCookingPoint = document.getElementById('ai-cooking-track')?.classList.contains('on');
   if (!name || isNaN(price)) { notify('Nombre y precio son obligatorios', 'error'); return; }
   const { error } = await sb.from('menu_items').insert({
     restaurant_id: state.adminRestaurantId, name, price, category: cat,
-    prep_time_minutes: prep, is_shared: isShared, active: true
+    prep_time_minutes: prep, is_shared: isShared, requires_cooking_point: requiresCookingPoint, active: true
   });
   if (error) { notify('Error: ' + error.message); return; }
   document.getElementById('add-item-form-inline').style.display = 'none';
@@ -6862,11 +6979,12 @@ async function loadAdminCartaInline() {
         <div style="display:flex;align-items:center;gap:8px">
           ${item.photo_url ? `<img src="${item.photo_url}" style="width:40px;height:40px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0">` : ''}
           <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:500">${escHtml(item.name)}</div>
+            <div style="font-size:13px;font-weight:500">${escHtml(item.name)}${item.requires_cooking_point?'<span style="font-size:10px;background:#FFF3E0;color:#8B5E3C;border-radius:99px;padding:1px 6px;margin-left:4px;border:1px solid #E8C9A0">🥩 Punto</span>':''}</div>
             <div style="font-size:11px;color:var(--t2)">${fmt(parseFloat(item.price))}${item.prep_time_minutes?' · ⏱'+item.prep_time_minutes+'m':''}${marginStr}${!item.active?' · <span style="color:var(--accent)">Inactivo</span>':''}</div>
             ${item.allergens?.length ? getAllergenIcons(item.allergens) : ''}
           </div>
           <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+            <span title="Punto de cocción" style="cursor:pointer;font-size:14px;opacity:${item.requires_cooking_point?'1':'0.25'}" onclick="toggleCookingPoint('${item.id}',${!item.requires_cooking_point})">🥩</span>
             <div class="toggle-track ${item.active?'on':''}" onclick="toggleItemActive('${item.id}',${!item.active},this)"><div class="toggle-thumb"></div></div>
             <button onclick="deleteItem('${item.id}')" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer">✕</button>
           </div>
@@ -10899,6 +11017,12 @@ function downloadCalleatQR() {
   link.download = 'calleat-qr-espera.png';
   link.href = c.toDataURL('image/png');
   link.click();
+}
+
+
+async function toggleCookingPoint(itemId, newVal) {
+  await sb.from('menu_items').update({ requires_cooking_point: newVal }).eq('id', itemId);
+  loadAdminCartaInline();
 }
 
 
