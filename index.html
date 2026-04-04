@@ -685,8 +685,8 @@
     <div style="background:#085041;border-radius:16px;padding:1.75rem 1.5rem;text-align:center">
       <div style="font-family:'Fraunces',serif;font-size:1.4rem;font-weight:700;color:#fff;margin-bottom:.5rem">¿Tu restaurante quiere empezar?</div>
       <p style="font-size:13px;color:rgba(255,255,255,.7);margin-bottom:1.25rem;line-height:1.5">Escríbenos y lo tenemos funcionando este mismo día.</p>
-      <a href="/cdn-cgi/l/email-protection#325a5d5e537241425e5b465753461c5741" style="display:inline-block;background:#D85A30;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:.75rem 2rem;border-radius:99px;font-family:'DM Sans',sans-serif">
-        <span class="__cf_email__" data-cfemail="5b3334373a1b282b37322f3e3a2f753e28">[email&#160;protected]</span>
+      <a href="/cdn-cgi/l/email-protection#81e9eeede0c1f2f1ede8f5e4e0f5afe4f2" style="display:inline-block;background:#D85A30;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:.75rem 2rem;border-radius:99px;font-family:'DM Sans',sans-serif">
+        <span class="__cf_email__" data-cfemail="e981868588a99a9985809d8c889dc78c9a">[email&#160;protected]</span>
       </a>
       <div style="margin-top:.85rem">
         <button onclick="go('s-admin-login')" style="background:none;border:none;color:rgba(255,255,255,.6);font-size:12px;cursor:pointer;font-family:inherit;text-decoration:underline">
@@ -780,7 +780,7 @@
           <div style="display:flex;flex-direction:column;gap:5px">
             <a onclick="document.getElementById('s0-productos').scrollIntoView({behavior:'smooth'})" style="font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;text-decoration:none">La suite</a>
             <a onclick="document.getElementById('s0-precios').scrollIntoView({behavior:'smooth'})" style="font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;text-decoration:none">Precios</a>
-            <a href="/cdn-cgi/l/email-protection#c7afa8aba687b4b7abaeb3a2a6b3e9a2b4" style="font-size:13px;color:rgba(255,255,255,.6);text-decoration:none">Contacto</a>
+            <a href="/cdn-cgi/l/email-protection#c3abacafa283b0b3afaab7a6a2b7eda6b0" style="font-size:13px;color:rgba(255,255,255,.6);text-decoration:none">Contacto</a>
           </div>
         </div>
         <div>
@@ -1551,7 +1551,7 @@
       <button class="btn btn-primary mt" onclick="adminLogin()">Entrar</button>
       <div id="admin-err" class="notice notice-err" style="display:none"></div>
       <hr>
-      <p class="muted center" style="font-size:12px">¿Aún no tienes cuenta? Escribe a <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="2c4443404d6c5f5c404558494d5802495f">[email&#160;protected]</a></p>
+      <p class="muted center" style="font-size:12px">¿Aún no tienes cuenta? Escribe a <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="85edeae9e4c5f6f5e9ecf1e0e4f1abe0f6">[email&#160;protected]</a></p>
     </div>
   </div>
 
@@ -2014,7 +2014,7 @@
         </div>
         <div style="font-size:13px;color:var(--t2);margin-bottom:1rem;line-height:1.6">
           Cover Manager es el software de reservas líder en España. Para conectarlo necesitas una API Key que Cover Manager proporciona a sus partners.<br><br>
-          Solicita acceso en <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="4636273432282334352e2f36350625293023342b2728272123346825292b">[email&#160;protected]</a></strong> mencionando spliteat.
+          Solicita acceso en <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="ee9e8f9c9a808b9c9d86879e9dae8d81988b9c838f808f898b9cc08d8183">[email&#160;protected]</a></strong> mencionando spliteat.
         </div>
         <div class="field">
           <label>API Key de Cover Manager</label>
@@ -8933,32 +8933,1440 @@ async function loadFacturaParticipants(entry) {
 }
 
 function downloadFactura() {
-  const entry = (_historialData || [])[_facturaIdx];
-  const table = entry?.table;
-  const tableNum = table ? 'Mesa_' + table.number : 'Mesa';
-  const datePDF = new Date(entry?.room?.created_at || Date.now()).toLocaleDateString('es-ES').replace(/\//g, '-');
-  const printable = document.getElementById('factura-printable');
+  var printable = document.getElementById('factura-printable');
   if (!printable) { notify('Abre la factura antes de descargar'); return; }
-  const bodyHtml = printable.outerHTML;
-
-  const pw = window.open('', '_blank');
+  var entry = (_historialData || [])[_facturaIdx];
+  var tbl = entry && entry.table;
+  var tableNum = tbl ? 'Mesa_' + tbl.number : 'Mesa';
+  var datePDF = new Date((entry && entry.room && entry.room.created_at) || Date.now())
+    .toLocaleDateString('es-ES').replace(/\//g, '-');
+  var bodyHtml = printable.outerHTML;
+  var pw = window.open('', '_blank');
   if (!pw) { notify('Permite ventanas emergentes para descargar el PDF'); return; }
-  const autoprint = 'window.onload=function(){setTimeout(function(){window.print();},500);}';
-  const doc = '<!DOCTYPE html><html><head>'
-    + '<meta charset="UTF-8">'
-    + '<title>Factura spliteat \u2014 ' + tableNum + ' ' + datePDF + '</title>'
-    + '<style>body{font-family:Arial,sans-serif;max-width:420px;margin:2rem auto;padding:1rem;color:#1a1a18}*{box-sizing:border-box}@media print{@page{margin:1cm}}</style>'
-    + '</head><body>' + bodyHtml + '</body></html>';
   pw.document.open();
-  pw.document.write(doc);
+  pw.document.write('<!DOCTYPE html><html><head>'
+    + '<meta charset="UTF-8"><title>Factura \u2014 ' + tableNum + ' ' + datePDF + '</title>'
+    + '<style>body{font-family:Arial,sans-serif;max-width:420px;margin:2rem auto;padding:1rem;color:#1a1a18}'
+    + '*{box-sizing:border-box}@media print{@page{margin:1cm}}</style>'
+    + '</head><body>' + bodyHtml + '</body></html>');
   pw.document.close();
   pw.focus();
-  // Inline autoprint via execScript fallback
-  try { pw.eval(autoprint); } catch(e) {}
   setTimeout(function(){ try { pw.print(); } catch(e){} }, 600);
 }
 
+// ══════════════════════════════════════════════════════
+// STRIPE CONNECT — ADMIN
+// ══════════════════════════════════════════════════════
+async function loadStripeStatus() {
+  if (!STRIPE_ENABLED) return; // no-op when Stripe not enabled
 
+  const { data: rest } = await sb.from('restaurants')
+    .select('stripe_account_id, stripe_charges_enabled, stripe_onboarding_done')
+    .eq('id', state.adminRestaurantId)
+    .single();
+
+  const notEnabled = document.getElementById('stripe-not-enabled');
+  const enabled = document.getElementById('stripe-enabled');
+  const statusCard = document.getElementById('stripe-status-card');
+
+  if (!rest?.stripe_account_id) {
+    notEnabled.style.display = 'block';
+    enabled.style.display = 'none';
+    document.getElementById('btn-stripe-connect').disabled = false;
+    document.querySelector('#btn-stripe-connect + div').style.display = 'none';
+    return;
+  }
+
+  // Account exists — check status
+  try {
+    const status = await callStripeFunction('check_account_status', {
+      stripeAccountId: rest.stripe_account_id
+    });
+
+    if (status.chargesEnabled) {
+      notEnabled.style.display = 'none';
+      enabled.style.display = 'block';
+      statusCard.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:10px;height:10px;border-radius:50%;background:var(--brand)"></div>
+          <div>
+            <div style="font-size:14px;font-weight:500">Pagos activos ✓</div>
+            <div style="font-size:12px;color:var(--t2)">Cuenta: ${rest.stripe_account_id}</div>
+          </div>
+        </div>`;
+      // Update DB
+      await sb.from('restaurants').update({
+        stripe_charges_enabled: true,
+        payments_enabled: true
+      }).eq('id', state.adminRestaurantId);
+    } else {
+      notEnabled.style.display = 'block';
+      enabled.style.display = 'none';
+      document.getElementById('btn-stripe-connect').disabled = false;
+      document.getElementById('btn-stripe-connect').textContent = 'Continuar configuración →';
+    }
+  } catch(e) {
+    console.error('Error checking Stripe status:', e);
+  }
+}
+
+async function startStripeOnboarding() {
+  if (!STRIPE_ENABLED) {
+    notify('Pagos online próximamente. Los comensales confirman el pago manualmente.', 'info');
+    return;
+  }
+
+  const btn = document.getElementById('btn-stripe-connect');
+  btn.disabled = true;
+  btn.textContent = 'Preparando...';
+
+  try {
+    const appUrl = window.location.origin + window.location.pathname;
+    const result = await callStripeFunction('create_onboarding_link', {
+      restaurantId: state.adminRestaurantId,
+      restaurantName: state.adminRestaurantName,
+      returnUrl: appUrl + '?stripe_return=1',
+      refreshUrl: appUrl + '?stripe_refresh=1'
+    });
+
+    // Save account ID before redirect
+    await sb.from('restaurants').update({
+      stripe_account_id: result.accountId,
+      stripe_onboarding_done: false
+    }).eq('id', state.adminRestaurantId);
+
+    // Redirect to Stripe onboarding
+    window.location.href = result.onboardingUrl;
+
+  } catch(e) {
+    notify('Error con Stripe: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = 'Conectar cuenta bancaria →';
+  }
+}
+
+// Handle return from Stripe onboarding
+function handleStripeReturn() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('stripe_return')) {
+    // Clean URL
+    window.history.replaceState({}, '', window.location.pathname);
+    // Show success message if admin is logged in
+    if (state.adminRestaurantId) {
+      showAdminTab('pagos');
+      loadStripeStatus();
+    }
+  }
+}
+
+// ── loadRestaurantsIntoSelect eliminado — ya no se usa el selector manual ──
+
+function onRestaurantSelect() {} // kept for safety
+
+// ══════════════════════════════════════════════════════
+// QR URL HANDLER — nuevo flujo sin código manual
+// URL: ?mesa=restaurantId/tableNumber
+// ══════════════════════════════════════════════════════
+let _qrRestaurantId = null;
+let _qrTableId = null;
+let _qrTableNum = null;
+let _qrActiveRoomId = null;
+
+async function handleQRUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const mesa = params.get('mesa');
+  if (!mesa) return;
+
+  const [restaurantId, tableNum] = mesa.split('/');
+  if (!restaurantId || !tableNum) return;
+
+  // Show loading state immediately so user knows something is happening
+  go('s1-qr');
+  document.getElementById('qr-mesa-nombre').textContent = 'Cargando...';
+  document.getElementById('qr-rest-nombre').textContent = '';
+
+  try {
+    // Load restaurant
+    const { data: rest, error: restErr } = await sb.from('restaurants')
+      .select('*').eq('id', restaurantId).single();
+    if (restErr || !rest) {
+      document.getElementById('qr-mesa-nombre').textContent = 'Mesa no encontrada';
+      document.getElementById('qr-rest-nombre').textContent = 'Comprueba el QR con el restaurante';
+      return;
+    }
+
+    // Load table (mayfail if table doesn't exist yet — that's ok)
+    const { data: table } = await sb.from('tables')
+      .select('*')
+      .eq('restaurant_id', restaurantId)
+      .eq('number', parseInt(tableNum))
+      .maybeSingle();
+
+    // Store globally for enterMesa
+    _qrRestaurantId = restaurantId;
+    _qrTableId = table?.id || null;
+    _qrTableNum = tableNum;
+
+    // Check for active room on this table
+    let activeRoom = null;
+    if (table) {
+      const { data: room } = await sb.from('rooms')
+        .select('*')
+        .eq('table_id', table.id)
+        .eq('closed', false)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      activeRoom = room;
+    }
+    _qrActiveRoomId = activeRoom?.id || null;
+
+    // Fill UI
+    document.getElementById('qr-mesa-nombre').textContent =
+      `Mesa ${tableNum}${table?.label ? ' — ' + table.label : ''}`;
+    document.getElementById('qr-rest-nombre').textContent = rest.name;
+
+    if (activeRoom) {
+      document.getElementById('qr-sala-activa').style.display = 'block';
+    }
+
+    // Focus name input
+    setTimeout(() => document.getElementById('qr-name')?.focus(), 300);
+
+  } catch(err) {
+    console.error('handleQRUrl error:', err);
+    document.getElementById('qr-mesa-nombre').textContent = 'Error al cargar la mesa';
+    document.getElementById('qr-rest-nombre').textContent = err.message;
+  }
+}
+
+async function enterMesa() {
+  const name = (document.getElementById('qr-name')?.value || '').trim();
+  const errEl = document.getElementById('qr-err');
+  errEl.style.display = 'none';
+  if (!name) { errEl.textContent = 'Escribe tu nombre para entrar.'; errEl.style.display = 'block'; return; }
+
+  // Validar que tenemos los datos del QR
+  if (!_qrRestaurantId) {
+    // Intentar releer la URL por si handleQRUrl no había terminado
+    const params = new URLSearchParams(window.location.search);
+    const mesa = params.get('mesa');
+    if (mesa) {
+      const [rid, tnum] = mesa.split('/');
+      _qrRestaurantId = rid || null;
+      _qrTableNum = tnum || null;
+    }
+    if (!_qrRestaurantId) {
+      errEl.textContent = 'Error: no se detectó la mesa. Vuelve a escanear el QR.';
+      errEl.style.display = 'block';
+      return;
+    }
+  }
+
+  const btn = document.querySelector('#s1-qr .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Entrando...'; }
+
+  let roomId = _qrActiveRoomId;
+
+  try {
+    // Si no hay sala activa, crear una
+    if (!roomId) {
+      const code = String(Math.floor(1000 + Math.random() * 9000));
+      const { data: rest } = await sb.from('restaurants').select('name')
+        .eq('id', _qrRestaurantId).maybeSingle();
+
+      const roomPayload = {
+        code,
+        restaurant_name: rest?.name || '',
+        tip_percent: 0,
+        closed: false,
+        opened_at: new Date().toISOString().split('T')[0]
+      };
+      if (_qrRestaurantId) roomPayload.restaurant_id = String(_qrRestaurantId);
+      if (_qrTableId) roomPayload.table_id = String(_qrTableId);
+
+      // Auto-assign active waiter with least open tables (round-robin equitativo)
+      if (_qrRestaurantId) {
+        const { data: activeWaiters } = await sb.from('waiters')
+          .select('id, name')
+          .eq('restaurant_id', _qrRestaurantId)
+          .eq('active', true); // is_active may not be set yet on first login
+
+        if (activeWaiters && activeWaiters.length > 0) {
+          // Count open rooms per waiter
+          const { data: openRooms } = await sb.from('rooms')
+            .select('assigned_waiter_id')
+            .eq('restaurant_id', String(_qrRestaurantId))
+            .eq('closed', false)
+            .not('assigned_waiter_id', 'is', null);
+
+          const countByWaiter = {};
+          activeWaiters.forEach(w => { countByWaiter[w.id] = 0; });
+          (openRooms || []).forEach(r => {
+            if (r.assigned_waiter_id && countByWaiter[r.assigned_waiter_id] !== undefined) {
+              countByWaiter[r.assigned_waiter_id]++;
+            }
+          });
+
+          // Assign to waiter with fewest tables
+          const assignedWaiter = activeWaiters.reduce((min, w) =>
+            (countByWaiter[w.id] || 0) < (countByWaiter[min.id] || 0) ? w : min
+          );
+          roomPayload.assigned_waiter_id = assignedWaiter.id;
+        }
+      }
+
+      const { data: newRoom, error: re } = await sb.from('rooms').insert(roomPayload).select().single();
+      if (re) throw new Error('Error creando sala: ' + re.message);
+      roomId = newRoom.id;
+      _qrActiveRoomId = roomId;
+      track('table_opened', { room_id: roomId, restaurant_id: String(_qrRestaurantId) });
+    }
+
+    // Añadir comensal
+    const { data: guest, error: ge } = await sb.from('guests').insert({
+      room_id: String(roomId), name: String(name)
+    }).select().single();
+    if (ge) throw new Error('Error uniéndote: ' + ge.message);
+
+    // Añadir al nuevo comensal a todos los platos compartidos existentes
+    const { data: sharedDishes } = await sb.from('dishes')
+      .select('id')
+      .eq('room_id', roomId)
+      .eq('type', 'shared');
+    if (sharedDishes && sharedDishes.length) {
+      const parts = sharedDishes.map(d => ({ dish_id: d.id, guest_id: guest.id }));
+      await sb.from('dish_participants')
+        .upsert(parts, { onConflict: 'dish_id,guest_id' });
+    }
+
+    // Cargar datos completos de la sala
+    const { data: room } = await sb.from('rooms').select('*').eq('id', roomId).single();
+    const { data: guests } = await sb.from('guests').select('*').eq('room_id', roomId);
+    const { data: dishes } = await sb.from('dishes').select('*').eq('room_id', roomId);
+
+    state.roomId = roomId;
+    state.roomCode = room?.code || '';
+    state.myName = name;
+    state.myGuestId = guest.id;
+    state.restaurantName = room?.restaurant_name || '';
+    state.restaurantId = room?.restaurant_id || _qrRestaurantId;
+    state.tipPercent = 0;
+    state.guests = guests || [];
+    state.dishes = dishes || [];
+    await loadParticipants();
+    renderRoomScreen();
+    subscribeRealtime();
+    saveSession(); // guardar sesión para restaurar si recarga
+    go('s2-room');
+
+  } catch(err) {
+    console.error('enterMesa error:', err);
+    errEl.textContent = err.message || 'Error al entrar. Inténtalo de nuevo.';
+    errEl.style.display = 'block';
+    if (btn) { btn.disabled = false; btn.textContent = 'Entrar a la mesa →'; }
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// SESIÓN PERSISTENTE — localStorage
+// Guarda la sesión del comensal para que al recargar
+// vuelva a su mesa automáticamente sin crear un nuevo invitado
+// ══════════════════════════════════════════════════════
+const SESSION_KEY = 'spliteat_session';
+
+function saveSession() {
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      roomId: state.roomId,
+      myGuestId: state.myGuestId,
+      myName: state.myName,
+      restaurantId: state.restaurantId,
+      restaurantName: state.restaurantName,
+      savedAt: Date.now()
+    }));
+  } catch(e) {}
+}
+
+function clearSession() {
+  try { localStorage.removeItem(SESSION_KEY); } catch(e) {}
+}
+
+async function restoreSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return false;
+
+    const session = JSON.parse(raw);
+
+    // Sesión expira tras 8 horas (una noche fuera)
+    if (Date.now() - session.savedAt > 8 * 60 * 60 * 1000) {
+      clearSession();
+      return false;
+    }
+
+    if (!session.roomId || !session.myGuestId) return false;
+
+    // Verificar que la sala sigue abierta
+    const { data: room } = await sb.from('rooms')
+      .select('*').eq('id', session.roomId).maybeSingle();
+    if (!room || room.closed) {
+      clearSession();
+      return false;
+    }
+
+    // Verificar que el guest sigue existiendo
+    const { data: guest } = await sb.from('guests')
+      .select('*').eq('id', session.myGuestId).maybeSingle();
+    if (!guest) {
+      clearSession();
+      return false;
+    }
+
+    // Restaurar estado
+    const { data: guests } = await sb.from('guests').select('*').eq('room_id', room.id);
+    const { data: dishes } = await sb.from('dishes').select('*').eq('room_id', room.id);
+    const { data: payments } = await sb.from('payments').select('*').eq('room_id', room.id);
+
+    state.roomId = room.id;
+    state.roomCode = room.code;
+    state.myName = session.myName;
+    state.myGuestId = session.myGuestId;
+    state.restaurantName = room.restaurant_name || '';
+    state.restaurantId = room.restaurant_id || session.restaurantId;
+    state.tipPercent = 0;
+    state.guests = guests || [];
+    state.dishes = dishes || [];
+    state.payments = payments || [];
+    await loadParticipants();
+    renderRoomScreen();
+    subscribeRealtime();
+    go('s3-dishes');
+    // Suscribir a push notifications (pantalla bloqueada)
+    subscribePush(state.myGuestId, state.roomId, state.restaurantId); // volver directamente a los platos
+    showDishTab('mesa');
+
+    return true;
+  } catch(e) {
+    console.warn('restoreSession error:', e);
+    clearSession();
+    return false;
+  }
+}
+
+
+// ── Offline detection ──
+function updateOnlineStatus() {
+  document.body.classList.toggle('offline', !navigator.onLine);
+}
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+updateOnlineStatus();
+
+
+// ══════════════════════════════════════════════════════
+// CALLEAT — Cola virtual de espera
+// ══════════════════════════════════════════════════════
+let _calleatState = {
+  restaurantId: null,
+  entryId: null,
+  position: null,
+  pax: 2,
+  sub: null,
+  countdownTimer: null,
+};
+
+function openCalleat(restaurantId) {
+  _calleatState.restaurantId = restaurantId;
+  showCalleatArea('form');
+  go('s-calleat');
+}
+
+function selectCalleatPax(n) {
+  _calleatState.pax = n;
+  document.querySelectorAll('.pax-btn').forEach(btn => {
+    btn.classList.toggle('sel', parseInt(btn.dataset.n) === n || (n >= 6 && btn.dataset.n === '6'));
+  });
+}
+
+async function joinCalleatQueue() {
+  const name = document.getElementById('calleat-name')?.value?.trim();
+  if (!name) { notify('Introduce tu nombre', 'error'); return; }
+  if (!_calleatState.pax) { notify('Selecciona el número de personas', 'error'); return; }
+
+  const btn = document.getElementById('calleat-join-btn') || document.querySelector('#calleat-form-area .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = 'Apuntando...'; }
+
+  // Get push subscription for notifications
+  let pushSub = null;
+  try { pushSub = await getPushSubscriptionJson(); } catch(e) {}
+
+  const { data: entry, error } = await sb.from('calleat_queue').insert({
+    restaurant_id: _calleatState.restaurantId,
+    name,
+    pax: _calleatState.pax,
+    status: 'waiting',
+    push_subscription: pushSub,
+    joined_at: new Date().toISOString()
+  }).select().single();
+
+  if (error || !entry) {
+    notify('Error al apuntarte. Inténtalo de nuevo.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Apuntarme →'; }
+    return;
+  }
+
+  _calleatState.entryId = entry.id;
+  track('calleat_joined', { restaurant_id: _calleatState.restaurantId, pax: _calleatState.pax });
+  subscribeCalleatPosition();
+  showCalleatArea('waiting');
+  requestNotificationPermission();
+}
+
+function subscribeCalleatPosition() {
+  if (_calleatState.sub) sb.removeChannel(_calleatState.sub);
+  _calleatState.sub = sb.channel('calleat-' + _calleatState.entryId)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'calleat_queue',
+        filter: `id=eq.${_calleatState.entryId}` }, (payload) => {
+      const entry = payload.new;
+      if (entry.status === 'called') {
+        showCalleatArea('ready');
+        haptic([200, 100, 200, 100, 300]);
+        playGuestSound('ready');
+        document.getElementById('calleat-table-label').textContent =
+          entry.table_label ? `📍 ${entry.table_label}` : '📍 Mesa asignada — acércate a la entrada';
+        startCalleatCountdown(5 * 60);
+      } else if (entry.status === 'confirmed' || entry.status === 'cancelled') {
+        go('s0');
+      }
+    }).subscribe();
+
+  // Also poll position every 30s
+  updateCalleatPosition();
+  setInterval(updateCalleatPosition, 30000);
+}
+
+async function updateCalleatPosition() {
+  if (!_calleatState.restaurantId || !_calleatState.entryId) return;
+  const { data: myEntry } = await sb.from('calleat_queue')
+    .select('position_in_queue,pax,joined_at,status')
+    .eq('id', _calleatState.entryId).maybeSingle();
+  if (!myEntry) return;
+  if (myEntry.status === 'called') return; // handled by realtime
+
+  const { count } = await sb.from('calleat_queue')
+    .select('id', { count: 'exact' })
+    .eq('restaurant_id', _calleatState.restaurantId)
+    .eq('status', 'waiting')
+    .lt('joined_at', myEntry.joined_at);
+
+  const ahead = count || 0;
+  const posEl = document.getElementById('calleat-position');
+  const aheadEl = document.getElementById('calleat-ahead-text');
+  const waitEl = document.getElementById('calleat-est-wait');
+  if (posEl) posEl.textContent = ahead + 1;
+  if (aheadEl) aheadEl.textContent = ahead === 0 ? '¡Eres el siguiente!' : `${ahead} grupo${ahead !== 1 ? 's' : ''} delante`;
+  const estMin = ahead * 15; // estimate 15 min/table
+  if (waitEl) waitEl.textContent = estMin > 0 ? `Tiempo estimado: ~${estMin} min` : 'Preparando tu mesa...';
+  _calleatState.position = ahead + 1;
+}
+
+function startCalleatCountdown(seconds) {
+  let remaining = seconds;
+  if (_calleatState.countdownTimer) clearInterval(_calleatState.countdownTimer);
+  const fill = document.getElementById('calleat-countdown-fill');
+  const text = document.getElementById('calleat-countdown-text');
+  _calleatState.countdownTimer = setInterval(() => {
+    remaining--;
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    if (text) text.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+    if (fill) fill.style.width = (remaining / seconds * 100) + '%';
+    if (remaining <= 0) {
+      clearInterval(_calleatState.countdownTimer);
+      // Auto-cancel — time expired
+      leaveCalleatQueue();
+    }
+  }, 1000);
+}
+
+async function confirmCalleatArrival() {
+  if (_calleatState.entryId) {
+    await sb.from('calleat_queue').update({ status: 'confirmed' }).eq('id', _calleatState.entryId);
+  }
+  if (_calleatState.countdownTimer) clearInterval(_calleatState.countdownTimer);
+  go('s0');
+}
+
+async function leaveCalleatQueue() {
+  if (_calleatState.entryId) {
+    await sb.from('calleat_queue').update({ status: 'cancelled' }).eq('id', _calleatState.entryId);
+    track('calleat_cancelled', { entry_id: _calleatState.entryId });
+  }
+  if (_calleatState.sub) sb.removeChannel(_calleatState.sub);
+  if (_calleatState.countdownTimer) clearInterval(_calleatState.countdownTimer);
+  _calleatState = { restaurantId: null, entryId: null, position: null, pax: 2, sub: null, countdownTimer: null };
+  go('s0');
+}
+
+function showCalleatArea(area) {
+  ['form','waiting','ready'].forEach(a => {
+    const el = document.getElementById('calleat-' + a + '-area');
+    if (el) el.style.display = a === area ? 'block' : 'none';
+  });
+}
+
+async function getPushSubscriptionJson() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
+  const reg = await navigator.serviceWorker.getRegistration();
+  if (!reg) return null;
+  const sub = await reg.pushManager.getSubscription();
+  return sub ? sub.toJSON() : null;
+}
+
+// ── MANAGEAT: calleat panel ──
+async function loadCalleatQueueMain() {
+  const el = document.getElementById('calleat-queue-main');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--t3);font-size:13px">Cargando...</div>';
+  const { data: queue } = await sb.from('calleat_queue')
+    .select('*').eq('restaurant_id', state.adminRestaurantId)
+    .in('status', ['waiting','called']).order('joined_at');
+  const navBadge = document.getElementById('calleat-nav-badge');
+  if (navBadge) { navBadge.textContent = queue?.length || 0; navBadge.style.display = queue?.length ? 'inline' : 'none'; }
+  if (!queue?.length) {
+    el.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">🪑 Sin grupos esperando</div>';
+    return;
+  }
+  el.innerHTML = queue.map((entry, idx) => {
+    const mins = Math.floor((Date.now() - new Date(entry.joined_at).getTime()) / 60000);
+    const isReady = entry.status === 'called';
+    return `<div class="calleat-entry ${isReady ? 'ready' : ''}" style="margin-bottom:.5rem">
+      <div class="calleat-pos">${idx + 1}</div>
+      <div style="flex:1"><div style="font-size:14px;font-weight:600">${escHtml(entry.name)} · ${entry.pax} pers.</div><div style="font-size:12px;color:var(--t2)">${isReady ? '🔔 Llamado' : `Esperando ${mins}min`}</div></div>
+      ${!isReady ? `<button onclick="callCalleatEntry('${entry.id}')" style="padding:7px 14px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">Llamar 🔔</button>`
+        : `<button onclick="cancelCalleatEntry('${entry.id}')" style="padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit">✕</button>`}
+    </div>`;
+  }).join('');
+}
+
+async function loadCalleatQueue() {
+  const el = document.getElementById('calleat-queue-list');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--t3);font-size:13px">Cargando...</div>';
+
+  const { data: queue } = await sb.from('calleat_queue')
+    .select('*')
+    .eq('restaurant_id', state.adminRestaurantId)
+    .in('status', ['waiting','called'])
+    .order('joined_at');
+
+  const count = document.getElementById('calleat-badge');
+  if (count) { count.textContent = queue?.length || 0; count.style.display = queue?.length ? 'inline' : 'none'; }
+
+  if (!queue?.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">🪑</div><div class="empty-text">Sin grupos esperando</div></div>';
+    return;
+  }
+
+  el.innerHTML = queue.map((entry, idx) => {
+    const mins = Math.floor((Date.now() - new Date(entry.joined_at).getTime()) / 60000);
+    const isReady = entry.status === 'called';
+    return `<div class="calleat-entry ${isReady ? 'ready' : ''}">
+      <div class="calleat-pos">${idx + 1}</div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:600">${escHtml(entry.name)} · ${entry.pax} pers.</div>
+        <div style="font-size:12px;color:var(--t2)">${isReady ? '🔔 Llamado — esperando confirmación' : `Esperando ${mins} min`}</div>
+      </div>
+      ${!isReady ? `<button onclick="callCalleatEntry('${entry.id}')"
+        style="padding:7px 14px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
+        Llamar 🔔
+      </button>` : `<button onclick="cancelCalleatEntry('${entry.id}')"
+        style="padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit">
+        ✕
+      </button>`}
+    </div>`;
+  }).join('');
+}
+
+async function callCalleatEntry(entryId) {
+  // Mark entry as called + set table label
+  const tableLabel = prompt('¿Qué mesa le asignas? (ej: Mesa 4, Terraza 2)') || '';
+  await sb.from('calleat_queue').update({
+    status: 'called',
+    called_at: new Date().toISOString(),
+    table_label: tableLabel
+  }).eq('id', entryId);
+  showToast('🔔 Grupo llamado', 'Le notificaremos en su móvil');
+  loadCalleatQueue();
+}
+
+async function cancelCalleatEntry(entryId) {
+  await sb.from('calleat_queue').update({ status: 'cancelled' }).eq('id', entryId);
+  loadCalleatQueue();
+}
+
+// Auto-subscribe calleat realtime in manageat when sala tab open
+function subscribeCalleatRealtime() {
+  sb.channel('calleat-admin-' + state.adminRestaurantId)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'calleat_queue',
+        filter: `restaurant_id=eq.${state.adminRestaurantId}` }, () => {
+      loadCalleatQueue();
+    }).subscribe();
+}
+
+
+function openCalleatFromLanding() {
+  // Get restaurant from URL or prompt
+  const urlParams = new URLSearchParams(window.location.search);
+  const rId = urlParams.get('r') || _qrRestaurantId;
+  if (!rId) { notify('Escanea el QR del restaurante primero', 'info'); return; }
+  openCalleat(rId);
+}
+
+
+// ══════════════════════════════════════════════════════
+// MANUAL GUESTS — personas que no escanearon el QR
+// ══════════════════════════════════════════════════════
+function showAddManualGuest() {
+  const panel = document.getElementById('add-manual-guest-panel');
+  if (panel) {
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    if (panel.style.display !== 'none') {
+      const input = document.getElementById('manual-guest-name');
+      if (input) { input.value = ''; input.focus(); }
+    }
+  }
+}
+
+async function addManualGuest() {
+  const input = document.getElementById('manual-guest-name');
+  const name = input?.value?.trim();
+  if (!name) { notify('Escribe el nombre de la persona', 'error'); return; }
+  if (!state.roomId) { notify('No hay mesa activa', 'error'); return; }
+
+  // Insert into DB (same as a real guest, but flagged as manual)
+  const { data: guest, error } = await sb.from('guests').insert({
+    room_id: String(state.roomId),
+    name: String(name),
+    is_manual: true   // flag so we know this person didn't scan QR
+  }).select().single();
+
+  if (error || !guest) {
+    notify('Error al añadir persona: ' + (error?.message || ''));
+    return;
+  }
+
+  // Add to local state with _manual flag
+  guest._manual = true;
+  state.guests.push(guest);
+
+  // Close panel and rebuild
+  document.getElementById('add-manual-guest-panel').style.display = 'none';
+  if (input) input.value = '';
+  buildSummary();
+  track('manual_guest_added', { room_id: state.roomId, name });
+}
+
+async function removeManualGuest(guestId) {
+  // Remove from local state
+  state.guests = state.guests.filter(g => g.id !== guestId);
+  // Unassign all dishes from this guest
+  state.dishes.forEach(d => {
+    if (d.assignee_id === guestId) d.assignee_id = null;
+    if (state.participants[d.id]) {
+      state.participants[d.id] = state.participants[d.id].filter(id => id !== guestId);
+    }
+  });
+  // Remove from DB
+  await sb.from('guests').delete().eq('id', guestId);
+  // Remove dish_participants
+  await sb.from('dish_participants').delete().eq('guest_id', guestId);
+  buildSummary();
+}
+
+async function assignDishToGuest(dishId, guestId, type) {
+  const dish = state.dishes.find(d => d.id === dishId);
+  if (!dish) return;
+
+  if (type === 'solo') {
+    const currentAssignee = dish.assignee_id;
+    if (currentAssignee && currentAssignee !== guestId) {
+      // Dish already assigned to someone else → convert to shared, keep both
+      await sb.from('dishes').update({ type: 'shared', assignee_id: null }).eq('id', dishId);
+      dish.type = 'shared';
+      dish.assignee_id = null;
+      // Add both the current assignee and the new guest as participants
+      const newParts = [
+        { dish_id: dishId, guest_id: currentAssignee },
+        { dish_id: dishId, guest_id: guestId }
+      ];
+      await sb.from('dish_participants').upsert(newParts, { onConflict: 'dish_id,guest_id' });
+      state.participants[dishId] = [currentAssignee, guestId];
+    } else {
+      // No current assignee → simply assign
+      await sb.from('dishes').update({ assignee_id: guestId }).eq('id', dishId);
+      dish.assignee_id = guestId;
+    }
+  } else {
+    // shared: add this guest to participants
+    const existing = state.participants[dishId] || [];
+    if (!existing.includes(guestId)) {
+      await sb.from('dish_participants').insert({ dish_id: dishId, guest_id: guestId });
+      state.participants[dishId] = [...existing, guestId];
+    }
+  }
+  buildSummary();
+}
+
+async function unassignDish(dishId, type, guestId = null) {
+  if (type === 'solo') {
+    await sb.from('dishes').update({ assignee_id: null }).eq('id', dishId);
+    const dish = state.dishes.find(d => d.id === dishId);
+    if (dish) dish.assignee_id = null;
+  } else if (type === 'shared' && guestId) {
+    await sb.from('dish_participants').delete()
+      .eq('dish_id', dishId).eq('guest_id', guestId);
+    if (state.participants[dishId]) {
+      state.participants[dishId] = state.participants[dishId].filter(id => id !== guestId);
+    }
+  }
+  buildSummary();
+}
+
+// ══════════════════════════════════════════════════════
+// FLUJO DE PAGO — Selección de método
+// ══════════════════════════════════════════════════════
+let _payMethod = null;  // 'split' | 'full' | 'equal'
+let _equalPax = 2;      // número de personas para partes iguales
+
+function goToSummary() {
+  // Block if not all dishes delivered
+  const allDishes = state.dishes.filter(d => d.kitchen_status && d.kitchen_status !== 'new');
+  const stillCooking = allDishes.filter(d =>
+    d.category !== 'bebidas' && d.course !== 0 &&
+    (d.kitchen_status === 'sent' || d.kitchen_status === 'making')
+  );
+  if (allDishes.length > 0 && stillCooking.length > 0) {
+    notify('Esperando confirmación de cocina para ' + stillCooking.length + ' plato' + (stillCooking.length > 1 ? 's' : ''), 'info');
+    return;
+  }
+  go('s4-summary');
+}
+
+function showPayMethodModal() {
+  // Reset equal split panel
+  document.getElementById('equal-split-panel').style.display = 'none';
+  document.querySelectorAll('.pay-method-btn').forEach(b => {
+    b.style.borderColor = 'var(--bd2)';
+    b.style.background = 'var(--card)';
+  });
+  _equalPax = Math.max(2, state.guests?.length || 2);
+  document.getElementById('equal-pax-num').textContent = _equalPax;
+  updateEqualPerPerson();
+  document.getElementById('pay-method-modal').style.display = 'flex';
+}
+
+function selectPayMethod(method) {
+  _payMethod = method;
+
+  // Highlight selected
+  document.querySelectorAll('.pay-method-btn').forEach((b, i) => {
+    const methods = ['split','full','equal'];
+    const isSelected = methods[i] === method;
+    b.style.borderColor = isSelected ? 'var(--brand)' : 'var(--bd2)';
+    b.style.background = isSelected ? 'var(--brand-l)' : 'var(--card)';
+  });
+
+  if (method === 'split') {
+    // Current flow — spliteat per-dish
+    document.getElementById('equal-split-panel').style.display = 'none';
+    document.getElementById('pay-method-modal').style.display = 'none';
+    go('s5-pay');
+    buildPayScreen();
+
+  } else if (method === 'full') {
+    // I pay everything
+    document.getElementById('pay-method-modal').style.display = 'none';
+    buildFullPayScreen();
+    go('s5-pay');
+
+  } else if (method === 'equal') {
+    // Show pax selector
+    const panel = document.getElementById('equal-split-panel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  }
+}
+
+function changeEqualPax(delta) {
+  _equalPax = Math.max(1, Math.min(20, _equalPax + delta));
+  document.getElementById('equal-pax-num').textContent = _equalPax;
+  updateEqualPerPerson();
+}
+
+function updateEqualPerPerson() {
+  const el = document.getElementById('equal-per-person');
+  if (!el) return;
+  const total = state.dishes.reduce((s, d) => s + parseFloat(d.price || 0), 0);
+  const perPerson = total / _equalPax;
+  el.textContent = `${fmt(total)} ÷ ${_equalPax} = ${fmt(perPerson)} por persona`;
+}
+
+function confirmEqualSplit() {
+  document.getElementById('pay-method-modal').style.display = 'none';
+  buildEqualPayScreen(_equalPax);
+  go('s5-pay');
+}
+
+// ── Build pay screen for: FULL (invito yo) ──
+function buildFullPayScreen() {
+  const total = state.dishes.reduce((s, d) => s + parseFloat(d.price || 0), 0);
+  const tipPct = (state.tipPercent || 0) / 100;
+  const tipAmt = total * tipPct;
+  const grandTotal = total + tipAmt;
+
+  const nameEl = document.getElementById('pay-name-label');
+  const amtEl = document.getElementById('pay-amount');
+  const breakdownEl = document.getElementById('pay-breakdown');
+  if (nameEl) nameEl.textContent = (state.myName || 'Tú') + ' — invitas';
+  if (amtEl) amtEl.textContent = fmt(grandTotal);
+  if (breakdownEl) {
+    if (tipAmt > 0) { breakdownEl.textContent = `${fmt(total)} + ${fmt(tipAmt)} propina`; breakdownEl.style.display = 'block'; }
+    else breakdownEl.style.display = 'none';
+  }
+
+  // Show full table breakdown
+  const list = document.getElementById('pay-status-list');
+  if (list) {
+    const guests = state.guests || [];
+    const guestStr = guests.length > 0 ? guests.map(g => escHtml(g.name)).join(', ') : 'toda la mesa';
+    list.innerHTML = `<div style="background:var(--amber-l);border-radius:var(--r);padding:.85rem 1rem;text-align:center;margin-bottom:.5rem">
+      <div style="font-size:13px;color:#854F0B;font-weight:500">🤑 Pagando la cuenta completa</div>
+      <div style="font-size:12px;color:#854F0B;margin-top:3px">Invitas a: ${guestStr}</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:.6rem 0;border-bottom:1px solid var(--bd)">
+      <div style="font-size:13px;color:var(--t2)">Total mesa</div>
+      <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--brand-d)">${fmt(grandTotal)}</div>
+    </div>`;
+  }
+}
+
+// ── Build pay screen for: EQUAL SPLIT ──
+function buildEqualPayScreen(numPax) {
+  const total = state.dishes.reduce((s, d) => s + parseFloat(d.price || 0), 0);
+  const tipPct = (state.tipPercent || 0) / 100;
+  const tipAmt = total * tipPct;
+  const grandTotal = total + tipAmt;
+  const perPerson = grandTotal / numPax;
+
+  const nameEl = document.getElementById('pay-name-label');
+  const amtEl = document.getElementById('pay-amount');
+  const breakdownEl = document.getElementById('pay-breakdown');
+  if (nameEl) nameEl.textContent = (state.myName || 'Tu parte') + ` (÷${numPax})`;
+  if (amtEl) amtEl.textContent = fmt(perPerson);
+  if (breakdownEl) {
+    breakdownEl.textContent = `${fmt(grandTotal)} ÷ ${numPax} personas`;
+    breakdownEl.style.display = 'block';
+  }
+
+  const list = document.getElementById('pay-status-list');
+  if (list) {
+    list.innerHTML = `<div style="background:#E6F1FB;border-radius:var(--r);padding:.85rem 1rem;text-align:center;margin-bottom:.5rem">
+      <div style="font-size:13px;color:var(--blue);font-weight:500">➗ Dividido en ${numPax} partes iguales</div>
+      <div style="font-size:12px;color:var(--blue);margin-top:3px">${fmt(grandTotal)} total · ${fmt(perPerson)} cada uno</div>
+    </div>
+    ${Array.from({length: numPax}, (_, i) => `
+      <div style="display:flex;align-items:center;gap:10px;padding:.6rem 0;border-bottom:1px solid var(--bd)">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--blue-l);color:var(--blue);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</div>
+        <div style="flex:1;font-size:13px;color:var(--t2)">Persona ${i + 1}${i === 0 ? ' (tú)' : ''}</div>
+        <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--brand-d)">${fmt(perPerson)}</div>
+      </div>`).join('')}`;
+  }
+}
+
+// Add hover effect for pay method buttons
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.pay-method-btn').forEach(btn => {
+    btn.addEventListener('mouseover', () => { if (btn.style.borderColor !== 'var(--brand)') btn.style.background = 'var(--bg2)'; });
+    btn.addEventListener('mouseout', () => { if (btn.style.borderColor !== 'var(--brand)') btn.style.background = 'var(--card)'; });
+  });
+});
+
+
+async function refreshDishStatus() {
+  if (!state.roomId) return;
+  const btn = document.getElementById('resumen-refresh-btn');
+  if (btn) { btn.textContent = '↻ Actualizando…'; btn.disabled = true; }
+  const { data } = await sb.from('dishes').select('*').eq('room_id', state.roomId);
+  if (data) state.dishes = data;
+  await loadParticipants();
+  renderMesaDishes();
+  if (btn) { btn.textContent = '↻ Actualizar estado de los platos'; btn.disabled = false; }
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// PUSH NOTIFICATIONS — Web Push con Service Worker
+// Funciona con pantalla bloqueada (como Uber)
+// ══════════════════════════════════════════════════════════════════
+// VAPID_PUBLIC_KEY defined above
+const PUSH_EDGE_URL = 'https://zvkdzbxczeysezvfqfzp.supabase.co/functions/v1/send-push';
+const SUPA_ANON_KEY = window._supabaseKey || document.querySelector('script')?.textContent?.match(/SUPABASE_ANON_KEY.*?['"]([^'"]+)['"]/)?.[ 1] || '';
+
+// ── Suscribir al usuario a Web Push ──
+async function subscribePush(guestId, roomId, restaurantId) {
+  try {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
+
+    const reg = await navigator.serviceWorker.ready;
+
+    // Pedir permiso
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') return null;
+
+    // Comprobar si ya hay suscripción
+    let sub = await reg.pushManager.getSubscription();
+
+    // Si no, crear una nueva
+    if (!sub) {
+      const appServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: appServerKey,
+      });
+    }
+
+    const subJson = sub.toJSON();
+    const p256dh = subJson.keys?.p256dh;
+    const auth = subJson.keys?.auth;
+    if (!p256dh || !auth) return null;
+
+    // Guardar suscripción en Supabase
+    await sb.from('push_subscriptions').upsert({
+      guest_id: guestId,
+      room_id: roomId,
+      restaurant_id: restaurantId,
+      endpoint: sub.endpoint,
+      p256dh,
+      auth,
+      user_agent: navigator.userAgent.slice(0, 200),
+    }, { onConflict: 'guest_id,endpoint' });
+
+    console.log('[Push] Suscripción guardada ✓');
+    return sub;
+  } catch(e) {
+    console.warn('[Push] Error al suscribir:', e.message);
+    return null;
+  }
+}
+
+// ── Enviar push notification via Edge Function ──
+async function sendPushNotification({ roomId = null, guestId = null, title, message, tag = 'spliteat', url = location.href, requireInteraction = false }) {
+  try {
+    const anon = document.querySelector('[data-anon-key]')?.dataset?.anonKey
+      || window.SUPA_ANON || '';
+    
+    await fetch(PUSH_EDGE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + anon,
+        'apikey': anon,
+      },
+      body: JSON.stringify({ roomId, guestId, title, message, tag, url, requireInteraction }),
+    });
+  } catch(e) {
+    console.warn('[Push] Error al enviar:', e.message);
+  }
+}
+
+// ── Conversión base64url → Uint8Array (necesario para applicationServerKey) ──
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  return Uint8Array.from(rawData, c => c.charCodeAt(0));
+}
+
+// ── Desuscribir ──
+async function unsubscribePush(guestId) {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      await sub.unsubscribe();
+      if (guestId) await sb.from('push_subscriptions').delete().eq('guest_id', guestId);
+    }
+  } catch(e) {}
+}
+
+
+
+// ── Show push permission banner when needed ──
+async function showPushBannerIfNeeded() {
+  const banner = document.getElementById('push-permission-banner');
+  if (!banner) return;
+  if (!('Notification' in window)) { banner.style.display = 'none'; return; }
+  if (Notification.permission === 'granted') { banner.style.display = 'none'; return; }
+  if (Notification.permission === 'denied') { banner.style.display = 'none'; return; }
+  // Permission is 'default' — show banner
+  banner.style.display = 'flex';
+}
+
+async function requestPushPermissionFromBanner() {
+  const banner = document.getElementById('push-permission-banner');
+  if (banner) banner.style.display = 'none';
+  await subscribePush(state.myGuestId, state.roomId, state.restaurantId);
+  showToast('🔔 Notificaciones activadas', 'Te avisamos cuando tu plato esté listo');
+}
+
+
+// ── Sidebar collapsible ──
+let _sidebarCollapsed = localStorage.getItem('sidebar_collapsed') === '1';
+
+function initSidebar() {
+  const sb = document.getElementById('admin-sidebar');
+  const ch = document.getElementById('sidebar-chevron');
+  if (!sb) return;
+  if (_sidebarCollapsed) {
+    sb.classList.add('collapsed');
+    if (ch) ch.textContent = '›';
+  } else {
+    if (ch) ch.textContent = '‹';
+  }
+}
+
+function toggleAdminSidebar() {
+  const sb = document.getElementById('admin-sidebar');
+  const ch = document.getElementById('sidebar-chevron');
+  if (!sb) return;
+  _sidebarCollapsed = !_sidebarCollapsed;
+  sb.classList.toggle('collapsed', _sidebarCollapsed);
+  if (ch) ch.textContent = _sidebarCollapsed ? '›' : '‹';
+  localStorage.setItem('sidebar_collapsed', _sidebarCollapsed ? '1' : '0');
+}
+
+function openMobileSidebar() {
+  const sb = document.getElementById('admin-sidebar');
+  const ov = document.getElementById('sidebar-overlay');
+  if (sb) sb.classList.add('mobile-open');
+  if (ov) ov.style.display = 'block';
+}
+
+function closeMobileSidebar() {
+  const sb = document.getElementById('admin-sidebar');
+  const ov = document.getElementById('sidebar-overlay');
+  if (sb) sb.classList.remove('mobile-open');
+  if (ov) ov.style.display = 'none';
+}
+
+async function loadFacturas() {
+  if (!state.adminRestaurantId) { console.warn('loadFacturas: no adminRestaurantId'); return; }
+  // Show loading immediately
+  const listEl = document.getElementById('historial-list');
+  if (listEl) listEl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando...</div>';
+  const days = document.getElementById('facturas-filter')?.value || '7';
+  let since = null;
+  if (days === '0') { const d = new Date(); d.setHours(0,0,0,0); since = d.toISOString(); }
+  else if (days !== 'all') since = new Date(Date.now() - parseInt(days)*86400000).toISOString();
+
+  let q = sb.from('rooms').select('*,tables(number,label)').eq('restaurant_id', state.adminRestaurantId).eq('closed', true).order('created_at', { ascending: false }).limit(100);
+  if (since) q = q.gte('created_at', since);
+  const { data: rooms } = await q;
+
+  // Totals
+  let totalFact = 0, totalMesas = rooms?.length || 0, totalPersonas = 0;
+  // listEl already declared above
+  if (!rooms?.length) {
+    listEl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Sin facturas en este período</div>';
+    document.getElementById('hist-stat-total').textContent = '0,00€';
+    document.getElementById('hist-stat-mesas').textContent = '0';
+    document.getElementById('hist-stat-ticket').textContent = '—';
+    document.getElementById('hist-stat-personas').textContent = '0';
+    return;
+  }
+
+  const roomIds = rooms.map(r => r.id);
+  const { data: pays } = await sb.from('payments').select('*').in('room_id', roomIds);
+  const { data: guests } = await sb.from('guests').select('id,room_id').in('room_id', roomIds);
+
+  const paysByRoom = {};
+  (pays||[]).forEach(p => { if (!paysByRoom[p.room_id]) paysByRoom[p.room_id]=[]; paysByRoom[p.room_id].push(p); });
+  const guestsByRoom = {};
+  (guests||[]).forEach(g => { if (!guestsByRoom[g.room_id]) guestsByRoom[g.room_id]=[]; guestsByRoom[g.room_id].push(g); });
+
+  rooms.forEach(r => {
+    const rPays = paysByRoom[r.id] || [];
+    const total = rPays.reduce((s, p) => s + parseFloat(p.amount||0), 0);
+    totalFact += total;
+    totalPersonas += (guestsByRoom[r.id]||[]).length;
+  });
+
+  document.getElementById('hist-stat-total').textContent = fmt(totalFact);
+  document.getElementById('hist-stat-mesas').textContent = totalMesas;
+  document.getElementById('hist-stat-ticket').textContent = totalMesas > 0 ? fmt(totalFact/totalMesas) : '—';
+  document.getElementById('hist-stat-personas').textContent = totalPersonas;
+
+  // Cache for Excel export
+  _facturasData = rooms.map(r => {
+    const rPays = paysByRoom[r.id] || [];
+    const total = rPays.reduce((s,p) => s+parseFloat(p.amount||0), 0);
+    const nGuests = (guestsByRoom[r.id]||[]).length;
+    const nDishes = 0; // not loaded here
+    const tableLabel = r.tables ? `Mesa ${r.tables.number}${r.tables.label?' — '+r.tables.label:''}` : 'Mesa';
+    const allPaid = (rPays.length === nGuests && nGuests > 0);
+    return { ...r, rPays, total, nGuests, nDishes, tableLabel, allPaid };
+  });
+
+  listEl.innerHTML = rooms.map(r => {
+    const rPays = paysByRoom[r.id] || [];
+    const total = rPays.reduce((s,p) => s+parseFloat(p.amount||0), 0);
+    const nGuests = (guestsByRoom[r.id]||[]).length;
+    const tableLabel = r.tables ? `Mesa ${r.tables.number}${r.tables.label?' — '+r.tables.label:''}` : 'Mesa';
+    const d = r.closed_at ? new Date(r.closed_at).toLocaleString('es-ES',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:.6rem 0;border-bottom:1px solid var(--bd)">
+      <div style="flex:1;cursor:pointer;min-width:0" onclick="openFactura('${r.id}')">
+        <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(tableLabel)}</div>
+        <div style="font-size:11px;color:var(--t2)">${d} · ${nGuests} persona${nGuests!==1?'s':''}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;cursor:pointer" onclick="openFactura('${r.id}')">
+        <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--brand-d)">${fmt(total)}</div>
+        <div style="font-size:10px;color:${rPays.length===nGuests&&nGuests>0?'#3B6D11':'var(--t3)'}">
+          ${rPays.length===nGuests&&nGuests>0?'✓ Pagada':'Pendiente'}
+        </div>
+      </div>
+      <button onclick="downloadFacturaPDF('${r.id}')"
+        title="Descargar PDF"
+        style="flex-shrink:0;padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);cursor:pointer;font-size:14px;line-height:1">
+        ⬇
+      </button>
+    </div>
+      <button onclick="event.stopPropagation();downloadFacturaPDF('${r.id}')"
+        title="Descargar PDF"
+        style="flex-shrink:0;padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);cursor:pointer;font-size:15px;line-height:1">
+        ⬇
+      </button>
+    </div>`;
+  }).join('');
+}
+
+async function openFactura(roomId) {
+  // Get modal — now a global overlay at body level
+  const modal = document.getElementById('factura-modal');
+  const content = document.getElementById('factura-content');
+  if (!modal || !content) { console.error('[Factura] modal or content element missing'); return; }
+  content.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3)">Cargando factura...</div>';
+  modal.style.display = 'flex';
+
+  // Check if data already in _historialData (from loadKPIs)
+  const existingIdx = (_historialData || []).findIndex(e => e.room?.id === roomId);
+  if (existingIdx >= 0) {
+    showFactura(existingIdx);
+    return;
+  }
+
+  // Fetch fresh from DB
+  const [{ data: room }, { data: guests }, { data: dishes }, { data: payments }] = await Promise.all([
+    sb.from('rooms').select('*').eq('id', roomId).maybeSingle(),
+    sb.from('guests').select('*').eq('room_id', roomId),
+    sb.from('dishes').select('*').eq('room_id', roomId),
+    sb.from('payments').select('*').eq('room_id', roomId),
+  ]);
+
+  if (!room) { if (content) content.innerHTML = '<div style="color:var(--accent)">Error: factura no encontrada</div>'; return; }
+
+  // Fetch table separately
+  let table = null;
+  if (room.table_id) {
+    const { data: t } = await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle();
+    table = t;
+  }
+
+  // Build entry and push to _historialData
+  if (!window._historialData) window._historialData = [];
+  const entry = {
+    room,
+    table,
+    guests: guests || [],
+    dishes: dishes || [],
+    payments: payments || []
+  };
+  window._historialData.push(entry);
+  showFactura(window._historialData.length - 1);
+}
+
+
+async function loadKPIPlatosEmbedded() {
+  const el = document.getElementById('kpi-platos-embedded');
+  if (!el) return;
+  const { data: rooms } = await sb.from('rooms').select('id').eq('restaurant_id', state.adminRestaurantId).eq('closed', true).gte('created_at', new Date(Date.now() - 30*86400000).toISOString());
+  if (!rooms?.length) { el.innerHTML = '<span style="color:var(--t3)">Sin datos</span>'; return; }
+  const ids = rooms.map(r => r.id);
+  const { data: dishes } = await sb.from('dishes').select('name,making_at,ready_at,sent_at').in('room_id', ids).not('ready_at','is',null).not('sent_at','is',null);
+  if (!dishes?.length) { el.innerHTML = '<span style="color:var(--t3)">Sin datos de tiempos</span>'; return; }
+  const byName = {};
+  dishes.forEach(d => {
+    if (!d.sent_at || !d.ready_at) return;
+    const mins = (new Date(d.ready_at) - new Date(d.sent_at)) / 60000;
+    if (!byName[d.name]) byName[d.name] = { total: 0, count: 0 };
+    byName[d.name].total += mins; byName[d.name].count++;
+  });
+  const sorted = Object.entries(byName).map(([name, v]) => ({ name, avg: v.total/v.count })).sort((a,b) => b.avg - a.avg).slice(0,8);
+  el.innerHTML = sorted.map(p => `<div style="display:flex;align-items:center;gap:8px;padding:.3rem 0;border-bottom:1px solid var(--bd)"><span style="flex:1;font-size:12px">${escHtml(p.name)}</span><span style="font-size:12px;color:var(--t2)">${Math.round(p.avg)} min</span></div>`).join('');
+}
+
+async function loadKPIPropinasEmbedded() {
+  const el = document.getElementById('kpi-propinas-embedded');
+  if (!el) return;
+  const since = new Date(); since.setDate(since.getDate() - 30);
+  const { data: pays } = await sb.from('payments').select('tip_amount,created_at').eq('restaurant_id', state.adminRestaurantId).gte('created_at', since.toISOString()).not('tip_amount','is',null);
+  if (!pays?.length) { el.innerHTML = '<span style="font-size:12px;color:var(--t3)">Sin propinas en 30 días</span>'; return; }
+  const total = pays.reduce((s,p) => s + parseFloat(p.tip_amount||0), 0);
+  const avg = total / pays.length;
+  el.innerHTML = `<div style="display:flex;gap:.75rem;flex-wrap:wrap">
+    <div style="background:var(--amber-l);border-radius:var(--r-sm);padding:.5rem .85rem;text-align:center">
+      <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:#633806">${fmt(total)}</div>
+      <div style="font-size:10px;color:#854F0B">Total 30 días</div>
+    </div>
+    <div style="background:var(--bg2);border-radius:var(--r-sm);padding:.5rem .85rem;text-align:center">
+      <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700">${fmt(avg)}</div>
+      <div style="font-size:10px;color:var(--t2)">Media por pago</div>
+    </div>
+    <div style="background:var(--bg2);border-radius:var(--r-sm);padding:.5rem .85rem;text-align:center">
+      <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700">${pays.length}</div>
+      <div style="font-size:10px;color:var(--t2)">Pagos con propina</div>
+    </div>
+  </div>`;
+}
+
+
+// ══════════════════════════════════════════════════════
+// LANDING PAGE — Cookies, Legal, Navigation
+// ══════════════════════════════════════════════════════
+
+function handleQRLanding() {
+  // If user arrived via QR (has mesa param), go to QR screen
+  // Otherwise show a prompt to scan QR
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('mesa')) {
+    go('s1-qr');
+  } else {
+    notify('Escanea el QR de tu mesa con la cámara del móvil para entrar', 'info');
+  }
+}
+
+function initLanding() {
+  // Show cookies banner if not accepted yet
+  if (!localStorage.getItem('cookies_accepted')) {
+    setTimeout(() => {
+      const banner = document.getElementById('cookies-banner');
+      if (banner) banner.style.display = 'block';
+    }, 1200);
+  }
+  // Show nav links on desktop
+  if (window.innerWidth >= 600) {
+    document.getElementById('nav-link-productos')?.style && (document.getElementById('nav-link-productos').style.display = 'inline');
+    document.getElementById('nav-link-precios')?.style && (document.getElementById('nav-link-precios').style.display = 'inline');
+  }
+}
+
+function acceptCookies() {
+  localStorage.setItem('cookies_accepted', '1');
+  const banner = document.getElementById('cookies-banner');
+  if (banner) banner.style.display = 'none';
+}
+
+function showCookiesBanner() {
+  const banner = document.getElementById('cookies-banner');
+  if (banner) banner.style.display = 'block';
+}
+
+const LEGAL_CONTENT = {
+  privacidad: {
+    title: 'Política de Privacidad',
+    body: `<p><strong>Responsable:</strong> eatlab (spliteat.es) · hola@spliteat.es</p>
+    <p style="margin-top:.75rem"><strong>¿Qué datos recogemos?</strong><br>
+    Únicamente los datos que el usuario introduce voluntariamente: nombre (seudónimo libre), email opcional para recibo, y datos de pago procesados por Stripe (nunca almacenamos datos de tarjeta).</p>
+    <p style="margin-top:.75rem"><strong>¿Para qué los usamos?</strong><br>
+    Exclusivamente para gestionar la experiencia de pedido y pago en el restaurante. No cedemos datos a terceros con fines comerciales.</p>
+    <p style="margin-top:.75rem"><strong>¿Cuánto tiempo los guardamos?</strong><br>
+    Los datos de sesión se eliminan automáticamente al cerrar la mesa. Los registros de pago se conservan según la legislación fiscal aplicable.</p>
+    <p style="margin-top:.75rem"><strong>Tus derechos:</strong><br>
+    Acceso, rectificación, supresión, portabilidad y oposición. Escríbenos a hola@spliteat.es.</p>
+    <p style="margin-top:.75rem"><strong>Transferencias internacionales:</strong><br>
+    Los datos se almacenan en servidores de Supabase (UE) y están sujetos al RGPD.</p>`
+  },
+  cookies: {
+    title: 'Política de Cookies',
+    body: `<p>spliteat.es usa exclusivamente cookies técnicas necesarias para el funcionamiento de la aplicación. <strong>No usamos cookies de seguimiento, analítica ni publicidad.</strong></p>
+    <p style="margin-top:.75rem"><strong>Cookies que usamos:</strong></p>
+    <table style="width:100%;border-collapse:collapse;margin-top:.5rem;font-size:12px">
+      <tr style="background:#f5f5f3">
+        <td style="padding:6px 8px;font-weight:600;border-radius:4px 0 0 4px">Nombre</td>
+        <td style="padding:6px 8px;font-weight:600">Finalidad</td>
+        <td style="padding:6px 8px;font-weight:600;border-radius:0 4px 4px 0">Duración</td>
+      </tr>
+      <tr style="border-bottom:1px solid #eee">
+        <td style="padding:6px 8px;font-family:monospace">spliteat_session</td>
+        <td style="padding:6px 8px">Mantener la sesión activa en la mesa</td>
+        <td style="padding:6px 8px">8 horas</td>
+      </tr>
+      <tr style="border-bottom:1px solid #eee">
+        <td style="padding:6px 8px;font-family:monospace">cookies_accepted</td>
+        <td style="padding:6px 8px">Recordar tu consentimiento</td>
+        <td style="padding:6px 8px">1 año</td>
+      </tr>
+      <tr>
+        <td style="padding:6px 8px;font-family:monospace">sidebar_collapsed</td>
+        <td style="padding:6px 8px">Preferencia visual del panel admin</td>
+        <td style="padding:6px 8px">Indefinida</td>
+      </tr>
+    </table>
+    <p style="margin-top:1rem">Puedes eliminar las cookies en cualquier momento desde la configuración de tu navegador.</p>`
+  },
+  terminos: {
+    title: 'Términos de Servicio',
+    body: `<p><strong>1. Aceptación</strong><br>Al usar spliteat, aceptas estos términos. El servicio es gratuito para comensales. Los restaurantes contratan el servicio mediante suscripción mensual.</p>
+    <p style="margin-top:.75rem"><strong>2. Servicio</strong><br>spliteat facilita la gestión de pedidos y pagos en restaurantes. No somos parte de la relación contractual entre el restaurante y el comensal.</p>
+    <p style="margin-top:.75rem"><strong>3. Pagos</strong><br>Los pagos online se procesan mediante Stripe. spliteat no almacena datos de tarjeta. El restaurante es responsable del servicio prestado.</p>
+    <p style="margin-top:.75rem"><strong>4. Disponibilidad</strong><br>Nos comprometemos a mantener el servicio disponible con el mayor nivel posible, pero no garantizamos disponibilidad ininterrumpida.</p>
+    <p style="margin-top:.75rem"><strong>5. Propiedad intelectual</strong><br>spliteat, manageat, cookeat, serveat y calleat son marcas de eatlab. Queda prohibida su reproducción sin autorización.</p>
+    <p style="margin-top:.75rem"><strong>6. Ley aplicable</strong><br>Estos términos se rigen por la legislación española. Para cualquier disputa, las partes se someten a los juzgados de Madrid.</p>`
+  },
+  aviso: {
+    title: 'Aviso Legal',
+    body: `<p><strong>Titular del sitio web:</strong> eatlab<br>
+    <strong>Sitio web:</strong> spliteat.es<br>
+    <strong>Email de contacto:</strong> hola@spliteat.es<br>
+    <strong>País de registro:</strong> España</p>
+    <p style="margin-top:.75rem">spliteat.es es una marca registrada en la Oficina Española de Patentes y Marcas (OEPM) en las clases 36 y 42.</p>
+    <p style="margin-top:.75rem">El presente aviso legal regula el uso del sitio web spliteat.es. Al acceder y navegar por este sitio, el usuario acepta las condiciones aquí establecidas.</p>
+    <p style="margin-top:.75rem"><strong>Propiedad intelectual:</strong> Todos los contenidos del sitio web (textos, imágenes, logotipos, código fuente) son propiedad de eatlab y están protegidos por la legislación española e internacional de propiedad intelectual.</p>`
+  }
+};
+
+function showLegalModal(type) {
+  const modal = document.getElementById('legal-modal');
+  const titleEl = document.getElementById('legal-modal-title');
+  const bodyEl = document.getElementById('legal-modal-body');
+  const content = LEGAL_CONTENT[type];
+  if (!modal || !content) return;
+  titleEl.textContent = content.title;
+  bodyEl.innerHTML = content.body;
+  modal.style.display = 'flex';
+}
+
+// Close legal modal on background click
+document.addEventListener('click', e => {
+  const modal = document.getElementById('legal-modal');
+  if (modal && e.target === modal) modal.style.display = 'none';
+});
+
+
+// ── Cache de datos de facturas para export ──
+let _facturasData = []; // populated by loadFacturas
+
+// Descargar PDF de una factura directamente (sin abrir modal)
 async function downloadFacturaPDF(roomId) {
   // Load factura data, render HTML, then print — without showing the modal visually
   const content = document.getElementById('factura-content');
@@ -9165,20 +10573,17 @@ async function exportFacturasExcel(since = null, until = null, label = 'Todo') {
   showToast('✓ Excel exportado', rows.length + ' facturas descargadas');
 }
 
-
 // ══════════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════════
 handleStripeReturn();
-
-// Primero intentar restaurar sesión, luego manejar QR
 initLanding();
 restoreSession().then(restored => {
   if (!restored) handleQRUrl();
 });
 </script>
 
-<!-- FACTURA MODAL — global overlay z-9000 -->
+<!-- FACTURA MODAL — global overlay -->
 <div id="factura-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;align-items:center;justify-content:center;padding:1rem">
   <div style="background:var(--card);border-radius:var(--r-lg);max-width:500px;width:100%;padding:1.5rem;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
@@ -9192,15 +10597,14 @@ restoreSession().then(restored => {
     </div>
   </div>
 </div>
-
-<!-- EXCEL EXPORT MODAL — z-9001 -->
+<!-- EXCEL EXPORT MODAL -->
 <div id="excel-export-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9001;align-items:center;justify-content:center;padding:1rem">
   <div style="background:var(--card);border-radius:var(--r-lg);max-width:360px;width:100%;padding:1.5rem;box-shadow:0 20px 60px rgba(0,0,0,.3)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
       <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--brand-d)">Exportar a Excel</div>
       <button onclick="document.getElementById('excel-export-modal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2);line-height:1">✕</button>
     </div>
-    <div style="font-size:13px;color:var(--t2);margin-bottom:1rem">Selecciona el período a exportar:</div>
+    <div style="font-size:13px;color:var(--t2);margin-bottom:1rem">Selecciona el período:</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:1rem">
       <button onclick="runExcelExport('1')" style="padding:10px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--bg);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;color:var(--t1)">Hoy</button>
       <button onclick="runExcelExport('7')" style="padding:10px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--bg);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;color:var(--t1)">Últimos 7 días</button>
@@ -9220,5 +10624,6 @@ restoreSession().then(restored => {
     </div>
   </div>
 </div>
+
 </body>
 </html>
