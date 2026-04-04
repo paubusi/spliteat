@@ -9368,10 +9368,24 @@ async function enterMesa() {
   const btn = document.querySelector('#s1-qr .btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = 'Entrando...'; }
 
-  let roomId = _qrActiveRoomId;
+  let roomId = null;
 
   try {
-    // Si no hay sala activa, crear una
+    // ── Re-check SIEMPRE en el momento de entrar (evita race condition) ──
+    // Dos comensales pueden escanear el mismo QR casi a la vez.
+    // El _qrActiveRoomId puede estar desactualizado si otro creó la sala.
+    if (_qrTableId) {
+      const { data: freshRoom } = await sb.from('rooms')
+        .select('id')
+        .eq('table_id', _qrTableId)
+        .eq('closed', false)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      roomId = freshRoom?.id || null;
+    }
+
+    // Si no hay sala activa (fresh check), crear una
     if (!roomId) {
       const code = Date.now().toString(36).slice(-4).toUpperCase() + Math.random().toString(36).slice(2,4).toUpperCase();
       const { data: rest } = await sb.from('restaurants').select('name')
