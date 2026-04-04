@@ -1925,7 +1925,7 @@
           </select>
           <button onclick="showExcelExportModal()"
             style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--r-sm);border:1.5px solid var(--brand);background:var(--brand-l);font-size:12px;font-weight:500;color:var(--brand-d);cursor:pointer;font-family:inherit;white-space:nowrap">
-            📊 Exportar a Excel
+            📊 Exportar
           </button>
         </div>
       </div>
@@ -8896,84 +8896,100 @@ function showFactura(idx) {
       return { guest: g, amount: amt, payment };
     });
 
+    const dateTimeStr = openedAt.toLocaleDateString('es-ES', {day:'2-digit',month:'short',year:'numeric'})
+      + ' ' + openedAt.toLocaleTimeString('es-ES', {hour:'2-digit',minute:'2-digit'});
+
     const html = `
-      <div id="factura-printable" style="font-family:'DM Sans',sans-serif;font-size:13px;color:#1a1a18">
+      <div id="factura-printable" style="font-family:'DM Sans',sans-serif;font-size:13px;color:#1a1a18;max-width:380px">
 
-        <!-- Cabecera factura -->
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:2px solid var(--brand-d)">
-          <div>
-            <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--brand-d)">split<span style="color:var(--accent)">eat</span></div>
-            <div style="font-size:11px;color:var(--t3);margin-top:2px">Powered by spliteat.es</div>
+        <!-- Cabecera: nombre del restaurante centrado como ticket real -->
+        <div style="text-align:center;padding-bottom:1rem;margin-bottom:.75rem;border-bottom:1px dashed var(--bd2)">
+          <div style="font-size:17px;font-weight:700;color:var(--t1);margin-bottom:2px">${escHtml(rest?.name || state.adminRestaurantName)}</div>
+          ${rest?.legal_name ? `<div style="font-size:12px;color:var(--t2)">${escHtml(rest.legal_name)}</div>` : ''}
+          ${rest?.nif ? `<div style="font-size:12px;color:var(--t2)">${escHtml(rest.nif)}</div>` : ''}
+          ${rest?.address ? `<div style="font-size:12px;color:var(--t2)">${escHtml(rest.address)}</div>` : ''}
+          ${rest?.phone ? `<div style="font-size:12px;color:var(--t2)">${escHtml(rest.phone)}</div>` : ''}
+          ${!rest?.nif ? `<div style="font-size:11px;color:var(--accent);margin-top:4px">⚠ Añade NIF y dirección en Ajustes → Perfil</div>` : ''}
+        </div>
+
+        <!-- Nº factura + fecha/hora + mesa — como el "SUBTOTAL" del ticket real -->
+        <div style="margin-bottom:.75rem;border-bottom:1px dashed var(--bd2);padding-bottom:.75rem">
+          <div style="display:flex;justify-content:space-between;font-size:12px">
+            <span style="font-weight:600">FACTURA</span>
+            <span style="color:var(--t2)">Nº ${invoiceNum}</span>
           </div>
-          <div style="text-align:right">
-            <div style="font-size:16px;font-weight:700;color:var(--brand-d)">FACTURA</div>
-            <div style="font-size:12px;color:var(--t2)">Nº ${invoiceNum}</div>
-            <div style="font-size:12px;color:var(--t2)">Fecha: ${dateStr}</div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--t2);margin-top:2px">
+            <span>${dateTimeStr}</span>
+            <span style="font-weight:500">${tableLabel}</span>
           </div>
         </div>
 
-        <!-- Datos emisor -->
-        <div style="margin-bottom:1rem">
-          <div style="font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;margin-bottom:.35rem">Emisor</div>
-          <div style="font-size:13px;font-weight:500">${rest?.name || state.adminRestaurantName}</div>
-          ${rest?.nif ? `<div style="font-size:12px;color:var(--t2)">NIF/CIF: ${rest.nif}</div>` : ''}
-          ${rest?.address ? `<div style="font-size:12px;color:var(--t2)">${rest.address}</div>` : ''}
-          ${rest?.phone ? `<div style="font-size:12px;color:var(--t2)">${rest.phone}</div>` : ''}
-          ${!rest?.nif && !rest?.address ? `<div style="font-size:12px;color:var(--accent)">⚠ Completa el perfil del restaurante para facturas legales</div>` : ''}
-        </div>
-
-        <!-- Mesa y fecha -->
-        <div style="background:var(--bg2);border-radius:var(--r-sm);padding:.5rem .75rem;font-size:12px;color:var(--t2);margin-bottom:1rem">
-          ${tableLabel} · ${openedAt.toLocaleDateString('es-ES', {weekday:'long',day:'2-digit',month:'long',year:'numeric'})} · ${openedAt.toLocaleTimeString('es-ES', {hour:'2-digit',minute:'2-digit'})}
-        </div>
-
-        <!-- Líneas de la factura -->
-        <table style="width:100%;border-collapse:collapse;margin-bottom:1rem;font-size:12px">
-          <thead>
-            <tr style="border-bottom:1px solid var(--bd)">
-              <th style="text-align:left;padding:4px 0;color:var(--t3);font-weight:500">Descripción</th>
-              <th style="text-align:right;padding:4px 0;color:var(--t3);font-weight:500">Importe</th>
-            </tr>
-          </thead>
+        <!-- Líneas de artículos -->
+        <table style="width:100%;border-collapse:collapse;margin-bottom:.75rem;font-size:12px">
           <tbody>
             ${dishes.map(d => `
-              <tr style="border-bottom:1px solid var(--bg2)">
-                <td style="padding:4px 0">${escHtml(d.name)}</td>
-                <td style="padding:4px 0;text-align:right;font-weight:500">${parseFloat(d.price).toFixed(2)} €</td>
+              <tr>
+                <td style="padding:3px 0;vertical-align:top">${escHtml(d.name)}</td>
+                <td style="padding:3px 0;text-align:right;font-weight:500;white-space:nowrap;padding-left:8px">${parseFloat(d.price).toFixed(2)} €</td>
               </tr>`).join('')}
           </tbody>
         </table>
 
-        <!-- Totales con IVA (legislación española) -->
-        <div style="border-top:1px solid var(--bd);padding-top:.65rem;margin-bottom:1rem">
-          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--t2);margin-bottom:3px">
-            <span>Base imponible</span><span>${baseImponible.toFixed(2)} €</span>
+        <!-- Total artículos + línea -->
+        <div style="border-top:1px dashed var(--bd2);padding-top:.5rem;margin-bottom:.5rem">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--t2)">
+            <span>${dishes.length} Artículo${dishes.length !== 1 ? 's' : ''}</span>
           </div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--t2);margin-bottom:3px">
-            <span>IVA (${ivaRate}%)</span><span>${cuotaIva.toFixed(2)} €</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:700;color:var(--brand-d);padding-top:.35rem;border-top:1px solid var(--bd)">
-            <span>TOTAL</span>
-            <span style="font-family:'Fraunces',serif;font-size:18px">${subtotal.toFixed(2)} €</span>
-          </div>
+        </div>
+
+        <!-- TOTAL grande -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;padding:.5rem 0;border-top:1px solid var(--t1);border-bottom:1px solid var(--t1)">
+          <span style="font-size:15px;font-weight:700">TOTAL</span>
+          <span style="font-size:20px;font-weight:700">${subtotal.toFixed(2)} €</span>
+        </div>
+
+        <!-- Tabla de impuestos como ticket real: Impuestos incluidos | Base | Cuota -->
+        <div style="border-bottom:1px dashed var(--bd2);padding-bottom:.75rem;margin-bottom:.75rem">
+          <table style="width:100%;border-collapse:collapse;font-size:11px">
+            <thead>
+              <tr style="color:var(--t3)">
+                <th style="text-align:left;padding:2px 0;font-weight:500">Impuestos incluidos</th>
+                <th style="text-align:right;padding:2px 4px;font-weight:500">Base</th>
+                <th style="text-align:right;padding:2px 0;font-weight:500">Cuota</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding:2px 0;color:var(--t2)">IVA ${ivaRate}%</td>
+                <td style="padding:2px 4px;text-align:right;color:var(--t2)">${baseImponible.toFixed(2)} €</td>
+                <td style="padding:2px 0;text-align:right;color:var(--t2)">${cuotaIva.toFixed(2)} €</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
         <!-- Desglose por comensal si hay -->
         ${guestTotals.length > 0 ? `
-        <div style="font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;margin-bottom:.5rem">Desglose por comensal</div>
-        ${guestTotals.map(gt => `
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--bg2)">
-            <span style="font-size:12px">${gt.guest.name}</span>
-            <div style="display:flex;align-items:center;gap:8px">
-              <span style="font-size:12px;font-weight:500">${gt.amount.toFixed(2)} €</span>
-              ${gt.payment ? `<span style="font-size:10px;color:var(--brand);background:var(--brand-l);padding:1px 6px;border-radius:99px">✓ ${gt.payment.method}</span>` :
-                `<span style="font-size:10px;color:var(--accent)">Pendiente</span>`}
-            </div>
-          </div>`).join('')}` : ''}
+        <div style="margin-bottom:.75rem">
+          <div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.35rem">Reparto spliteat</div>
+          ${guestTotals.map(gt => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:12px">
+              <span style="color:var(--t2)">${escHtml(gt.guest.name)}</span>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span style="font-weight:500">${gt.amount.toFixed(2)} €</span>
+                ${gt.payment ? `<span style="font-size:10px;color:var(--brand)">✓ ${gt.payment.method}</span>` : `<span style="font-size:10px;color:var(--accent)">Pendiente</span>`}
+              </div>
+            </div>`).join('')}
+        </div>` : ''}
 
-        <div style="margin-top:1.25rem;font-size:10px;color:var(--t3);text-align:center;line-height:1.6">
-          Factura emitida según art. 164 Ley 37/1992 del IVA y RD 1619/2012 sobre obligaciones de facturación.<br>
-          Operación sujeta a IVA. Régimen general.
+        <!-- Pie legal + powered by -->
+        <div style="text-align:center;font-size:10px;color:var(--t3);line-height:1.7;padding-top:.5rem">
+          Factura emitida según art. 164 Ley 37/1992 del IVA.<br>
+          Régimen general. Operación sujeta a IVA.
+        </div>
+        <div style="text-align:center;margin-top:.5rem">
+          <span style="font-size:10px;color:var(--t3)">Gestionado con </span>
+          <span style="font-family:'Fraunces',serif;font-size:11px;color:var(--brand-d)">split<span style="color:var(--accent)">eat</span></span>
         </div>
       </div>`;
 
@@ -10209,12 +10225,6 @@ async function loadFacturas() {
         style="flex-shrink:0;padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);cursor:pointer;font-size:14px;line-height:1">
         ⬇
       </button>
-    </div>
-      <button onclick="event.stopPropagation();downloadFacturaPDF('${r.id}')"
-        title="Descargar PDF"
-        style="flex-shrink:0;padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);cursor:pointer;font-size:15px;line-height:1">
-        ⬇
-      </button>
     </div>`;
   }).join('');
 }
@@ -10533,13 +10543,19 @@ function showExcelExportModal() {
   document.getElementById('excel-export-modal').style.display = 'flex';
 }
 
+// Pending export params while format modal is shown
+let _pendingExportSince = null, _pendingExportUntil = null, _pendingExportLabel = '';
+
 async function runExcelExport(period) {
   document.getElementById('excel-export-modal').style.display = 'none';
   let since = null;
-  const now = new Date();
   if (period === '1') { const d = new Date(); d.setHours(0,0,0,0); since = d.toISOString(); }
-  else if (period !== 'all') since = new Date(now - parseInt(period)*86400000).toISOString();
-  await exportFacturasExcel(since, null, period);
+  else if (period !== 'all') since = new Date(Date.now() - parseInt(period)*86400000).toISOString();
+  const labels = {'1':'Hoy','7':'Últimos 7 días','30':'Este mes','all':'Todo'};
+  _pendingExportSince = since;
+  _pendingExportUntil = null;
+  _pendingExportLabel = labels[period] || period;
+  showExportFormatModal();
 }
 
 async function runExcelExportCustom() {
@@ -10547,9 +10563,135 @@ async function runExcelExportCustom() {
   const to = document.getElementById('excel-date-to')?.value;
   if (!from || !to) { notify('Selecciona fecha de inicio y fin'); return; }
   document.getElementById('excel-export-modal').style.display = 'none';
-  const since = new Date(from + 'T00:00:00').toISOString();
-  const until = new Date(to + 'T23:59:59').toISOString();
-  await exportFacturasExcel(since, until, from + ' a ' + to);
+  _pendingExportSince = new Date(from + 'T00:00:00').toISOString();
+  _pendingExportUntil = new Date(to + 'T23:59:59').toISOString();
+  _pendingExportLabel = from + ' a ' + to;
+  showExportFormatModal();
+}
+
+function showExportFormatModal() {
+  const existing = document.getElementById('export-format-modal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'export-format-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9100;display:flex;align-items:center;justify-content:center;padding:1rem';
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg);max-width:340px;width:100%;padding:1.5rem;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
+        <div style="font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:var(--brand-d)">Formato de descarga</div>
+        <button onclick="document.getElementById('export-format-modal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2);line-height:1">✕</button>
+      </div>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:1rem">Período: <strong>${_pendingExportLabel}</strong></div>
+      <div style="display:flex;flex-direction:column;gap:.5rem">
+        <button onclick="document.getElementById('export-format-modal').remove();exportFacturasExcel(_pendingExportSince,_pendingExportUntil,_pendingExportLabel)"
+          style="display:flex;align-items:center;gap:12px;padding:.85rem 1rem;border-radius:var(--r);border:1.5px solid var(--bd2);background:var(--bg);cursor:pointer;font-family:inherit;text-align:left;transition:all .15s"
+          onmouseover="this.style.borderColor='var(--brand)';this.style.background='var(--brand-l)'"
+          onmouseout="this.style.borderColor='var(--bd2)';this.style.background='var(--bg)'">
+          <span style="font-size:22px">📊</span>
+          <div><div style="font-size:14px;font-weight:500">Excel (.xlsx)</div><div style="font-size:11px;color:var(--t2)">Compatible con Excel, Numbers, Google Sheets</div></div>
+        </button>
+        <button onclick="document.getElementById('export-format-modal').remove();exportFacturasCSV(_pendingExportSince,_pendingExportUntil,_pendingExportLabel)"
+          style="display:flex;align-items:center;gap:12px;padding:.85rem 1rem;border-radius:var(--r);border:1.5px solid var(--bd2);background:var(--bg);cursor:pointer;font-family:inherit;text-align:left;transition:all .15s"
+          onmouseover="this.style.borderColor='var(--brand)';this.style.background='var(--brand-l)'"
+          onmouseout="this.style.borderColor='var(--bd2)';this.style.background='var(--bg)'">
+          <span style="font-size:22px">📄</span>
+          <div><div style="font-size:14px;font-weight:500">CSV (.csv)</div><div style="font-size:11px;color:var(--t2)">Texto plano, compatible con cualquier programa</div></div>
+        </button>
+        <button onclick="document.getElementById('export-format-modal').remove();exportFacturasPDF(_pendingExportSince,_pendingExportUntil,_pendingExportLabel)"
+          style="display:flex;align-items:center;gap:12px;padding:.85rem 1rem;border-radius:var(--r);border:1.5px solid var(--bd2);background:var(--bg);cursor:pointer;font-family:inherit;text-align:left;transition:all .15s"
+          onmouseover="this.style.borderColor='var(--brand)';this.style.background='var(--brand-l)'"
+          onmouseout="this.style.borderColor='var(--bd2)';this.style.background='var(--bg)'">
+          <span style="font-size:22px">📋</span>
+          <div><div style="font-size:14px;font-weight:500">PDF (.pdf)</div><div style="font-size:11px;color:var(--t2)">Listo para imprimir o enviar por email</div></div>
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function exportFacturasCSV(since, until, label) {
+  if (!state.adminRestaurantId) return;
+  showToast('⏳ Preparando CSV...', 'Obteniendo datos...');
+  let q = sb.from('rooms').select('*,tables(number,label)').eq('restaurant_id', state.adminRestaurantId).eq('closed', true).order('created_at', { ascending: false });
+  if (since) q = q.gte('created_at', since);
+  if (until) q = q.lte('created_at', until);
+  const { data: rooms } = await q;
+  if (!rooms?.length) { notify('Sin facturas en este período'); return; }
+  const roomIds = rooms.map(r => r.id);
+  const [{ data: pays }, { data: guests }] = await Promise.all([
+    sb.from('payments').select('*').in('room_id', roomIds),
+    sb.from('guests').select('id,room_id').in('room_id', roomIds),
+  ]);
+  const paysByRoom = {}, guestsByRoom = {};
+  (pays||[]).forEach(p => { (paysByRoom[p.room_id]=paysByRoom[p.room_id]||[]).push(p); });
+  (guests||[]).forEach(g => { (guestsByRoom[g.room_id]=guestsByRoom[g.room_id]||[]).push(g); });
+  const header = ['Fecha','Mesa','Comensales','Total (€)','Estado'];
+  const rows = rooms.map(r => {
+    const rPays = paysByRoom[r.id]||[];
+    const ng = (guestsByRoom[r.id]||[]).length;
+    const total = rPays.reduce((s,p)=>s+parseFloat(p.amount||0),0);
+    const tbl = r.tables ? 'Mesa '+r.tables.number+(r.tables.label?' — '+r.tables.label:'') : 'Mesa';
+    const d = r.closed_at||r.created_at;
+    const fecha = new Date(d).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const estado = (rPays.length>=ng&&ng>0)?'Pagada':'Pendiente';
+    return [fecha, tbl, ng, total.toFixed(2), estado].map(v => '"'+String(v).replace(/"/g,'""')+'"').join(',');
+  });
+  const csv = [header.join(','), ...rows].join('\n');
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'spliteat_facturas_'+new Date().toISOString().split('T')[0]+'.csv';
+  a.click(); URL.revokeObjectURL(url);
+  showToast('✓ CSV exportado', rooms.length+' facturas');
+}
+
+async function exportFacturasPDF(since, until, label) {
+  if (!state.adminRestaurantId) return;
+  showToast('⏳ Preparando PDF...', 'Obteniendo datos...');
+  let q = sb.from('rooms').select('*,tables(number,label)').eq('restaurant_id', state.adminRestaurantId).eq('closed', true).order('created_at', { ascending: false });
+  if (since) q = q.gte('created_at', since);
+  if (until) q = q.lte('created_at', until);
+  const { data: rooms } = await q;
+  if (!rooms?.length) { notify('Sin facturas en este período'); return; }
+  const roomIds = rooms.map(r => r.id);
+  const [{ data: pays }, { data: guests }, { data: rest }] = await Promise.all([
+    sb.from('payments').select('*').in('room_id', roomIds),
+    sb.from('guests').select('id,room_id').in('room_id', roomIds),
+    sb.from('restaurants').select('name,nif,address').eq('id', state.adminRestaurantId).maybeSingle(),
+  ]);
+  const paysByRoom = {}, guestsByRoom = {};
+  (pays||[]).forEach(p => { (paysByRoom[p.room_id]=paysByRoom[p.room_id]||[]).push(p); });
+  (guests||[]).forEach(g => { (guestsByRoom[g.room_id]=guestsByRoom[g.room_id]||[]).push(g); });
+  const totalFact = (pays||[]).reduce((s,p)=>s+parseFloat(p.amount||0),0);
+  const rows = rooms.map((r,i) => {
+    const rPays = paysByRoom[r.id]||[];
+    const ng = (guestsByRoom[r.id]||[]).length;
+    const total = rPays.reduce((s,p)=>s+parseFloat(p.amount||0),0);
+    const tbl = r.tables ? 'Mesa '+r.tables.number+(r.tables.label?' — '+r.tables.label:'') : 'Mesa';
+    const d = new Date(r.closed_at||r.created_at).toLocaleString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const estado = (rPays.length>=ng&&ng>0)?'<span style="color:#3B6D11">✓ Pagada</span>':'<span style="color:#854F0B">Pendiente</span>';
+    return '<tr style="border-bottom:1px solid #eee"><td style="padding:6px 8px">'+d+'</td><td style="padding:6px 8px">'+tbl+'</td><td style="padding:6px 8px;text-align:center">'+ng+'</td><td style="padding:6px 8px;text-align:right;font-weight:600">'+total.toFixed(2)+' €</td><td style="padding:6px 8px;text-align:center">'+estado+'</td></tr>';
+  }).join('');
+  const pw = window.open('','_blank');
+  if (!pw) { notify('Permite ventanas emergentes'); return; }
+  pw.document.open();
+  pw.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Facturas '+label+'</title>'
+    +'<style>body{font-family:Arial,sans-serif;padding:2rem;color:#1a1a18;max-width:900px;margin:0 auto}'
+    +'table{width:100%;border-collapse:collapse}th{background:#085041;color:#fff;padding:8px;text-align:left}'
+    +'@media print{@page{margin:1.5cm}}</style></head><body>'
+    +'<h2 style="color:#085041;margin-bottom:.25rem">split<span style="color:#D85A30">eat</span> — Facturas</h2>'
+    +'<div style="font-size:13px;color:#666;margin-bottom:.5rem">'+(rest?.data?.name||rest?.name||'')+(rest?.data?.nif||rest?.nif?' · NIF '+(rest?.data?.nif||rest?.nif):'')+'</div>'
+    +'<div style="font-size:13px;color:#666;margin-bottom:1.5rem">Período: '+label+' · '+rooms.length+' facturas · Total: '+totalFact.toFixed(2)+' €</div>'
+    +'<table><thead><tr><th>Fecha</th><th>Mesa</th><th style="text-align:center">Comensales</th><th style="text-align:right">Total</th><th style="text-align:center">Estado</th></tr></thead>'
+    +'<tbody>'+rows+'</tbody></table>'
+    +'<div style="margin-top:1.5rem;padding-top:1rem;border-top:2px solid #085041;display:flex;justify-content:space-between;font-weight:700">'
+    +'<span>TOTAL PERÍODO</span><span>'+totalFact.toFixed(2)+' €</span></div>'
+    +'<div style="margin-top:2rem;font-size:11px;color:#999;text-align:center">Generado '+new Date().toLocaleString('es-ES')+' · spliteat.es</div>'
+    +'</body></html>');
+  pw.document.close();
+  pw.focus();
+  setTimeout(function(){ pw.print(); }, 600);
+  showToast('✓ PDF listo', rooms.length+' facturas');
 }
 
 // Exportar todas las facturas del período como Excel
