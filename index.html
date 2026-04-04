@@ -4942,8 +4942,10 @@ function _renderNotifModal(modal, n) {
   const checkedCount = Object.values(n.checked || {}).filter(Boolean).length;
   const allChecked = checkedCount >= total;
 
+  const cpColors = {'Muy poco hecho':'#E74C3C','Poco hecho':'#E67E22','Al punto':'#F39C12','Hecho':'#8B5E3C','Muy hecho':'#2C2C2C'};
   const dishRows = n.dishes.map((d, i) => {
     const isChecked = n.checked[i] || false;
+    const cp = d.cooking_point || d.cookingPoint || null;
     return `<div onclick="toggleWaiterDishCheck(${n.id},${i})"
       style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--bd);cursor:pointer;transition:opacity .15s;${isChecked?'opacity:.45;':''}">
       <div style="width:26px;height:26px;border-radius:50%;border:2px solid ${isChecked?color:'var(--bd2)'};background:${isChecked?color:'transparent'};
@@ -4951,7 +4953,10 @@ function _renderNotifModal(modal, n) {
         ${isChecked?'<span style="color:#fff;font-size:13px;font-weight:700">✓</span>':''}
       </div>
       <span style="font-size:16px;flex-shrink:0">${emoji}</span>
-      <span style="font-size:14px;font-weight:${isChecked?'400':'500'};flex:1;${isChecked?'text-decoration:line-through;color:var(--t3);':'color:var(--t1)'}">${escHtml(d.name)}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:${isChecked?'400':'500'};${isChecked?'text-decoration:line-through;color:var(--t3);':'color:var(--t1)'}">${escHtml(d.name)}</div>
+        ${cp ? `<div style="display:inline-flex;align-items:center;gap:4px;margin-top:3px;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;background:${cpColors[cp]||'#666'};color:#fff">🥩 ${cp}</div>` : ''}
+      </div>
     </div>`;
   }).join('');
 
