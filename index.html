@@ -1755,8 +1755,6 @@
             <span id="sidebar-chevron">‹</span>
           </button>
         </div>
-        <!-- Overlay for mobile -->
-        <div id="sidebar-overlay" onclick="closeMobileSidebar()"></div>
         <div id="admin-restaurant-label" style="padding:.25rem 1.25rem .85rem;font-size:12px;color:rgba(255,255,255,.4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
 
         <!-- Nav items — order: Sala, Reservas, En espera, Cocina, Dashboard, Facturas, Ajustes -->
@@ -1811,11 +1809,11 @@
           <button onclick="adminLogout()" style="background:none;border:none;font-size:12px;color:var(--t2);cursor:pointer;font-family:inherit">Salir</button>
         </div>
 
-        <!-- Mobile bottom tabs -->
+        <!-- Mobile bottom tabs — only shown on small screens (<900px), sidebar handles desktop -->
         <div class="admin-mobile-tabs">
           <button class="adm-mob-tab on" data-tab="encurso" onclick="showAdminTab('encurso')">🏠<br><span>Sala</span></button>
-          <button class="adm-mob-tab" data-tab="reservas" onclick="showAdminTab('reservas')">📅<br><span>Reservas</span></button>
           <button class="adm-mob-tab" data-tab="cocina" onclick="showAdminTab('cocina')">🍳<br><span>Cocina</span></button>
+          <button class="adm-mob-tab" data-tab="facturas" onclick="showAdminTab('facturas')">🧾<br><span>Facturas</span></button>
           <button class="adm-mob-tab" data-tab="reportes" onclick="showAdminTab('reportes')">📊<br><span>Dashboard</span></button>
           <button class="adm-mob-tab" data-tab="gestion" onclick="showAdminTab('gestion')">⚙️<br><span>Ajustes</span></button>
         </div>
@@ -2412,6 +2410,9 @@
     </div><!-- /atab-gestion -->
       </div><!-- /admin-main -->
     </div><!-- /admin-shell -->
+    <!-- Mobile sidebar overlay — must be OUTSIDE sidebar div -->
+    <div id="sidebar-overlay" onclick="closeMobileSidebar()"
+      style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:149"></div>
   </div><!-- /s-admin -->
 </div><!-- /app -->
 
@@ -7575,7 +7576,7 @@ async function fireNextCourse(roomId, course, dishIds) {
   // ── PASO 3: Si cache estaba vacío, intentar fallback por DB ──
   if (!readyDishes.length && dishIds?.length) {
     const { data: dbDishes } = await sb.from('dishes')
-      .select('id, name, course, category')
+      .select('id, name, course, category, cooking_point')
       .in('id', dishIds);
     readyDishes = dbDishes || [];
     console.log('[Kitchen] Fallback DB:', readyDishes.length, 'platos');
