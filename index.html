@@ -5843,7 +5843,7 @@ async function waiterOpenTable() {
   if (!tableId) { notify('Selecciona una mesa primero'); return; }
 
   const { data: table } = await sb.from('tables').select('*').eq('id', tableId).single();
-  const code = String(Math.floor(1000 + Math.random() * 9000));
+  const code = Date.now().toString(36).slice(-4).toUpperCase() + Math.random().toString(36).slice(2,4).toUpperCase();
   const { data: room } = await sb.from('rooms').insert({
     code,
     restaurant_id: _waiterRestaurantId,
@@ -7169,7 +7169,7 @@ async function loadAdminTables() {
 
 async function adminOpenTable(tableId, tableNum, tableLabel) {
   // Create a new room for this table
-  const code = String(Math.floor(1000 + Math.random() * 9000));
+  const code = Date.now().toString(36).slice(-4).toUpperCase() + Math.random().toString(36).slice(2,4).toUpperCase();
   const { error } = await sb.from('rooms').insert({
     code,
     restaurant_id: state.adminRestaurantId,
@@ -9367,7 +9367,7 @@ async function enterMesa() {
   try {
     // Si no hay sala activa, crear una
     if (!roomId) {
-      const code = String(Math.floor(1000 + Math.random() * 9000));
+      const code = Date.now().toString(36).slice(-4).toUpperCase() + Math.random().toString(36).slice(2,4).toUpperCase();
       const { data: rest } = await sb.from('restaurants').select('name')
         .eq('id', _qrRestaurantId).maybeSingle();
 
