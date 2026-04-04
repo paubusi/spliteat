@@ -685,8 +685,8 @@
     <div style="background:#085041;border-radius:16px;padding:1.75rem 1.5rem;text-align:center">
       <div style="font-family:'Fraunces',serif;font-size:1.4rem;font-weight:700;color:#fff;margin-bottom:.5rem">¿Tu restaurante quiere empezar?</div>
       <p style="font-size:13px;color:rgba(255,255,255,.7);margin-bottom:1.25rem;line-height:1.5">Escríbenos y lo tenemos funcionando este mismo día.</p>
-      <a href="mailto:hola@spliteat.es" style="display:inline-block;background:#D85A30;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:.75rem 2rem;border-radius:99px;font-family:'DM Sans',sans-serif">
-        hola@spliteat.es
+      <a href="/cdn-cgi/l/email-protection#325a5d5e537241425e5b465753461c5741" style="display:inline-block;background:#D85A30;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:.75rem 2rem;border-radius:99px;font-family:'DM Sans',sans-serif">
+        <span class="__cf_email__" data-cfemail="5b3334373a1b282b37322f3e3a2f753e28">[email&#160;protected]</span>
       </a>
       <div style="margin-top:.85rem">
         <button onclick="go('s-admin-login')" style="background:none;border:none;color:rgba(255,255,255,.6);font-size:12px;cursor:pointer;font-family:inherit;text-decoration:underline">
@@ -780,7 +780,7 @@
           <div style="display:flex;flex-direction:column;gap:5px">
             <a onclick="document.getElementById('s0-productos').scrollIntoView({behavior:'smooth'})" style="font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;text-decoration:none">La suite</a>
             <a onclick="document.getElementById('s0-precios').scrollIntoView({behavior:'smooth'})" style="font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;text-decoration:none">Precios</a>
-            <a href="mailto:hola@spliteat.es" style="font-size:13px;color:rgba(255,255,255,.6);text-decoration:none">Contacto</a>
+            <a href="/cdn-cgi/l/email-protection#c7afa8aba687b4b7abaeb3a2a6b3e9a2b4" style="font-size:13px;color:rgba(255,255,255,.6);text-decoration:none">Contacto</a>
           </div>
         </div>
         <div>
@@ -1551,7 +1551,7 @@
       <button class="btn btn-primary mt" onclick="adminLogin()">Entrar</button>
       <div id="admin-err" class="notice notice-err" style="display:none"></div>
       <hr>
-      <p class="muted center" style="font-size:12px">¿Aún no tienes cuenta? Escribe a hola@spliteat.es</p>
+      <p class="muted center" style="font-size:12px">¿Aún no tienes cuenta? Escribe a <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="2c4443404d6c5f5c404558494d5802495f">[email&#160;protected]</a></p>
     </div>
   </div>
 
@@ -2014,7 +2014,7 @@
         </div>
         <div style="font-size:13px;color:var(--t2);margin-bottom:1rem;line-height:1.6">
           Cover Manager es el software de reservas líder en España. Para conectarlo necesitas una API Key que Cover Manager proporciona a sus partners.<br><br>
-          Solicita acceso en <strong>partnerships@covermanager.com</strong> mencionando spliteat.
+          Solicita acceso en <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="4636273432282334352e2f36350625293023342b2728272123346825292b">[email&#160;protected]</a></strong> mencionando spliteat.
         </div>
         <div class="field">
           <label>API Key de Cover Manager</label>
@@ -2326,7 +2326,7 @@
 </div><!-- /app -->
 
 
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 
 
 // ── UX: Haptic feedback para notificaciones (Android) ──
@@ -10621,6 +10621,7 @@ async function exportFacturasExcel(since = null, until = null, label = 'Todo') {
   XLSX.writeFile(wb, `spliteat_facturas_${date}.xlsx`);
   showToast('✓ Excel exportado', rows.length + ' facturas descargadas');
 }
+
 
 // ══════════════════════════════════════════════════════
 // INIT
