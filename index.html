@@ -1349,6 +1349,7 @@
         <button onclick="go('s0')" style="background:rgba(255,255,255,.12);border:none;border-radius:99px;padding:6px 14px;font-size:12px;color:#fff;cursor:pointer;font-family:inherit">← Inicio</button>
       </div>
       <div style="position:relative;z-index:1">
+        <div class="calleat-rest-name" style="font-size:12px;color:rgba(255,255,255,.6);font-weight:500;margin-bottom:.35rem;letter-spacing:.03em"></div>
         <div style="font-family:'Fraunces',serif;font-size:24px;font-weight:700;color:#fff;line-height:1.25;margin-bottom:.5rem">No hay mesa ahora.<br><em style="color:#6FE8B0;font-style:italic">Espera sin agobios.</em></div>
         <div style="font-size:13px;color:rgba(255,255,255,.7);line-height:1.5">Te avisamos cuando tu mesa esté lista y limpia.</div>
       </div>
@@ -9441,6 +9442,13 @@ function openCalleat(restaurantId) {
   _calleatState.restaurantId = restaurantId;
   showCalleatArea('form');
   go('s-calleat');
+  // Load restaurant name for display
+  sb.from('restaurants').select('name').eq('id', restaurantId).maybeSingle().then(({data}) => {
+    if (data?.name) {
+      const el = document.querySelector('#s-calleat .calleat-rest-name');
+      if (el) el.textContent = data.name;
+    }
+  });
 }
 
 function selectCalleatPax(n) {
@@ -10758,7 +10766,16 @@ function downloadCalleatQR() {
 handleStripeReturn();
 initLanding();
 restoreSession().then(restored => {
-  if (!restored) handleQRUrl();
+  if (!restored) {
+    // Check for ?r= calleat param BEFORE mesa QR
+    const _initParams = new URLSearchParams(window.location.search);
+    const _rId = _initParams.get('r');
+    if (_rId) {
+      openCalleat(_rId);
+    } else {
+      handleQRUrl();
+    }
+  }
 });
 </script>
 
