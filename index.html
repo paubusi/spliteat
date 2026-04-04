@@ -3856,7 +3856,7 @@ async function sendToKitchen() {
         course_label: 'Bebidas',
         table_label: tableLabel,
         is_bebidas: true,
-        dishes: bebidasSent.map(d => ({ id: d.id, name: d.name, course: 0, category: 'bebidas' })),
+        dishes: bebidasSent.map(d => ({ id: d.id, name: d.name, course: 0, category: 'bebidas', cooking_point: d.cooking_point || null })),
         assigned_waiter_id: room.assigned_waiter_id || null,
         waiter_id: room.waiter_id || null,
       });
@@ -4511,7 +4511,7 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
       // Cache dish data for this room+course so fireNextCourse doesn't need a DB query
       window._kdsCache = window._kdsCache || {};
       window._kdsCache[roomId + '_' + course] = makingDishes.map(d => ({
-        id: d.id, name: d.name, course: d.course, category: d.category
+        id: d.id, name: d.name, course: d.course, category: d.category, cooking_point: d.cooking_point || null
       }));
 
       const maxPrep = Math.max(...cDishes.map(d => prepByItem[d.menu_item_id] || 0));
@@ -7504,7 +7504,7 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
       // Cache dish data for this room+course so fireNextCourse doesn't need a DB query
       window._kdsCache = window._kdsCache || {};
       window._kdsCache[roomId + '_' + course] = makingDishes.map(d => ({
-        id: d.id, name: d.name, course: d.course, category: d.category
+        id: d.id, name: d.name, course: d.course, category: d.category, cooking_point: d.cooking_point || null
       }));
 
       let courseAction = '';
