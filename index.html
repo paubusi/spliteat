@@ -306,30 +306,28 @@
   .adm-mob-tab br { display: block; }
   /* Sidebar nav items */
 
-  /* ── Collapsible sidebar ── */
+  /* ── Collapsible sidebar — desktop only ── */
   #admin-sidebar {
     transition: width .22s cubic-bezier(.4,0,.2,1);
     width: 220px;
     min-width: 0;
   }
-  #admin-sidebar.collapsed {
-    width: 56px !important;
+  /* collapsed rail: only on desktop ≥900px */
+  @media (min-width: 900px) {
+    #admin-sidebar.collapsed {
+      width: 56px !important;
+    }
+    #admin-sidebar.collapsed .adm-nav-label,
+    #admin-sidebar.collapsed #admin-restaurant-label,
+    #admin-sidebar.collapsed .adm-nav span:not(.adm-nav-icon):not([id$="-badge"]) {
+      display: none !important;
+    }
+    #admin-sidebar.collapsed .adm-nav-icon { margin-right: 0; }
+    #admin-sidebar.collapsed .adm-nav { justify-content: center; padding: .65rem .5rem; }
+    #admin-sidebar.collapsed #sidebar-logo-full { display: none; }
+    #admin-sidebar.collapsed #sidebar-toggle-btn { justify-content: center; }
   }
-  #admin-sidebar.collapsed .adm-nav-label,
-  #admin-sidebar.collapsed #admin-restaurant-label,
-  #admin-sidebar.collapsed .adm-nav span:not(.adm-nav-icon):not([id$="-badge"]) {
-    display: none !important;
-  }
-  #admin-sidebar.collapsed .adm-nav-icon {
-    margin-right: 0;
-  }
-  #admin-sidebar.collapsed .adm-nav {
-    justify-content: center;
-    padding: .65rem .5rem;
-  }
-  #admin-sidebar.collapsed #sidebar-logo-full { display: none; }
   #admin-sidebar:not(.collapsed) #sidebar-logo-icon { display: none; }
-  #admin-sidebar.collapsed #sidebar-toggle-btn { justify-content: center; }
 
   /* Mobile sidebar overlay */
   #sidebar-overlay {
@@ -339,55 +337,30 @@
     background: rgba(0,0,0,.45);
     z-index: 149;
   }
-  /* Fix #11: 769–899px range — sidebar must behave as mobile drawer, not desktop */
-  @media (min-width: 769px) and (max-width: 899px) {
+  /* Mobile + tablet (<900px): sidebar is a full drawer, always off-screen until opened */
+  @media (max-width: 899px) {
     #admin-sidebar {
       position: fixed !important;
       left: 0; top: 0; bottom: 0;
       z-index: 150;
-      transform: translateX(-100%);
-      width: 220px !important;
-      display: flex !important; /* needed so mobile-open transition works */
-      transition: transform .25s cubic-bezier(.4,0,.2,1);
-    }
-    #admin-sidebar:not(.mobile-open) {
-      pointer-events: none;
-      visibility: hidden; /* hides the sliver without affecting layout */
-    }
-    #admin-sidebar.mobile-open {
-      transform: translateX(0);
-      visibility: visible;
-      pointer-events: auto;
-    }
-    .admin-mobile-bar { display: flex !important; }
-    .admin-mobile-tabs { display: flex !important; }
-    #admin-main > [id^="atab-"] { padding-bottom: 70px; }
-  }
-  @media (max-width: 768px) {
-    #admin-sidebar {
-      position: fixed !important;
-      left: 0; top: 0; bottom: 0;
-      z-index: 150;
-      transform: translateX(-100%);
       width: 220px !important;
       display: flex !important;
+      transform: translateX(-100%);
       transition: transform .25s cubic-bezier(.4,0,.2,1);
-    }
-    #admin-sidebar:not(.mobile-open) {
-      pointer-events: none;
+      /* collapsed class has no effect on mobile — always full width */
       visibility: hidden;
     }
     #admin-sidebar.mobile-open {
       transform: translateX(0);
       visibility: visible;
-      pointer-events: auto;
     }
+    /* Always show labels in mobile drawer regardless of collapsed state */
     #admin-sidebar .adm-nav-label,
-    #admin-sidebar #admin-restaurant-label,
-    #admin-sidebar .adm-nav span:not(.adm-nav-icon):not([id$="-badge"]) {
-      display: flex !important;
-    }
-    #admin-sidebar .adm-nav { justify-content: flex-start !important; padding: .65rem 1rem !important; }
+    #admin-sidebar #admin-restaurant-label { display: flex !important; }
+    #admin-sidebar .adm-nav span:not(.adm-nav-icon):not([id$="-badge"]) { display: flex !important; }
+    #admin-sidebar .adm-nav { justify-content: flex-start !important; padding: .65rem 1.25rem !important; }
+    #admin-sidebar #sidebar-logo-full { display: block !important; }
+    #admin-sidebar #sidebar-logo-icon { display: none !important; }
     #admin-main { width: 100% !important; }
   }
 
@@ -409,8 +382,9 @@
   /* Main area adapts to sidebar */
   #admin-main { height: 100%; }
   #admin-main > [id^="atab-"] { padding-bottom: 70px; } /* mobile bottom tabs offset */
+  /* Desktop (≥900px): sidebar always visible, mobile controls hidden */
   @media (min-width: 900px) {
-    #admin-sidebar { display: flex !important; }
+    #admin-sidebar { display: flex !important; visibility: visible !important; transform: none !important; }
     .admin-mobile-bar { display: none !important; }
     .admin-mobile-tabs { display: none !important; }
     #admin-main > [id^="atab-"] { padding-bottom: 0; }
@@ -10401,6 +10375,21 @@ function initSidebar() {
 }
 
 function toggleAdminSidebar() {
+  // On mobile/tablet (<900px): toggle open/close as drawer
+  if (window.innerWidth < 900) {
+    const sb = document.getElementById('admin-sidebar');
+    const ov = document.getElementById('sidebar-overlay');
+    if (!sb) return;
+    if (sb.classList.contains('mobile-open')) {
+      sb.classList.remove('mobile-open');
+      if (ov) ov.style.display = 'none';
+    } else {
+      sb.classList.add('mobile-open');
+      if (ov) ov.style.display = 'block';
+    }
+    return;
+  }
+  // On desktop (≥900px): collapse/expand rail
   const sb = document.getElementById('admin-sidebar');
   const ch = document.getElementById('sidebar-chevron');
   if (!sb) return;
