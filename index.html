@@ -366,17 +366,14 @@
     .admin-mobile-bar { display: none !important; }
     .admin-mobile-tabs { display: none !important; }
     #admin-main > [id^="atab-"] { padding-bottom: 0; }
-    /* Collapsed rail (desktop only) */
-    #admin-sidebar.collapsed { width: 56px !important; }
-    #admin-sidebar.collapsed .adm-nav-label { display: none !important; }
-    #admin-sidebar.collapsed #admin-restaurant-label { display: none !important; }
-    #admin-sidebar.collapsed .adm-nav span:not(.adm-nav-icon):not([id$="-badge"]) { display: none !important; }
-    #admin-sidebar.collapsed .adm-nav-icon { margin-right: 0; }
-    #admin-sidebar.collapsed .adm-nav { justify-content: center; padding: .65rem .5rem; }
-    #admin-sidebar.collapsed #sidebar-logo-full { display: none !important; }
-    #admin-sidebar.collapsed #sidebar-logo-icon { display: flex !important; }
-    #admin-sidebar.collapsed #sidebar-toggle-btn { justify-content: center; }
-    #admin-sidebar.collapsed #admin-restaurant-label { display: none !important; }
+    /* Collapsed: fully hidden (width 0) — no rail mode */
+    #admin-sidebar.collapsed {
+      width: 0 !important;
+      min-width: 0 !important;
+      padding: 0 !important;
+    }
+    #admin-sidebar.collapsed * { display: none !important; }
+    #sidebar-reopen-btn { display: none !important; } /* never show on mobile — use hamburger instead */
   }
 
   /* ── Sidebar nav items ── */
@@ -1826,6 +1823,16 @@
 
       <!-- ── Main content area ── -->
       <div id="admin-main" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0">
+        <!-- Desktop sidebar reopen button — shown only when sidebar is collapsed (desktop ≥900px) -->
+        <button id="sidebar-reopen-btn" onclick="toggleAdminSidebar()"
+          title="Abrir menú"
+          style="display:none;position:fixed;top:12px;left:12px;z-index:100;
+            background:#0F2620;border:none;color:rgba(255,255,255,.8);
+            cursor:pointer;border-radius:8px;width:36px;height:36px;
+            align-items:center;justify-content:center;font-size:18px;
+            box-shadow:0 2px 8px rgba(0,0,0,.25)">
+          ☰
+        </button>
 
         <!-- Mobile topbar (visible only on small screens) -->
         <div class="admin-mobile-bar">
@@ -10375,12 +10382,14 @@ function _applySidebarCollapsed(collapsed) {
   const ch = document.getElementById('sidebar-chevron');
   const logoFull = document.getElementById('sidebar-logo-full');
   const logoIcon = document.getElementById('sidebar-logo-icon');
+  const reopenBtn = document.getElementById('sidebar-reopen-btn');
   if (!sb) return;
   sb.classList.toggle('collapsed', collapsed);
   if (ch) ch.textContent = collapsed ? '›' : '‹';
-  // Manage logo explicitly since inline styles can fight CSS
   if (logoFull) logoFull.style.display = collapsed ? 'none' : '';
-  if (logoIcon) logoIcon.style.display = collapsed ? 'flex' : 'none';
+  if (logoIcon) logoIcon.style.display = 'none'; // never show icon — fully hidden when collapsed
+  // Show/hide the reopen button in the topbar
+  if (reopenBtn) reopenBtn.style.display = collapsed ? 'flex' : 'none';
 }
 
 function initSidebar() {
@@ -10398,7 +10407,7 @@ function toggleAdminSidebar() {
     if (ov) ov.style.display = isOpen ? 'none' : 'block';
     return;
   }
-  // Desktop (≥900px): collapse/expand rail
+  // Desktop (≥900px): toggle fully hidden / fully visible
   _sidebarCollapsed = !_sidebarCollapsed;
   _applySidebarCollapsed(_sidebarCollapsed);
   localStorage.setItem('sidebar_collapsed', _sidebarCollapsed ? '1' : '0');
