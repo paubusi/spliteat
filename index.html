@@ -286,7 +286,13 @@
   }
   .kpi-period-btn.on { background: var(--brand); border-color: var(--brand); color: #fff; }
   /* ── manageat: Sidebar layout system ── */
-  #admin-sidebar { display: none; } /* hidden on mobile */
+  /* ══════════════════════════════════════════
+     MANAGEAT SIDEBAR — clean implementation
+     Mobile (<900px): hidden drawer, opens on hamburger tap
+     Desktop (≥900px): always visible, collapsible to icon rail
+  ══════════════════════════════════════════ */
+
+  /* ── Mobile bottom tabs ── */
   .admin-mobile-bar {
     display: flex; align-items: center; justify-content: space-between;
     padding: .75rem 1.25rem; border-bottom: 1px solid var(--bd);
@@ -304,24 +310,66 @@
   }
   .adm-mob-tab.on { color: var(--brand); }
   .adm-mob-tab br { display: block; }
-  /* Sidebar nav items */
 
-  /* ── Collapsible sidebar — desktop only ── */
+  /* ── Sidebar base (mobile-first: completely hidden) ── */
   #admin-sidebar {
-    transition: width .22s cubic-bezier(.4,0,.2,1);
+    display: none;
+    flex-direction: column;
     width: 220px;
     min-width: 0;
+    flex-shrink: 0;
+    overflow-y: auto;
+    background: #0F2620;
   }
-  /* collapsed rail: only on desktop ≥900px */
-  @media (min-width: 900px) {
-    #admin-sidebar.collapsed {
-      width: 56px !important;
+
+  /* ── Sidebar overlay (mobile) ── */
+  #sidebar-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.45);
+    z-index: 149;
+  }
+
+  /* ── Mobile drawer: sidebar slides in from left ── */
+  @media (max-width: 899px) {
+    #admin-sidebar {
+      display: flex !important;          /* always in DOM flow for transition */
+      position: fixed !important;
+      left: 0; top: 0; bottom: 0;
+      z-index: 150;
+      width: 220px !important;
+      transform: translateX(-100%);     /* off-screen by default */
+      transition: transform .25s cubic-bezier(.4,0,.2,1);
+      overflow: hidden;                 /* prevents any pixel bleed */
+      /* Force full labels visible in drawer */
     }
+    #admin-sidebar .adm-nav-label { display: inline !important; }
+    #admin-sidebar #admin-restaurant-label { display: block !important; }
+    #admin-sidebar .adm-nav span:not(.adm-nav-icon):not([id$="-badge"]) { display: inline !important; }
+    #admin-sidebar .adm-nav { justify-content: flex-start !important; padding: .65rem 1.25rem !important; }
+    #admin-sidebar #sidebar-logo-full { display: block !important; }
+    #admin-sidebar #sidebar-logo-icon { display: none !important; }
+    #admin-sidebar.mobile-open { transform: translateX(0); }
+    #admin-main { width: 100% !important; }
+    #admin-main > [id^="atab-"] { padding-bottom: 70px; }
+  }
+
+  /* ── Desktop: sidebar always visible as static element ── */
+  @media (min-width: 900px) {
+    #admin-sidebar {
+      display: flex !important;
+      position: static !important;
+      transform: none !important;
+      transition: width .22s cubic-bezier(.4,0,.2,1);
+    }
+    .admin-mobile-bar { display: none !important; }
+    .admin-mobile-tabs { display: none !important; }
+    #admin-main > [id^="atab-"] { padding-bottom: 0; }
+    /* Collapsed rail (desktop only) */
+    #admin-sidebar.collapsed { width: 56px !important; }
     #admin-sidebar.collapsed .adm-nav-label,
     #admin-sidebar.collapsed #admin-restaurant-label,
-    #admin-sidebar.collapsed .adm-nav span:not(.adm-nav-icon):not([id$="-badge"]) {
-      display: none !important;
-    }
+    #admin-sidebar.collapsed .adm-nav span:not(.adm-nav-icon):not([id$="-badge"]) { display: none !important; }
     #admin-sidebar.collapsed .adm-nav-icon { margin-right: 0; }
     #admin-sidebar.collapsed .adm-nav { justify-content: center; padding: .65rem .5rem; }
     #admin-sidebar.collapsed #sidebar-logo-full { display: none; }
@@ -329,48 +377,13 @@
   }
   #admin-sidebar:not(.collapsed) #sidebar-logo-icon { display: none; }
 
-  /* Mobile sidebar overlay */
-  #sidebar-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,.45);
-    z-index: 149;
-  }
-  /* Mobile + tablet (<900px): sidebar is a full drawer, always off-screen until opened */
-  @media (max-width: 899px) {
-    #admin-sidebar {
-      position: fixed !important;
-      left: 0; top: 0; bottom: 0;
-      z-index: 150;
-      width: 220px !important;
-      display: flex !important;
-      transform: translateX(-100%);
-      transition: transform .25s cubic-bezier(.4,0,.2,1);
-      /* collapsed class has no effect on mobile — always full width */
-      visibility: hidden;
-    }
-    #admin-sidebar.mobile-open {
-      transform: translateX(0);
-      visibility: visible;
-    }
-    /* Always show labels in mobile drawer regardless of collapsed state */
-    #admin-sidebar .adm-nav-label,
-    #admin-sidebar #admin-restaurant-label { display: flex !important; }
-    #admin-sidebar .adm-nav span:not(.adm-nav-icon):not([id$="-badge"]) { display: flex !important; }
-    #admin-sidebar .adm-nav { justify-content: flex-start !important; padding: .65rem 1.25rem !important; }
-    #admin-sidebar #sidebar-logo-full { display: block !important; }
-    #admin-sidebar #sidebar-logo-icon { display: none !important; }
-    #admin-main { width: 100% !important; }
-  }
-
+  /* ── Sidebar nav items ── */
   .adm-nav {
     display: flex; align-items: center; gap: 10px; width: 100%;
     padding: .65rem 1.25rem; border: none; background: none;
     color: rgba(255,255,255,.55); font-family: inherit; font-size: 13.5px;
     cursor: pointer; text-align: left; border-radius: 0;
-    transition: background .12s, color .12s;
-    position: relative;
+    transition: background .12s, color .12s; position: relative;
   }
   .adm-nav:hover { background: rgba(255,255,255,.06); color: rgba(255,255,255,.85); }
   .adm-nav.on { background: rgba(29,158,117,.2); color: #fff; }
@@ -379,16 +392,9 @@
     width: 3px; background: var(--brand); border-radius: 0 2px 2px 0;
   }
   .adm-nav-icon { font-size: 16px; width: 22px; text-align: center; }
-  /* Main area adapts to sidebar */
+
+  /* ── Main content area ── */
   #admin-main { height: 100%; }
-  #admin-main > [id^="atab-"] { padding-bottom: 70px; } /* mobile bottom tabs offset */
-  /* Desktop (≥900px): sidebar always visible, mobile controls hidden */
-  @media (min-width: 900px) {
-    #admin-sidebar { display: flex !important; visibility: visible !important; transform: none !important; }
-    .admin-mobile-bar { display: none !important; }
-    .admin-mobile-tabs { display: none !important; }
-    #admin-main > [id^="atab-"] { padding-bottom: 0; }
-  }
   /* Rename tab labels via CSS content (graceful) */
   #atab-encurso, #atab-gestion, #atab-reportes { flex: 1; overflow-y: auto; }
   /* KPI cards */
@@ -1766,7 +1772,7 @@
     <div id="admin-shell" style="display:flex;height:100vh;overflow:hidden">
 
       <!-- ── Sidebar (desktop only) ── -->
-      <div id="admin-sidebar" style="width:220px;background:#0F2620;display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto">
+      <div id="admin-sidebar">
         <div style="padding:.85rem 1rem .5rem;display:flex;align-items:center;justify-content:space-between" id="sidebar-toggle-btn">
           <div id="sidebar-logo-full" class="logo" style="color:#fff;font-size:18px">manag<em style="color:#D85A30;font-style:normal">eat</em></div>
           <div id="sidebar-logo-icon" class="logo" style="color:#fff;font-size:18px">m<em style="color:#D85A30;font-style:normal">e</em></div>
