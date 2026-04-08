@@ -3244,10 +3244,11 @@ function subscribeRealtime() {
       const room = payload.new;
       if (!room) return;
 
-      // #23: Kitchen-send lock overlay
+      // All new-column features are guarded — columns may not exist yet in DB
+      // #23: Kitchen lock overlay (requires sending_to_kitchen column)
       const lockOverlay = document.getElementById('kitchen-lock-overlay');
       const lockMsg = document.getElementById('kitchen-lock-msg');
-      if (lockOverlay) {
+      if (lockOverlay && room.sending_to_kitchen !== undefined) {
         const isLocked = room.sending_to_kitchen && room.sending_guest_name !== state.myName;
         lockOverlay.style.display = isLocked ? 'flex' : 'none';
         if (lockMsg && isLocked) {
@@ -3255,7 +3256,7 @@ function subscribeRealtime() {
         }
       }
 
-      // #34: Someone sent to kitchen — notify other guests
+      // #34: Kitchen send notification (requires last_sent_at column)
       if (room.last_sent_at && room.last_sent_by && room.last_sent_by !== state.myName) {
         const prevSentAt = state._lastKnownSentAt;
         if (prevSentAt !== room.last_sent_at) {
@@ -3263,16 +3264,17 @@ function subscribeRealtime() {
           notify(`${escHtml(room.last_sent_by)} ha enviado el pedido a cocina. Puedes seguir añadiendo platos.`, 'info');
         }
       }
+
+      // N2: Pay method sync (requires pay_method_locked column)
       if (room.pay_method_locked && room.pay_method_locked !== state._roomPayMethod) {
         state._roomPayMethod = room.pay_method_locked;
         const locker = room.pay_method_locker_name || 'Alguien';
         _payMethod = room.pay_method_locked;
-        // Close modal if open and show notification
         document.getElementById('pay-method-modal').style.display = 'none';
         notify(`${escHtml(locker)} ha elegido pagar con ${_payMethod === 'split' ? 'spliteat' : _payMethod === 'full' ? 'invitación' : 'partes iguales'}`, 'info');
       }
 
-      // N3: Auto-navigate to carta when first dish added by anyone
+      // N3: Auto-navigate to carta (requires carta_active column)
       if (room.carta_active && !state._cartaAutoNavDone) {
         state._cartaAutoNavDone = true;
         if (document.getElementById('s2-room')?.classList.contains('active')) {
@@ -3550,7 +3552,7 @@ async function confirmAddDish() {
   }
   const { data: dish, error } = await sb.from('dishes').insert(dishPayload).select().single();
   if (error) { notify('Error al añadir: ' + error.message); return; }
-  // N3: Mark room as carta_active so all guests auto-navigate to carta
+  // N3: Mark room as carta_active so all guests auto-navigate (requires column, non-blocking)
   if (state.roomId && !state._cartaAutoNavDone) {
     state._cartaAutoNavDone = true;
     sb.from('rooms').update({ carta_active: true }).eq('id', state.roomId).catch(() => {});
@@ -4111,17 +4113,7 @@ function showSendToKitchenConfirm() {
 
 async function confirmSendToKitchen() {
   document.getElementById('send-confirm-modal').style.display = 'none';
-  // #23: Set sending lock on room so other guests see a blocking overlay
-  if (state.roomId) {
-    await sb.from('rooms').update({ sending_to_kitchen: true, sending_guest_name: state.myName })
-      .eq('id', state.roomId).catch(() => {});
-  }
   await sendToKitchen();
-  // Release lock after send completes
-  if (state.roomId) {
-    await sb.from('rooms').update({ sending_to_kitchen: false, sending_guest_name: null })
-      .eq('id', state.roomId).catch(() => {});
-  }
 }
 
 async function sendToKitchen() {
@@ -4177,15 +4169,7 @@ async function sendToKitchen() {
 
   if (btn) btn.disabled = false;
   renderMesaDishes();
-
-  // #34: Notify other guests via room realtime that a send happened
-  if (state.roomId) {
-    await sb.from('rooms').update({
-      last_sent_at: new Date().toISOString(),
-      last_sent_by: state.myName
-    }).eq('id', state.roomId).catch(() => {});
-  }
-  // Show informative note to the sender
+  // #34: Show informative note to the sender
   notify(`Pedido enviado a cocina. Puedes seguir añadiendo platos.`, 'success');
 }
 
@@ -9812,8 +9796,8 @@ async function enterMesa() {
           );
           roomPayload.assigned_waiter_id = assignedWaiter.id;
         } else {
-          // N1: No waiters available — flag for auto-assign when first waiter logs in
-          roomPayload.needs_waiter_assign = true;
+          // N1: No waiters available — flag for auto-assign when first waiter logs in (requires column)
+          if (roomPayload) roomPayload.needs_waiter_assign = true;
         }
       }
 
@@ -10452,20 +10436,22 @@ function goToSummary() {
 }
 
 async function showPayMethodModal() {
-  // N2: Check if pay method already locked by another guest
+  // N2: Check if pay method already locked by another guest (requires pay_method_locked column)
   if (state.roomId) {
-    const { data: room } = await sb.from('rooms').select('pay_method_locked,pay_method_locker_name').eq('id', state.roomId).maybeSingle();
-    if (room?.pay_method_locked) {
-      const locker = room.pay_method_locker_name || 'Alguien';
-      const methodLabel = room.pay_method_locked === 'split' ? 'spliteat (por platos)' :
-                          room.pay_method_locked === 'full' ? 'invitación (paga uno)' : 'partes iguales';
-      notify(`${locker} ya eligió pagar con ${methodLabel}. Se usará ese método.`, 'info');
-      _payMethod = room.pay_method_locked;
-      if (_payMethod === 'split') { go('s5-pay'); buildPayScreen(); }
-      else if (_payMethod === 'full') { buildFullPayScreen(); go('s5-pay'); }
-      else if (_payMethod === 'equal') { buildEqualPayScreen(_equalPax); go('s5-pay'); }
-      return;
-    }
+    try {
+      const { data: room } = await sb.from('rooms').select('pay_method_locked,pay_method_locker_name').eq('id', state.roomId).maybeSingle();
+      if (room?.pay_method_locked) {
+        const locker = room.pay_method_locker_name || 'Alguien';
+        const methodLabel = room.pay_method_locked === 'split' ? 'spliteat (por platos)' :
+                            room.pay_method_locked === 'full' ? 'invitación (paga uno)' : 'partes iguales';
+        notify(`${locker} ya eligió pagar con ${methodLabel}. Se usará ese método.`, 'info');
+        _payMethod = room.pay_method_locked;
+        if (_payMethod === 'split') { go('s5-pay'); buildPayScreen(); }
+        else if (_payMethod === 'full') { buildFullPayScreen(); go('s5-pay'); }
+        else if (_payMethod === 'equal') { buildEqualPayScreen(_equalPax); go('s5-pay'); }
+        return;
+      }
+    } catch(e) {} // column may not exist yet
   }
   // Reset equal split panel
   document.getElementById('equal-split-panel').style.display = 'none';
@@ -10482,9 +10468,9 @@ async function showPayMethodModal() {
 async function selectPayMethod(method) {
   _payMethod = method;
 
-  // N2: Lock this method in the room so other guests must use the same
+  // N2: Lock this method in the room so other guests must use the same (requires column)
   if (state.roomId) {
-    await sb.from('rooms').update({
+    sb.from('rooms').update({
       pay_method_locked: method,
       pay_method_locker_name: state.myName
     }).eq('id', state.roomId).catch(() => {});
