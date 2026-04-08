@@ -339,6 +339,30 @@
     background: rgba(0,0,0,.45);
     z-index: 149;
   }
+  /* Fix #11: 769–899px range — sidebar must behave as mobile drawer, not desktop */
+  @media (min-width: 769px) and (max-width: 899px) {
+    #admin-sidebar {
+      position: fixed !important;
+      left: 0; top: 0; bottom: 0;
+      z-index: 150;
+      transform: translateX(-100%);
+      width: 220px !important;
+      display: flex !important; /* needed so mobile-open transition works */
+      transition: transform .25s cubic-bezier(.4,0,.2,1);
+    }
+    #admin-sidebar:not(.mobile-open) {
+      pointer-events: none;
+      visibility: hidden; /* hides the sliver without affecting layout */
+    }
+    #admin-sidebar.mobile-open {
+      transform: translateX(0);
+      visibility: visible;
+      pointer-events: auto;
+    }
+    .admin-mobile-bar { display: flex !important; }
+    .admin-mobile-tabs { display: flex !important; }
+    #admin-main > [id^="atab-"] { padding-bottom: 70px; }
+  }
   @media (max-width: 768px) {
     #admin-sidebar {
       position: fixed !important;
@@ -346,17 +370,17 @@
       z-index: 150;
       transform: translateX(-100%);
       width: 220px !important;
+      display: flex !important;
       transition: transform .25s cubic-bezier(.4,0,.2,1);
+    }
+    #admin-sidebar:not(.mobile-open) {
+      pointer-events: none;
+      visibility: hidden;
     }
     #admin-sidebar.mobile-open {
       transform: translateX(0);
-    }
-    #admin-sidebar.collapsed {
-      width: 220px !important;
-      transform: translateX(-100%);
-    }
-    #admin-sidebar.collapsed.mobile-open {
-      transform: translateX(0);
+      visibility: visible;
+      pointer-events: auto;
     }
     #admin-sidebar .adm-nav-label,
     #admin-sidebar #admin-restaurant-label,
@@ -845,19 +869,41 @@
         <div id="qr-rest-nombre" style="font-size:13px;color:var(--brand-d);margin-top:2px">—</div>
       </div>
 
-      <div id="qr-sala-activa" style="display:none;background:var(--amber-l);border-radius:var(--r-sm);padding:.75rem 1rem;font-size:13px;color:var(--amber);margin-bottom:1rem;line-height:1.5">
-        🍽 Esta mesa ya tiene una sesión activa. Entrarás a la misma cuenta.
+      <!-- Fix #28: returning user modal — when table has an active session -->
+      <div id="qr-returning-panel" style="display:none">
+        <div style="background:var(--amber-l);border-radius:var(--r-sm);padding:.85rem 1rem;margin-bottom:1.25rem;line-height:1.5">
+          <div style="font-size:14px;font-weight:600;color:var(--amber);margin-bottom:.3rem">🍽 Esta mesa ya tiene una sesión activa</div>
+          <div style="font-size:13px;color:var(--amber)">¿Ya eres parte de esta mesa o eres una persona nueva?</div>
+        </div>
+        <button class="btn btn-primary" style="margin-bottom:.6rem;width:100%" onclick="qrSelectReturning()">
+          Ya estoy en esta mesa — volver a entrar
+        </button>
+        <button class="btn btn-secondary" style="width:100%" onclick="qrSelectNew()">
+          Soy una persona nueva en esta mesa
+        </button>
       </div>
 
-      <h2 class="title" style="font-size:20px;margin-bottom:.35rem">¿Cómo te llamas?</h2>
-      <p class="subtitle" style="margin-bottom:1.25rem">Solo tu nombre — sin registro, sin contraseña.</p>
-
-      <div class="field">
-        <input id="qr-name" type="text" placeholder="ej. Lucía" autocomplete="off"
-          style="font-size:18px;padding:14px 16px"
-          onkeydown="if(event.key==='Enter') enterMesa()">
+      <!-- Returning user: pick name from existing guest list -->
+      <div id="qr-returning-pick" style="display:none">
+        <h2 class="title" style="font-size:19px;margin-bottom:.35rem">¿Quién eres?</h2>
+        <p class="subtitle" style="margin-bottom:1rem">Selecciona tu nombre de la lista.</p>
+        <div id="qr-guest-list" style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1rem"></div>
+        <button class="btn btn-secondary" onclick="qrBackToChoice()" style="width:100%">← Atrás</button>
+        <div id="qr-err-pick" class="notice notice-err" style="display:none;margin-top:.75rem"></div>
       </div>
-      <button class="btn btn-primary mt" onclick="enterMesa()">Entrar a la mesa →</button>
+
+      <!-- New user or no active session: enter name -->
+      <div id="qr-newuser-panel">
+        <h2 class="title" style="font-size:20px;margin-bottom:.35rem">¿Cómo te llamas?</h2>
+        <p class="subtitle" style="margin-bottom:1.25rem">Solo tu nombre — sin registro, sin contraseña.</p>
+        <div class="field">
+          <input id="qr-name" type="text" placeholder="ej. Lucía" autocomplete="off"
+            style="font-size:18px;padding:14px 16px"
+            onkeydown="if(event.key==='Enter') enterMesa()">
+        </div>
+        <button class="btn btn-primary mt" onclick="enterMesa()">Entrar a la mesa →</button>
+      </div>
+
       <div id="qr-err" class="notice notice-err" style="display:none;margin-top:.75rem"></div>
     </div>
   </div>
@@ -1771,14 +1817,14 @@
           </button>
           <button class="adm-nav" data-tab="calleat" onclick="showAdminTab('calleat')">
             <span class="adm-nav-icon">🪑</span>
-            <span class="adm-nav-label">En espera</span>
+            <span class="adm-nav-label">call<em style="color:#D85A30;font-style:normal">eat</em></span>
             <span id="calleat-nav-badge" style="display:none;background:#D85A30;color:#fff;border-radius:99px;padding:0px 6px;font-size:10px;font-weight:700;margin-left:auto">0</span>
           </button>
           <button class="adm-nav" data-tab="cocina" onclick="showAdminTab('cocina')">
-            <span class="adm-nav-icon">🍳</span><span class="adm-nav-label">Cocina</span>
+            <span class="adm-nav-icon">🍳</span><span class="adm-nav-label">cook<em style="color:#D85A30;font-style:normal">eat</em></span>
           </button>
           <button class="adm-nav" data-tab="reportes" onclick="showAdminTab('reportes')">
-            <span class="adm-nav-icon">📊</span><span class="adm-nav-label">Dashboard</span>
+            <span class="adm-nav-icon">📊</span><span class="adm-nav-label">KPI Dashboard</span>
           </button>
           <button class="adm-nav" data-tab="facturas" onclick="showAdminTab('facturas')">
             <span class="adm-nav-icon">🧾</span><span class="adm-nav-label">Facturas</span>
@@ -3036,43 +3082,51 @@ function subscribeRealtime() {
       }
     });
 
+  // FIX #7: Surgical realtime — use payload.new/old to update state in-memory
+  // No full re-fetch on each change → eliminates lag that caused duplicate orders
   const dishSub = sb.channel('dishes-' + state.roomId)
-    .on('postgres_changes', {
-      event: '*', schema: 'public', table: 'dishes',
-      filter: 'room_id=eq.' + state.roomId
-    }, async () => {
-      const prevDishes = [...state.dishes];
-      const { data } = await sb.from('dishes').select('*').eq('room_id', state.roomId);
-      const newDishes = data || [];
-
-      // Detectar cambios de estado para notificar
-      newDishes.forEach(newDish => {
-        const prev = prevDishes.find(d => d.id === newDish.id);
-        if (!prev) return;
-        const myDish = newDish.assignee_id === state.myGuestId ||
-          (state.participants[newDish.id] || []).includes(state.myGuestId);
-        if (!myDish) return;
-
-        if (prev.kitchen_status !== 'making' && newDish.kitchen_status === 'making') {
-          if (newDish.category !== 'bebidas') { // bebidas no pasan por cocina
-            playGuestSound('making');
-            showGuestNotification('🍳 En preparación', `"${newDish.name}" ya está en la cocina.`);
-          }
-        }
-        if (prev.kitchen_status !== 'ready' && newDish.kitchen_status === 'ready') {
-          if (newDish.category !== 'bebidas') { // bebidas: el camarero confirma, sin notif automática
-            playGuestSound('ready');
-            showGuestNotification('🛎 ¡Tu plato está listo!', `"${newDish.name}" llega en breve a tu mesa.`);
-          }
-        }
-      });
-
-      state.dishes = newDishes;
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dishes', filter: 'room_id=eq.' + state.roomId }, async (payload) => {
+      const d = payload.new;
+      if (!d) return;
+      if (!state.dishes.find(x => x.id === d.id)) state.dishes.push(d);
       await loadParticipants();
       renderMesaDishes();
       renderCarta();
-      if (document.getElementById('s4-summary').classList.contains('active')) buildSummary();
-    }).subscribe();
+      if (document.getElementById('s4-summary')?.classList.contains('active')) buildSummary();
+    })
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'dishes', filter: 'room_id=eq.' + state.roomId }, async (payload) => {
+      const d = payload.new;
+      if (!d) return;
+      const idx = state.dishes.findIndex(x => x.id === d.id);
+      const prev = idx >= 0 ? state.dishes[idx] : null;
+      if (idx >= 0) state.dishes[idx] = d; else state.dishes.push(d);
+      // Kitchen status push notifications
+      if (prev && d.category !== 'bebidas') {
+        const mine = d.assignee_id === state.myGuestId || (state.participants[d.id] || []).includes(state.myGuestId);
+        if (mine) {
+          if (prev.kitchen_status !== 'making' && d.kitchen_status === 'making') {
+            playGuestSound('making');
+            showGuestNotification('🍳 En preparación', `"${d.name}" ya está en la cocina.`);
+          }
+          if (prev.kitchen_status !== 'ready' && d.kitchen_status === 'ready') {
+            playGuestSound('ready');
+            showGuestNotification('🛎 ¡Tu plato está listo!', `"${d.name}" llega en breve a tu mesa.`);
+          }
+        }
+      }
+      await loadParticipants();
+      renderMesaDishes();
+      renderCarta();
+      if (document.getElementById('s4-summary')?.classList.contains('active')) buildSummary();
+    })
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'dishes', filter: 'room_id=eq.' + state.roomId }, (payload) => {
+      const id = payload.old?.id;
+      if (id) state.dishes = state.dishes.filter(x => x.id !== id);
+      renderMesaDishes();
+      renderCarta();
+      if (document.getElementById('s4-summary')?.classList.contains('active')) buildSummary();
+    })
+    .subscribe();
 
   const partSub = sb.channel('parts-' + state.roomId)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'dish_participants' }, async () => {
@@ -5349,7 +5403,10 @@ async function loadWaiterMesas() {
     const guests = guestsByRoom[room.id] || [];
     const pays = paysByRoom[room.id] || [];
     const dishes = dishesByRoom[room.id] || [];
-    const allPaid = guests.length > 0 && pays.length >= guests.length;
+    // Fix #27: exclude null guest_id payments (datáfono/mesa-level) from per-guest count
+    const paidGuestIdsSet = new Set(pays.filter(p => p.guest_id).map(p => p.guest_id));
+    const paidRealCount = guests.filter(g => paidGuestIdsSet.has(g.id)).length;
+    const allPaid = guests.length > 0 && paidRealCount >= guests.length;
     const timeStr = new Date(room.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
     // Group dishes by course — bebidas first
@@ -5395,7 +5452,7 @@ async function loadWaiterMesas() {
         <div style="display:flex;gap:.35rem;align-items:center">
           ${room.needs_cleaning ? `<span style="font-size:11px;font-weight:600;color:#854F0B;background:#FAEEDA;padding:2px 8px;border-radius:99px">🧹 Limpiar</span>` : ''}
           ${hasReady ? `<span style="font-size:11px;font-weight:600;color:var(--brand);background:var(--brand-l);padding:2px 8px;border-radius:99px">${readyCount} listo${readyCount>1?'s':''} 🛎</span>` : ''}
-          <span style="font-size:11px;color:${allPaid ? '#3B6D11' : 'var(--t2)'}">${allPaid ? '✅ Pagada' : `${pays.length}/${guests.length} pagados`}</span>
+          <span style="font-size:11px;color:${allPaid ? '#3B6D11' : 'var(--t2)'}">${allPaid ? '✅ Pagada' : `${paidRealCount}/${guests.length} pagados`}</span>
         </div>
       </div>
       <div style="font-size:11px;color:var(--t3);margin-bottom:.5rem">${timeStr} · ${guests.length} personas</div>
@@ -8199,7 +8256,8 @@ async function loadFloorPlan() {
       sb.from('payments').select('room_id,guest_id').in('room_id', roomIds),
       sb.from('guests').select('room_id,id').in('room_id', roomIds)
     ]);
-    (pays || []).forEach(p => { if (!paysByRoom[p.room_id]) paysByRoom[p.room_id] = 0; paysByRoom[p.room_id]++; });
+    // Fix #27: only count payments with a real guest_id
+    (pays || []).forEach(p => { if (p.guest_id) { if (!paysByRoom[p.room_id]) paysByRoom[p.room_id] = 0; paysByRoom[p.room_id]++; } });
     (guests || []).forEach(g => { if (!guestsByRoom[g.room_id]) guestsByRoom[g.room_id] = 0; guestsByRoom[g.room_id]++; });
   }
 
@@ -8916,9 +8974,9 @@ async function loadHistorial() {
     const tableLabel = table ? `Mesa ${table.number}${table.label ? ' — ' + table.label : ''}` : 'Mesa sin asignar';
     const isClosed = room.closed;
 
-    // Contar pagos únicos por comensal
-    const paidGuestIds = new Set(payments.map(p => p.guest_id));
-    const paidCount = paidGuestIds.size;
+    // Fix #27: only count payments tied to real guests (exclude null guest_id)
+    const paidGuestIds = new Set(payments.filter(p => p.guest_id).map(p => p.guest_id));
+    const paidCount = guests.filter(g => paidGuestIds.has(g.id)).length;
     const totalGuests = guests.length;
     const totalPaid = payments.reduce((s, p) => s + parseFloat(p.amount || 0), 0);
     const allPaid = totalPaid >= total - 0.01;
@@ -9329,7 +9387,14 @@ async function handleQRUrl() {
     document.getElementById('qr-rest-nombre').textContent = rest.name;
 
     if (activeRoom) {
-      document.getElementById('qr-sala-activa').style.display = 'block';
+      // Fix #28: show returning-vs-new choice instead of simple notice
+      document.getElementById('qr-returning-panel').style.display = 'block';
+      document.getElementById('qr-newuser-panel').style.display = 'none';
+      document.getElementById('qr-returning-pick').style.display = 'none';
+    } else {
+      document.getElementById('qr-returning-panel').style.display = 'none';
+      document.getElementById('qr-returning-pick').style.display = 'none';
+      document.getElementById('qr-newuser-panel').style.display = 'block';
     }
 
     // Focus name input
@@ -9481,6 +9546,82 @@ async function enterMesa() {
     errEl.textContent = err.message || 'Error al entrar. Inténtalo de nuevo.';
     errEl.style.display = 'block';
     if (btn) { btn.disabled = false; btn.textContent = 'Entrar a la mesa →'; }
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
+// FIX #28 — RE-SCAN QR: returning vs new user flow
+// ══════════════════════════════════════════════════════
+function qrSelectReturning() {
+  document.getElementById('qr-returning-panel').style.display = 'none';
+  document.getElementById('qr-returning-pick').style.display = 'block';
+  document.getElementById('qr-newuser-panel').style.display = 'none';
+  if (!_qrActiveRoomId) return;
+  sb.from('guests').select('*').eq('room_id', _qrActiveRoomId).then(({ data: guests }) => {
+    const list = document.getElementById('qr-guest-list');
+    if (!guests || !guests.length) {
+      list.innerHTML = '<div style="font-size:13px;color:var(--t2)">No hay comensales registrados aún.</div>';
+      return;
+    }
+    list.innerHTML = guests.map(g => `
+      <button onclick="enterMesaAsExisting('${g.id}','${escHtml(g.name).replace(/'/g,"\\'")}' )"
+        style="width:100%;padding:12px 16px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--card);font-family:inherit;font-size:15px;font-weight:500;color:var(--t1);cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px">
+        <span style="width:34px;height:34px;border-radius:50%;background:var(--brand-l);color:var(--brand-d);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0">
+          ${escHtml(g.name.trim().substring(0,2).toUpperCase())}
+        </span>
+        ${escHtml(g.name)}
+      </button>`).join('');
+  });
+}
+
+function qrSelectNew() {
+  document.getElementById('qr-returning-panel').style.display = 'none';
+  document.getElementById('qr-returning-pick').style.display = 'none';
+  document.getElementById('qr-newuser-panel').style.display = 'block';
+  setTimeout(() => document.getElementById('qr-name')?.focus(), 200);
+}
+
+function qrBackToChoice() {
+  document.getElementById('qr-returning-panel').style.display = 'block';
+  document.getElementById('qr-returning-pick').style.display = 'none';
+  document.getElementById('qr-newuser-panel').style.display = 'none';
+}
+
+async function enterMesaAsExisting(guestId, guestName) {
+  const errEl = document.getElementById('qr-err-pick');
+  errEl.style.display = 'none';
+  try {
+    const roomId = _qrActiveRoomId;
+    if (!roomId) throw new Error('No se encontró la sala.');
+    const { data: room } = await sb.from('rooms').select('*').eq('id', roomId).single();
+    if (!room || room.closed) throw new Error('La mesa ya está cerrada.');
+    const { data: guest } = await sb.from('guests').select('*').eq('id', guestId).maybeSingle();
+    if (!guest) throw new Error('No se encontró tu perfil en la mesa.');
+    const [{ data: guests }, { data: dishes }, { data: payments }] = await Promise.all([
+      sb.from('guests').select('*').eq('room_id', roomId),
+      sb.from('dishes').select('*').eq('room_id', roomId),
+      sb.from('payments').select('*').eq('room_id', roomId)
+    ]);
+    state.roomId = roomId;
+    state.roomCode = room.code || '';
+    state.myName = guestName;
+    state.myGuestId = guestId;
+    state.restaurantName = room.restaurant_name || '';
+    state.restaurantId = room.restaurant_id || _qrRestaurantId;
+    state.tipPercent = 0;
+    state.guests = guests || [];
+    state.dishes = dishes || [];
+    state.payments = payments || [];
+    await loadParticipants();
+    renderRoomScreen();
+    subscribeRealtime();
+    saveSession();
+    go('s3-dishes');
+    notify(`Bienvenido de vuelta, ${guestName} 👋`, 'success');
+  } catch(err) {
+    errEl.textContent = err.message || 'Error al volver a entrar.';
+    errEl.style.display = 'block';
   }
 }
 
