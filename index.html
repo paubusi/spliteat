@@ -1855,6 +1855,15 @@
       </div>
 
       <!-- Click-to-manage panel (slides in from right) -->
+      <!-- #4: Waiter active/inactive status — Sala tab only -->
+      <div id="waiter-status-bar" style="padding:.65rem 1.25rem;border-top:1px solid var(--bd);flex-shrink:0">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
+          <div style="font-size:12px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.05em">Camareros</div>
+          <button onclick="loadWaiterStatusBar()" style="font-size:11px;color:var(--t3);background:none;border:none;cursor:pointer;font-family:inherit">↻</button>
+        </div>
+        <div id="waiter-status-list" style="display:flex;flex-wrap:wrap;gap:.4rem"></div>
+      </div>
+
       <!-- calleat: cola de espera -->
     <div id="calleat-section" style="padding:.75rem 1.25rem;border-top:1px solid var(--bd);flex-shrink:0">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
@@ -4962,7 +4971,8 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
         const dot = ks === 'ready' ? '✅' : ks === 'making' ? '🟡' : '🔴';
 
         let btn = '';
-        if (!isDone && !isWaiting) {
+        // #4: manageat (adminRole=admin) is read-only — only cookeat can set status
+        if (!isDone && !isWaiting && state.adminRole !== 'admin') {
           if (ks === 'sent') btn = `<button onclick="setOrderStatus('${d.id}','making')"
             style="padding:4px 12px;border-radius:99px;border:none;background:var(--brand);color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">→ Prep.</button>`;
           else if (ks === 'making') btn = `<button onclick="setOrderStatus('${d.id}','ready')"
@@ -4981,7 +4991,8 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
       }).join('');
 
       let action = '';
-      if (!isDone && !isWaiting) {
+      // #4: manageat read-only
+      if (!isDone && !isWaiting && state.adminRole !== 'admin') {
         if (sentIds) action = `<button onclick="setAllOrderStatus([${sentIds}],'making')"
           style="width:100%;margin-top:.4rem;padding:8px;border-radius:6px;border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
           → Todos a preparación
@@ -6443,8 +6454,8 @@ async function saveWaiter() {
 
   const { error } = await sb.from('waiters').insert({
     restaurant_id: state.adminRestaurantId,
-    name, email, password, role: role || 'waiter', active: true
-  });
+    name, email, password, role: role || 'waiter', active: true, is_active: false
+  }); // #4: is_active starts false — only true when serveat session is open
   if (error) { notify('Error: ' + (error.message || error)); return; }
   hideAddWaiterForm();
   loadAdminWaiters();
@@ -6527,6 +6538,9 @@ async function adminLogin() {
   state.adminRestaurantId = data.id;
   state.adminRestaurantName = data.name;
   state.adminRole = 'admin';
+  // #4: Reset all stale is_active sessions for this restaurant on admin login
+  sb.from('waiters').update({ is_active: false })
+    .eq('restaurant_id', data.id).catch(() => {});
   go('s-admin');
   renderAdminTabs();
   showAdminTab('encurso');
@@ -6811,8 +6825,8 @@ async function saveWaiterMobile() {
   const password = document.getElementById('awm-pass')?.value.trim();
   if (!name || !email || password.length < 6) { notify('Rellena todos los campos (contraseña mínimo 6 caracteres).'); return; }
   const { error } = await sb.from('waiters').insert({
-    restaurant_id: state.adminRestaurantId, name, email, password, role: 'waiter', active: true
-  });
+    restaurant_id: state.adminRestaurantId, name, email, password, role: 'waiter', active: true, is_active: false
+  }); // #4: is_active starts false
   if (error) { notify('Error: ' + (error.message || error)); return; }
   document.getElementById('add-waiter-form-mobile').style.display = 'none';
   loadAdminWaitersMobile();
@@ -7569,7 +7583,7 @@ async function loadAdminWaitersInline() {
       <div style="display:flex;align-items:center;justify-content:space-between">
         <div>
           <div style="font-size:14px;font-weight:500">${escHtml(w.name)}</div>
-          <div style="font-size:12px;color:var(--t2)">${escHtml(w.email||'')} · ${w.is_active?'<span style="color:var(--brand)">● Activo</span>':'<span style="color:var(--t3)">Inactivo</span>'}</div>
+          <div style="font-size:12px;color:var(--t2)">${escHtml(w.email||'')}</div>
         </div>
         <div style="display:flex;gap:4px">
           <button onclick="promptResetWaiterPwd('${w.id}','${escHtml(w.name)}')" style="padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit">🔑 Contraseña</button>
@@ -7990,13 +8004,13 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
 
         let actionBtn = '';
         if (!isWaiting) {
-          if (ks === 'sent') {
+          if (ks === 'sent' && state.adminRole !== 'admin') {
             actionBtn = `<button onclick="setOrderStatus('${d.id}','making')"
               style="padding:3px 10px;border-radius:99px;border:none;background:var(--brand);color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">→ Prep.</button>`;
-          } else if (ks === 'making') {
+          } else if (ks === 'making' && state.adminRole !== 'admin') {
             actionBtn = `<button onclick="setOrderStatus('${d.id}','ready')"
               style="padding:3px 10px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">✓ Listo</button>`;
-          } else {
+          } else if (ks !== 'sent' && ks !== 'making') {
             actionBtn = `<span style="font-size:13px">✓</span>`;
           }
         }
@@ -8191,11 +8205,11 @@ function renderKDSKanban(dishes, roomTableMap, tablesById, prepTimeByItem) {
       const courseBadge = d.course ? `<span style="font-size:10px;background:var(--bg2);border-radius:3px;padding:1px 5px;color:var(--t3);margin-right:4px">${d.course}º</span>` : '';
       const prepTime = prepTimeByItem[d.menu_item_id] || 0;
       let btn = '';
-      if (fromStatus === 'sent') {
+      if (fromStatus === 'sent' && state.adminRole !== 'admin') {
         btn = `<button onclick="setOrderStatus('${d.id}','making');event.stopPropagation()" style="padding:4px 12px;border-radius:99px;border:none;background:var(--brand);color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">→ Prep.</button>`;
-      } else if (fromStatus === 'making') {
+      } else if (fromStatus === 'making' && state.adminRole !== 'admin') {
         btn = `<button onclick="setOrderStatus('${d.id}','ready');event.stopPropagation()" style="padding:4px 12px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">✓ Listo</button>`;
-      } else {
+      } else if (fromStatus !== 'sent' && fromStatus !== 'making') {
         btn = `<span style="font-size:13px;color:#3B6D11">✓</span>`;
       }
       return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--bd)">
@@ -8207,10 +8221,10 @@ function renderKDSKanban(dishes, roomTableMap, tablesById, prepTimeByItem) {
     }).join('');
 
     let confirmAllBtn = '';
-    if (fromStatus === 'sent' && dishes.length > 1) {
+    if (fromStatus === 'sent' && dishes.length > 1 && state.adminRole !== 'admin') {
       const ids = dishes.map(d => `'${d.id}'`).join(',');
       confirmAllBtn = `<button onclick="setAllOrderStatus([${ids}],'making')" style="width:100%;margin-top:.5rem;padding:8px;border-radius:6px;border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">→ Mesa completa a preparación</button>`;
-    } else if (fromStatus === 'making' && dishes.length > 1) {
+    } else if (fromStatus === 'making' && dishes.length > 1 && state.adminRole !== 'admin') {
       const ids = dishes.map(d => `'${d.id}'`).join(',');
       confirmAllBtn = `<button onclick="setAllOrderStatus([${ids}],'ready')" style="width:100%;margin-top:.5rem;padding:8px;border-radius:6px;border:none;background:#3B6D11;color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">✓ Todo listo para servir</button>`;
     }
@@ -8676,6 +8690,28 @@ function playPaymentSound(allPaid) {
 let _tablePositions = {}; // tableId → {x, y}
 let _floorPlanData = null;
 
+// #4: Waiter active/inactive status bar in Sala tab
+async function loadWaiterStatusBar() {
+  const el = document.getElementById('waiter-status-list');
+  if (!el || !state.adminRestaurantId) return;
+  const { data: waiters } = await sb.from('waiters')
+    .select('id,name,is_active,active')
+    .eq('restaurant_id', state.adminRestaurantId)
+    .eq('active', true)
+    .order('name');
+  if (!waiters || !waiters.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--t3)">Sin camareros configurados</div>';
+    return;
+  }
+  el.innerHTML = waiters.map(w => {
+    const isOn = w.is_active === true;
+    return `<div style="display:flex;align-items:center;gap:5px;padding:4px 8px;border-radius:99px;border:1px solid ${isOn ? 'var(--brand)' : 'var(--bd2)'};background:${isOn ? 'var(--brand-l)' : 'var(--bg2)'}">
+      <div style="width:7px;height:7px;border-radius:50%;background:${isOn ? 'var(--brand)' : 'var(--bd2)'};flex-shrink:0"></div>
+      <span style="font-size:12px;font-weight:500;color:${isOn ? 'var(--brand-d)' : 'var(--t3)'}">${escHtml(w.name)}</span>
+    </div>`;
+  }).join('');
+}
+
 async function loadFloorPlan() {
   const plan = document.getElementById('floor-plan');
   const loading = document.getElementById('floor-loading');
@@ -8950,6 +8986,7 @@ async function reassignWaiter(roomId) {
 async function loadEncurso() {
   // loadEncurso ahora llama al floor plan
   await loadFloorPlan();
+  loadWaiterStatusBar(); // #4: refresh waiter active/inactive status
   // También suscribir realtime si no está ya
   if (!_encursoSub) {
     _encursoSub = sb.channel('encurso-' + state.adminRestaurantId)
@@ -8961,6 +8998,10 @@ async function loadEncurso() {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'guests' }, () => {
         if (document.getElementById('atab-encurso')?.style.display !== 'none') loadFloorPlan();
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'waiters' }, () => {
+        // #4: Refresh waiter status bar on any waiter change (login/logout)
+        if (document.getElementById('atab-encurso')?.style.display !== 'none') loadWaiterStatusBar();
       })
       .subscribe();
   }
@@ -9978,11 +10019,10 @@ async function enterMesa() {
       .eq('room_id', roomId)
       .eq('type', 'shared');
     if (sharedDishes && sharedDishes.length) {
-      // Upsert one by one — bulk upsert can fail silently with constraint errors
+      // Upsert one by one with try/catch — .catch() not valid on Supabase v2 builder
       for (const d of sharedDishes) {
-        await sb.from('dish_participants')
-          .upsert({ dish_id: d.id, guest_id: guest.id }, { onConflict: 'dish_id,guest_id' })
-          .catch(() => {});
+        try { await sb.from('dish_participants')
+          .upsert({ dish_id: d.id, guest_id: guest.id }, { onConflict: 'dish_id,guest_id' }); } catch(e) {}
       }
     }
 
@@ -10069,11 +10109,10 @@ async function enterMesaAsExisting(guestId, guestName) {
     const { data: sharedDishes } = await sb.from('dishes')
       .select('id').eq('room_id', roomId).eq('type', 'shared');
     if (sharedDishes && sharedDishes.length) {
-      // Use insert with ignoreDuplicates pattern — insert each row, skip if already exists
+      // Upsert one by one with try/catch — .catch() not valid on Supabase v2 builder
       for (const d of sharedDishes) {
-        await sb.from('dish_participants')
-          .upsert({ dish_id: d.id, guest_id: guestId }, { onConflict: 'dish_id,guest_id' })
-          .catch(() => {}); // ignore if already exists
+        try { await sb.from('dish_participants')
+          .upsert({ dish_id: d.id, guest_id: guestId }, { onConflict: 'dish_id,guest_id' }); } catch(e) {}
       }
     }
 
@@ -10643,31 +10682,35 @@ function showPayMethodModal() {
 }
 
 function selectPayMethod(method) {
-  _payMethod = method;
+  try {
+    _payMethod = method;
 
-  // Close modal and navigate immediately — no async blocking
-  document.getElementById('equal-split-panel').style.display = 'none';
-  document.getElementById('pay-method-modal').style.display = 'none';
+    // Close modal immediately
+    document.getElementById('equal-split-panel').style.display = 'none';
+    document.getElementById('pay-method-modal').style.display = 'none';
 
-  // N2: Fire-and-forget lock (non-blocking)
-  if (state.roomId) {
-    sb.from('rooms').update({
-      pay_method_locked: method,
-      pay_method_locker_name: state.myName
-    }).eq('id', state.roomId).catch(() => {});
-  }
+    // N2: Fire-and-forget lock (non-blocking, best effort)
+    if (state.roomId) {
+      sb.from('rooms').update({
+        pay_method_locked: method,
+        pay_method_locker_name: state.myName
+      }).eq('id', state.roomId).catch(() => {});
+    }
 
-  if (method === 'split') {
-    go('s5-pay');
-    buildPayScreen();
-  } else if (method === 'full') {
-    buildFullPayScreen();
-    go('s5-pay');
-  } else if (method === 'equal') {
-    // Show pax selector inline before navigating
-    document.getElementById('pay-method-modal').style.display = 'flex';
-    const panel = document.getElementById('equal-split-panel');
-    panel.style.display = 'block';
+    if (method === 'split') {
+      buildPayScreen();  // build BEFORE go() so DOM is ready
+      go('s5-pay');
+    } else if (method === 'full') {
+      buildFullPayScreen();
+      go('s5-pay');
+    } else if (method === 'equal') {
+      // Show pax selector in modal before navigating
+      document.getElementById('pay-method-modal').style.display = 'flex';
+      document.getElementById('equal-split-panel').style.display = 'block';
+    }
+  } catch(err) {
+    console.error('selectPayMethod error:', err);
+    notify('Error al procesar el pago: ' + err.message, 'error');
   }
 }
 
