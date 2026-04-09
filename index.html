@@ -924,7 +924,13 @@
     <div class="hdr">
       <button class="back-btn" onclick="go('s2-room')">← Mesa</button>
       <div class="logo">split<em>eat</em></div>
-      <div class="live-badge"><div class="live-dot"></div><span id="s3-online">0</span></div>
+      <div style="display:flex;align-items:center;gap:.5rem">
+        <div class="live-badge"><div class="live-dot"></div><span id="s3-online">0</span></div>
+        <button onclick="openNotifHistory()" style="position:relative;background:none;border:none;cursor:pointer;padding:4px;color:var(--t2);font-size:18px;line-height:1">
+          🔔
+          <span class="notif-bell-badge" style="display:none;position:absolute;top:-2px;right:-2px;background:var(--accent);color:#fff;border-radius:99px;font-size:9px;font-weight:700;min-width:14px;height:14px;text-align:center;line-height:14px;padding:0 3px">0</span>
+        </button>
+      </div>
     </div>
     <div class="steps"><div class="step done"></div><div class="step done"></div><div class="step done"></div><div class="step"></div></div>
 
@@ -1140,82 +1146,12 @@
        S4: RESUMEN
   ════════════════════════════════════════ -->
 
-  <!-- ════════════════════════════════════════
-       MODAL: CÓMO QUIERES PAGAR
-  ════════════════════════════════════════ -->
-  <div id="pay-method-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;align-items:flex-end;justify-content:center">
-    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;padding:1.5rem 1.25rem 2rem;animation:slideUp .22s ease">
-
-      <!-- Handle -->
-      <div style="width:36px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto 1.25rem"></div>
-
-      <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--t1);margin-bottom:.35rem">¿Cómo pagáis?</div>
-      <div style="font-size:13px;color:var(--t2);margin-bottom:1.5rem;line-height:1.5">Elige cómo quieres dividir la cuenta de la mesa.</div>
-
-      <!-- Opción 1 — spliteat -->
-      <button onclick="selectPayMethod('split')" class="pay-method-btn"
-        style="width:100%;text-align:left;padding:1rem 1.1rem;border-radius:var(--r);border:1.5px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.65rem;display:flex;align-items:center;gap:.85rem;transition:all .15s">
-        <div style="width:42px;height:42px;border-radius:var(--r-sm);background:var(--brand-l);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">✂️</div>
-        <div style="flex:1;text-align:left">
-          <div style="font-size:15px;font-weight:600;color:var(--t1)">Dividir con split<em style="color:var(--accent);font-style:normal">eat</em></div>
-          <div style="font-size:12px;color:var(--t2);margin-top:2px">Cada uno paga exactamente lo suyo, al céntimo</div>
-        </div>
-        <div style="color:var(--t3);font-size:18px">›</div>
-      </button>
-
-      <!-- Opción 2 — invito yo -->
-      <button onclick="selectPayMethod('full')" class="pay-method-btn"
-        style="width:100%;text-align:left;padding:1rem 1.1rem;border-radius:var(--r);border:1.5px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.65rem;display:flex;align-items:center;gap:.85rem;transition:all .15s">
-        <div style="width:42px;height:42px;border-radius:var(--r-sm);background:var(--amber-l);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🤑</div>
-        <div style="flex:1;text-align:left">
-          <div style="font-size:15px;font-weight:600;color:var(--t1)">Me siento generoso… invito yo</div>
-          <div style="font-size:12px;color:var(--t2);margin-top:2px">Pagas la cuenta completa de la mesa tú solo</div>
-        </div>
-        <div style="color:var(--t3);font-size:18px">›</div>
-      </button>
-
-      <!-- Opción 3 — partes iguales -->
-      <button onclick="selectPayMethod('equal')" class="pay-method-btn"
-        style="width:100%;text-align:left;padding:1rem 1.1rem;border-radius:var(--r);border:1.5px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:1rem;display:flex;align-items:center;gap:.85rem;transition:all .15s">
-        <div style="width:42px;height:42px;border-radius:var(--r-sm);background:#E6F1FB;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">➗</div>
-        <div style="flex:1;text-align:left">
-          <div style="font-size:15px;font-weight:600;color:var(--t1)">Dividir a partes iguales</div>
-          <div style="font-size:12px;color:var(--t2);margin-top:2px">Total entre el número de personas, sin complicaciones</div>
-        </div>
-        <div style="color:var(--t3);font-size:18px">›</div>
-      </button>
-
-      <!-- Sub-panel: partes iguales — número de personas -->
-      <div id="equal-split-panel" style="display:none;background:var(--bg2);border-radius:var(--r);padding:1rem;margin-bottom:1rem;border:1.5px solid var(--blue)">
-        <div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:.75rem">¿Cuántas personas sois?</div>
-        <div style="display:flex;align-items:center;gap:.75rem;justify-content:center;margin-bottom:.75rem">
-          <button onclick="changeEqualPax(-1)"
-            style="width:40px;height:40px;border-radius:50%;border:1.5px solid var(--bd2);background:var(--card);font-size:22px;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">−</button>
-          <div style="text-align:center">
-            <div id="equal-pax-num" style="font-family:'Fraunces',serif;font-size:40px;font-weight:700;color:var(--t1);line-height:1">2</div>
-            <div style="font-size:11px;color:var(--t3)">personas</div>
-          </div>
-          <button onclick="changeEqualPax(1)"
-            style="width:40px;height:40px;border-radius:50%;border:1.5px solid var(--bd2);background:var(--card);font-size:22px;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">+</button>
-        </div>
-        <div id="equal-per-person" style="text-align:center;font-size:13px;color:var(--t2);margin-bottom:.75rem"></div>
-        <button onclick="confirmEqualSplit()" class="btn btn-primary" style="background:var(--blue)">
-          Confirmar — pagar mi parte →
-        </button>
-      </div>
-
-      <button onclick="document.getElementById('pay-method-modal').style.display='none'"
-        style="width:100%;padding:11px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:none;color:var(--t2);font-size:14px;cursor:pointer;font-family:inherit">
-        Cancelar
-      </button>
-    </div>
-  </div>
 
   <div class="screen" id="s4-summary">
     <div class="hdr">
       <button class="back-btn" onclick="go('s3-dishes')">← Mesa</button>
       <div class="logo">split<em>eat</em></div>
-      <div class="live-badge"><div class="live-dot"></div></div>
+      <div style="display:flex;align-items:center;gap:.5rem"><div class="live-badge"><div class="live-dot"></div></div><button onclick="openNotifHistory()" style="position:relative;background:none;border:none;cursor:pointer;padding:4px;color:var(--t2);font-size:18px;line-height:1">🔔<span class="notif-bell-badge" style="display:none;position:absolute;top:-2px;right:-2px;background:var(--accent);color:#fff;border-radius:99px;font-size:9px;font-weight:700;min-width:14px;height:14px;text-align:center;line-height:14px;padding:0 3px">0</span></button></div>
     </div>
     <div class="body">
       <!-- Steps -->
@@ -1296,6 +1232,7 @@
     <div class="hdr">
       <button class="back-btn" onclick="go('s4-summary')">← Resumen</button>
       <div class="logo">split<em>eat</em></div>
+    <button onclick="openNotifHistory()" style="position:relative;background:none;border:none;cursor:pointer;padding:4px;color:var(--t2);font-size:18px;line-height:1">🔔<span class="notif-bell-badge" style="display:none;position:absolute;top:-2px;right:-2px;background:var(--accent);color:#fff;border-radius:99px;font-size:9px;font-weight:700;min-width:14px;height:14px;text-align:center;line-height:14px;padding:0 3px">0</span></button>
     </div>
     <div class="body">
 
@@ -2065,6 +2002,11 @@
         <div class="live-badge"><div class="live-dot"></div><span>Tiempo real</span></div>
         <button onclick="loadAdminOrders()" style="font-size:12px;color:var(--t2);background:none;border:none;cursor:pointer;font-family:inherit;padding:4px 8px;border:1px solid var(--bd);border-radius:var(--r-sm)">↻ Actualizar</button>
       </div>
+      <!-- #4: Read-only notice for manageat -->
+      <div style="background:var(--blue-l);border-bottom:1px solid var(--blue);padding:.5rem 1rem;font-size:12px;color:var(--blue);display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <span>👁</span>
+        <span>Vista de solo lectura. Los pases y estados los gestiona <strong>cook<em style="color:var(--accent);font-style:normal">eat</em></strong>.</span>
+      </div>
       <!-- Vista pases -->
       <div style="flex:1;overflow-y:auto;padding:.65rem">
         <div id="kds-mesas-list"></div>
@@ -2531,7 +2473,90 @@
     <div id="sidebar-overlay" onclick="closeMobileSidebar()"
       style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:149"></div>
   </div><!-- /s-admin -->
-</div><!-- /app -->
+
+  <!-- ════════════════════════════════════════
+       MODAL: CÓMO QUIERES PAGAR
+  ════════════════════════════════════════ -->
+  <div id="pay-method-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;align-items:flex-end;justify-content:center">
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;padding:1.5rem 1.25rem 2rem;animation:slideUp .22s ease">
+
+      <!-- Handle -->
+      <div style="width:36px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto 1.25rem"></div>
+
+      <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--t1);margin-bottom:.35rem">¿Cómo pagáis?</div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:1.5rem;line-height:1.5">Elige cómo quieres dividir la cuenta de la mesa.</div>
+
+      <!-- Opción 1 — spliteat -->
+      <button onclick="selectPayMethod('split')" class="pay-method-btn"
+        style="width:100%;text-align:left;padding:1rem 1.1rem;border-radius:var(--r);border:1.5px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.65rem;display:flex;align-items:center;gap:.85rem;transition:all .15s">
+        <div style="width:42px;height:42px;border-radius:var(--r-sm);background:var(--brand-l);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">✂️</div>
+        <div style="flex:1;text-align:left">
+          <div style="font-size:15px;font-weight:600;color:var(--t1)">Dividir con split<em style="color:var(--accent);font-style:normal">eat</em></div>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">Cada uno paga exactamente lo suyo, al céntimo</div>
+        </div>
+        <div style="color:var(--t3);font-size:18px">›</div>
+      </button>
+
+      <!-- Opción 2 — invito yo -->
+      <button onclick="selectPayMethod('full')" class="pay-method-btn"
+        style="width:100%;text-align:left;padding:1rem 1.1rem;border-radius:var(--r);border:1.5px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.65rem;display:flex;align-items:center;gap:.85rem;transition:all .15s">
+        <div style="width:42px;height:42px;border-radius:var(--r-sm);background:var(--amber-l);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🤑</div>
+        <div style="flex:1;text-align:left">
+          <div style="font-size:15px;font-weight:600;color:var(--t1)">Me siento generoso… invito yo</div>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">Pagas la cuenta completa de la mesa tú solo</div>
+        </div>
+        <div style="color:var(--t3);font-size:18px">›</div>
+      </button>
+
+      <!-- Opción 3 — partes iguales -->
+      <button onclick="selectPayMethod('equal')" class="pay-method-btn"
+        style="width:100%;text-align:left;padding:1rem 1.1rem;border-radius:var(--r);border:1.5px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:1rem;display:flex;align-items:center;gap:.85rem;transition:all .15s">
+        <div style="width:42px;height:42px;border-radius:var(--r-sm);background:#E6F1FB;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">➗</div>
+        <div style="flex:1;text-align:left">
+          <div style="font-size:15px;font-weight:600;color:var(--t1)">Dividir a partes iguales</div>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">Total entre el número de personas, sin complicaciones</div>
+        </div>
+        <div style="color:var(--t3);font-size:18px">›</div>
+      </button>
+
+      <!-- Sub-panel: partes iguales — número de personas -->
+      <div id="equal-split-panel" style="display:none;background:var(--bg2);border-radius:var(--r);padding:1rem;margin-bottom:1rem;border:1.5px solid var(--blue)">
+        <div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:.75rem">¿Cuántas personas sois?</div>
+        <div style="display:flex;align-items:center;gap:.75rem;justify-content:center;margin-bottom:.75rem">
+          <button onclick="changeEqualPax(-1)"
+            style="width:40px;height:40px;border-radius:50%;border:1.5px solid var(--bd2);background:var(--card);font-size:22px;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">−</button>
+          <div style="text-align:center">
+            <div id="equal-pax-num" style="font-family:'Fraunces',serif;font-size:40px;font-weight:700;color:var(--t1);line-height:1">2</div>
+            <div style="font-size:11px;color:var(--t3)">personas</div>
+          </div>
+          <button onclick="changeEqualPax(1)"
+            style="width:40px;height:40px;border-radius:50%;border:1.5px solid var(--bd2);background:var(--card);font-size:22px;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">+</button>
+        </div>
+        <div id="equal-per-person" style="text-align:center;font-size:13px;color:var(--t2);margin-bottom:.75rem"></div>
+        <button onclick="confirmEqualSplit()" class="btn btn-primary" style="background:var(--blue)">
+          Confirmar — pagar mi parte →
+        </button>
+      </div>
+
+      <button onclick="document.getElementById('pay-method-modal').style.display='none'"
+        style="width:100%;padding:11px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:none;color:var(--t2);font-size:14px;cursor:pointer;font-family:inherit">
+        Cancelar
+      </button>
+    </div>
+  </div>
+
+  <!-- #5: Notification history panel — global, shown over any screen -->
+  <div id="notif-history-panel" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.5);align-items:flex-end;justify-content:center">
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;max-height:75vh;display:flex;flex-direction:column;animation:slideUp .22s ease">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid var(--bd);flex-shrink:0">
+        <div style="font-size:16px;font-weight:600;color:var(--t1)">🔔 Notificaciones</div>
+        <button onclick="closeNotifHistory()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2);padding:4px">✕</button>
+      </div>
+      <div id="notif-history-list" style="overflow-y:auto;padding:.5rem 1.25rem 1.5rem;flex:1"></div>
+    </div>
+  </div>
+
+
 
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
@@ -2553,9 +2578,54 @@ function escHtml(str) {
 }
 
 // ── UI: notify() reemplaza alert() — no bloquea el UI thread ──
+// ── #5: Notification history ──
+const _notifHistory = []; // { msg, type, ts }
+const _MAX_NOTIF = 50;
+
 function notify(msg, type = 'error') {
   const icons = { error: '⚠️', success: '✓', info: 'ℹ️', warning: '⚠️' };
   showToast(icons[type] + ' ' + msg, type);
+  // #5: Store in history
+  _notifHistory.unshift({ msg, type, ts: Date.now() });
+  if (_notifHistory.length > _MAX_NOTIF) _notifHistory.pop();
+  _updateNotifBadge();
+}
+
+let _notifUnread = 0;
+function _updateNotifBadge() {
+  _notifUnread++;
+  document.querySelectorAll('.notif-bell-badge').forEach(b => {
+    b.textContent = _notifUnread > 9 ? '9+' : String(_notifUnread);
+    b.style.display = 'inline-block';
+  });
+}
+
+function openNotifHistory() {
+  _notifUnread = 0;
+  document.querySelectorAll('.notif-bell-badge').forEach(b => { b.style.display = 'none'; });
+  const panel = document.getElementById('notif-history-panel');
+  if (!panel) return;
+  const list = document.getElementById('notif-history-list');
+  if (!list) return;
+  if (!_notifHistory.length) {
+    list.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3);font-size:14px">Sin notificaciones aún</div>';
+  } else {
+    const typeColors = { error:'var(--accent)', success:'var(--brand)', info:'var(--blue)', warning:'var(--amber)' };
+    list.innerHTML = _notifHistory.map(n => {
+      const time = new Date(n.ts).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+      return `<div style="display:flex;align-items:flex-start;gap:10px;padding:.65rem 0;border-bottom:1px solid var(--bd)">
+        <div style="width:6px;height:6px;border-radius:50%;background:${typeColors[n.type]||'var(--t3)'};margin-top:6px;flex-shrink:0"></div>
+        <div style="flex:1;font-size:13px;color:var(--t1);line-height:1.4">${escHtml(n.msg)}</div>
+        <div style="font-size:11px;color:var(--t3);flex-shrink:0">${time}</div>
+      </div>`;
+    }).join('');
+  }
+  panel.style.display = 'flex';
+}
+
+function closeNotifHistory() {
+  const panel = document.getElementById('notif-history-panel');
+  if (panel) panel.style.display = 'none';
 }
 
 // ── PERF: debounce para evitar re-renders múltiples simultáneos ──
@@ -2794,6 +2864,13 @@ function go(screenId) {
     renderMesaDishes();
     document.getElementById('s3-online').textContent = state.guests.length;
     showPushBannerIfNeeded();
+  }
+  // Fix #3: When landing on waiter login, clean up stale is_active sessions
+  if (screenId === 's-waiter-select') {
+    // Try to get restaurant from URL param or admin state
+    const urlRestId = new URLSearchParams(window.location.search).get('r');
+    const restId = urlRestId || state.adminRestaurantId || _waiterRestaurantId;
+    if (restId) resetStaleWaiterSessions(restId);
   }
 }
 
@@ -5073,6 +5150,11 @@ function subscribeKitchenRealtime() {
 }
 
 async function setOrderStatus(dishId, status) {
+  // #4: manageat has read-only visibility — only cookeat can change kitchen status
+  if (state.adminRole === 'admin') {
+    notify('La gestión de cocina es exclusiva de cookeat. Desde manageat solo hay visibilidad.', 'info');
+    return;
+  }
   const { data: dish } = await sb.from('dishes').select('*').eq('id', dishId).single();
 
   // Record timestamps for KPI tracking
@@ -5657,6 +5739,57 @@ async function waiterLogout() {
   _waiterRestaurantId = null; _waiterCart = [];
   go('s0');
 }
+
+// Fix #3: Reset stale is_active sessions that were never cleaned up
+// Called when waiter enters login screen (handles crashed tabs, forced closes, etc.)
+async function resetStaleWaiterSessions(restaurantId) {
+  if (!restaurantId) return;
+  try {
+    // Any waiter marked active but with last_login_at older than 13h is stale
+    const staleThreshold = new Date(Date.now() - 13 * 60 * 60 * 1000).toISOString();
+    await sb.from('waiters')
+      .update({ is_active: false })
+      .eq('restaurant_id', restaurantId)
+      .eq('is_active', true)
+      .lt('last_login_at', staleThreshold);
+  } catch(e) {} // non-blocking, best effort
+}
+
+// Fix #3: Mark waiter inactive when tab/window closes
+window.addEventListener('beforeunload', () => {
+  if (_waiterId) {
+    // Use sendBeacon for reliability on page close
+    const url = `${SUPA_URL}/rest/v1/waiters?id=eq.${_waiterId}`;
+    const body = JSON.stringify({ is_active: false });
+    try {
+      navigator.sendBeacon(url + '&apikey=' + SUPA_KEY, new Blob([body], { type: 'application/json' }));
+    } catch(e) {
+      try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PATCH', url, false);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.setRequestHeader('apikey', SUPA_KEY);
+        xhr.setRequestHeader('Authorization', 'Bearer ' + SUPA_KEY);
+        xhr.send(body);
+      } catch(e2) {}
+    }
+  }
+});
+
+// Fix #3: Mark inactive after 30 min in background (mobile)
+let _waiterHiddenAt = null;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    _waiterHiddenAt = Date.now();
+  } else {
+    if (_waiterId && _waiterHiddenAt && (Date.now() - _waiterHiddenAt) > 30 * 60 * 1000) {
+      // Was hidden for >30 min — session stale, force logout
+      waiterLogout();
+      showToast('Sesión caducada', 'La sesión se cerró por inactividad');
+    }
+    _waiterHiddenAt = null;
+  }
+});
 
 
 // ── TABS CAMARERO ──
@@ -9845,9 +9978,12 @@ async function enterMesa() {
       .eq('room_id', roomId)
       .eq('type', 'shared');
     if (sharedDishes && sharedDishes.length) {
-      const parts = sharedDishes.map(d => ({ dish_id: d.id, guest_id: guest.id }));
-      await sb.from('dish_participants')
-        .upsert(parts, { onConflict: 'dish_id,guest_id' });
+      // Upsert one by one — bulk upsert can fail silently with constraint errors
+      for (const d of sharedDishes) {
+        await sb.from('dish_participants')
+          .upsert({ dish_id: d.id, guest_id: guest.id }, { onConflict: 'dish_id,guest_id' })
+          .catch(() => {});
+      }
     }
 
     // Cargar datos completos de la sala
@@ -9933,9 +10069,12 @@ async function enterMesaAsExisting(guestId, guestName) {
     const { data: sharedDishes } = await sb.from('dishes')
       .select('id').eq('room_id', roomId).eq('type', 'shared');
     if (sharedDishes && sharedDishes.length) {
-      await sb.from('dish_participants')
-        .upsert(sharedDishes.map(d => ({ dish_id: d.id, guest_id: guestId })),
-                { onConflict: 'dish_id,guest_id', ignoreDuplicates: true });
+      // Use insert with ignoreDuplicates pattern — insert each row, skip if already exists
+      for (const d of sharedDishes) {
+        await sb.from('dish_participants')
+          .upsert({ dish_id: d.id, guest_id: guestId }, { onConflict: 'dish_id,guest_id' })
+          .catch(() => {}); // ignore if already exists
+      }
     }
 
     const [{ data: guests }, { data: dishes }, { data: payments }] = await Promise.all([
