@@ -3180,7 +3180,21 @@ function subscribeRealtime() {
       const d = payload.new;
       if (!d) return;
       if (!state.dishes.find(x => x.id === d.id)) state.dishes.push(d);
+      // #14: For shared dishes, optimistically seed all current guests as participants
+      // before the DB fetch — prevents the ÷1 flash caused by the race condition
+      if (d.type === 'shared' && !state.participants[d.id]?.length) {
+        state.participants[d.id] = state.guests.map(g => g.id);
+      }
       await loadParticipants();
+      // #14: If participants still empty after fetch, retry once after 500ms
+      // (DB insert of participants may not have committed yet)
+      if (d.type === 'shared' && (!state.participants[d.id] || state.participants[d.id].length === 0)) {
+        setTimeout(async () => {
+          await loadParticipants();
+          renderMesaDishes();
+          renderCarta();
+        }, 500);
+      }
       renderMesaDishes();
       renderCarta();
       if (document.getElementById('s4-summary')?.classList.contains('active')) buildSummary();
@@ -3283,7 +3297,17 @@ function subscribeRealtime() {
       }
     }).subscribe();
 
-  state.realtimeSubs = [guestSub, dishSub, partSub, paySub, roomSub];
+  // #17: Broadcast channel for instant peer-to-peer room notifications
+  // Uses Supabase Realtime Broadcast — no DB columns required
+  const broadcastSub = sb.channel('broadcast-' + state.roomId)
+    .on('broadcast', { event: 'kitchen_sent' }, (payload) => {
+      if (payload.payload?.senderName && payload.payload.senderName !== state.myName) {
+        notify(`${escHtml(payload.payload.senderName)} ha enviado el pedido a cocina. Puedes seguir añadiendo platos.`, 'info');
+      }
+    })
+    .subscribe();
+
+  state.realtimeSubs = [guestSub, dishSub, partSub, paySub, roomSub, broadcastSub];
 }
 
 // ══════════════════════════════════════════════════════
@@ -3372,14 +3396,10 @@ function renderCarta() {
       if (onTable) {
         const bubbles = dishes.map(d => {
           if (d.type === 'shared') {
-            // Compartido: mostrar pequeño icono de grupo + iniciales participantes
+            // #1: Always show initials, never emoji — seed all guests if participants not loaded yet
             const parts = state.participants[d.id] || [];
-            if (parts.length === 0) {
-              return `<div style="font-size:11px;color:var(--brand);font-weight:500">🤝</div>`;
-            }
-            // Mostrar hasta 3 iniciales
-            const shown = parts.slice(0, 3);
-            return shown.map(gid => getInitial(gid)).join('');
+            const toShow = parts.length > 0 ? parts : state.guests.map(g => g.id);
+            return toShow.slice(0, 4).map(gid => getInitial(gid)).join('');
           } else {
             // Individual: inicial del asignado
             return getInitial(d.assignee_id);
@@ -3932,7 +3952,7 @@ function renderDishCard(dish) {
     <div style="display:flex;gap:.35rem;margin-top:.4rem">
       <button onclick="toggleDishType('${dish.id}')"
         style="flex:1;padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:${isShared ? 'var(--blue-l)' : 'var(--amber-l)'};color:${isShared ? 'var(--blue)' : 'var(--amber)'};font-size:11px;font-weight:500;cursor:pointer;font-family:inherit">
-        ${isShared ? '🤝 Compartido' : '👤 Solo mío'}
+        ${isShared ? 'Compartido' : 'Solo mío'}
       </button>
       <button onclick="deleteDish('${dish.id}')"
         style="padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit">
@@ -4169,7 +4189,14 @@ async function sendToKitchen() {
 
   if (btn) btn.disabled = false;
   renderMesaDishes();
-  // #34: Show informative note to the sender
+  // #17: Broadcast to all other guests in the room (no DB columns needed)
+  if (state.roomId) {
+    sb.channel('broadcast-' + state.roomId).send({
+      type: 'broadcast',
+      event: 'kitchen_sent',
+      payload: { senderName: state.myName, sentAt: new Date().toISOString() }
+    }).catch(() => {});
+  }
   notify(`Pedido enviado a cocina. Puedes seguir añadiendo platos.`, 'success');
 }
 
@@ -9703,7 +9730,10 @@ async function handleQRUrl() {
   }
 }
 
+let _enterMesaInProgress = false;
+
 async function enterMesa() {
+  if (_enterMesaInProgress) return; // #10: prevent double submit
   const name = (document.getElementById('qr-name')?.value || '').trim();
   const errEl = document.getElementById('qr-err');
   errEl.style.display = 'none';
@@ -9728,6 +9758,7 @@ async function enterMesa() {
 
   const btn = document.querySelector('#s1-qr .btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = 'Entrando...'; }
+  _enterMesaInProgress = true;
 
   let roomId = null;
 
@@ -9762,20 +9793,14 @@ async function enterMesa() {
       if (_qrRestaurantId) roomPayload.restaurant_id = String(_qrRestaurantId);
       if (_qrTableId) roomPayload.table_id = String(_qrTableId);
 
-      // N1: Assign to waiter with active serveat session first; fallback to any active waiter
+      // #12: Only assign waiters with an active serveat session (is_active=true)
+      // Never assign to a waiter who is not currently logged in
       if (_qrRestaurantId) {
-        let { data: activeWaiters } = await sb.from('waiters')
+        const { data: activeWaiters } = await sb.from('waiters')
           .select('id, name')
           .eq('restaurant_id', _qrRestaurantId)
           .eq('is_active', true)
           .eq('active', true);
-
-        // Fallback: any active waiter (may not have serveat open yet)
-        if (!activeWaiters || !activeWaiters.length) {
-          const { data: fallback } = await sb.from('waiters')
-            .select('id, name').eq('restaurant_id', _qrRestaurantId).eq('active', true);
-          activeWaiters = fallback;
-        }
 
         if (activeWaiters && activeWaiters.length > 0) {
           const { data: openRooms } = await sb.from('rooms')
@@ -9796,7 +9821,7 @@ async function enterMesa() {
           );
           roomPayload.assigned_waiter_id = assignedWaiter.id;
         } else {
-          // N1: No waiters available — flag for auto-assign when first waiter logs in (requires column)
+          // No active waiter sessions — leave unassigned, flag for auto-assign on first login
           if (roomPayload) roomPayload.needs_waiter_assign = true;
         }
       }
@@ -9850,6 +9875,7 @@ async function enterMesa() {
     errEl.textContent = err.message || 'Error al entrar. Inténtalo de nuevo.';
     errEl.style.display = 'block';
     if (btn) { btn.disabled = false; btn.textContent = 'Entrar a la mesa →'; }
+    _enterMesaInProgress = false;
   }
 }
 
@@ -9902,6 +9928,16 @@ async function enterMesaAsExisting(guestId, guestName) {
     if (!room || room.closed) throw new Error('La mesa ya está cerrada.');
     const { data: guest } = await sb.from('guests').select('*').eq('id', guestId).maybeSingle();
     if (!guest) throw new Error('No se encontró tu perfil en la mesa.');
+
+    // #2: Ensure guest is assigned to all shared dishes (may have been missed on initial join)
+    const { data: sharedDishes } = await sb.from('dishes')
+      .select('id').eq('room_id', roomId).eq('type', 'shared');
+    if (sharedDishes && sharedDishes.length) {
+      await sb.from('dish_participants')
+        .upsert(sharedDishes.map(d => ({ dish_id: d.id, guest_id: guestId })),
+                { onConflict: 'dish_id,guest_id', ignoreDuplicates: true });
+    }
+
     const [{ data: guests }, { data: dishes }, { data: payments }] = await Promise.all([
       sb.from('guests').select('*').eq('room_id', roomId),
       sb.from('dishes').select('*').eq('room_id', roomId),
@@ -10435,25 +10471,8 @@ function goToSummary() {
   go('s4-summary');
 }
 
-async function showPayMethodModal() {
-  // N2: Check if pay method already locked by another guest (requires pay_method_locked column)
-  if (state.roomId) {
-    try {
-      const { data: room } = await sb.from('rooms').select('pay_method_locked,pay_method_locker_name').eq('id', state.roomId).maybeSingle();
-      if (room?.pay_method_locked) {
-        const locker = room.pay_method_locker_name || 'Alguien';
-        const methodLabel = room.pay_method_locked === 'split' ? 'spliteat (por platos)' :
-                            room.pay_method_locked === 'full' ? 'invitación (paga uno)' : 'partes iguales';
-        notify(`${locker} ya eligió pagar con ${methodLabel}. Se usará ese método.`, 'info');
-        _payMethod = room.pay_method_locked;
-        if (_payMethod === 'split') { go('s5-pay'); buildPayScreen(); }
-        else if (_payMethod === 'full') { buildFullPayScreen(); go('s5-pay'); }
-        else if (_payMethod === 'equal') { buildEqualPayScreen(_equalPax); go('s5-pay'); }
-        return;
-      }
-    } catch(e) {} // column may not exist yet
-  }
-  // Reset equal split panel
+function showPayMethodModal() {
+  // Show modal immediately — never block on DB
   document.getElementById('equal-split-panel').style.display = 'none';
   document.querySelectorAll('.pay-method-btn').forEach(b => {
     b.style.borderColor = 'var(--bd2)';
@@ -10463,12 +10482,35 @@ async function showPayMethodModal() {
   document.getElementById('equal-pax-num').textContent = _equalPax;
   updateEqualPerPerson();
   document.getElementById('pay-method-modal').style.display = 'flex';
+
+  // N2: Check if method already locked — async, non-blocking
+  if (state.roomId) {
+    sb.from('rooms').select('pay_method_locked,pay_method_locker_name')
+      .eq('id', state.roomId).maybeSingle()
+      .then(({ data: room }) => {
+        if (!room?.pay_method_locked) return;
+        // Someone already chose — close modal and redirect
+        document.getElementById('pay-method-modal').style.display = 'none';
+        const locker = room.pay_method_locker_name || 'Alguien';
+        const methodLabel = room.pay_method_locked === 'split' ? 'spliteat' :
+                            room.pay_method_locked === 'full' ? 'invitación' : 'partes iguales';
+        notify(`${locker} ya eligió pagar con ${methodLabel}.`, 'info');
+        _payMethod = room.pay_method_locked;
+        if (_payMethod === 'split') { go('s5-pay'); buildPayScreen(); }
+        else if (_payMethod === 'full') { buildFullPayScreen(); go('s5-pay'); }
+        else if (_payMethod === 'equal') { buildEqualPayScreen(_equalPax); go('s5-pay'); }
+      }).catch(() => {});
+  }
 }
 
-async function selectPayMethod(method) {
+function selectPayMethod(method) {
   _payMethod = method;
 
-  // N2: Lock this method in the room so other guests must use the same (requires column)
+  // Close modal and navigate immediately — no async blocking
+  document.getElementById('equal-split-panel').style.display = 'none';
+  document.getElementById('pay-method-modal').style.display = 'none';
+
+  // N2: Fire-and-forget lock (non-blocking)
   if (state.roomId) {
     sb.from('rooms').update({
       pay_method_locked: method,
@@ -10476,28 +10518,17 @@ async function selectPayMethod(method) {
     }).eq('id', state.roomId).catch(() => {});
   }
 
-  // Highlight selected
-  document.querySelectorAll('.pay-method-btn').forEach((b, i) => {
-    const methods = ['split','full','equal'];
-    const isSelected = methods[i] === method;
-    b.style.borderColor = isSelected ? 'var(--brand)' : 'var(--bd2)';
-    b.style.background = isSelected ? 'var(--brand-l)' : 'var(--card)';
-  });
-
   if (method === 'split') {
-    document.getElementById('equal-split-panel').style.display = 'none';
-    document.getElementById('pay-method-modal').style.display = 'none';
     go('s5-pay');
     buildPayScreen();
-
   } else if (method === 'full') {
-    document.getElementById('pay-method-modal').style.display = 'none';
     buildFullPayScreen();
     go('s5-pay');
-
   } else if (method === 'equal') {
+    // Show pax selector inline before navigating
+    document.getElementById('pay-method-modal').style.display = 'flex';
     const panel = document.getElementById('equal-split-panel');
-    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    panel.style.display = 'block';
   }
 }
 
