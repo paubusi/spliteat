@@ -965,7 +965,7 @@
           <div style="font-size:15px;font-weight:600;color:var(--brand-d);margin-bottom:.25rem">¡Todo en la mesa!</div>
           <div style="font-size:13px;color:var(--brand);margin-bottom:.85rem">¿Habéis terminado? Podéis pedir más o pasar a pagar.</div>
           <button onclick="goToSummary()" class="btn btn-primary" style="width:100%;margin-bottom:.5rem">Ver resumen y pagar →</button>
-          <button onclick="document.getElementById('s3-dishes').scrollTop=0" style="width:100%;padding:9px;border-radius:var(--r-sm);border:1.5px solid var(--brand);background:none;color:var(--brand);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">
+          <button onclick="const s=document.getElementById('s3-dishes');if(s){s.scrollTop=0;}window.scrollTo(0,0);document.getElementById('dtab-carta')?.scrollIntoView({behavior:'smooth',block:'start'});" style="width:100%;padding:9px;border-radius:var(--r-sm);border:1.5px solid var(--brand);background:none;color:var(--brand);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">
             + Pedir más
           </button>
         </div>
@@ -1215,14 +1215,27 @@
         <div class="gl">Total mesa</div>
         <div class="gv" id="grand-total">—</div>
       </div>
-      <div style="display:flex;gap:.5rem;margin-top:1rem">
-        <button class="btn btn-secondary" style="flex:1" onclick="go('s3-dishes');showDishTab('mesa')">
-          ✏️ Editar reparto
+
+      <!-- #7: Accordion — Añadir/Editar colapsable -->
+      <div style="margin-top:.75rem;border:1.5px solid var(--bd2);border-radius:var(--r-sm);overflow:hidden;margin-bottom:1rem">
+        <button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.querySelector('span.arr').textContent=this.nextElementSibling.style.display==='none'?'▸':'▾'"
+          style="width:100%;text-align:left;padding:.75rem 1rem;background:var(--bg2);border:none;font-size:13px;color:var(--t2);cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;font-weight:500">
+          <span>¿Falta algún plato o quieres cambiar el reparto?</span>
+          <span class="arr" style="font-size:11px;opacity:.6">▸</span>
         </button>
-        <button class="btn btn-primary" style="flex:2" onclick="showPayMethodModal()">
-          ✓ Confirmar y pagar →
-        </button>
+        <div style="display:none;padding:.65rem;display:none">
+          <button onclick="go('s3-dishes');window.scrollTo(0,0)" class="btn btn-secondary" style="width:100%;margin-bottom:.4rem;font-size:13px">
+            🍽 Añadir platos a la carta
+          </button>
+          <button onclick="go('s3-dishes');showDishTab('mesa')" class="btn btn-secondary" style="width:100%;font-size:13px">
+            ✏️ Editar reparto de platos
+          </button>
+        </div>
       </div>
+
+      <button class="btn btn-primary" style="width:100%" onclick="showPayMethodModal()">
+        ✓ Confirmar y pagar →
+      </button>
     </div>
   </div>
 
@@ -3999,16 +4012,24 @@ function renderDishCard(dish) {
     : '';
 
   // Kitchen status badge (compact)
+  // #15: Status badge — more colorful and distinct per state
   const ksBadge = isSent
-    ? `<span style="font-size:10px;padding:2px 7px;border-radius:99px;font-weight:500;white-space:nowrap;background:${
-        ks==='ready'||ks==='delivered' ? '#EAF3DE' :
-        ks==='making' ? '#FAEEDA' : '#E6F1FB'
+    ? `<span style="font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;white-space:nowrap;background:${
+        isDelivered ? 'var(--bg2)' :
+        ks==='ready' ? '#EAF3DE' :
+        ks==='making' ? '#FFF3E0' : '#EBF4FB'
       };color:${
-        ks==='ready'||ks==='delivered' ? '#3B6D11' :
-        ks==='making' ? '#854F0B' : '#0C447C'
+        isDelivered ? 'var(--t3)' :
+        ks==='ready' ? '#2E7D2E' :
+        ks==='making' ? '#B7560D' : '#1565A8'
+      };border:1px solid ${
+        isDelivered ? 'var(--bd)' :
+        ks==='ready' ? '#A8D5A2' :
+        ks==='making' ? '#F5CBA7' : '#AED6F1'
       }">
-        ${ks==='ready'||ks==='delivered' ? '🛎 Listo' :
-          ks==='making' ? '🍳 Prep.' : '📨 Enviado'}
+        ${isDelivered ? '✓ Servido' :
+          ks==='ready' ? '🛎 Listo' :
+          ks==='making' ? '🍳 Preparando' : '📨 En cocina'}
       </span>` : '';
 
   // Consistent guest colors (same palette as carta initials)
@@ -4073,28 +4094,51 @@ function renderDishCard(dish) {
     bodyHtml += `<div style="font-size:11px;color:var(--t3);margin-top:4px">🔒 Reparto bloqueado — ya hay pagos realizados</div>`;
   }
 
+  // #4: "Editar" dropdown instead of confusing toggle button
+  const editDropdownId = `edit-dd-${dish.id}`;
   const actionBtns = !isConfirmed ? `
-    <div style="display:flex;gap:.35rem;margin-top:.4rem">
-      <button onclick="toggleDishType('${dish.id}')"
-        style="flex:1;padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:${isShared ? 'var(--blue-l)' : 'var(--amber-l)'};color:${isShared ? 'var(--blue)' : 'var(--amber)'};font-size:11px;font-weight:500;cursor:pointer;font-family:inherit">
-        ${isShared ? 'Compartido' : 'Solo mío'}
+    <div style="margin-top:.4rem">
+      <button onclick="toggleEditDropdown('${editDropdownId}')"
+        style="padding:4px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px">
+        ✏️ Editar <span style="font-size:9px;opacity:.6">▾</span>
       </button>
-      <button onclick="deleteDish('${dish.id}')"
-        style="padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit">
-        ✕
-      </button>
+      <div id="${editDropdownId}" style="display:none;margin-top:.35rem;background:var(--card);border:1px solid var(--bd2);border-radius:var(--r-sm);overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.1)">
+        <button onclick="toggleDishType('${dish.id}');toggleEditDropdown('${editDropdownId}')"
+          style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;font-size:12px;font-family:inherit;cursor:pointer;color:var(--t1);display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bd)">
+          ${isShared
+            ? `<span style="font-size:14px">👤</span> Cambiar a Solo mío`
+            : `<span style="font-size:14px">🤝</span> Cambiar a Compartido`}
+        </button>
+        <button onclick="deleteDish('${dish.id}')"
+          style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;font-size:12px;font-family:inherit;cursor:pointer;color:var(--accent);display:flex;align-items:center;gap:8px">
+          <span style="font-size:14px">✕</span> Eliminar plato
+        </button>
+      </div>
     </div>` : '';
 
-  return `<div class="dish-card${isConfirmed?' confirmed':''}" id="dc-${dish.id}" style="${isDelivered?'opacity:.5;text-decoration-line:none':''}">
+  // #15: Card background/border by status
+  const cardStyle = isDelivered
+    ? 'opacity:.45;background:var(--bg2);'
+    : ks === 'ready' ? 'border-left:3px solid #2E7D2E;padding-left:9px;'
+    : ks === 'making' ? 'border-left:3px solid #E67E22;padding-left:9px;'
+    : ks === 'sent' ? 'border-left:3px solid var(--blue);padding-left:9px;'
+    : '';
+
+  return `<div class="dish-card${isConfirmed?' confirmed':''}" id="dc-${dish.id}" style="${cardStyle}">
     <div class="dish-card-top" style="margin-bottom:${bodyHtml||actionBtns?'4px':'0'}">
-      <div class="dish-name" style="font-size:13px">${escHtml(dish.name)}${courseBadge}${cookingBadge}${dish.notes ? `<div style="font-size:11px;color:var(--t2);font-weight:400;margin-top:2px;font-style:italic">📝 ${escHtml(dish.notes)}</div>` : ''}</div>
+      <div class="dish-name" style="font-size:13px;${isDelivered?'color:var(--t3);':''}">
+        ${isDelivered ? `<s style="text-decoration-color:var(--t3)">` : ''}${escHtml(dish.name)}${isDelivered ? '</s>' : ''}${courseBadge}${cookingBadge}
+        ${dish.notes ? `<div style="font-size:11px;color:var(--t2);font-weight:400;margin-top:2px;font-style:italic">📝 ${escHtml(dish.notes)}</div>` : ''}
+      </div>
       <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
         ${ksBadge}
-        <div class="dish-price" style="font-size:13px">${fmt(parseFloat(dish.price))}</div>
+        <div class="dish-price" style="font-size:13px;${isDelivered?'color:var(--t3);':''}">
+          ${isDelivered ? '' : fmt(parseFloat(dish.price))}
+        </div>
       </div>
     </div>
     ${bodyHtml ? `<div class="dish-body">${bodyHtml}</div>` : ''}
-    ${actionBtns}
+    ${isDelivered ? '' : actionBtns}
   </div>`;
 }
 
@@ -4142,6 +4186,23 @@ async function assignSolo(dishId, guestId) {
   flashCard(dishId);
   renderMesaDishes();
 }
+
+// #4: Toggle edit dropdown on dish card
+function toggleEditDropdown(id) {
+  const dd = document.getElementById(id);
+  if (!dd) return;
+  const isOpen = dd.style.display !== 'none';
+  // Close all other dropdowns first
+  document.querySelectorAll('[id^="edit-dd-"]').forEach(el => { el.style.display = 'none'; });
+  dd.style.display = isOpen ? 'none' : 'block';
+}
+
+// Close edit dropdowns when clicking outside
+document.addEventListener('click', e => {
+  if (!e.target.closest('[id^="edit-dd-"]') && !e.target.closest('button[onclick*="toggleEditDropdown"]')) {
+    document.querySelectorAll('[id^="edit-dd-"]').forEach(el => { el.style.display = 'none'; });
+  }
+}, true);
 
 async function deleteDish(dishId) {
   const dish = state.dishes.find(d => d.id === dishId);
@@ -8182,7 +8243,66 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
 async function fireNextCourse(roomId, course, dishIds) {
   // #4: manageat read-only guard — only cookeat can fire courses
   if (state.adminRole === 'admin') return;
-  // ── PASO 1: Leer cache ANTES de setAllOrderStatus ──
+
+  // #B2: Check if room has an active waiter before firing the course
+  const { data: roomCheck } = await sb.from('rooms')
+    .select('assigned_waiter_id')
+    .eq('id', roomId).maybeSingle();
+
+  if (roomCheck) {
+    const assignedId = roomCheck.assigned_waiter_id;
+    if (!assignedId) {
+      // No waiter assigned at all
+      showKitchenWarning(
+        'Sin camarero asignado',
+        'Esta mesa no tiene camarero asignado. El pase se notificará a todos los camareros activos.',
+        () => _doFireNextCourse(roomId, course, dishIds)
+      );
+      return;
+    }
+    // Check if assigned waiter has active session
+    const { data: waiter } = await sb.from('waiters')
+      .select('is_active, name')
+      .eq('id', assignedId).maybeSingle();
+    if (waiter && !waiter.is_active) {
+      showKitchenWarning(
+        `${waiter.name} no está activo`,
+        `El camarero asignado no tiene sesión abierta en serveat. Pídele que inicie sesión antes de confirmar el pase.`,
+        () => _doFireNextCourse(roomId, course, dishIds)
+      );
+      return;
+    }
+  }
+
+  await _doFireNextCourse(roomId, course, dishIds);
+}
+
+// Visual warning dialog in cookeat
+function showKitchenWarning(title, msg, onConfirm) {
+  document.getElementById('kitchen-warn-overlay')?.remove();
+  const el = document.createElement('div');
+  el.id = 'kitchen-warn-overlay';
+  el.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:1.5rem';
+  el.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg);width:100%;max-width:380px;padding:1.5rem;box-shadow:0 8px 32px rgba(0,0,0,.3)">
+      <div style="font-size:28px;text-align:center;margin-bottom:.5rem">⚠️</div>
+      <div style="font-size:16px;font-weight:700;color:var(--t1);text-align:center;margin-bottom:.5rem">${escHtml(title)}</div>
+      <div style="font-size:13px;color:var(--t2);text-align:center;line-height:1.5;margin-bottom:1.25rem">${escHtml(msg)}</div>
+      <div style="display:flex;flex-direction:column;gap:.5rem">
+        <button id="kwarn-confirm" style="padding:11px;border-radius:var(--r-sm);border:none;background:#E67E22;color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">
+          Confirmar pase igualmente →
+        </button>
+        <button onclick="document.getElementById('kitchen-warn-overlay').remove()"
+          style="padding:11px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:none;color:var(--t2);font-size:14px;cursor:pointer;font-family:inherit">
+          Cancelar — esperar al camarero
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+  document.getElementById('kwarn-confirm').onclick = () => { el.remove(); onConfirm(); };
+}
+
+async function _doFireNextCourse(roomId, course, dishIds) {
   // setAllOrderStatus llama loadKitchenOrders() que re-renderiza y sobreescribe _kdsCache con []
   const cacheKey = roomId + '_' + course;
   let readyDishes = (window._kdsCache?.[cacheKey] || []).filter(d => d.name);
@@ -10697,16 +10817,61 @@ async function assignDishToGuest(dishId, guestId, type) {
 
 async function unassignDish(dishId, type, guestId = null) {
   if (type === 'solo') {
-    await sb.from('dishes').update({ assignee_id: null }).eq('id', dishId);
+    // #18: Don't allow leaving a solo dish with no assignee — show reassign modal
     const dish = state.dishes.find(d => d.id === dishId);
-    if (dish) dish.assignee_id = null;
+    const otherGuests = state.guests.filter(g => g.id !== (dish?.assignee_id));
+    if (otherGuests.length === 0) {
+      notify('No hay otros comensales a quien reasignar este plato.', 'info');
+      return;
+    }
+    showReassignModal(dishId, dish);
+    return;
   } else if (type === 'shared' && guestId) {
+    // #18: For shared, check this isn't the last participant
+    const currentParts = state.participants[dishId] || [];
+    if (currentParts.length <= 1) {
+      notify('No puedes quitar al último participante de un plato compartido.', 'info');
+      return;
+    }
     await sb.from('dish_participants').delete()
       .eq('dish_id', dishId).eq('guest_id', guestId);
     if (state.participants[dishId]) {
       state.participants[dishId] = state.participants[dishId].filter(id => id !== guestId);
     }
   }
+  buildSummary();
+}
+
+// #18: Reassign solo dish to another guest
+function showReassignModal(dishId, dish) {
+  document.getElementById('reassign-modal-overlay')?.remove();
+  const el = document.createElement('div');
+  el.id = 'reassign-modal-overlay';
+  el.style.cssText = 'position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center';
+  const opts = state.guests.filter(g => g.id !== dish?.assignee_id).map(g =>
+    `<button onclick="reassignDishTo('${dishId}','${g.id}');document.getElementById('reassign-modal-overlay').remove()"
+      style="width:100%;text-align:left;padding:10px 14px;border:none;border-bottom:1px solid var(--bd);background:none;font-size:14px;font-family:inherit;cursor:pointer;color:var(--t1)">
+      ${escHtml(g.name)}
+    </button>`
+  ).join('');
+  el.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;padding:1.25rem 1.25rem .5rem;animation:slideUp .2s ease">
+      <div style="font-size:15px;font-weight:600;color:var(--t1);margin-bottom:.25rem">¿A quién reasignas "${escHtml(dish?.name || '')}"?</div>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:.85rem">Este plato se moverá al comensal que elijas.</div>
+      <div style="border:1px solid var(--bd);border-radius:var(--r-sm);overflow:hidden;margin-bottom:1rem">${opts}</div>
+      <button onclick="document.getElementById('reassign-modal-overlay').remove()"
+        style="width:100%;padding:10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:none;color:var(--t3);font-size:13px;cursor:pointer;font-family:inherit;margin-bottom:1rem">
+        Cancelar
+      </button>
+    </div>`;
+  document.body.appendChild(el);
+  el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+}
+
+async function reassignDishTo(dishId, newGuestId) {
+  await sb.from('dishes').update({ assignee_id: newGuestId }).eq('id', dishId);
+  const dish = state.dishes.find(d => d.id === dishId);
+  if (dish) dish.assignee_id = newGuestId;
   buildSummary();
 }
 
@@ -10727,7 +10892,7 @@ function goToSummary() {
     notify('Esperando confirmación de cocina para ' + stillCooking.length + ' plato' + (stillCooking.length > 1 ? 's' : ''), 'info');
     return;
   }
-  // #1: Block if there are unassigned dishes
+  // #1 + #18: Block if there are unassigned dishes — navigate to them and highlight
   const unassigned = sentDishes.filter(d => {
     if (d.type === 'solo' && !d.assignee_id) return true;
     if (d.type === 'shared') {
@@ -10737,7 +10902,33 @@ function goToSummary() {
     return false;
   });
   if (unassigned.length > 0) {
-    notify(`Hay ${unassigned.length} plato${unassigned.length > 1 ? 's' : ''} sin asignar. Asígnalos antes de pagar.`, 'info');
+    // Navigate back to mesa view and highlight the unassigned dishes
+    go('s3-dishes');
+    showDishTab('mesa');
+    setTimeout(() => {
+      // Scroll to and highlight each unassigned dish card
+      unassigned.forEach((d, idx) => {
+        const card = document.getElementById('dc-' + d.id);
+        if (!card) return;
+        if (idx === 0) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        // Flash red border to draw attention
+        card.style.transition = 'border .2s, background .2s';
+        card.style.border = '2px solid var(--accent)';
+        card.style.background = '#FFF0F0';
+        // Also open the edit dropdown so they can assign
+        const dd = document.getElementById('edit-dd-' + d.id);
+        if (dd && idx === 0) dd.style.display = 'block';
+        // Reset after 4 seconds
+        setTimeout(() => {
+          card.style.border = '';
+          card.style.background = '';
+          card.style.transition = '';
+        }, 4000);
+      });
+      notify(`${unassigned.length} plato${unassigned.length > 1 ? 's' : ''} sin asignar — asígnalos antes de pagar.`, 'info');
+    }, 350);
     return;
   }
   go('s4-summary');
