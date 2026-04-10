@@ -3700,7 +3700,7 @@ async function confirmAddDish() {
   // N3: Mark room as carta_active so all guests auto-navigate (requires column, non-blocking)
   if (state.roomId && !state._cartaAutoNavDone) {
     state._cartaAutoNavDone = true;
-    sb.from('rooms').update({ carta_active: true }).eq('id', state.roomId).catch(() => {});
+    try { await sb.from('rooms').update({ carta_active: true }).eq('id', state.roomId); } catch(e) {}
   }
   // If shared, add all current guests as participants
   if (modalType === 'shared') {
@@ -6573,7 +6573,11 @@ async function kitchenLogin() {
   if (!email || !pass) { errEl.textContent = 'Rellena email y contraseña.'; errEl.style.display = 'block'; return; }
   const { data, error } = await sb.from('restaurants').select('*').eq('email', email).single();
   if (error || !data) { errEl.textContent = 'Restaurante no encontrado.'; errEl.style.display = 'block'; return; }
-  if (data.password_hash && data.password_hash !== pass) {
+  // Check password — supports both plain password field and bcrypt password_hash
+  const _hashMatch = data.password_hash && data.password_hash === pass;
+  const _plainMatch = data.password && data.password === pass;
+  const _noPass = !data.password_hash && !data.password;
+  if (!_hashMatch && !_plainMatch && !_noPass) {
     errEl.textContent = 'Contraseña incorrecta.'; errEl.style.display = 'block'; return;
   }
   // Go to standalone cookeat screen with all 3 tabs
@@ -6612,15 +6616,18 @@ async function adminLogin() {
   if (!email || !pass) { errEl.textContent = 'Rellena email y contraseña.'; errEl.style.display = 'block'; return; }
   const { data, error } = await sb.from('restaurants').select('*').eq('email', email).single();
   if (error || !data) { errEl.textContent = 'Restaurante no encontrado.'; errEl.style.display = 'block'; return; }
-  if (data.password_hash && data.password_hash !== pass) {
+  // Check password — supports both plain password field and bcrypt password_hash
+  const _hashMatch = data.password_hash && data.password_hash === pass;
+  const _plainMatch = data.password && data.password === pass;
+  const _noPass = !data.password_hash && !data.password;
+  if (!_hashMatch && !_plainMatch && !_noPass) {
     errEl.textContent = 'Contraseña incorrecta.'; errEl.style.display = 'block'; return;
   }
   state.adminRestaurantId = data.id;
   state.adminRestaurantName = data.name;
   state.adminRole = 'admin';
   // #4: Reset all stale is_active sessions for this restaurant on admin login
-  sb.from('waiters').update({ is_active: false })
-    .eq('restaurant_id', data.id).catch(() => {});
+  try { await sb.from('waiters').update({ is_active: false }).eq('restaurant_id', data.id); } catch(e) {}
   go('s-admin');
   renderAdminTabs();
   showAdminTab('encurso');
@@ -10761,7 +10768,7 @@ function showPayMethodModal() {
   }
 }
 
-function selectPayMethod(method) {
+async function selectPayMethod(method) {
   try {
     _payMethod = method;
 
@@ -10771,10 +10778,10 @@ function selectPayMethod(method) {
 
     // N2: Fire-and-forget lock (non-blocking, best effort)
     if (state.roomId) {
-      sb.from('rooms').update({
+      try { await sb.from('rooms').update({
         pay_method_locked: method,
         pay_method_locker_name: state.myName
-      }).eq('id', state.roomId).catch(() => {});
+      }).eq('id', state.roomId); } catch(e) {}
     }
 
     if (method === 'split') {
