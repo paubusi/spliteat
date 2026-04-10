@@ -8123,9 +8123,10 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
       }));
 
       let courseAction = '';
-      if (!isWaiting && !allReady) {
+      // #4: manageat is read-only — only cookeat can change kitchen status
+      if (!isWaiting && !allReady && state.adminRole !== 'admin') {
         if (sentIds.length > 0) {
-          courseAction = `<button onclick="setAllOrderStatus([${sentIds}],'making')"
+          courseAction = `<button onclick="setOrderStatus('${cDishes.filter(d=>d.kitchen_status==='sent')[0]?.id}','making')"
             style="width:100%;margin-top:.4rem;padding:7px;border-radius:6px;border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
             → Todo a preparación
           </button>`;
@@ -8177,6 +8178,8 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
 
 // ── FIRE NEXT COURSE — marca pase listo y notifica camarero ──
 async function fireNextCourse(roomId, course, dishIds) {
+  // #4: manageat read-only guard — only cookeat can fire courses
+  if (state.adminRole === 'admin') return;
   // ── PASO 1: Leer cache ANTES de setAllOrderStatus ──
   // setAllOrderStatus llama loadKitchenOrders() que re-renderiza y sobreescribe _kdsCache con []
   const cacheKey = roomId + '_' + course;
@@ -8355,6 +8358,8 @@ function renderKDSKanban(dishes, roomTableMap, tablesById, prepTimeByItem) {
 
 // Confirmar/marcar como listo todos los platos de una mesa de golpe
 async function setAllOrderStatus(dishIds, status) {
+  // #4: manageat read-only guard
+  if (state.adminRole === 'admin') return;
   const updates = { kitchen_status: status };
   if (status === 'making') updates.making_at = new Date().toISOString();
   if (status === 'ready') updates.ready_at = new Date().toISOString();
