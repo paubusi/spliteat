@@ -4846,6 +4846,7 @@ function showKitchenTab(name) {
 
 async function openKitchen(restaurantId, restaurantName) {
   state.kitchenRestaurantId = restaurantId;
+  state.adminRole = 'cocina'; // cookeat always has full kitchen write access
   document.getElementById('k-rest-name').textContent = restaurantName || 'Cocina';
   go('s-kitchen');
   showKitchenTab('pedidos');
@@ -4854,6 +4855,7 @@ async function openKitchen(restaurantId, restaurantName) {
 
 function kitchenLogout() {
   state.kitchenRestaurantId = null;
+  state.adminRole = 'admin'; // reset to default
   go('s0');
 }
 
