@@ -3684,26 +3684,64 @@ function showDuplicateDishWarning(msg, onConfirm) {
 // Entry point — checks for duplicate shared dish before opening modal
 // #9-U2: Open inline edit for a dish already on the table (from carta)
 function openCartaItemEdit(itemId) {
-  const item = state.menuItems?.find(m => m.id === itemId) ||
-               document.querySelector(`[data-item-id="${itemId}"]`)?._item;
+  const item = state.menuItems?.find(m => m.id === itemId);
   // Find all dish instances of this item in the current table
   const myDishes = state.dishes.filter(d =>
-    d.item_id === itemId || d.menu_item_id === itemId || d.name === (state.menuItems?.find(m=>m.id===itemId)?.name)
+    d.item_id === itemId || d.menu_item_id === itemId ||
+    (item && d.name === item.name)
   );
 
   if (!myDishes.length) {
-    // Item not actually on table yet — open add modal
     openModal(itemId);
     return;
   }
 
-  // If only one dish instance, edit it directly
-  if (myDishes.length === 1) {
-    openCartaDishEditModal(myDishes[0], item);
-  } else {
-    // Multiple instances — let user pick which one to edit or add new
-    openCartaDishPickModal(myDishes, item, itemId);
-  }
+  // #10-3: Always show choice: add another OR edit existing
+  showCartaItemChoiceModal(itemId, item, myDishes);
+}
+
+function showCartaItemChoiceModal(itemId, item, myDishes) {
+  document.getElementById('carta-item-choice-modal')?.remove();
+  const el = document.createElement('div');
+  el.id = 'carta-item-choice-modal';
+  el.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center';
+
+  const dishRows = myDishes.map(d => {
+    const isShared = d.type === 'shared';
+    const parts = state.participants[d.id] || [];
+    const who = isShared
+      ? parts.map(id => state.guests.find(g => g.id === id)?.name || '?').join(', ')
+      : state.guests.find(g => g.id === d.assignee_id)?.name || '?';
+    return `<button onclick="document.getElementById('carta-item-choice-modal').remove();openCartaDishEditModal(state.dishes.find(x=>x.id==='${d.id}'),null)"
+      style="width:100%;text-align:left;padding:10px 14px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);cursor:pointer;font-family:inherit;margin-bottom:.4rem;display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div>
+        <div style="font-size:13px;font-weight:500">${isShared ? 'Compartido' : 'Solo'} — ${escHtml(who)}</div>
+        <div style="font-size:11px;color:var(--t3)">${fmt(parseFloat(d.price))}</div>
+      </div>
+      <span style="font-size:12px;color:var(--brand);font-weight:500">Editar ✏️</span>
+    </button>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;padding:1.25rem 1.25rem 2rem;animation:slideUp .2s ease">
+      <div style="font-size:16px;font-weight:600;color:var(--t1);margin-bottom:.25rem">${escHtml(item?.name || 'Plato')}</div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:1rem">${myDishes.length} unidad${myDishes.length > 1 ? 'es' : ''} en tu mesa</div>
+
+      <button onclick="document.getElementById('carta-item-choice-modal').remove();openModal('${itemId}')"
+        class="btn btn-primary" style="width:100%;margin-bottom:.75rem">
+        + Añadir otra unidad
+      </button>
+
+      <div style="font-size:12px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Editar unidad existente:</div>
+      ${dishRows}
+
+      <button onclick="document.getElementById('carta-item-choice-modal').remove()"
+        style="width:100%;padding:9px;border:none;background:none;color:var(--t3);font-size:13px;cursor:pointer;font-family:inherit;margin-top:.25rem">
+        Cancelar
+      </button>
+    </div>`;
+  document.body.appendChild(el);
+  el.addEventListener('click', e => { if (e.target === el) el.remove(); });
 }
 
 function openCartaDishEditModal(dish, item) {
@@ -3757,10 +3795,11 @@ function openCartaDishEditModal(dish, item) {
 
       <!-- Shared: participants -->
       <div id="cde-shared-sec" style="display:${isShared?'block':'none'};margin-bottom:1rem">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem">
-          <div style="font-size:13px;color:var(--t2)">¿Con quién?</div>
-          <button onclick="document.querySelectorAll('#cde-guests input').forEach(c=>c.checked=true)" style="font-size:11px;color:var(--brand);background:none;border:none;cursor:pointer;font-family:inherit;font-weight:500">Todos ✓</button>
-        </div>
+        <div style="font-size:13px;color:var(--t2);margin-bottom:.5rem">¿Con quién se comparte?</div>
+        <button onclick="document.querySelectorAll('#cde-guests input').forEach(c=>c.checked=true)"
+          style="width:100%;padding:9px;border-radius:var(--r-sm);border:2px solid var(--brand);background:var(--brand-l);color:var(--brand-d);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:.5rem">
+          ✓ Compartir con toda la mesa
+        </button>
         <div id="cde-guests" style="display:flex;flex-direction:column">${guestCheckboxes}</div>
       </div>
 
@@ -4823,6 +4862,19 @@ function buildSummary() {
   const grand = totals.reduce((a, t) => a + t.total, 0);
   document.getElementById('grand-total').textContent = fmt(grand);
 
+  // Show/hide payment locked warning
+  const paymentStarted = state.payments && state.payments.filter(p => p.guest_id).length > 0;
+  let lockBanner = document.getElementById('summary-lock-banner');
+  if (!lockBanner) {
+    lockBanner = document.createElement('div');
+    lockBanner.id = 'summary-lock-banner';
+    lockBanner.style.cssText = 'background:#FAEEDA;border-radius:var(--r-sm);padding:.65rem .85rem;margin-bottom:.75rem;font-size:12px;color:#854F0B;font-weight:500;display:none';
+    lockBanner.textContent = 'El pago ya ha comenzado — no se puede modificar el reparto.';
+    const el = document.getElementById('summary-list');
+    if (el) el.parentNode?.insertBefore(lockBanner, el);
+  }
+  if (lockBanner) lockBanner.style.display = paymentStarted ? 'block' : 'none';
+
   // #8-U2: If equal split chosen, override preview with equal amount
   const isEqual = typeof _payMethod !== 'undefined' && _payMethod === 'equal' && typeof _equalPax === 'number' && _equalPax > 0;
   const equalShare = isEqual ? grand / _equalPax : 0;
@@ -4870,8 +4922,8 @@ function buildSummary() {
         <span class="lbl" style="color:var(--t2)">↳ ${escHtml(d.name)}</span>
         <span style="display:flex;align-items:center;gap:6px">
           <span class="val">${fmt(parseFloat(d.price))}</span>
-          <button onclick="unassignDish('${d.id}','solo')" title="Desasignar"
-            style="background:#FFF5F5;border:1px solid #FCCACA;font-size:13px;color:var(--accent);cursor:pointer;padding:2px 7px;border-radius:4px;line-height:1;font-weight:600">✕</button>
+          ${!paymentStarted ? `<button onclick="unassignDish('${d.id}','solo')" title="Desasignar"
+            style="background:#FFF5F5;border:1px solid #FCCACA;font-size:13px;color:var(--accent);cursor:pointer;padding:2px 7px;border-radius:4px;line-height:1;font-weight:600">✕</button>` : ''}
         </span>
       </div>`;
     });
@@ -5265,45 +5317,132 @@ function showAccountClosed() {
 
 // #BG8: Factura modal — request invoice after account closed
 function downloadTicketPDF() {
+  // Only allow when all guests have paid
   const totals = calcTotals();
-  const total = state.dishes.reduce((s,d)=>s+parseFloat(d.price||0),0);
+  const paidIds = new Set(state.payments.filter(p => p.guest_id).map(p => p.guest_id));
+  const allPaid = state.guests.length > 0 && state.guests.every(g => paidIds.has(g.id));
+
+  if (!allPaid) {
+    // Show modal explaining not all have paid yet
+    document.getElementById('ticket-blocked-modal')?.remove();
+    const pending = totals.filter(t => !paidIds.has(t.g.id));
+    const el = document.createElement('div');
+    el.id = 'ticket-blocked-modal';
+    el.style.cssText = 'position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:1.5rem';
+    el.innerHTML = `
+      <div style="background:var(--card);border-radius:var(--r-lg);width:100%;max-width:360px;padding:1.5rem 1.25rem;text-align:center">
+        <div style="font-size:32px;margin-bottom:.75rem">⏳</div>
+        <div style="font-size:17px;font-weight:700;color:var(--t1);margin-bottom:.5rem">Ticket no disponible aún</div>
+        <div style="font-size:13px;color:var(--t2);line-height:1.5;margin-bottom:1rem">
+          El ticket solo se puede generar cuando <strong>todos los comensales han pagado</strong>.
+        </div>
+        <div style="background:var(--bg2);border-radius:var(--r-sm);padding:.75rem;margin-bottom:1rem;text-align:left">
+          <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:.35rem">Faltan por pagar:</div>
+          ${pending.map(t => `<div style="font-size:13px;display:flex;justify-content:space-between;padding:2px 0"><span>${escHtml(t.g.name)}</span><strong>${fmt(t.total)}</strong></div>`).join('')}
+        </div>
+        <button onclick="document.getElementById('ticket-blocked-modal').remove()"
+          class="btn btn-primary" style="width:100%">Entendido</button>
+      </div>`;
+    document.body.appendChild(el);
+    el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+    return;
+  }
+
+  // All paid — show ticket version chooser
+  document.getElementById('ticket-choice-modal')?.remove();
+  const el = document.createElement('div');
+  el.id = 'ticket-choice-modal';
+  el.style.cssText = 'position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center';
+  el.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;padding:1.5rem 1.25rem 2rem;animation:slideUp .22s ease">
+      <div style="font-size:17px;font-weight:700;color:var(--t1);margin-bottom:.25rem">Descargar ticket</div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:1.25rem">¿Qué versión quieres?</div>
+      <div style="display:flex;flex-direction:column;gap:.65rem">
+        <button onclick="document.getElementById('ticket-choice-modal').remove();_generateTicket('mesa')"
+          class="btn btn-primary">
+          🧾 Ticket de mesa completa
+        </button>
+        <button onclick="document.getElementById('ticket-choice-modal').remove();_generateTicket('individual')"
+          style="width:100%;padding:12px;border-radius:var(--r-sm);border:1.5px solid var(--brand);background:var(--brand-l);color:var(--brand-d);font-size:15px;font-weight:500;cursor:pointer;font-family:inherit">
+          👤 Mi ticket individual
+        </button>
+      </div>
+      <button onclick="document.getElementById('ticket-choice-modal').remove()"
+        style="width:100%;padding:9px;border:none;background:none;color:var(--t3);font-size:13px;cursor:pointer;font-family:inherit;margin-top:.5rem">
+        Cancelar
+      </button>
+    </div>`;
+  document.body.appendChild(el);
+  el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+}
+
+function _generateTicket(mode) {
+  const totals = calcTotals();
+  const total = state.dishes.reduce((s,d) => s + parseFloat(d.price||0), 0);
   const now = new Date().toLocaleString('es-ES', { dateStyle:'short', timeStyle:'short' });
   const restName = state.restaurantName || 'Restaurante';
 
-  let rows = '';
-  state.dishes.forEach(d => {
-    rows += `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee">${escHtml(d.name)}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">${fmt(parseFloat(d.price))}</td></tr>`;
-  });
+  const me = totals.find(t => t.g.id === state.myGuestId);
+  const myTotal = me ? me.total : 0;
 
-  let guestRows = '';
-  totals.forEach((t, i) => {
-    const paid = state.payments.find(p => p.guest_id === t.g.id);
-    guestRows += `<tr><td style="padding:3px 8px">${escHtml(t.g.name)}</td><td style="padding:3px 8px;text-align:right">${fmt(t.total)}</td><td style="padding:3px 8px;text-align:center;color:${paid?'#2E7D2E':'#854F0B'}">${paid?'✓':'Pendiente'}</td></tr>`;
-  });
+  // CSS base
+  const css = `body{font-family:Arial,sans-serif;max-width:400px;margin:0 auto;padding:20px;font-size:13px}
+    h1{font-size:20px;margin-bottom:4px}.muted{color:#888;font-size:11px}table{width:100%;border-collapse:collapse}
+    th{text-align:left;padding:3px 8px;border-bottom:2px solid #333}.total{font-size:18px;font-weight:700;margin-top:12px}
+    hr{border:none;border-top:1px dashed #ccc;margin:12px 0}`;
 
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ticket — ${restName}</title>
-  <style>body{font-family:Arial,sans-serif;max-width:400px;margin:0 auto;padding:20px;font-size:13px}
-  h1{font-size:20px;margin-bottom:4px} .muted{color:#888;font-size:11px} table{width:100%;border-collapse:collapse}
-  .total{font-size:18px;font-weight:700;margin-top:12px} hr{border:none;border-top:1px dashed #ccc;margin:12px 0}
-  </style></head><body>
-  <h1>${escHtml(restName)}</h1>
-  <div class="muted">${now} · spliteat</div>
-  <hr>
-  <table>${rows}</table>
-  <hr>
-  <div class="total">Total: ${fmt(total)}</div>
-  <hr>
-  <div style="font-size:12px;font-weight:600;margin-bottom:6px">Desglose por comensal</div>
-  <table><thead><tr><th style="text-align:left;padding:3px 8px">Comensal</th><th style="text-align:right;padding:3px 8px">Importe</th><th style="padding:3px 8px">Estado</th></tr></thead><tbody>${guestRows}</tbody></table>
-  <hr><div class="muted" style="text-align:center">Generado con spliteat.es</div>
-  </body></html>`;
+  let body = '';
 
-  const w = window.open('', '_blank');
-  if (w) {
-    w.document.write(html);
-    w.document.close();
-    setTimeout(() => w.print(), 400);
+  if (mode === 'mesa') {
+    let rows = '';
+    state.dishes.forEach(d => {
+      rows += `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee">${escHtml(d.name)}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">${fmt(parseFloat(d.price))}</td></tr>`;
+    });
+    const tipAmt = total * ((state.tipPercent || 0) / 100);
+    const grandTotal = total + tipAmt;
+
+    let guestRows = '';
+    totals.forEach(t => {
+      guestRows += `<tr><td style="padding:3px 8px">${escHtml(t.g.name)}</td><td style="padding:3px 8px;text-align:right">${fmt(t.total)}</td></tr>`;
+    });
+
+    body = `<h1>${escHtml(restName)}</h1>
+      <div class="muted">${now} · spliteat.es</div>
+      <hr>
+      <table><tbody>${rows}</tbody></table>
+      <hr>
+      <div class="total">Subtotal: ${fmt(total)}</div>
+      ${tipAmt > 0 ? `<div style="font-size:13px;color:#666">Propina (${state.tipPercent}%): ${fmt(tipAmt)}</div>` : ''}
+      <div class="total" style="font-size:20px">TOTAL: ${fmt(grandTotal)}</div>
+      <hr>
+      <div style="font-size:12px;font-weight:600;margin-bottom:6px">Desglose por comensal</div>
+      <table><tbody>${guestRows}</tbody></table>
+      <hr><div class="muted" style="text-align:center">Ticket generado con spliteat.es</div>`;
+  } else {
+    // Individual ticket
+    if (!me) { notify('No se encontró tu información', 'error'); return; }
+    let myRows = '';
+    me.soloItems.forEach(d => {
+      myRows += `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee">${escHtml(d.name)}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">${fmt(parseFloat(d.price))}</td></tr>`;
+    });
+    me.sharedItems.forEach(({ d, share, nP }) => {
+      myRows += `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee">${escHtml(d.name)} <span style="color:#888;font-size:11px">(÷${nP})</span></td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">${fmt(share)}</td></tr>`;
+    });
+
+    body = `<h1>${escHtml(restName)}</h1>
+      <div class="muted">${now} · spliteat.es</div>
+      <hr>
+      <div style="font-size:14px;font-weight:600;margin-bottom:8px">Ticket de: ${escHtml(me.g.name)}</div>
+      <table><tbody>${myRows}</tbody></table>
+      <hr>
+      <div class="total">Mi total: ${fmt(myTotal)}</div>
+      <div style="font-size:11px;color:#888;margin-top:4px">Total mesa: ${fmt(total)}</div>
+      <hr><div class="muted" style="text-align:center">Ticket individual · spliteat.es</div>`;
   }
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ticket — ${restName}</title><style>${css}</style></head><body>${body}</body></html>`;
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(html); w.document.close(); setTimeout(() => w.print(), 400); }
 }
 
 function showFacturaModal() {
@@ -5932,7 +6071,7 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
           <span style="font-size:12px;flex-shrink:0">${dot}</span>
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:${isDone?'400':'500'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${isDone?'text-decoration:line-through;color:var(--t3)':''}">${escHtml(d.name)}</div>
-            ${d.cooking_point ? `<div style="font-size:11px;font-weight:600;color:#8B5E3C;margin-top:1px">🥩 ${d.cooking_point}</div>` : ''}
+            ${d.cooking_point ? `<div style="font-size:11px;font-weight:600;color:#8B5E3C;margin-top:1px">${d.cooking_point}</div>` : ''}
             ${prep && !isDone ? `<div style="font-size:10px;color:var(--t3)">⏱ ${prep} min · ${dishElapsed} min esperando</div>` : ''}
           </div>
           ${btn}
@@ -6148,6 +6287,42 @@ let _waiterNotifHistory = []; // historial completo
 // ── Debounce timers: room+course → timeout handle ──
 const _waiterNotifDebounce = {};
 
+let _waiterNotifPollTimer = null;
+let _waiterNotifLastPoll = null;
+
+function _startWaiterNotifPolling() {
+  if (_waiterNotifPollTimer) clearInterval(_waiterNotifPollTimer);
+  _waiterNotifLastPoll = new Date(Date.now() - 60000).toISOString(); // look back 1 min on start
+  _waiterNotifPollTimer = setInterval(_pollWaiterNotifs, 15000); // every 15s
+}
+
+async function _pollWaiterNotifs() {
+  if (!_waiterRestaurantId || !_waiterId) return;
+  try {
+    const { data: notifs } = await sb.from('kitchen_notifications')
+      .select('*')
+      .eq('restaurant_id', _waiterRestaurantId)
+      .gt('created_at', _waiterNotifLastPoll)
+      .order('created_at', { ascending: true });
+    if (!notifs || !notifs.length) return;
+    _waiterNotifLastPoll = notifs[notifs.length - 1].created_at;
+    notifs.forEach(n => {
+      const isBebidas = !!n.is_bebidas;
+      const isMyTable = isBebidas || !n.assigned_waiter_id || n.assigned_waiter_id === _waiterId || n.waiter_id === _waiterId;
+      if (!isMyTable) return;
+      const already = _waiterNotifHistory.find(x => x.id === n.id || (x.roomId === n.room_id && x.courseLabel === n.course_label && Math.abs(new Date(x.time) - new Date(n.created_at)) < 5000));
+      if (already) return;
+      const dishes = Array.isArray(n.dishes) ? n.dishes : [];
+      const course = n.course ?? 1;
+      const courseLabel = n.course_label || (isBebidas ? 'Bebidas' : { 1:'Entrantes', 2:'Principales', 3:'Postres' }[course] || 'Platos');
+      playKitchenSound();
+      addWaiterNotif({ id: n.id || Date.now(), tableLabel: n.table_label || 'Mesa', roomId: n.room_id, courseLabel, course, isBebidas, dishes, time: new Date(n.created_at).toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }), seen: false, checked: {} });
+      renderWaiterNotifBanner();
+      updateWaiterNotifBadge();
+    });
+  } catch(e) { /* non-blocking */ }
+}
+
 function subscribeWaiterNotifications() {
   if (!_waiterRestaurantId) return;
 
@@ -6170,22 +6345,22 @@ function subscribeWaiterNotifications() {
       const n = payload.new;
       if (!n) return;
 
+      const dishes    = Array.isArray(n.dishes) ? n.dishes : [];
+      const course    = n.course ?? 1;
+      const isBebidas = !!n.is_bebidas;
+      const courseLabel = n.course_label || (isBebidas ? 'Bebidas' : { 1:'Entrantes', 2:'Principales', 3:'Postres' }[course] || 'Platos');
+      const tableLabel  = n.table_label || 'Mesa';
+      const time = new Date(n.created_at || Date.now()).toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
+
       // Filter: for bebidas, notify ALL active waiters; for food, only assigned
       const isMyTable = isBebidas
-        ? true // bebidas → notify any active waiter
+        ? true
         : (
           (!n.assigned_waiter_id && !n.waiter_id) ||
           n.assigned_waiter_id === _waiterId ||
           n.waiter_id === _waiterId
         );
       if (!isMyTable) return;
-
-      const dishes   = Array.isArray(n.dishes) ? n.dishes : [];
-      const course   = n.course ?? 1;
-      const isBebidas = !!n.is_bebidas;
-      const courseLabel = n.course_label || (isBebidas ? 'Bebidas' : { 1:'Entrantes', 2:'Principales', 3:'Postres' }[course] || 'Platos');
-      const tableLabel  = n.table_label || 'Mesa';
-      const time = new Date(n.created_at || Date.now()).toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
 
       console.log('[Waiter] Notif recibida:', courseLabel, tableLabel, dishes.length, 'platos');
 
@@ -6217,6 +6392,8 @@ function subscribeWaiterNotifications() {
     })
     .subscribe((status) => {
       console.log('[Waiter] Suscripción kitchen_notifications:', status, '— restaurante:', _waiterRestaurantId);
+      // Start polling fallback in case realtime drops
+      _startWaiterNotifPolling();
     });
 
   // ── FALLBACK: listen for reassignments via broadcast ────────────────
@@ -6362,7 +6539,7 @@ function _renderNotifModal(modal, n) {
       <span style="font-size:16px;flex-shrink:0">${emoji}</span>
       <div style="flex:1;min-width:0">
         <div style="font-size:14px;font-weight:${isChecked?'400':'500'};${isChecked?'text-decoration:line-through;color:var(--t3);':'color:var(--t1)'}">${escHtml(d.name)}</div>
-        ${cp ? `<div style="display:inline-flex;align-items:center;gap:4px;margin-top:3px;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;background:${cpColors[cp]||'#666'};color:#fff">🥩 ${cp}</div>` : ''}
+        ${cp ? `<div style="display:inline-flex;align-items:center;gap:4px;margin-top:3px;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;background:${cpColors[cp]||'#666'};color:#fff">${cp}</div>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -6728,6 +6905,7 @@ async function waiterLogout() {
     await sb.from('waiters').update({ is_active: false }).eq('id', _waiterId);
   }
   if (window._waiterAutoLogoutTimer) clearTimeout(window._waiterAutoLogoutTimer);
+  if (_waiterNotifPollTimer) { clearInterval(_waiterNotifPollTimer); _waiterNotifPollTimer = null; }
   _waiterId = null; _waiterName = null;
   _waiterRestaurantId = null; _waiterCart = [];
   go('s0');
@@ -7081,7 +7259,7 @@ function showWaiterCookingPointModal(id, name, price, isShared) {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
       <div>
         <div style="font-size:11px;color:var(--t3);font-weight:500;text-transform:uppercase;letter-spacing:.06em">Punto de cocción</div>
-        <div style="font-size:15px;font-weight:600">🥩 ${escHtml(name)}</div>
+        <div style="font-size:15px;font-weight:600">${escHtml(name)}</div>
       </div>
       <button onclick="document.getElementById('waiter-cooking-point-modal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
     </div>
@@ -7125,7 +7303,7 @@ function updateWaiterCart() {
   const total = _waiterCart.reduce((s, i) => s + i.price * i.qty, 0);
   cartItems.innerHTML = _waiterCart.map(i =>
     `<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0">
-      <span>${i.qty}× ${i.name}${i.cookingPoint ? '<span style="font-size:10px;color:#8B5E3C;background:#FFF3E0;border-radius:99px;padding:1px 6px;margin-left:4px">🥩 '+i.cookingPoint+'</span>' : ''}</span>
+      <span>${i.qty}× ${i.name}${i.cookingPoint ? '<span style="font-size:10px;color:#8B5E3C;background:#FFF3E0;border-radius:99px;padding:1px 6px;margin-left:4px">'+i.cookingPoint+'</span>' : ''}</span>
       <span style="font-weight:500">${fmt(i.price * i.qty)}</span>
     </div>`
   ).join('') + `<div style="border-top:1px solid var(--bd);margin-top:5px;padding-top:5px;display:flex;justify-content:space-between;font-weight:500">
@@ -7920,7 +8098,7 @@ function openAjustesSection(section) {
           <div class="toggle-track" id="ai-shared-track" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></div>
         </div>
         <div class="toggle" style="margin:.25rem 0">
-          <span style="font-size:13px;color:var(--t2)">🥩 Requiere punto de cocción (carnes)</span>
+          <span style="font-size:13px;color:var(--t2)">Requiere punto de cocción (carnes)</span>
           <div class="toggle-track" id="ai-cooking-track" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></div>
         </div>
         <div class="field" style="margin-top:.35rem">
@@ -8587,7 +8765,7 @@ async function loadAdminCartaInline() {
         <div style="display:flex;align-items:center;gap:8px">
           ${item.photo_url ? `<img src="${item.photo_url}" style="width:40px;height:40px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0">` : ''}
           <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:500">${escHtml(item.name)}${item.requires_cooking_point?'<span style="font-size:10px;background:#FFF3E0;color:#8B5E3C;border-radius:99px;padding:1px 6px;margin-left:4px;border:1px solid #E8C9A0">🥩 Punto</span>':''}</div>
+            <div style="font-size:13px;font-weight:500">${escHtml(item.name)}${item.requires_cooking_point?'<span style="font-size:10px;background:#FFF3E0;color:#8B5E3C;border-radius:99px;padding:1px 6px;margin-left:4px;border:1px solid #E8C9A0">Punto</span>':''}</div>
             <div style="font-size:11px;color:var(--t2)">${fmt(parseFloat(item.price))}${item.prep_time_minutes?' · ⏱'+item.prep_time_minutes+'m':''}${marginStr}${!item.active?' · <span style="color:var(--accent)">Inactivo</span>':''}</div>
             ${item.allergens?.length ? getAllergenIcons(item.allergens) : ''}
           </div>
@@ -12515,18 +12693,51 @@ function buildEqualPayScreen(numPax) {
     breakdownEl.style.display = 'block';
   }
 
+  // Block edits after first payment
+  const paidIds = new Set(state.payments.filter(p => p.guest_id).map(p => p.guest_id));
+  const hasAnyPaid = paidIds.size > 0;
+
   const list = document.getElementById('pay-status-list');
   if (list) {
+    const guests = state.guests || [];
+    // Use real guest names if available, otherwise numbered
+    const people = guests.length >= numPax
+      ? guests.slice(0, numPax)
+      : Array.from({length: numPax}, (_, i) => guests[i] || { id: `anon-${i}`, name: `Persona ${i+1}` });
+
+    let rows = people.map((g, i) => {
+      const isPaid = paidIds.has(g.id);
+      const isMe = g.id === state.myGuestId;
+      const paidNote = state.payments.find(p => p.guest_id === g.id)?.note || '';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:.6rem 0;border-bottom:1px solid var(--bd)">
+        <div style="width:28px;height:28px;border-radius:50%;background:${isPaid?'#EAF3DE':'var(--blue-l)'};color:${isPaid?'#2E7D2E':'var(--blue)'};font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${isPaid?'✓':i+1}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500;color:var(--t1)">${escHtml(g.name)}${isMe?' <span style="font-size:11px;color:var(--brand)">(tú)</span>':''}</div>
+          ${paidNote ? `<div style="font-size:10px;color:var(--t3)">${escHtml(paidNote)}</div>` : ''}
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--brand-d)">${fmt(perPerson)}</div>
+          ${isPaid
+            ? `<span style="font-size:10px;color:#2E7D2E;font-weight:500">Pagado</span>`
+            : !isMe
+              ? `<button onclick="showPayForManual('${g.id}','${escHtml(g.name)}',${perPerson})"
+                  style="font-size:10px;padding:2px 7px;border-radius:99px;border:1px solid var(--brand);background:var(--brand-l);color:var(--brand-d);cursor:pointer;font-family:inherit;white-space:nowrap">
+                  Pagar por ${escHtml(g.name.split(' ')[0])}
+                </button>`
+              : `<span style="font-size:10px;color:#854F0B;font-weight:500">Pendiente</span>`
+          }
+        </div>
+      </div>`;
+    }).join('');
+
     list.innerHTML = `<div style="background:#E6F1FB;border-radius:var(--r);padding:.85rem 1rem;text-align:center;margin-bottom:.5rem">
-      <div style="font-size:13px;color:var(--blue);font-weight:500">➗ Dividido en ${numPax} partes iguales</div>
-      <div style="font-size:12px;color:var(--blue);margin-top:3px">${fmt(grandTotal)} total · ${fmt(perPerson)} cada uno</div>
+      <div style="font-size:13px;color:var(--blue);font-weight:500">Dividido en ${numPax} partes iguales</div>
+      <div style="font-size:12px;color:var(--blue);margin-top:3px">${fmt(grandTotal)} total · <strong>${fmt(perPerson)}</strong> cada uno</div>
     </div>
-    ${Array.from({length: numPax}, (_, i) => `
-      <div style="display:flex;align-items:center;gap:10px;padding:.6rem 0;border-bottom:1px solid var(--bd)">
-        <div style="width:28px;height:28px;border-radius:50%;background:var(--blue-l);color:var(--blue);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</div>
-        <div style="flex:1;font-size:13px;color:var(--t2)">Persona ${i + 1}${i === 0 ? ' (tú)' : ''}</div>
-        <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--brand-d)">${fmt(perPerson)}</div>
-      </div>`).join('')}`;
+    ${hasAnyPaid ? `<div style="background:#FAEEDA;border-radius:var(--r-sm);padding:.5rem .75rem;margin-bottom:.5rem;font-size:12px;color:#854F0B;font-weight:500">
+      Pago en curso — el reparto ya no puede modificarse.
+    </div>` : ''}
+    ${rows}`;
   }
 }
 
