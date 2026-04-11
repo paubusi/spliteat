@@ -1253,19 +1253,16 @@
         <div class="gv" id="grand-total">—</div>
       </div>
 
-      <!-- #7: Accordion — Añadir/Editar colapsable -->
+      <!-- #7 + #UX4: Accordion — pedir más colapsable -->
       <div style="margin-top:.75rem;border:1.5px solid var(--bd2);border-radius:var(--r-sm);overflow:hidden;margin-bottom:1rem">
         <button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.querySelector('span.arr').textContent=this.nextElementSibling.style.display==='none'?'▸':'▾'"
           style="width:100%;text-align:left;padding:.75rem 1rem;background:var(--bg2);border:none;font-size:13px;color:var(--t2);cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between;font-weight:500">
-          <span>¿Falta algún plato o quieres cambiar el reparto?</span>
+          <span>¿Quieres pedir algo más antes de pagar?</span>
           <span class="arr" style="font-size:11px;opacity:.6">▸</span>
         </button>
-        <div style="display:none;padding:.65rem;display:none">
-          <button onclick="go('s3-dishes');window.scrollTo(0,0)" class="btn btn-secondary" style="width:100%;margin-bottom:.4rem;font-size:13px">
-            🍽 Añadir platos a la carta
-          </button>
-          <button onclick="go('s3-dishes');showDishTab('mesa')" class="btn btn-secondary" style="width:100%;font-size:13px">
-            ✏️ Editar reparto de platos
+        <div style="display:none;padding:.65rem">
+          <button onclick="go('s3-dishes');window.scrollTo(0,0)" class="btn btn-secondary" style="width:100%;font-size:13px">
+            🍽 Volver a la carta
           </button>
         </div>
       </div>
@@ -2515,11 +2512,19 @@
           </div>
         </div>
         <!-- #8b: Can go with postre -->
-        <div style="display:flex;align-items:flex-start;gap:12px;padding:.85rem 1rem;background:var(--amber-l);border-radius:var(--r-sm);margin-bottom:1rem;border:1px solid var(--amber)">
+        <div style="display:flex;align-items:flex-start;gap:12px;padding:.85rem 1rem;background:var(--amber-l);border-radius:var(--r-sm);margin-bottom:.65rem;border:1px solid var(--amber)">
           <input type="checkbox" id="edit-item-postre" style="width:18px;height:18px;margin-top:2px;accent-color:var(--amber);flex-shrink:0">
           <div>
             <div style="font-size:14px;font-weight:500;color:var(--amber)">Puede ir con el postre</div>
             <div style="font-size:12px;color:var(--amber);margin-top:2px;line-height:1.5">Para cafés, infusiones y digestivos. El comensal podrá elegir servir esta bebida con el postre.</div>
+          </div>
+        </div>
+        <!-- #UX6: Cooking point as checkbox option -->
+        <div style="display:flex;align-items:flex-start;gap:12px;padding:.85rem 1rem;background:#FFF3E0;border-radius:var(--r-sm);margin-bottom:1rem;border:1px solid #E8C9A0">
+          <input type="checkbox" id="edit-item-cooking" style="width:18px;height:18px;margin-top:2px;accent-color:#8B5E3C;flex-shrink:0">
+          <div>
+            <div style="font-size:14px;font-weight:500;color:#8B5E3C">Requiere punto de cocción</div>
+            <div style="font-size:12px;color:#8B5E3C;margin-top:2px;line-height:1.5">El comensal podrá especificar cómo quiere la carne: muy poco hecho, poco hecho, al punto, hecho o muy hecho.</div>
           </div>
         </div>
         <div style="display:flex;gap:.65rem;margin-top:.5rem">
@@ -3317,19 +3322,18 @@ function showToast(title, body) {
 
   const toast = document.createElement('div');
   toast.id = 'spliteat-toast';
-  toast.innerHTML = `<div style="font-weight:500;font-size:14px;margin-bottom:2px">${title}</div><div style="font-size:12px;opacity:.85">${body}</div>`;
+  toast.innerHTML = `<div style="font-weight:500;font-size:14px;margin-bottom:${body?'2px':'0'}">${title}</div>${body?`<div style="font-size:12px;opacity:.85">${body}</div>`:''}`;
   toast.style.cssText = `
-    position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);
-    background:#085041;color:#fff;padding:.75rem 1.25rem;border-radius:12px;
-    z-index:9999;max-width:320px;width:90%;text-align:center;
+    position:fixed;top:4.5rem;left:50%;transform:translateX(-50%);
+    background:#085041;color:#fff;padding:.65rem 1.25rem;border-radius:12px;
+    z-index:9999;max-width:340px;width:90%;text-align:center;
     box-shadow:0 4px 20px rgba(0,0,0,0.25);
-    animation:slideUpToast .25s ease;
+    animation:slideDownToast .25s ease;
   `;
-  // Add animation keyframe if not exists
   if (!document.getElementById('toast-style')) {
     const s = document.createElement('style');
     s.id = 'toast-style';
-    s.textContent = '@keyframes slideUpToast{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}';
+    s.textContent = '@keyframes slideDownToast{from{opacity:0;transform:translateX(-50%) translateY(-16px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}';
     document.head.appendChild(s);
   }
   document.body.appendChild(toast);
@@ -4096,14 +4100,15 @@ function renderMesaDishes() {
 
 function renderDishCard(dish) {
   const isShared = dish.type === 'shared';
-  const parts = state.participants[dish.id] || [];
+  const parts = state.participants[dish.id] || [];;
   const nParts = Math.max(1, parts.length);
   const perPerson = parseFloat(dish.price) / nParts;
   const ks = dish.kitchen_status || 'new';
   const isConfirmed = ks === 'making' || ks === 'ready';
   const isSent = ks === 'sent' || isConfirmed;
-  // #25: delivered dishes shown greyed out (already at table)
   const isDelivered = ks === 'delivered';
+  // #BG3: Bebidas are served by waiter, not kitchen
+  const isBebida = dish.category === 'bebidas' || dish.course === 0;
 
   // Course badge
   const courseLabels = { 0: '🥤', 1: '1º', 2: '2º', 3: '3º' };
@@ -4113,26 +4118,30 @@ function renderDishCard(dish) {
   // Cooking point badge
   const cpColors = {'Muy poco hecho':'#E74C3C','Poco hecho':'#E67E22','Al punto':'#F39C12','Hecho':'#8B5E3C','Muy hecho':'#2C2C2C'};
   const cookingBadge = dish.cooking_point
-    ? `<span style="font-size:10px;padding:2px 7px;border-radius:99px;background:${cpColors[dish.cooking_point]||'#666'};color:#fff;margin-left:4px;font-weight:500">${dish.cooking_point}</span>`
+    ? `<span style="font-size:10px;padding:2px 7px;border-radius:99px;background:${cpColors[dish.cooking_point]||'#666'};color:#fff;margin-left:4px;font-weight:500;white-space:nowrap;display:inline-block">${dish.cooking_point}</span>`
     : '';
 
   // Kitchen status badge (compact)
-  // #15: Status badge — more colorful and distinct per state
+  // #15 + #BG3: Status badge — bebidas handled by waiter, not kitchen
   const ksBadge = isSent
     ? `<span style="font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;white-space:nowrap;background:${
         isDelivered ? 'var(--bg2)' :
+        isBebida ? '#F0F4FF' :
         ks==='ready' ? '#EAF3DE' :
         ks==='making' ? '#FFF3E0' : '#EBF4FB'
       };color:${
         isDelivered ? 'var(--t3)' :
+        isBebida ? '#3D5A99' :
         ks==='ready' ? '#2E7D2E' :
         ks==='making' ? '#B7560D' : '#1565A8'
       };border:1px solid ${
         isDelivered ? 'var(--bd)' :
+        isBebida ? '#BDC8E8' :
         ks==='ready' ? '#A8D5A2' :
         ks==='making' ? '#F5CBA7' : '#AED6F1'
       }">
         ${isDelivered ? '✓ Servido' :
+          isBebida ? '🧑‍🍳 Camarero' :
           ks==='ready' ? '🛎 Listo' :
           ks==='making' ? '🍳 Preparando' : '📨 En cocina'}
       </span>` : '';
@@ -4199,40 +4208,30 @@ function renderDishCard(dish) {
     bodyHtml += `<div style="font-size:11px;color:var(--t3);margin-top:4px">🔒 Reparto bloqueado — ya hay pagos realizados</div>`;
   }
 
-  // U3: Unsent dishes show direct ✕ + type toggle; sent show Editar dropdown
+  // U3 + #BG1: All dishes show ✕ delete + ✏️ edit icon (no type toggle text)
   const editDropdownId = `edit-dd-${dish.id}`;
   let actionBtns = '';
-  if (!isSent && !isConfirmed) {
-    // Not yet sent — show inline buttons
+  if (!isConfirmed && !isDelivered) {
     actionBtns = `
-    <div style="display:flex;gap:.35rem;margin-top:.4rem">
-      <button onclick="toggleDishType('${dish.id}')"
-        style="flex:1;padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:${isShared ? 'var(--blue-l)' : 'var(--amber-l)'};color:${isShared ? 'var(--blue)' : 'var(--amber)'};font-size:11px;font-weight:500;cursor:pointer;font-family:inherit">
-        ${isShared ? '🤝 Compartido' : '👤 Solo mío'}
-      </button>
-      <button onclick="deleteDish('${dish.id}')"
-        style="padding:4px 10px;border-radius:var(--r-sm);border:1px solid #FCCACA;background:#FFF5F5;color:var(--accent);font-size:13px;font-weight:600;cursor:pointer">
-        ✕
-      </button>
-    </div>`;
-  } else if (!isConfirmed) {
-    // Sent to kitchen — Editar dropdown only
-    actionBtns = `
-    <div style="margin-top:.4rem">
+    <div style="display:flex;gap:.35rem;margin-top:.4rem;align-items:center">
       <button onclick="toggleEditDropdown('${editDropdownId}')"
-        style="padding:4px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px">
+        style="flex:1;padding:4px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px">
         ✏️ Editar <span style="font-size:9px;opacity:.6">▾</span>
       </button>
-      <div id="${editDropdownId}" style="display:none;margin-top:.35rem;background:var(--card);border:1px solid var(--bd2);border-radius:var(--r-sm);overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.1)">
-        <button onclick="toggleDishType('${dish.id}');toggleEditDropdown('${editDropdownId}')"
-          style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;font-size:12px;font-family:inherit;cursor:pointer;color:var(--t1);display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bd)">
-          ${isShared ? '<span>👤</span> Cambiar a Solo mío' : '<span>🤝</span> Cambiar a Compartido'}
-        </button>
-        <button onclick="deleteDish('${dish.id}')"
-          style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;font-size:12px;font-family:inherit;cursor:pointer;color:var(--accent);display:flex;align-items:center;gap:8px">
-          <span>✕</span> Eliminar plato
-        </button>
-      </div>
+      ${!isSent ? `<button onclick="deleteDish('${dish.id}')"
+        style="padding:4px 10px;border-radius:var(--r-sm);border:1px solid #FCCACA;background:#FFF5F5;color:var(--accent);font-size:14px;font-weight:700;cursor:pointer;line-height:1">
+        ✕
+      </button>` : ''}
+    </div>
+    <div id="${editDropdownId}" style="display:none;margin-top:.35rem;background:var(--card);border:1px solid var(--bd2);border-radius:var(--r-sm);overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.1)">
+      <button onclick="toggleDishType('${dish.id}');toggleEditDropdown('${editDropdownId}')"
+        style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;font-size:12px;font-family:inherit;cursor:pointer;color:var(--t1);display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--bd)">
+        ${isShared ? '<span>👤</span> Cambiar a Solo mío' : '<span>🤝</span> Cambiar a Compartido'}
+      </button>
+      ${!isSent ? `<button onclick="deleteDish('${dish.id}')"
+        style="width:100%;text-align:left;padding:8px 12px;border:none;background:none;font-size:12px;font-family:inherit;cursor:pointer;color:var(--accent);display:flex;align-items:center;gap:8px">
+        <span>✕</span> Eliminar plato
+      </button>` : ''}
     </div>`;
   }
 
@@ -4632,7 +4631,7 @@ function buildSummary() {
         <span style="display:flex;align-items:center;gap:6px">
           <span class="val">${fmt(parseFloat(d.price))}</span>
           <button onclick="unassignDish('${d.id}','solo')" title="Desasignar"
-            style="background:none;border:none;font-size:11px;color:var(--t3);cursor:pointer;padding:1px 4px;border-radius:3px;line-height:1">✕</button>
+            style="background:#FFF5F5;border:1px solid #FCCACA;font-size:13px;color:var(--accent);cursor:pointer;padding:2px 7px;border-radius:4px;line-height:1;font-weight:600">✕</button>
         </span>
       </div>`;
     });
@@ -4643,7 +4642,7 @@ function buildSummary() {
         <span style="display:flex;align-items:center;gap:6px">
           <span class="val">${fmt(share)}</span>
           <button onclick="unassignDish('${d.id}','shared','${t.g.id}')" title="Quitar de este plato"
-            style="background:none;border:none;font-size:11px;color:var(--t3);cursor:pointer;padding:1px 4px;border-radius:3px;line-height:1">✕</button>
+            style="background:#FFF5F5;border:1px solid #FCCACA;font-size:13px;color:var(--accent);cursor:pointer;padding:2px 7px;border-radius:4px;line-height:1;font-weight:600">✕</button>
         </span>
       </div>`;
     });
@@ -4833,11 +4832,81 @@ function showAccountClosed() {
       <div style="font-size:12px;color:var(--t3);margin-bottom:.25rem">Total de la mesa</div>
       <div style="font-family:'Fraunces',serif;font-size:32px;font-weight:700;color:var(--brand-d)">${fmt(state.dishes.reduce((s,d)=>s+parseFloat(d.price||0),0))}</div>
     </div>
-    <button onclick="document.getElementById('account-closed-screen').remove();go('s0')"
+    <button onclick="document.getElementById('account-closed-screen').remove();showFacturaModal()"
       style="padding:12px 32px;border-radius:var(--r-sm);border:2px solid var(--brand-d);background:none;color:var(--brand-d);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">
       ¿Necesitas factura? →
     </button>`;
   document.body.appendChild(el);
+}
+
+// #BG8: Factura modal — request invoice after account closed
+function showFacturaModal() {
+  document.getElementById('factura-modal')?.remove();
+  const total = state.dishes.reduce((s, d) => s + parseFloat(d.price || 0), 0);
+  const totals = calcTotals();
+  const me = totals.find(t => t.g.id === state.myGuestId);
+  const myTotal = me ? me.total : 0;
+
+  const el = document.createElement('div');
+  el.id = 'factura-modal';
+  el.style.cssText = 'position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center';
+  el.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;padding:1.5rem 1.25rem 2rem;animation:slideUp .22s ease;max-height:85vh;overflow-y:auto">
+      <div style="font-size:17px;font-weight:700;color:var(--t1);margin-bottom:.25rem">🧾 Solicitar factura</div>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:1.25rem">Rellena los datos para recibir la factura por email.</div>
+
+      <div class="field"><label>Nombre / Razón social *</label>
+        <input id="fct-name" type="text" placeholder="Tu nombre o empresa" autocomplete="name"></div>
+      <div class="field"><label>NIF / CIF *</label>
+        <input id="fct-nif" type="text" placeholder="12345678A" autocomplete="off"></div>
+      <div class="field"><label>Dirección fiscal *</label>
+        <input id="fct-dir" type="text" placeholder="Calle, número, ciudad" autocomplete="street-address"></div>
+      <div class="field"><label>Email *</label>
+        <input id="fct-email" type="email" placeholder="tu@email.com" autocomplete="email"></div>
+
+      <div style="background:var(--bg2);border-radius:var(--r-sm);padding:.75rem 1rem;margin-bottom:1rem;font-size:13px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:.25rem">
+          <span style="color:var(--t2)">Tu parte</span>
+          <strong>${fmt(myTotal)}</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between">
+          <span style="color:var(--t2)">Total mesa</span>
+          <strong>${fmt(total)}</strong>
+        </div>
+      </div>
+
+      <div id="fct-err" style="display:none;color:var(--accent);font-size:12px;margin-bottom:.5rem"></div>
+      <button onclick="submitFactura()" class="btn btn-primary" style="width:100%;margin-bottom:.5rem">
+        Enviar solicitud de factura
+      </button>
+      <button onclick="document.getElementById('factura-modal').remove()"
+        style="width:100%;padding:9px;border:none;background:none;color:var(--t3);font-size:13px;cursor:pointer;font-family:inherit">
+        Cancelar
+      </button>
+    </div>`;
+  document.body.appendChild(el);
+  el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+}
+
+function submitFactura() {
+  const name = document.getElementById('fct-name')?.value?.trim();
+  const nif = document.getElementById('fct-nif')?.value?.trim();
+  const dir = document.getElementById('fct-dir')?.value?.trim();
+  const email = document.getElementById('fct-email')?.value?.trim();
+  const errEl = document.getElementById('fct-err');
+  if (!name || !nif || !dir || !email) {
+    errEl.textContent = 'Por favor rellena todos los campos obligatorios.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (!email.includes('@')) {
+    errEl.textContent = 'Introduce un email válido.';
+    errEl.style.display = 'block';
+    return;
+  }
+  // Save factura request — for now notify and close (future: send to manageat)
+  notify('Solicitud de factura enviada. El restaurante te la enviará por email.', 'success');
+  document.getElementById('factura-modal')?.remove();
 }
 
 async function confirmPay(method) {
@@ -8277,12 +8346,17 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
     const timerColor = elapsed > 20 ? '#C0392B' : elapsed > 10 ? '#E67E22' : '#666';
     const timerBg = elapsed > 20 ? '#FCEBEB' : elapsed > 10 ? '#FAEEDA' : 'var(--bg2)';
 
-    // Group dishes by course (1=entrantes, 2=principales, 3=postres, null=sin pase)
+    // Group dishes by course — bebidas always in own group (course 0)
     const byCourse = {};
+    const bebidasDishes = [];
     roomDishes.forEach(d => {
-      const c = d.course || 1;
-      if (!byCourse[c]) byCourse[c] = [];
-      byCourse[c].push(d);
+      if (d.category === 'bebidas' || d.course === 0) {
+        bebidasDishes.push(d);
+      } else {
+        const c = d.course || 1;
+        if (!byCourse[c]) byCourse[c] = [];
+        byCourse[c].push(d);
+      }
     });
 
     // Determine active course (lowest course with sent/making dishes)
@@ -8290,6 +8364,27 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
     const currentCourse = activeCourses.find(c =>
       byCourse[c].some(d => d.kitchen_status === 'sent' || d.kitchen_status === 'making')
     ) || activeCourses[0];
+
+    // #BG4: Bebidas section — separate, waiter responsibility
+    let bebidasSection = '';
+    if (bebidasDishes.length) {
+      const rows = bebidasDishes.map(d => {
+        const ks = d.kitchen_status || 'sent';
+        const statusLabel = ks === 'delivered' ? '✓ Servido (camarero)' : '🧑‍🍳 Camarero';
+        const statusColor = ks === 'delivered' ? '#3B6D11' : '#3D5A99';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.05);font-size:12px">
+          <span style="color:var(--t1)">${escHtml(d.name)}</span>
+          <span style="color:${statusColor};font-size:11px;font-weight:500">${statusLabel}</span>
+        </div>`;
+      }).join('');
+      bebidasSection = `<div style="background:#F0F4FF;border-radius:6px;padding:.5rem .75rem;margin-bottom:.4rem;border:1px solid #BDC8E8">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem">
+          <span style="font-size:11px;font-weight:600;color:#3D5A99">🥤 BEBIDAS</span>
+          <span style="font-size:10px;color:#3D5A99;background:#BDC8E8;padding:1px 6px;border-radius:99px">Responsabilidad del camarero</span>
+        </div>
+        ${rows}
+      </div>`;
+    }
 
     const courseSections = activeCourses.map(course => {
       const cDishes = byCourse[course];
@@ -8397,7 +8492,7 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
       </div>
       <!-- Pases -->
       <div style="padding:.5rem .65rem">
-        ${courseSections}
+        ${bebidasSection}${courseSections}
       </div>
     </div>`;
   }).join('');
@@ -9333,35 +9428,58 @@ async function loadMesaDishDetail(roomId, tableLabel) {
   const guestMap = {};
   (guests || []).forEach(g => { guestMap[g.id] = g.name; });
 
-  const statusLabel = { new:'Por enviar', sent:'En cocina', making:'Preparando', ready:'Listo', delivered:'Servido' };
-  const statusColor = { new:'var(--t3)', sent:'#1565A8', making:'#B7560D', ready:'#2E7D2E', delivered:'var(--t3)' };
+  const bebidas = dishes.filter(d => d.category === 'bebidas' || d.course === 0);
+  const food = dishes.filter(d => d.category !== 'bebidas' && d.course !== 0);
 
-  const groups = { new:[], sent:[], making:[], ready:[], delivered:[] };
-  dishes.forEach(d => { const k = d.kitchen_status || 'new'; if(groups[k]) groups[k].push(d); });
+  const foodStatusLabel = { new:'Por enviar', sent:'En cocina', making:'Preparando', ready:'Listo', delivered:'Servido' };
+  const foodStatusColor = { new:'var(--t3)', sent:'#1565A8', making:'#B7560D', ready:'#2E7D2E', delivered:'var(--t3)' };
+  const bebStatusLabel = { new:'Por enviar', sent:'Camarero', making:'Camarero', ready:'Camarero', delivered:'✓ Servido' };
+  const bebStatusColor = { new:'var(--t3)', sent:'#3D5A99', making:'#3D5A99', ready:'#3D5A99', delivered:'#2E7D2E' };
 
   let html = `<div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:.75rem">${escHtml(tableLabel)} — ${dishes.length} platos</div>`;
 
-  const order = ['making','ready','sent','new','delivered'];
-  order.forEach(status => {
-    const group = groups[status];
-    if (!group.length) return;
-    html += `<div style="font-size:10px;font-weight:600;color:${statusColor[status]};text-transform:uppercase;letter-spacing:.05em;margin:8px 0 4px">${statusLabel[status]} (${group.length})</div>`;
-    group.forEach(d => {
-      const who = d.assignee_id ? (guestMap[d.assignee_id] || '?') : d.type === 'shared' ? 'Compartido' : '—';
-      html += `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--bd);gap:6px">
+  if (bebidas.length) {
+    html += `<div style="background:#F0F4FF;border-radius:6px;padding:.5rem .65rem;margin-bottom:.65rem;border:1px solid #BDC8E8">
+      <div style="font-size:10px;font-weight:600;color:#3D5A99;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.35rem">🥤 Bebidas — Camarero</div>`;
+    bebidas.forEach(d => {
+      const ks = d.kitchen_status || 'new';
+      const sl = bebStatusLabel[ks] || 'Camarero';
+      const sc = bebStatusColor[ks] || '#3D5A99';
+      const who = d.assignee_id ? (guestMap[d.assignee_id] || '?') : d.type === 'shared' ? 'Compartida' : '—';
+      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(61,90,153,.15);gap:6px">
         <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${status==='delivered'?'color:var(--t3)':''}">${escHtml(d.name)}</div>
-          <div style="font-size:10px;color:var(--t3)">${escHtml(who)}</div>
+          <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(d.name)}</div>
+          <div style="font-size:10px;color:#3D5A99">${escHtml(who)}</div>
         </div>
-        <div style="font-size:12px;font-weight:600;color:var(--brand-d);flex-shrink:0">${fmt(parseFloat(d.price))}</div>
+        <span style="font-size:11px;font-weight:500;color:${sc};flex-shrink:0">${sl}</span>
       </div>`;
     });
-  });
+    html += `</div>`;
+  }
+
+  if (food.length) {
+    const groups = { making:[], ready:[], sent:[], new:[], delivered:[] };
+    food.forEach(d => { const k = d.kitchen_status || 'new'; if(groups[k]) groups[k].push(d); });
+    ['making','ready','sent','new','delivered'].forEach(status => {
+      const group = groups[status];
+      if (!group.length) return;
+      html += `<div style="font-size:10px;font-weight:600;color:${foodStatusColor[status]};text-transform:uppercase;letter-spacing:.05em;margin:8px 0 4px">${foodStatusLabel[status]} (${group.length})</div>`;
+      group.forEach(d => {
+        const who = d.assignee_id ? (guestMap[d.assignee_id] || '?') : d.type === 'shared' ? 'Compartido' : '—';
+        html += `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--bd);gap:6px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${status==='delivered'?'color:var(--t3)':''}">${escHtml(d.name)}</div>
+            <div style="font-size:10px;color:var(--t3)">${escHtml(who)}</div>
+          </div>
+          <div style="font-size:12px;font-weight:600;color:var(--brand-d);flex-shrink:0">${fmt(parseFloat(d.price))}</div>
+        </div>`;
+      });
+    });
+  }
 
   html += `<button onclick="loadMesaDishDetail('${roomId}','${tableLabel}')" style="width:100%;margin-top:.75rem;padding:6px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:none;color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit">↻ Actualizar</button>`;
   content.innerHTML = html;
 }
-
 async function reassignWaiter(roomId) {
   const sel = document.getElementById('detail-waiter-select');
   if (!sel) return;
@@ -11117,8 +11235,8 @@ function showPrePayChecklist() {
   const nDishes = state.dishes?.length || 0;
   el.innerHTML = `
     <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;padding:1.5rem 1.25rem 2rem;animation:slideUp .22s ease">
-      <div style="font-size:22px;text-align:center;margin-bottom:.5rem">🧾</div>
-      <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--t1);text-align:center;margin-bottom:.35rem">¿Está todo correcto?</div>
+      <div style="font-size:22px;text-align:center;margin-bottom:.5rem">🍽</div>
+      <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--t1);text-align:center;margin-bottom:.35rem">¿Pedimos algo más o pagamos?</div>
       <div style="font-size:13px;color:var(--t2);text-align:center;margin-bottom:1.25rem;line-height:1.5">
         Una vez iniciado el pago <strong>no se podrá modificar el reparto</strong> ni añadir personas.
       </div>
@@ -11132,19 +11250,19 @@ function showPrePayChecklist() {
           <span style="font-size:14px;font-weight:600;color:var(--brand-d)">${nDishes} plato${nDishes!==1?'s':''}</span>
         </div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1rem">
-        <button onclick="document.getElementById('pre-pay-checklist').remove();go('s3-dishes');setTimeout(()=>{document.getElementById('add-manual-guest-panel').style.display='block';},300)"
-          style="padding:10px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit">
-          + Añadir persona que falta
+      <div style="display:flex;gap:.5rem;margin-bottom:1rem">
+        <button onclick="document.getElementById('pre-pay-checklist').remove();go('s3-dishes');window.scrollTo(0,0)"
+          style="flex:1;padding:10px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit;text-align:center">
+          + Pedir más platos
         </button>
         <button onclick="document.getElementById('pre-pay-checklist').remove();go('s3-dishes');showDishTab('mesa')"
-          style="padding:10px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit">
-          ✏️ Revisar y editar reparto
+          style="flex:1;padding:10px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit;text-align:center">
+          ✏️ Editar reparto
         </button>
       </div>
       <button onclick="document.getElementById('pre-pay-checklist').remove();_doGoToSummary()"
         class="btn btn-primary" style="width:100%;font-size:15px">
-        ✓ El reparto está correcto — ver resumen →
+        Sí, procedemos al pago →
       </button>
       <button onclick="document.getElementById('pre-pay-checklist').remove()"
         style="width:100%;padding:9px;border:none;background:none;color:var(--t3);font-size:13px;cursor:pointer;font-family:inherit;margin-top:.35rem">
@@ -12387,6 +12505,7 @@ async function openEditItem(itemId) {
   document.getElementById('edit-item-category').value = item.category || 'otros';
   document.getElementById('edit-item-shared').checked = !!item.is_shared;
   document.getElementById('edit-item-postre').checked = !!item.can_go_with_postre;
+  document.getElementById('edit-item-cooking').checked = !!item.requires_cooking_point;
   document.getElementById('edit-item-err').style.display = 'none';
   document.getElementById('edit-item-modal').style.display = 'flex';
 }
@@ -12411,6 +12530,7 @@ async function saveEditItem() {
     category: document.getElementById('edit-item-category').value,
     is_shared: document.getElementById('edit-item-shared').checked,
     can_go_with_postre: document.getElementById('edit-item-postre').checked,
+    requires_cooking_point: document.getElementById('edit-item-cooking').checked,
   };
   const costVal = parseFloat(document.getElementById('edit-item-cost').value);
   if (!isNaN(costVal) && costVal > 0) updates.cost_price = costVal;
