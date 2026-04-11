@@ -1142,10 +1142,11 @@
 
         <!-- UX2: Guest multi-selector for shared -->
         <div id="modal-shared-selector" style="display:none;margin-bottom:1rem">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem">
-            <div style="font-size:13px;color:var(--t2)">¿Entre quiénes se divide?</div>
-            <button onclick="_selectAllSharedGuests()" style="font-size:11px;color:var(--brand);background:none;border:none;cursor:pointer;font-family:inherit;font-weight:500;padding:0">Toda la mesa ✓</button>
-          </div>
+          <div style="font-size:13px;color:var(--t2);margin-bottom:.5rem">¿Entre quiénes se divide?</div>
+          <button onclick="_selectAllSharedGuests()"
+            style="width:100%;padding:9px;border-radius:var(--r-sm);border:2px solid var(--brand);background:var(--brand-l);color:var(--brand-d);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:.5rem">
+            ✓ Compartir con toda la mesa
+          </button>
           <div id="modal-shared-guest-list" style="display:flex;flex-direction:column;gap:.35rem"></div>
         </div>
 
@@ -1295,7 +1296,7 @@
     <div class="hdr">
       <button class="back-btn" onclick="go('s4-summary')">← Resumen</button>
       <div class="logo">split<em>eat</em></div>
-      <button id="btn-change-method" onclick="resetPayMethod()" style="display:none;background:none;border:none;font-size:12px;color:var(--t2);cursor:pointer;font-family:inherit;padding:4px 8px;border:1px solid var(--bd2);border-radius:var(--r-sm)">Cambiar</button>
+      <button id="btn-change-method" onclick="resetPayMethod()" style="display:none;background:var(--bg2);border:1.5px solid var(--bd2);font-size:12px;color:var(--t2);cursor:pointer;font-family:inherit;padding:5px 10px;border-radius:var(--r-sm);white-space:nowrap">↩ Cambiar método</button>
     </div>
     <div class="body">
 
@@ -1340,69 +1341,9 @@
           style="width:100%;padding:10px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);font-size:14px;font-family:inherit;background:var(--card)">
       </div>
 
-      <!-- MÉTODOS DE PAGO — iconos reales, tarjeta primero -->
+      <!-- MÉTODOS DE PAGO — rendered dynamically based on restaurant config -->
       <div class="sec-label">¿Cómo pagas?</div>
-
-      <!-- Apple Pay -->
-      <button class="pay-main-btn" onclick="confirmPay('Apple Pay')"
-        style="display:flex;align-items:center;gap:14px;width:100%;padding:1rem 1.1rem;border-radius:var(--r);border:1px solid #000;background:#000;cursor:pointer;font-family:inherit;margin-bottom:.5rem;transition:all .15s">
-        <svg width="44" height="28" viewBox="0 0 44 28" fill="none" style="flex-shrink:0">
-          <rect width="44" height="28" rx="6" fill="#000"/>
-          <text x="22" y="19" text-anchor="middle" fill="white" font-size="12" font-family="sans-serif" font-weight="600"> Pay</text>
-          <path d="M10 10c1-1.5 2.5-2.5 4-2.5-.5 1.5-1.5 3-3 3.5S9 11.5 10 10z" fill="white"/>
-          <path d="M14 7.5c.8 0 1.8.5 2.3 1.3-1.8.3-3 1.8-2.8 3.5H12c-.2-2.3 1-4.8 2-4.8z" fill="white"/>
-        </svg>
-        <div style="text-align:left">
-          <div style="font-size:15px;font-weight:600;color:#fff">Apple Pay</div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.65)">Pago rápido con Face ID / Touch ID</div>
-        </div>
-      </button>
-
-      <!-- Google Pay -->
-      <button class="pay-main-btn" onclick="confirmPay('Google Pay')"
-        style="display:flex;align-items:center;gap:14px;width:100%;padding:1rem 1.1rem;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.5rem;transition:all .15s">
-        <div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <span style="font-size:13px;font-weight:700;letter-spacing:-.5px"><span style="color:#4285F4">G</span><span style="color:#EA4335">o</span><span style="color:#FBBC04">o</span><span style="color:#4285F4">g</span><span style="color:#34A853">l</span><span style="color:#EA4335">e</span> <span style="color:#5F6368">Pay</span></span>
-        </div>
-        <div style="text-align:left">
-          <div style="font-size:15px;font-weight:500;color:var(--t1)">Google Pay</div>
-          <div style="font-size:11px;color:var(--t2)">Pago rápido con Android</div>
-        </div>
-      </button>
-
-      <!-- Tarjeta -->
-      <button class="pay-main-btn" onclick="confirmPay('Tarjeta')"
-        style="display:flex;align-items:center;gap:14px;width:100%;padding:1rem 1.1rem;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.5rem;transition:all .15s">
-        <div style="width:44px;height:28px;background:linear-gradient(135deg,#1a1f71,#4b73c9);border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <div style="width:28px;height:5px;background:rgba(255,255,255,0.6);border-radius:2px;margin-top:4px"></div>
-        </div>
-        <div style="text-align:left">
-          <div style="font-size:15px;font-weight:500;color:var(--t1)">Tarjeta de crédito / débito</div>
-          <div style="font-size:11px;color:var(--t2)">Visa, Mastercard, Amex…</div>
-        </div>
-      </button>
-
-      <!-- Bizum -->
-      <button class="pay-main-btn" onclick="confirmPay('Bizum')"
-        style="display:flex;align-items:center;gap:14px;width:100%;padding:1rem 1.1rem;border-radius:var(--r);border:1px solid #D4E6FF;background:#F0F7FF;cursor:pointer;font-family:inherit;margin-bottom:.5rem;transition:all .15s">
-        <div style="width:44px;height:28px;background:#0066FF;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <span style="color:#fff;font-size:11px;font-weight:700">bizum</span>
-        </div>
-        <div style="text-align:left">
-          <div style="font-size:15px;font-weight:500;color:var(--t1)">Bizum</div>
-          <div style="font-size:11px;color:var(--t2)">Pago instantáneo entre móviles</div>
-        </div>
-      </button>
-
-      <!-- Efectivo — al final -->
-      <button class="pay-main-btn" onclick="confirmPay('Efectivo')"
-        style="display:flex;align-items:center;gap:14px;width:100%;padding:1rem 1.1rem;border-radius:var(--r);border:1px solid var(--bd);background:var(--bg2);cursor:pointer;font-family:inherit;margin-bottom:1rem;transition:all .15s">
-        <div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">💶</div>
-        <div style="text-align:left">
-          <div style="font-size:15px;font-weight:500;color:var(--t2)">Efectivo</div>
-          <div style="font-size:11px;color:var(--t3)">Dile al camarero tu importe</div>
-        </div>
-      </button>
+      <div id="pay-methods-container"><!-- populated by buildPayScreen --></div>
 
       <div class="sec-label">Estado del grupo</div>
       <!-- #6: Live pending-payers banner -->
@@ -1895,10 +1836,11 @@
       <div style="display:flex;align-items:center;justify-content:space-between;padding:.6rem 1.25rem;border-bottom:1px solid var(--bd);background:var(--card);flex-shrink:0">
         <div style="display:flex;align-items:center;gap:1rem">
           <div class="live-badge"><div class="live-dot"></div><span>Tiempo real</span></div>
-          <div style="display:flex;gap:.4rem;font-size:11px">
+          <div style="display:flex;gap:.4rem;font-size:11px;flex-wrap:wrap">
             <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:#E24B4A;display:inline-block"></span>Con pedidos</span>
             <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:#EF9F27;display:inline-block"></span>Pagando</span>
             <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:#3B6D11;display:inline-block"></span>Pagada</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:#854F0B;display:inline-block"></span>🧹 Limpiar</span>
             <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:var(--bd2);display:inline-block"></span>Libre</span>
           </div>
         </div>
@@ -2487,6 +2429,15 @@
             </div>
             <span class="settings-row-arrow">›</span>
           </div>
+          <!-- #8-F1: Payment methods config -->
+          <div class="settings-row" onclick="openAjustesSection('metodos-pago')">
+            <span class="settings-row-icon">💳</span>
+            <div class="settings-row-content">
+              <div class="settings-row-title">Métodos de pago aceptados</div>
+              <div class="settings-row-desc">Configura qué métodos pueden usar tus comensales</div>
+            </div>
+            <span class="settings-row-arrow">›</span>
+          </div>
         </div>
 
       </div>
@@ -2527,7 +2478,7 @@
         <div class="field"><label>Coste (€) <span style="font-weight:400;color:var(--t3)">(opcional, para margen)</span></label><input id="edit-item-cost" type="number" step="0.01" min="0" placeholder="0.00"></div>
         <div class="field"><label>Tiempo de preparación (min)</label><input id="edit-item-prep" type="number" min="1" max="120" placeholder="ej. 15"></div>
         <!-- #12c: Plato normalmente compartido -->
-        <div style="display:flex;align-items:flex-start;gap:12px;padding:.85rem 1rem;background:var(--bg2);border-radius:var(--r-sm);margin-bottom:1rem">
+        <div style="display:flex;align-items:flex-start;gap:12px;padding:.85rem 1rem;background:var(--bg2);border-radius:var(--r-sm);margin-bottom:.65rem;border:1px solid var(--bd2)">
           <input type="checkbox" id="edit-item-shared" style="width:18px;height:18px;margin-top:2px;accent-color:var(--brand);flex-shrink:0">
           <div>
             <div style="font-size:14px;font-weight:500;color:var(--t1)">Plato normalmente compartido</div>
@@ -2542,9 +2493,9 @@
             <div style="font-size:12px;color:var(--t2);margin-top:2px;line-height:1.5">Para cafés, infusiones y digestivos. El comensal podrá elegir servir esta bebida con el postre.</div>
           </div>
         </div>
-        <!-- #UX6: Cooking point as checkbox option — same style as shared -->
+        <!-- #UX6: Cooking point -->
         <div style="display:flex;align-items:flex-start;gap:12px;padding:.85rem 1rem;background:var(--bg2);border-radius:var(--r-sm);margin-bottom:1rem;border:1px solid var(--bd2)">
-          <input type="checkbox" id="edit-item-cooking" style="width:18px;height:18px;margin-top:2px;accent-color:#8B5E3C;flex-shrink:0">
+          <input type="checkbox" id="edit-item-cooking" style="width:18px;height:18px;margin-top:2px;accent-color:var(--brand);flex-shrink:0">
           <div>
             <div style="font-size:14px;font-weight:500;color:var(--t1)">Requiere punto de cocción</div>
             <div style="font-size:12px;color:var(--t2);margin-top:2px;line-height:1.5">El comensal podrá especificar cómo quiere la carne: muy poco hecho, poco hecho, al punto, hecho o muy hecho.</div>
@@ -3538,6 +3489,14 @@ function subscribeRealtime() {
           go('s3-dishes');
         }
       }
+
+      // #9-B5: Room closed externally (waiter/camarero cobró) → show account closed
+      if (room.closed && state.roomId) {
+        const alreadyShown = document.getElementById('account-closed-screen');
+        if (!alreadyShown) {
+          setTimeout(() => showAccountClosed(), 500);
+        }
+      }
     }).subscribe();
 
   // #17: Broadcast channel for instant peer-to-peer room notifications
@@ -3651,7 +3610,7 @@ function renderCarta() {
         initialsHtml = `<div style="display:flex;align-items:center;gap:2px;margin-right:6px">${bubbles}</div>`;
       }
 
-      html += `<div onclick="openModal('${item.id}')"
+      html += `<div onclick="${onTable ? `openCartaItemEdit('${item.id}')` : `openModal('${item.id}')`}"
         style="display:flex;align-items:center;padding:.65rem .85rem;border-radius:var(--r-sm);margin-bottom:.4rem;border:1px solid ${onTable ? 'var(--brand)' : 'var(--bd)'};background:${onTable ? 'var(--brand-l)' : 'var(--card)'};cursor:pointer;transition:all .15s;gap:10px">
         ${item.photo_url
           ? `<img src="${item.photo_url}" style="width:52px;height:52px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0">`
@@ -3723,6 +3682,187 @@ function showDuplicateDishWarning(msg, onConfirm) {
 }
 
 // Entry point — checks for duplicate shared dish before opening modal
+// #9-U2: Open inline edit for a dish already on the table (from carta)
+function openCartaItemEdit(itemId) {
+  const item = state.menuItems?.find(m => m.id === itemId) ||
+               document.querySelector(`[data-item-id="${itemId}"]`)?._item;
+  // Find all dish instances of this item in the current table
+  const myDishes = state.dishes.filter(d =>
+    d.item_id === itemId || d.menu_item_id === itemId || d.name === (state.menuItems?.find(m=>m.id===itemId)?.name)
+  );
+
+  if (!myDishes.length) {
+    // Item not actually on table yet — open add modal
+    openModal(itemId);
+    return;
+  }
+
+  // If only one dish instance, edit it directly
+  if (myDishes.length === 1) {
+    openCartaDishEditModal(myDishes[0], item);
+  } else {
+    // Multiple instances — let user pick which one to edit or add new
+    openCartaDishPickModal(myDishes, item, itemId);
+  }
+}
+
+function openCartaDishEditModal(dish, item) {
+  document.getElementById('carta-dish-edit-modal')?.remove();
+  const guests = state.guests || [];
+  const isShared = dish.type === 'shared';
+  const parts = state.participants[dish.id] || [];
+  const owner = dish.assignee_id ? guests.find(g => g.id === dish.assignee_id) : null;
+
+  const guestOpts = guests.map(g =>
+    `<option value="${g.id}" ${dish.assignee_id === g.id ? 'selected' : ''}>${escHtml(g.name)}</option>`
+  ).join('');
+
+  const guestCheckboxes = guests.map(g =>
+    `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer">
+      <input type="checkbox" value="${g.id}" ${parts.includes(g.id) ? 'checked' : ''}
+        style="width:16px;height:16px;accent-color:var(--brand)">
+      <span style="font-size:13px">${escHtml(g.name)}</span>
+    </label>`
+  ).join('');
+
+  const el = document.createElement('div');
+  el.id = 'carta-dish-edit-modal';
+  el.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center';
+  el.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;padding:1.25rem 1.25rem 2rem;animation:slideUp .2s ease">
+      <div style="font-size:17px;font-weight:600;color:var(--t1);margin-bottom:.25rem">${escHtml(dish.name)}</div>
+      <div style="font-size:13px;color:var(--brand-d);font-weight:500;margin-bottom:1rem">${fmt(parseFloat(dish.price))}</div>
+
+      <!-- Type toggle -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:1rem">
+        <button onclick="cartaDishSetType('${dish.id}','solo',this)" data-type="solo"
+          class="carta-type-btn${!isShared?' selected':''}"
+          style="padding:.65rem;border-radius:var(--r-sm);border:2px solid ${!isShared?'var(--brand)':'var(--bd2)'};background:${!isShared?'var(--brand-l)':'var(--bg)'};cursor:pointer;font-family:inherit;font-size:13px;font-weight:${!isShared?'600':'400'}">
+          👤 Solo mío
+        </button>
+        <button onclick="cartaDishSetType('${dish.id}','shared',this)" data-type="shared"
+          class="carta-type-btn${isShared?' selected':''}"
+          style="padding:.65rem;border-radius:var(--r-sm);border:2px solid ${isShared?'var(--brand)':'var(--bd2)'};background:${isShared?'var(--brand-l)':'var(--bg)'};cursor:pointer;font-family:inherit;font-size:13px;font-weight:${isShared?'600':'400'}">
+          🤝 Compartido
+        </button>
+      </div>
+
+      <!-- Solo: assignee -->
+      <div id="cde-solo-sec" style="display:${!isShared?'block':'none'};margin-bottom:1rem">
+        <div style="font-size:13px;color:var(--t2);margin-bottom:.35rem">¿Para quién?</div>
+        <select id="cde-assignee" style="width:100%;padding:8px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-size:14px;font-family:inherit;background:var(--bg)">
+          ${guestOpts}
+        </select>
+      </div>
+
+      <!-- Shared: participants -->
+      <div id="cde-shared-sec" style="display:${isShared?'block':'none'};margin-bottom:1rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem">
+          <div style="font-size:13px;color:var(--t2)">¿Con quién?</div>
+          <button onclick="document.querySelectorAll('#cde-guests input').forEach(c=>c.checked=true)" style="font-size:11px;color:var(--brand);background:none;border:none;cursor:pointer;font-family:inherit;font-weight:500">Todos ✓</button>
+        </div>
+        <div id="cde-guests" style="display:flex;flex-direction:column">${guestCheckboxes}</div>
+      </div>
+
+      ${item?.can_go_with_postre ? `
+      <label style="display:flex;align-items:center;gap:10px;padding:.65rem .85rem;background:var(--bg2);border-radius:var(--r-sm);border:1px solid var(--bd2);margin-bottom:1rem;cursor:pointer">
+        <input type="checkbox" id="cde-postre" ${dish.with_postre?'checked':''} style="width:16px;height:16px;accent-color:var(--brand)">
+        <div>
+          <div style="font-size:13px;font-weight:500">Traer con el postre</div>
+          <div style="font-size:11px;color:var(--t2)">Café, infusión o digestivo con los postres</div>
+        </div>
+      </label>` : ''}
+
+      <div style="display:flex;gap:.5rem">
+        <button onclick="saveCartaDishEdit('${dish.id}')"
+          class="btn btn-primary" style="flex:2">Guardar cambios</button>
+        <button onclick="document.getElementById('carta-dish-edit-modal').remove()"
+          class="btn btn-secondary" style="flex:1">Cancelar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+  el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+}
+
+function openCartaDishPickModal(dishes, item, itemId) {
+  document.getElementById('carta-dish-pick-modal')?.remove();
+  const el = document.createElement('div');
+  el.id = 'carta-dish-pick-modal';
+  el.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center';
+  el.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;padding:1.25rem 1.25rem 2rem;animation:slideUp .2s ease">
+      <div style="font-size:16px;font-weight:600;margin-bottom:.5rem">${escHtml(dishes[0]?.name || 'Plato')}</div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:1rem">Tienes ${dishes.length} unidades. ¿Cuál quieres editar?</div>
+      ${dishes.map((d, i) => {
+        const isShared = d.type === 'shared';
+        const parts = state.participants[d.id] || [];
+        const who = isShared
+          ? parts.map(id => state.guests.find(g=>g.id===id)?.name||'?').join(', ')
+          : state.guests.find(g=>g.id===d.assignee_id)?.name || '?';
+        return `<button onclick="document.getElementById('carta-dish-pick-modal').remove();openCartaDishEditModal(state.dishes.find(d=>d.id==='${d.id}'),null)"
+          style="width:100%;text-align:left;padding:10px 14px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);cursor:pointer;font-family:inherit;margin-bottom:.4rem">
+          <div style="font-size:13px;font-weight:500">${isShared ? '🤝 Compartido' : '👤 Solo'}</div>
+          <div style="font-size:11px;color:var(--t3)">${escHtml(who)}</div>
+        </button>`;
+      }).join('')}
+      <button onclick="document.getElementById('carta-dish-pick-modal').remove();openModal('${itemId}')"
+        style="width:100%;padding:10px;border-radius:var(--r-sm);border:1.5px dashed var(--bd2);background:none;color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit;margin-top:.25rem">
+        + Añadir otra unidad
+      </button>
+    </div>`;
+  document.body.appendChild(el);
+  el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+}
+
+function cartaDishSetType(dishId, type, btn) {
+  const isSolo = type === 'solo';
+  document.getElementById('cde-solo-sec').style.display = isSolo ? 'block' : 'none';
+  document.getElementById('cde-shared-sec').style.display = isSolo ? 'none' : 'block';
+  document.querySelectorAll('.carta-type-btn').forEach(b => {
+    const sel = b === btn;
+    b.style.borderColor = sel ? 'var(--brand)' : 'var(--bd2)';
+    b.style.background = sel ? 'var(--brand-l)' : 'var(--bg)';
+    b.style.fontWeight = sel ? '600' : '400';
+  });
+}
+
+async function saveCartaDishEdit(dishId) {
+  const soloSec = document.getElementById('cde-solo-sec');
+  const isShared = soloSec?.style.display === 'none';
+  const updates = {};
+
+  if (isShared) {
+    const checked = Array.from(document.querySelectorAll('#cde-guests input:checked')).map(c => c.value);
+    if (checked.length < 1) { notify('Selecciona al menos una persona', 'info'); return; }
+    updates.type = 'shared';
+    updates.assignee_id = null;
+    await sb.from('dishes').update(updates).eq('id', dishId);
+    await sb.from('dish_participants').delete().eq('dish_id', dishId);
+    await sb.from('dish_participants').insert(checked.map(gid => ({ dish_id: dishId, guest_id: gid })));
+    state.participants[dishId] = checked;
+  } else {
+    const assignee = document.getElementById('cde-assignee')?.value;
+    updates.type = 'solo';
+    updates.assignee_id = assignee || null;
+    await sb.from('dishes').update(updates).eq('id', dishId);
+  }
+
+  // with_postre
+  const postCb = document.getElementById('cde-postre');
+  if (postCb) {
+    await sb.from('dishes').update({ with_postre: postCb.checked }).eq('id', dishId);
+  }
+
+  // Update local state
+  const dish = state.dishes.find(d => d.id === dishId);
+  if (dish) Object.assign(dish, updates);
+
+  document.getElementById('carta-dish-edit-modal')?.remove();
+  renderMesaDishes();
+  renderCarta();
+  notify('Plato actualizado', 'success');
+}
+
 function openModal(itemId) {
   const item = state.menuItems.find(i => i.id === itemId);
   if (!item) return;
@@ -4206,7 +4346,7 @@ function renderDishCard(dish) {
   const isBebida = dish.category === 'bebidas' || dish.course === 0;
 
   // Course badge
-  const courseLabels = { 0: '🥤', 1: '1º', 2: '2º', 3: '3º' };
+  const courseLabels = { 0: '', 1: '1º', 2: '2º', 3: '3º' };
   const courseBadge = dish.course
     ? `<span style="font-size:10px;padding:1px 6px;border-radius:99px;background:var(--bg2);color:var(--t3);border:1px solid var(--bd);margin-left:4px">${courseLabels[dish.course] || ''}</span>`
     : '';
@@ -4909,6 +5049,55 @@ function buildPayScreen() {
     const noPaidYet = !state.payments || state.payments.filter(p => p.guest_id).length === 0;
     changeBtn.style.display = noPaidYet ? 'block' : 'none';
   }
+
+  // #8-F1: Render payment methods based on restaurant config
+  const pm = state.paymentMethods || { mobilePay:true, card:true, cash:true };
+  const container = document.getElementById('pay-methods-container');
+  if (container) {
+    let btns = '';
+    if (pm.mobilePay !== false) {
+      btns += `<button class="pay-main-btn" onclick="confirmPay('Apple Pay')"
+        style="display:flex;align-items:center;gap:14px;width:100%;padding:1rem 1.1rem;border-radius:var(--r);border:1.5px solid #000;background:#000;cursor:pointer;font-family:inherit;margin-bottom:.5rem;position:relative">
+        <svg width="44" height="28" viewBox="0 0 44 28" fill="none" style="flex-shrink:0"><rect width="44" height="28" rx="6" fill="#000"/><text x="22" y="19" text-anchor="middle" fill="white" font-size="12" font-family="sans-serif" font-weight="600"> Pay</text><path d="M10 10c1-1.5 2.5-2.5 4-2.5-.5 1.5-1.5 3-3 3.5S9 11.5 10 10z" fill="white"/><path d="M14 7.5c.8 0 1.8.5 2.3 1.3-1.8.3-3 1.8-2.8 3.5H12c-.2-2.3 1-4.8 2-4.8z" fill="white"/></svg>
+        <div style="flex:1;text-align:left"><div style="font-size:15px;font-weight:600;color:#fff">Apple Pay</div><div style="font-size:11px;color:rgba(255,255,255,.65)">Pago rápido con Face ID / Touch ID</div></div>
+        <div style="position:absolute;top:-8px;right:10px;background:#34A853;color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px">RECOMENDADO</div>
+      </button>
+      <button class="pay-main-btn" onclick="confirmPay('Google Pay')"
+        style="display:flex;align-items:center;gap:14px;width:100%;padding:1rem 1.1rem;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.5rem">
+        <div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700"><span style="color:#4285F4">G</span><span style="color:#EA4335">o</span><span style="color:#FBBC04">o</span><span style="color:#4285F4">g</span><span style="color:#34A853">l</span><span style="color:#EA4335">e</span> <span style="color:#5F6368">Pay</span></span></div>
+        <div style="text-align:left"><div style="font-size:15px;font-weight:500;color:var(--t1)">Google Pay</div><div style="font-size:11px;color:var(--t2)">Pago rápido con Android</div></div>
+      </button>`;
+    }
+    if (pm.card !== false) {
+      btns += `<button class="pay-main-btn" onclick="confirmPayWaiter('Tarjeta')"
+        style="display:flex;align-items:center;gap:14px;width:100%;padding:1rem 1.1rem;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.5rem">
+        <div style="width:44px;height:28px;background:linear-gradient(135deg,#1a1f71,#4b73c9);border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:28px;height:5px;background:rgba(255,255,255,.6);border-radius:2px;margin-top:4px"></div></div>
+        <div style="text-align:left"><div style="font-size:15px;font-weight:500;color:var(--t1)">Tarjeta (datáfono)</div><div style="font-size:11px;color:var(--t2)">El camarero vendrá a cobrarte</div></div>
+      </button>`;
+    }
+    if (pm.bizum === true) {
+      btns += `<button class="pay-main-btn" onclick="confirmPay('Bizum')"
+        style="display:flex;align-items:center;gap:14px;width:100%;padding:1rem 1.1rem;border-radius:var(--r);border:1px solid #D4E6FF;background:#F0F7FF;cursor:pointer;font-family:inherit;margin-bottom:.5rem">
+        <div style="width:44px;height:28px;background:#0066FF;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#fff;font-size:11px;font-weight:700">bizum</span></div>
+        <div style="text-align:left"><div style="font-size:15px;font-weight:500;color:var(--t1)">Bizum</div><div style="font-size:11px;color:var(--t2)">Pago instantáneo entre móviles</div></div>
+      </button>`;
+    }
+    if (pm.ticketRestaurante === true) {
+      btns += `<button class="pay-main-btn" onclick="confirmPay('Ticket restaurante')"
+        style="display:flex;align-items:center;gap:14px;width:100%;padding:1rem 1.1rem;border-radius:var(--r);border:1px solid #E8F5E9;background:#F1F8F1;cursor:pointer;font-family:inherit;margin-bottom:.5rem">
+        <div style="width:44px;height:28px;background:#2E7D32;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🎫</div>
+        <div style="text-align:left"><div style="font-size:15px;font-weight:500;color:var(--t1)">Ticket restaurante</div><div style="font-size:11px;color:var(--t2)">Sodexo, Edenred, Pluxee…</div></div>
+      </button>`;
+    }
+    if (pm.cash !== false) {
+      btns += `<button class="pay-main-btn" onclick="confirmPayWaiter('Efectivo')"
+        style="display:flex;align-items:center;gap:14px;width:100%;padding:1rem 1.1rem;border-radius:var(--r);border:1px solid var(--bd);background:var(--bg2);cursor:pointer;font-family:inherit;margin-bottom:1rem">
+        <div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">💶</div>
+        <div style="text-align:left"><div style="font-size:15px;font-weight:500;color:var(--t2)">Efectivo</div><div style="font-size:11px;color:var(--t3)">El camarero vendrá a cobrarte</div></div>
+      </button>`;
+    }
+    container.innerHTML = btns;
+  }
   const totals = calcTotals();
   const me = totals.find(t => t.g.id === state.myGuestId);
   if (me) {
@@ -5011,16 +5200,21 @@ function showPayForManual(guestId, guestName, amount) {
 async function registerPayForManual(guestId, guestName, amount, method) {
   document.getElementById('pay-for-manual-modal')?.remove();
   const myName = state.guests.find(g => g.id === state.myGuestId)?.name || 'Tú';
+  const numAmount = parseFloat(amount);
   const { error } = await sb.from('payments').insert({
     room_id: state.roomId,
     guest_id: guestId,
-    amount,
+    amount: numAmount,
     method,
     stripe_status: 'manual',
     note: `Pagado por ${myName}`
   });
-  if (error) { notify('Error al registrar el pago'); return; }
-  state.payments.push({ guest_id: guestId, amount, note: `Pagado por ${myName}` });
+  if (error) {
+    console.error('registerPayForManual error:', error);
+    notify(`Error: ${error.message || 'no se pudo registrar el pago'}`, 'error');
+    return;
+  }
+  state.payments.push({ guest_id: guestId, amount: numAmount, note: `Pagado por ${myName}` });
   buildPayScreen();
   notify(`Pago de ${guestName} registrado`, 'success');
   // Check if all paid
@@ -5181,6 +5375,47 @@ function submitFactura() {
   document.getElementById('factura-modal')?.remove();
 }
 
+// #8-F1: Card/cash payments require waiter — show wait message + notify
+async function confirmPayWaiter(method) {
+  document.getElementById('pay-waiter-wait')?.remove();
+  const totals = calcTotals();
+  const me = totals.find(t => t.g.id === state.myGuestId);
+  const amount = me ? me.total : 0;
+
+  // Show waiting screen
+  const el = document.createElement('div');
+  el.id = 'pay-waiter-wait';
+  el.style.cssText = 'position:fixed;inset:0;z-index:550;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;text-align:center';
+  el.innerHTML = `
+    <div style="font-size:48px;margin-bottom:1rem">${method === 'Efectivo' ? '💶' : '💳'}</div>
+    <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--t1);margin-bottom:.5rem">Espera al camarero</div>
+    <div style="font-size:14px;color:var(--t2);margin-bottom:.5rem">Hemos avisado al camarero para que venga a cobrarte.</div>
+    <div style="font-size:22px;font-weight:700;color:var(--brand-d);margin-bottom:2rem;font-family:'Fraunces',serif">${fmt(amount)}</div>
+    <div style="font-size:13px;color:var(--t3);margin-bottom:1.5rem">Pago en ${method.toLowerCase()}</div>
+    <button onclick="document.getElementById('pay-waiter-wait').remove()"
+      style="padding:10px 24px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:none;color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit">
+      Volver
+    </button>`;
+  document.body.appendChild(el);
+
+  // Notify waiter
+  if (state.roomId && state.restaurantId) {
+    const myName = state.guests.find(g => g.id === state.myGuestId)?.name || 'Comensal';
+    await sb.from('kitchen_notifications').insert({
+      restaurant_id: state.restaurantId,
+      room_id: state.roomId,
+      course: -1,
+      course_label: 'Cobro',
+      table_label: state.restaurantName || 'Mesa',
+      is_bebidas: false,
+      dishes: [{ name: `${myName} quiere pagar ${fmt(amount)} en ${method}` }],
+    }).catch(() => {});
+  }
+
+  // Also register the payment in the DB
+  await registerManualPayment({ g: { id: state.myGuestId }, total: amount }, method);
+}
+
 async function confirmPay(method) {
   const totals = calcTotals();
   const me = totals.find(t => t.g.id === state.myGuestId);
@@ -5298,20 +5533,17 @@ async function registerManualPayment(me, method) {
     stripe_status: 'manual'
   });
   state.payments.push({ guest_id: state.myGuestId, method, amount: me.total });
-  buildPayScreen();
 
-  // Recargar comensales Y pagos desde Supabase — el state local puede estar desincronizado
+  // Recargar comensales Y pagos desde Supabase
   const [{ data: freshGuests }, { data: freshPayments }] = await Promise.all([
     sb.from('guests').select('id').eq('room_id', state.roomId),
-    sb.from('payments').select('guest_id').eq('room_id', state.roomId)
+    sb.from('payments').select('guest_id,amount,note').eq('room_id', state.roomId)
   ]);
 
   const totalGuests = (freshGuests || []).length;
-  const paidIds = new Set((freshPayments || []).map(p => p.guest_id));
-  // Guest is "paid" if: has payment row, OR has 0€ assigned (nothing to pay)
+  const paidIds = new Set((freshPayments || []).map(p => p.guest_id).filter(Boolean));
   const allPaid = totalGuests > 0 && (freshGuests || []).every(g => {
     if (paidIds.has(g.id)) return true;
-    // Check if this guest has anything assigned
     const gTotal = calcTotals().find(t => t.g.id === g.id)?.total || 0;
     return gTotal <= 0.01;
   });
@@ -5320,7 +5552,78 @@ async function registerManualPayment(me, method) {
     await sb.from('rooms').update({ closed: true }).eq('id', state.roomId);
     clearSession();
     setTimeout(() => showAccountClosed(), 800);
+  } else {
+    // #9-U5: Show who paid confirmation + who still needs to pay
+    showMyPaymentConfirmed(me, freshPayments || []);
   }
+}
+
+// #9-U5: Show post-payment confirmation with who still needs to pay
+function showMyPaymentConfirmed(me, freshPayments) {
+  document.getElementById('pay-confirmed-screen')?.remove();
+  const totals = calcTotals();
+  const paidIds = new Set(freshPayments.filter(p => p.guest_id).map(p => p.guest_id));
+  const stillPending = totals.filter(t => !paidIds.has(t.g.id) && t.g.id !== state.myGuestId);
+
+  const pendingRows = stillPending.map((t, i) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid var(--bd)">
+      <div style="font-size:14px;font-weight:500">${escHtml(t.g.name)}</div>
+      <div style="display:flex;align-items:center;gap:.5rem">
+        <span style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--brand-d)">${fmt(t.total)}</span>
+        <button onclick="showPayForManual('${t.g.id}','${escHtml(t.g.name)}',${t.total})"
+          style="font-size:11px;padding:3px 8px;border-radius:99px;border:1px solid var(--brand);background:var(--brand-l);color:var(--brand-d);cursor:pointer;font-family:inherit;white-space:nowrap">
+          Pagar por ${escHtml(t.g.name.split(' ')[0])}
+        </button>
+      </div>
+    </div>`).join('');
+
+  const el = document.createElement('div');
+  el.id = 'pay-confirmed-screen';
+  el.style.cssText = 'position:fixed;inset:0;z-index:550;background:var(--card);display:flex;flex-direction:column;align-items:center;padding:2rem 1.5rem;overflow-y:auto';
+  el.innerHTML = `
+    <div style="font-size:48px;margin-bottom:.75rem">✅</div>
+    <div style="font-family:'Fraunces',serif;font-size:24px;font-weight:700;color:var(--brand-d);margin-bottom:.25rem;text-align:center">¡Tu parte pagada!</div>
+    <div style="font-size:14px;color:var(--t2);margin-bottom:.25rem">${escHtml(me.g.name)} — ${fmt(me.total)}</div>
+    <div style="font-size:13px;color:var(--t3);margin-bottom:2rem">Gracias por usar split<em style="color:var(--accent);font-style:normal">eat</em></div>
+
+    ${stillPending.length ? `
+    <div style="width:100%;max-width:360px">
+      <div style="font-size:14px;font-weight:600;color:var(--t1);margin-bottom:.5rem">
+        Faltan ${stillPending.length} persona${stillPending.length>1?'s':''} por pagar:
+      </div>
+      ${pendingRows}
+      <button onclick="callWaiterForRemaining()"
+        style="width:100%;margin-top:1rem;padding:11px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">
+        Llamar al camarero para cobrar el resto
+      </button>
+    </div>` : ''}
+
+    <button onclick="document.getElementById('pay-confirmed-screen').remove();buildPayScreen()"
+      style="margin-top:1.5rem;padding:10px 24px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:none;color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit">
+      Ver estado del grupo
+    </button>`;
+  document.body.appendChild(el);
+}
+
+async function callWaiterForRemaining() {
+  // Send notification to waiter to collect from remaining guests
+  if (!state.roomId) return;
+  const totals = calcTotals();
+  const paidIds = new Set(state.payments.filter(p => p.guest_id).map(p => p.guest_id));
+  const pending = totals.filter(t => !paidIds.has(t.g.id));
+  const total = pending.reduce((s, t) => s + t.total, 0);
+  const names = pending.map(t => t.g.name).join(', ');
+
+  await sb.from('kitchen_notifications').insert({
+    restaurant_id: state.restaurantId,
+    room_id: state.roomId,
+    course: -1,
+    course_label: 'Cobro pendiente',
+    table_label: state.restaurantName || 'Mesa',
+    is_bebidas: false,
+    dishes: [{ name: `Cobrar a: ${names} — Total: ${fmt(total)}` }],
+  }).catch(() => {});
+  notify('Camarero avisado para cobrar', 'success');
 }
 
 async function payWithStripe(me, method) {
@@ -5536,7 +5839,7 @@ function toggleKitchenHistory() {
 }
 
 function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
-  const COURSE_LABELS = { 0:'🥤 Bebidas', 1:'1º Entrantes', 2:'2º Principales', 3:'3º Postres' };
+  const COURSE_LABELS = { 0:'Bebidas', 1:'1º Entrantes', 2:'2º Principales', 3:'3º Postres' };
   const COURSE_COLORS = {
     1: { bg:'#FFF5F5', border:'#FCCACA', hdr:'#FCEBEB', txt:'#A32D2D' },
     2: { bg:'#FFFBF2', border:'#F5DEB3', hdr:'#FAEEDA', txt:'#854F0B' },
@@ -5867,12 +6170,14 @@ function subscribeWaiterNotifications() {
       const n = payload.new;
       if (!n) return;
 
-      // Filter: only show if it's my table or unassigned
-      const isMyTable = (
-        (!n.assigned_waiter_id && !n.waiter_id) ||
-        n.assigned_waiter_id === _waiterId ||
-        n.waiter_id === _waiterId
-      );
+      // Filter: for bebidas, notify ALL active waiters; for food, only assigned
+      const isMyTable = isBebidas
+        ? true // bebidas → notify any active waiter
+        : (
+          (!n.assigned_waiter_id && !n.waiter_id) ||
+          n.assigned_waiter_id === _waiterId ||
+          n.waiter_id === _waiterId
+        );
       if (!isMyTable) return;
 
       const dishes   = Array.isArray(n.dishes) ? n.dishes : [];
@@ -6537,7 +6842,7 @@ async function loadWaiterMesas() {
 
   const STATUS_ICON = { new:'⬜', sent:'⏳', making:'🍳', ready:'🛎', delivered:'✅' };
   const STATUS_LABEL = { new:'Pendiente', sent:'Enviado', making:'Preparando', ready:'Listo', delivered:'Servido' };
-  const COURSE_EMOJI = { 0:'🥤', 1:'🥗', 2:'🍽', 3:'🍰' };
+  const COURSE_EMOJI = { 0:'', 1:'🥗', 2:'🍽', 3:'🍰' };
 
   el.innerHTML = myRooms.map(room => {
     const table = room.table_id ? tablesById[room.table_id] : null;
@@ -6554,7 +6859,7 @@ async function loadWaiterMesas() {
     // Group dishes by course — bebidas first
     const bebidas = dishes.filter(d => d.category === 'bebidas' || d.course === 0);
     const courseGroups = [
-      { course: 0, label: '🥤 Bebidas', dishes: bebidas },
+      { course: 0, label: 'Bebidas', dishes: bebidas },
       { course: 1, label: '🥗 Entrantes', dishes: dishes.filter(d => d.course === 1) },
       { course: 2, label: '🍽 Principales', dishes: dishes.filter(d => d.course === 2) },
       { course: 3, label: '🍰 Postres', dishes: dishes.filter(d => d.course === 3) },
@@ -7578,7 +7883,8 @@ function openAjustesSection(section) {
   const titles = {
     carta: 'Gestionar carta', importar: 'Importar con IA', costes: 'Costes por plato',
     mesas: 'Gestionar mesas', camareros: 'Camareros',
-    perfil: 'Perfil del restaurante', 'reservas-config': 'Configuración de reservas'
+    perfil: 'Perfil del restaurante', 'reservas-config': 'Configuración de reservas',
+    'metodos-pago': 'Métodos de pago aceptados'
   };
   if (title) title.textContent = titles[section] || section;
 
@@ -7660,6 +7966,8 @@ function openAjustesSection(section) {
     loadRestaurantProfile();
   } else if (section === 'costes') {
     renderCostesSection(content);
+  } else if (section === 'metodos-pago') {
+    renderMetodosPagoSection(content);
   } else {
     content.innerHTML = `<div class="notice notice-warn">Sección "${titles[section]}" — próximamente</div>`;
   }
@@ -7672,6 +7980,87 @@ function closeAjustesPanel() {
   if (list) list.style.display = 'block';
   // Refresh disabled count
   loadAdminCarta();
+}
+
+// #8-F1: Payment methods config section
+const PAYMENT_METHODS_DEFAULT = {
+  mobilePay: true,    // Apple Pay / Google Pay
+  card: true,         // Tarjeta física (camarero)
+  cash: true,         // Efectivo (camarero)
+  bizum: false,
+  ticketRestaurante: false,
+  chequeGourmet: false,
+};
+
+const PAYMENT_METHODS_LABELS = {
+  mobilePay: { label: 'Pago móvil (Apple Pay / Google Pay)', desc: 'Recomendado — pago instantáneo desde el móvil', icon: '📱' },
+  card: { label: 'Tarjeta física (datáfono)', desc: 'El camarero irá a cobrar con el datáfono', icon: '💳' },
+  cash: { label: 'Efectivo', desc: 'El camarero irá a cobrar en efectivo', icon: '💵' },
+  bizum: { label: 'Bizum', desc: 'Transferencia instantánea por móvil', icon: '📲' },
+  ticketRestaurante: { label: 'Ticket restaurante', desc: 'Sodexo, Edenred, Pluxee, Coverflex, etc.', icon: '🎫' },
+  chequeGourmet: { label: 'Cheque Gourmet', desc: 'Cheques de restaurante físicos o digitales', icon: '🧾' },
+};
+
+async function renderMetodosPagoSection(container) {
+  container.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando...</div>`;
+
+  // Load saved config from restaurant profile
+  const { data: rest } = await sb.from('restaurants')
+    .select('payment_methods').eq('id', state.adminRestaurantId).maybeSingle();
+
+  const saved = rest?.payment_methods || PAYMENT_METHODS_DEFAULT;
+
+  const rows = Object.entries(PAYMENT_METHODS_LABELS).map(([key, info]) => {
+    const isOn = saved[key] ?? PAYMENT_METHODS_DEFAULT[key] ?? false;
+    return `<div style="display:flex;align-items:flex-start;gap:12px;padding:.85rem 0;border-bottom:1px solid var(--bd)">
+      <div style="font-size:22px;flex-shrink:0;margin-top:2px">${info.icon}</div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:500;color:var(--t1)">${info.label}</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:2px">${info.desc}</div>
+      </div>
+      <div class="toggle-track ${isOn?'on':''}" id="pm-toggle-${key}"
+        onclick="togglePayMethod('${key}',this)"
+        style="flex-shrink:0;margin-top:4px">
+        <div class="toggle-thumb"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div style="font-size:13px;color:var(--t2);margin-bottom:1rem;line-height:1.5">
+      Activa o desactiva los métodos de pago que acepta tu restaurante. Los comensales solo verán las opciones activas.
+    </div>
+    <div id="payment-methods-list">${rows}</div>
+    <button onclick="savePaymentMethods()" class="btn btn-primary" style="width:100%;margin-top:1.25rem">
+      Guardar cambios
+    </button>
+    <div id="pm-save-msg" style="display:none;text-align:center;font-size:13px;color:var(--brand);margin-top:.5rem">✓ Guardado</div>`;
+}
+
+let _payMethodsState = {};
+
+function togglePayMethod(key, el) {
+  const isNowOn = !el.classList.contains('on');
+  el.classList.toggle('on', isNowOn);
+  _payMethodsState[key] = isNowOn;
+}
+
+async function savePaymentMethods() {
+  // Read current state of all toggles
+  const methods = {};
+  Object.keys(PAYMENT_METHODS_LABELS).forEach(key => {
+    const el = document.getElementById('pm-toggle-' + key);
+    methods[key] = el ? el.classList.contains('on') : false;
+  });
+
+  const { error } = await sb.from('restaurants')
+    .update({ payment_methods: methods })
+    .eq('id', state.adminRestaurantId);
+
+  if (error) { notify('Error al guardar: ' + error.message); return; }
+  const msg = document.getElementById('pm-save-msg');
+  if (msg) { msg.style.display = 'block'; setTimeout(() => msg.style.display = 'none', 2000); }
+  notify('Métodos de pago guardados', 'success');
 }
 
 function renderPerfilContent() {
@@ -8633,7 +9022,7 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
     return oldestA - oldestB;
   });
 
-  const COURSE_LABELS = { 0:'🥤 Bebidas', 1:'1º Entrantes', 2:'2º Principales', 3:'3º Postres' };
+  const COURSE_LABELS = { 0:'Bebidas', 1:'1º Entrantes', 2:'2º Principales', 3:'3º Postres' };
   const COURSE_COLORS = {
     1: { bg: '#FFF5F5', border: '#FCCACA', hdr: '#FCEBEB', txt: '#A32D2D' },
     2: { bg: '#FFFBF2', border: '#F5DEB3', hdr: '#FAEEDA', txt: '#854F0B' },
@@ -8686,7 +9075,7 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
       }).join('');
       bebidasSection = `<div style="background:#F0F4FF;border-radius:6px;padding:.5rem .75rem;margin-bottom:.4rem;border:1px solid #BDC8E8">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem">
-          <span style="font-size:11px;font-weight:600;color:#3D5A99">🥤 BEBIDAS</span>
+          <span style="font-size:11px;font-weight:600;color:#3D5A99">BEBIDAS</span>
           <span style="font-size:10px;color:#3D5A99;background:#BDC8E8;padding:1px 6px;border-radius:99px">Responsabilidad del camarero</span>
         </div>
         ${rows}
@@ -8968,6 +9357,27 @@ async function _doFireNextCourse(roomId, course, dishIds) {
     seen: false,
     checked: {}
   });
+
+  // #9-B2: When postre (course 3) fires, notify waiter about with_postre drinks
+  if (course === 3 && restaurantId) {
+    const { data: postreDrinks } = await sb.from('dishes')
+      .select('id,name,price').eq('room_id', roomId).eq('with_postre', true)
+      .not('kitchen_status', 'eq', 'delivered');
+    if (postreDrinks && postreDrinks.length > 0) {
+      await sb.from('kitchen_notifications').insert({
+        restaurant_id: restaurantId,
+        room_id: roomId,
+        course: 0,
+        course_label: 'Con el postre',
+        table_label: tableLabel,
+        is_bebidas: true,
+        dishes: postreDrinks.map(d => ({ id: d.id, name: d.name })),
+        assigned_waiter_id: room?.assigned_waiter_id || null,
+        waiter_id: room?.waiter_id || null,
+      }).catch(() => {});
+      console.log('[Kitchen] Notificación cafés con postre enviada:', postreDrinks.length);
+    }
+  }
 }
 
 // ── RENDER VISTA KANBAN (legacy) ──
@@ -9606,11 +10016,12 @@ async function loadFloorPlan() {
     const paying = room && paidCount > 0 && !allPaid;
     const hasOrder = room && guestCount === 0; // waiter-created room
 
-    // Color
+    // Color — needs_cleaning overrides paid color
     let color = 'var(--bd2)'; // libre
     let textColor = 'var(--t2)';
     let borderColor = 'var(--bd)';
-    if (allPaid) { color = '#3B6D11'; textColor = '#fff'; borderColor = '#3B6D11'; }
+    if (room?.needs_cleaning) { color = '#854F0B'; textColor = '#fff'; borderColor = '#854F0B'; }
+    else if (allPaid) { color = '#3B6D11'; textColor = '#fff'; borderColor = '#3B6D11'; }
     else if (paying) { color = '#EF9F27'; textColor = '#fff'; borderColor = '#EF9F27'; }
     else if (room) { color = '#E24B4A'; textColor = '#fff'; borderColor = '#E24B4A'; }
 
@@ -9631,7 +10042,7 @@ async function loadFloorPlan() {
       <div style="font-size:10px;color:${textColor};opacity:.85;text-align:center;line-height:1.2">${table.label || ''}</div>
       ${room ? `<div style="font-size:10px;color:${textColor};opacity:.7;margin-top:2px">${guestCount > 0 ? guestCount + ' per.' : '•'}</div>` : ''}
       ${room?.assigned_waiter_id && waiterById[room.assigned_waiter_id] ? `<div style="font-size:9px;color:${textColor};opacity:.8;background:rgba(0,0,0,.15);border-radius:4px;padding:1px 4px;margin-top:2px;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${waiterById[room.assigned_waiter_id].name}</div>` : ''}
-      ${allPaid ? `<div style="font-size:14px">✅</div>` : ''}
+      ${room?.needs_cleaning ? `<div style="font-size:13px;margin-top:1px">🧹</div>` : allPaid ? `<div style="font-size:14px">✅</div>` : ''}
     `;
 
     // Click to show detail panel
@@ -9783,7 +10194,7 @@ async function loadMesaDishDetail(roomId, tableLabel) {
 
   if (bebidas.length) {
     html += `<div style="background:#F0F4FF;border-radius:6px;padding:.5rem .65rem;margin-bottom:.65rem;border:1px solid #BDC8E8">
-      <div style="font-size:10px;font-weight:600;color:#3D5A99;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.35rem">🥤 Bebidas — Camarero</div>`;
+      <div style="font-size:10px;font-weight:600;color:#3D5A99;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.35rem">Bebidas — Camarero</div>`;
     bebidas.forEach(d => {
       const ks = d.kitchen_status || 'new';
       const sl = bebStatusLabel[ks] || 'Camarero';
@@ -9880,7 +10291,7 @@ async function loadEncurso() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => {
         if (document.getElementById('atab-encurso')?.style.display !== 'none') loadFloorPlan();
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms' }, () => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms' }, () => {
         if (document.getElementById('atab-encurso')?.style.display !== 'none') loadFloorPlan();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'guests' }, () => {
@@ -10927,6 +11338,14 @@ async function enterMesa() {
     state.tipPercent = 0;
     state.guests = guests || [];
     state.dishes = dishes || [];
+    // Load restaurant payment methods config
+    if (state.restaurantId) {
+      sb.from('restaurants').select('payment_methods,tip_percent').eq('id', state.restaurantId).maybeSingle()
+        .then(({ data: rest }) => {
+          if (rest?.payment_methods) state.paymentMethods = rest.payment_methods;
+          if (rest?.tip_percent != null) state.tipPercent = rest.tip_percent;
+        }).catch(() => {});
+    }
     await loadParticipants();
     renderRoomScreen();
     subscribeRealtime();
@@ -11493,16 +11912,85 @@ async function assignDishToGuest(dishId, guestId, type) {
   buildSummary();
 }
 
+// #9-U1: Modal for dish edit options from summary — reassign or convert to shared
+function showDishEditOptionsModal(dishId, dish) {
+  document.getElementById('dish-edit-options-modal')?.remove();
+  const guests = state.guests || [];
+  const owner = dish?.assignee_id ? guests.find(g => g.id === dish.assignee_id) : null;
+
+  const guestOpts = guests.map(g =>
+    `<option value="${g.id}" ${dish?.assignee_id === g.id ? 'selected' : ''}>${escHtml(g.name)}</option>`
+  ).join('');
+
+  const el = document.createElement('div');
+  el.id = 'dish-edit-options-modal';
+  el.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center';
+  el.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;padding:1.25rem 1.25rem 2rem;animation:slideUp .2s ease">
+      <div style="font-size:16px;font-weight:700;color:var(--t1);margin-bottom:.25rem">${escHtml(dish?.name || 'Plato')}</div>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:1rem">Actualmente: 👤 Solo de ${escHtml(owner?.name || '?')}</div>
+
+      <div style="font-size:13px;font-weight:600;color:var(--t2);margin-bottom:.5rem">Reasignar a otra persona:</div>
+      <select id="dish-edit-reassign-sel" style="width:100%;padding:9px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-size:14px;font-family:inherit;background:var(--bg);margin-bottom:.5rem">
+        ${guestOpts}
+      </select>
+      <button onclick="confirmDishEditReassign('${dishId}')"
+        class="btn btn-secondary" style="width:100%;margin-bottom:1rem">Reasignar plato →</button>
+
+      <div style="font-size:13px;font-weight:600;color:var(--blue);margin-bottom:.5rem">O convertir a plato compartido:</div>
+      <div id="dish-edit-shared-list" style="display:flex;flex-direction:column;gap:.35rem;margin-bottom:.5rem">
+        ${guests.map(g => `
+          <label style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);cursor:pointer;background:var(--bg)">
+            <input type="checkbox" value="${g.id}" checked style="width:16px;height:16px;accent-color:var(--brand)">
+            <span style="font-size:14px">${escHtml(g.name)}</span>
+          </label>`).join('')}
+      </div>
+      <button onclick="confirmDishEditToShared('${dishId}')"
+        style="width:100%;padding:10px;border-radius:var(--r-sm);border:2px solid var(--blue);background:#E8F0FE;color:#185FA5;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:.75rem">
+        Convertir a compartido →
+      </button>
+      <button onclick="document.getElementById('dish-edit-options-modal').remove()"
+        style="width:100%;padding:9px;border:none;background:none;color:var(--t3);font-size:13px;cursor:pointer;font-family:inherit">
+        Cancelar
+      </button>
+    </div>`;
+  document.body.appendChild(el);
+  el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+}
+
+async function confirmDishEditReassign(dishId) {
+  const sel = document.getElementById('dish-edit-reassign-sel');
+  const newId = sel?.value;
+  if (!newId) return;
+  await sb.from('dishes').update({ assignee_id: newId }).eq('id', dishId);
+  const dish = state.dishes.find(d => d.id === dishId);
+  if (dish) dish.assignee_id = newId;
+  document.getElementById('dish-edit-options-modal')?.remove();
+  buildSummary();
+  notify('Plato reasignado', 'success');
+}
+
+async function confirmDishEditToShared(dishId) {
+  const checked = Array.from(
+    document.querySelectorAll('#dish-edit-shared-list input[type=checkbox]:checked')
+  ).map(cb => cb.value);
+  if (checked.length < 2) { notify('Selecciona al menos 2 personas para compartir', 'info'); return; }
+  await sb.from('dishes').update({ type: 'shared', assignee_id: null }).eq('id', dishId);
+  await sb.from('dish_participants').delete().eq('dish_id', dishId);
+  await sb.from('dish_participants').insert(checked.map(gid => ({ dish_id: dishId, guest_id: gid })));
+  const dish = state.dishes.find(d => d.id === dishId);
+  if (dish) { dish.type = 'shared'; dish.assignee_id = null; }
+  state.participants[dishId] = checked;
+  document.getElementById('dish-edit-options-modal')?.remove();
+  await loadParticipants();
+  buildSummary();
+  notify('Plato convertido a compartido', 'success');
+}
+
 async function unassignDish(dishId, type, guestId = null) {
   if (type === 'solo') {
-    // #18: Don't allow leaving a solo dish with no assignee — show reassign modal
     const dish = state.dishes.find(d => d.id === dishId);
-    const otherGuests = state.guests.filter(g => g.id !== (dish?.assignee_id));
-    if (otherGuests.length === 0) {
-      notify('No hay otros comensales a quien reasignar este plato.', 'info');
-      return;
-    }
-    showReassignModal(dishId, dish);
+    showDishEditOptionsModal(dishId, dish);
     return;
   } else if (type === 'shared' && guestId) {
     // #18: For shared, check this isn't the last participant
@@ -11616,11 +12104,17 @@ function showEditRepartoModal() {
             <div style="font-size:10px;color:var(--t3);width:100%;margin-bottom:2px">Selecciona con quién se comparte:</div>
             ${sharedCheckboxes}
            </div>`
-        : `<select onchange="quickReassignDish('${d.id}', this.value)"
-            style="width:100%;padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);font-size:12px;font-family:inherit;background:var(--bg)">
-            <option value="" disabled ${!d.assignee_id ? 'selected' : ''}>— Obligatorio: asignar a alguien —</option>
-            ${soloOpts}
-          </select>`
+        : `<div style="display:flex;gap:.35rem">
+            <select onchange="quickReassignDish('${d.id}', this.value)"
+              style="flex:1;padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);font-size:12px;font-family:inherit;background:var(--bg)">
+              <option value="" disabled ${!d.assignee_id ? 'selected' : ''}>— Cambiar a —</option>
+              ${soloOpts}
+            </select>
+            <button onclick="document.getElementById('edit-reparto-modal').remove();showDishEditOptionsModal('${d.id}',${JSON.stringify({id:d.id,name:d.name,assignee_id:d.assignee_id}).replace(/"/g,'&quot;')})"
+              style="padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--blue);background:#E8F0FE;color:#185FA5;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap">
+              Compartir
+            </button>
+          </div>`
       }
     </div>`;
   }).join('');
