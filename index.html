@@ -1130,12 +1130,24 @@
             style="padding:1rem;border-radius:var(--r);border:2px solid var(--bd2);background:var(--bg);cursor:pointer;text-align:center;transition:all .15s;font-family:inherit">
             <div style="font-size:22px;margin-bottom:.35rem">🤝</div>
             <div style="font-size:14px;font-weight:500;color:var(--t1)">Para compartir</div>
-            <div style="font-size:11px;color:var(--t2);margin-top:2px">Se divide entre todos</div>
+            <div style="font-size:11px;color:var(--t2);margin-top:2px">Se divide entre varios</div>
           </button>
         </div>
 
+        <!-- UX1: Guest selector for solo — shown when there are manual/other guests -->
+        <div id="modal-solo-guest" style="display:none;margin-bottom:1rem">
+          <div style="font-size:13px;color:var(--t2);margin-bottom:.35rem">¿Para quién es?</div>
+          <div id="modal-solo-guest-list" style="display:flex;flex-direction:column;gap:.35rem"></div>
+        </div>
+
+        <!-- UX2: Guest multi-selector for shared -->
+        <div id="modal-shared-selector" style="display:none;margin-bottom:1rem">
+          <div style="font-size:13px;color:var(--t2);margin-bottom:.35rem">¿Entre quiénes se divide?</div>
+          <div id="modal-shared-guest-list" style="display:flex;flex-direction:column;gap:.35rem"></div>
+        </div>
+
         <div id="modal-shared-hint" style="display:none" class="notice" style="margin-bottom:1rem">
-          Se dividirá entre todos los comensales. Cualquiera puede cambiar quién participa después.
+          Se dividirá entre los comensales seleccionados.
         </div>
 
         <!-- Punto de cocción (solo para carnes) -->
@@ -1903,6 +1915,14 @@
       </div>
 
       <!-- Click-to-manage panel (slides in from right) -->
+      <!-- #BG7: No active waiter warning -->
+      <div id="no-waiter-warning" style="display:none;background:#FAEEDA;border-bottom:1.5px solid #E5A85A;padding:.5rem 1.25rem;align-items:center;gap:8px;flex-shrink:0">
+        <span style="font-size:16px">⚠️</span>
+        <div style="flex:1;font-size:12px;color:#854F0B;font-weight:500">
+          Sin camareros activos — las mesas no recibirán notificaciones de pases hasta que un camarero inicie sesión en <strong>serveat</strong>.
+        </div>
+      </div>
+
       <!-- #4: Waiter active/inactive status — Sala tab only -->
       <div id="waiter-status-bar" style="padding:.65rem 1.25rem;border-top:1px solid var(--bd);flex-shrink:0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
@@ -2519,12 +2539,12 @@
             <div style="font-size:12px;color:var(--amber);margin-top:2px;line-height:1.5">Para cafés, infusiones y digestivos. El comensal podrá elegir servir esta bebida con el postre.</div>
           </div>
         </div>
-        <!-- #UX6: Cooking point as checkbox option -->
-        <div style="display:flex;align-items:flex-start;gap:12px;padding:.85rem 1rem;background:#FFF3E0;border-radius:var(--r-sm);margin-bottom:1rem;border:1px solid #E8C9A0">
+        <!-- #UX6: Cooking point as checkbox option — same style as shared -->
+        <div style="display:flex;align-items:flex-start;gap:12px;padding:.85rem 1rem;background:var(--bg2);border-radius:var(--r-sm);margin-bottom:1rem;border:1px solid var(--bd2)">
           <input type="checkbox" id="edit-item-cooking" style="width:18px;height:18px;margin-top:2px;accent-color:#8B5E3C;flex-shrink:0">
           <div>
-            <div style="font-size:14px;font-weight:500;color:#8B5E3C">Requiere punto de cocción</div>
-            <div style="font-size:12px;color:#8B5E3C;margin-top:2px;line-height:1.5">El comensal podrá especificar cómo quiere la carne: muy poco hecho, poco hecho, al punto, hecho o muy hecho.</div>
+            <div style="font-size:14px;font-weight:500;color:var(--t1)">Requiere punto de cocción</div>
+            <div style="font-size:12px;color:var(--t2);margin-top:2px;line-height:1.5">El comensal podrá especificar cómo quiere la carne: muy poco hecho, poco hecho, al punto, hecho o muy hecho.</div>
           </div>
         </div>
         <div style="display:flex;gap:.65rem;margin-top:.5rem">
@@ -2563,12 +2583,9 @@
         <div style="position:absolute;top:-8px;right:12px;background:var(--brand);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px;letter-spacing:.05em">RECOMENDADO</div>
       </button>
 
-      <!-- #8: Otras opciones — colapsables -->
-      <button onclick="document.getElementById('other-pay-opts').style.display=document.getElementById('other-pay-opts').style.display==='none'?'block':'none';this.querySelector('span').textContent=document.getElementById('other-pay-opts').style.display==='none'?'▸':'▾'"
-        style="width:100%;text-align:left;padding:.5rem 0;background:none;border:none;border-bottom:1px solid var(--bd);font-size:13px;color:var(--t3);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px;margin-bottom:.65rem">
-        <span>▸</span> Otras opciones de pago
-      </button>
-      <div id="other-pay-opts" style="display:none">
+      <!-- #S7-8: Otras opciones — always visible but smaller -->
+      <div style="font-size:11px;color:var(--t3);text-align:center;margin-bottom:.5rem;font-weight:500;letter-spacing:.04em;text-transform:uppercase">Otras opciones</div>
+      <div id="other-pay-opts">
         <!-- Opción 2 — invito yo -->
         <button onclick="selectPayMethod('full')" class="pay-method-btn"
           style="width:100%;text-align:left;padding:.75rem 1rem;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.5rem;display:flex;align-items:center;gap:.75rem;transition:all .15s">
@@ -3753,6 +3770,11 @@ function _openModalFor(itemId, item) {
   const noteEl = document.getElementById('modal-dish-note');
   if (noteEl) noteEl.value = '';
 
+  // UX1+UX2: Build guest selectors for manual guests
+  _buildGuestSelectors();
+  // Reset selector visibility based on default type
+  setModalType(item.is_shared ? 'shared' : 'solo');
+
   document.getElementById('dish-modal').style.display = 'flex';
 }
 
@@ -3776,7 +3798,64 @@ function setModalType(type) {
   const hint = document.getElementById('modal-shared-hint');
   btnSolo.classList.toggle('selected', type === 'solo');
   btnShared.classList.toggle('selected', type === 'shared');
-  hint.style.display = type === 'shared' ? 'block' : 'none';
+
+  const hasMultipleGuests = state.guests && state.guests.length > 1;
+  const soloSel = document.getElementById('modal-solo-guest');
+  const sharedSel = document.getElementById('modal-shared-selector');
+
+  if (type === 'solo') {
+    // UX1: Show who this dish is for when there are multiple guests
+    if (soloSel) soloSel.style.display = hasMultipleGuests ? 'block' : 'none';
+    if (sharedSel) sharedSel.style.display = 'none';
+    hint.style.display = 'none';
+  } else {
+    // UX2: Show guest checkboxes for shared
+    if (soloSel) soloSel.style.display = 'none';
+    if (sharedSel) sharedSel.style.display = hasMultipleGuests ? 'block' : 'none';
+    hint.style.display = hasMultipleGuests ? 'none' : 'block';
+  }
+}
+
+// UX1+UX2: Selected guest(s) for modal
+let _modalSoloGuestId = null; // for solo dishes assigned to someone else
+let _modalSharedGuestIds = []; // for partial shared
+
+function _buildGuestSelectors() {
+  const guests = state.guests || [];
+  if (guests.length <= 1) return;
+
+  // Solo selector — radio buttons
+  const soloList = document.getElementById('modal-solo-guest-list');
+  if (soloList) {
+    soloList.innerHTML = guests.map(g => {
+      const isMe = g.id === state.myGuestId;
+      return `<label style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);cursor:pointer;background:var(--bg)">
+        <input type="radio" name="modal-solo-guest" value="${g.id}" ${isMe ? 'checked' : ''}
+          style="accent-color:var(--brand)" onchange="_modalSoloGuestId=this.value">
+        <span style="font-size:14px">${escHtml(g.name)}${isMe ? ' <span style="font-size:11px;color:var(--brand)">(tú)</span>' : ''}</span>
+      </label>`;
+    }).join('');
+    _modalSoloGuestId = state.myGuestId; // default to me
+  }
+
+  // Shared selector — checkboxes (all checked by default)
+  const sharedList = document.getElementById('modal-shared-guest-list');
+  if (sharedList) {
+    sharedList.innerHTML = guests.map(g => {
+      return `<label style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);cursor:pointer;background:var(--bg)">
+        <input type="checkbox" value="${g.id}" checked
+          style="width:16px;height:16px;accent-color:var(--brand)" onchange="_updateSharedGuests()">
+        <span style="font-size:14px">${escHtml(g.name)}</span>
+      </label>`;
+    }).join('');
+    _modalSharedGuestIds = guests.map(g => g.id);
+  }
+}
+
+function _updateSharedGuests() {
+  _modalSharedGuestIds = Array.from(
+    document.querySelectorAll('#modal-shared-guest-list input[type=checkbox]:checked')
+  ).map(cb => cb.value);
 }
 
 function closeModal() {
@@ -3800,7 +3879,7 @@ async function confirmAddDish() {
     name: item.name,
     price: item.price,
     type: modalType,
-    assignee_id: modalType === 'solo' ? state.myGuestId : null,
+    assignee_id: modalType === 'solo' ? (_modalSoloGuestId || state.myGuestId) : null,
     menu_item_id: item.id,
     course: modalCourse
   };
@@ -3821,9 +3900,12 @@ async function confirmAddDish() {
     state._cartaAutoNavDone = true;
     try { await sb.from('rooms').update({ carta_active: true }).eq('id', state.roomId); } catch(e) {}
   }
-  // If shared, add all current guests as participants
+  // UX2: Use selected guests for shared, fallback to all if none selected
   if (modalType === 'shared') {
-    const parts = state.guests.map(g => ({ dish_id: dish.id, guest_id: g.id }));
+    const selectedIds = (_modalSharedGuestIds && _modalSharedGuestIds.length > 0)
+      ? _modalSharedGuestIds
+      : state.guests.map(g => g.id);
+    const parts = selectedIds.map(gid => ({ dish_id: dish.id, guest_id: gid }));
     await sb.from('dish_participants').insert(parts);
   }
   // NO hacemos state.dishes.push(dish) — el realtime lo añade automáticamente
@@ -3831,7 +3913,9 @@ async function confirmAddDish() {
   if (!state.dishes.find(d => d.id === dish.id)) {
     state.dishes.push(dish);
     if (modalType === 'shared') {
-      state.participants[dish.id] = state.guests.map(g => g.id);
+      state.participants[dish.id] = (_modalSharedGuestIds && _modalSharedGuestIds.length > 0)
+        ? [..._modalSharedGuestIds]
+        : state.guests.map(g => g.id);
     }
     renderCarta();
     renderMesaDishes();
@@ -3957,24 +4041,18 @@ function renderMesaDishes() {
       </div>`;
     }
 
-    // ── 1. BEBIDAS ──
+    // ── 1. BEBIDAS — strictly by category, not course (course may be wrong) ──
     const bebidas = state.dishes.filter(d => d.category === 'bebidas' || d.course === 0);
+    const bebidaIds = new Set(bebidas.map(d => d.id)); // exclude from all other sections
     if (bebidas.length) {
-      html += secHeader('🥤 Bebidas', '#185FA5');
-      bebidas.forEach(d => {
-        const mine = isMine(d);
-        const parts = state.participants[d.id] || [];
-        const ownerName = d.type === 'solo' && d.assignee_id
-          ? (state.guests.find(g => g.id === d.assignee_id)?.name || '—') : null;
-        const sharedWith = d.type === 'shared' && parts.length > 1
-          ? parts.filter(id => id !== myId).map(id => state.guests.find(g => g.id === id)?.name).filter(Boolean).join(', ') : null;
-        html += renderDishCard(d);
-      });
+      const delivBeb = bebidas.filter(d => d.kitchen_status === 'delivered').length;
+      html += secHeader('Bebidas', '#185FA5', delivBeb, bebidas.length);
+      bebidas.forEach(d => { html += renderDishCard(d); });
     }
 
     // ── 2. PLATOS COMPARTIDOS (non-bebidas) ──
     const compartidos = state.dishes.filter(d =>
-      d.type === 'shared' && d.category !== 'bebidas' && d.course !== 0
+      d.type === 'shared' && !bebidaIds.has(d.id)
     );
     if (compartidos.length) {
       html += secHeader('🤝 Compartidos');
@@ -3990,7 +4068,7 @@ function renderMesaDishes() {
 
     // ── 3–5. PLATOS INDIVIDUALES por curso: primeros, segundos, postres ──
     const solosByCourse = state.dishes.filter(d =>
-      d.type !== 'shared' && d.category !== 'bebidas' && d.course !== 0
+      d.type !== 'shared' && !bebidaIds.has(d.id)
     );
 
     [
@@ -4017,9 +4095,9 @@ function renderMesaDishes() {
       }
     });
 
-    // ── Platos sin curso asignado (catch-all) ──
+    // ── Platos sin curso asignado (catch-all, no bebidas) ──
     const noCourse = state.dishes.filter(d =>
-      d.type !== 'shared' && d.category !== 'bebidas' && !d.course
+      d.type !== 'shared' && !bebidaIds.has(d.id) && !d.course
     );
     if (noCourse.length) {
       html += secHeader('Platos');
@@ -4625,9 +4703,11 @@ function buildSummary() {
     const origIdx = totals.findIndex(x => x.g.id === t.g.id);
     const isManual = t.g._manual === true;
     let lines = '';
+
+    // Solo items (grey)
     t.soloItems.forEach(d => {
       lines += `<div class="sum-line">
-        <span class="lbl">↳ ${escHtml(d.name)}</span>
+        <span class="lbl" style="color:var(--t2)">↳ ${escHtml(d.name)}</span>
         <span style="display:flex;align-items:center;gap:6px">
           <span class="val">${fmt(parseFloat(d.price))}</span>
           <button onclick="unassignDish('${d.id}','solo')" title="Desasignar"
@@ -4636,10 +4716,16 @@ function buildSummary() {
       </div>`;
     });
     if (t.soloItems.length && t.sharedItems.length) lines += '<hr style="border:none;border-top:1px solid var(--bd);margin:3px 0">';
+
+    // Shared items (blue) + edit reparto button
     t.sharedItems.forEach(({ d, share, nP }) => {
+      const allParticipants = (state.participants[d.id]||[]).map(id => state.guests.find(g=>g.id===id)?.name||'?').join(', ');
       lines += `<div class="sum-line shared">
-        <span class="lbl" style="color:var(--blue)">↳ ${escHtml(d.name)} ÷${nP}</span>
-        <span style="display:flex;align-items:center;gap:6px">
+        <span style="flex:1;min-width:0">
+          <span class="lbl" style="color:var(--blue)">↳ ${escHtml(d.name)} ÷${nP}</span>
+          <span style="font-size:10px;color:var(--blue);opacity:.7;display:block;margin-top:1px">${allParticipants}</span>
+        </span>
+        <span style="display:flex;align-items:center;gap:4px;flex-shrink:0">
           <span class="val">${fmt(share)}</span>
           <button onclick="unassignDish('${d.id}','shared','${t.g.id}')" title="Quitar de este plato"
             style="background:#FFF5F5;border:1px solid #FCCACA;font-size:13px;color:var(--accent);cursor:pointer;padding:2px 7px;border-radius:4px;line-height:1;font-weight:600">✕</button>
@@ -4651,6 +4737,11 @@ function buildSummary() {
     if (isMe) {
       return `<div class="sum-card me" style="border:2px solid var(--brand);background:var(--brand-l);margin-bottom:1rem;padding:1rem 1.1rem${isManual?';border-color:var(--amber);border-style:dashed':''}">
         <div style="font-size:11px;font-weight:600;color:var(--brand);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.35rem">Tu parte</div>
+        <!-- #S7-10: Legend -->
+        <div style="display:flex;gap:.75rem;margin-bottom:.5rem;font-size:10px;color:var(--t3)">
+          <span>↳ <span style="color:var(--t2)">gris</span> = solo tuyo</span>
+          <span>↳ <span style="color:var(--blue)">azul</span> = compartido</span>
+        </div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem">
           <div style="font-size:16px;font-weight:600;color:var(--brand-d)">${escHtml(t.g.name)}</div>
           <div style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:var(--brand-d)">${fmt(t.total)}</div>
@@ -4801,45 +4892,160 @@ function buildPayScreen() {
   list.innerHTML = totals.map((t, i) => {
     const isMe = t.g.id === state.myGuestId;
     const paid = state.payments.find(p => p.guest_id === t.g.id);
+    const isManualGuest = !isMe && t.total > 0;
+    const paidByNote = paid?.note?.includes('Pagado por') ? paid.note : null;
+
     return `<div style="display:flex;align-items:center;gap:10px;padding:.6rem 0;border-bottom:1px solid var(--bd)">
       ${avEl(t.g.name, i, 30)}
       <div style="flex:1">
         <div style="font-size:14px;font-weight:500;color:var(--t1)">${escHtml(t.g.name)}${isMe?' <span style="font-size:11px;color:var(--brand)">(tú)</span>':''}</div>
         <div style="font-size:11px;color:var(--t3);margin-top:1px">
-          ${t.soloItems.map(d => d.name).concat(t.sharedItems.map(s => s.d.name+'÷'+s.nP)).join(' · ').slice(0,50)||'Sin platos asignados'}
+          ${paidByNote ? `<span style="color:var(--brand)">${escHtml(paidByNote)}</span>` :
+            t.soloItems.map(d => d.name).concat(t.sharedItems.map(s => s.d.name+'÷'+s.nP)).join(' · ').slice(0,50)||'Sin platos asignados'}
         </div>
       </div>
       <div style="text-align:right;flex-shrink:0">
         <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:var(--brand-d)">${fmt(t.total)}</div>
-        <span style="font-size:11px;font-weight:500;padding:1px 7px;border-radius:99px;background:${paid?'#EAF3DE':'#FAEEDA'};color:${paid?'#3B6D11':'#854F0B'}">${paid?'✓ Pagado':'Pendiente'}</span>
+        ${paid
+          ? `<span style="font-size:11px;font-weight:500;padding:1px 7px;border-radius:99px;background:#EAF3DE;color:#3B6D11">✓ Pagado</span>`
+          : isManualGuest
+            ? `<button onclick="showPayForManual('${t.g.id}','${escHtml(t.g.name)}',${t.total})"
+                style="font-size:10px;font-weight:500;padding:2px 7px;border-radius:99px;background:var(--brand-l);color:var(--brand-d);border:1px solid var(--brand);cursor:pointer;font-family:inherit">
+                Pagar por él/ella
+              </button>`
+            : `<span style="font-size:11px;font-weight:500;padding:1px 7px;border-radius:99px;background:#FAEEDA;color:#854F0B">Pendiente</span>`
+        }
       </div>
     </div>`;
   }).join('');
 }
 
 // P2: Show account closed screen on ALL devices simultaneously
+function showPayForManual(guestId, guestName, amount) {
+  document.getElementById('pay-for-manual-modal')?.remove();
+  const myName = state.guests.find(g => g.id === state.myGuestId)?.name || 'Tú';
+  const el = document.createElement('div');
+  el.id = 'pay-for-manual-modal';
+  el.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center';
+  el.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;padding:1.5rem 1.25rem 2rem;animation:slideUp .22s ease">
+      <div style="font-size:18px;font-weight:700;color:var(--t1);margin-bottom:.25rem">Pagar por ${escHtml(guestName)}</div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:1.25rem">
+        Tú pagarás <strong>${fmt(amount)}</strong> en nombre de ${escHtml(guestName)}.
+        Quedará registrado como "Pagado por ${escHtml(myName)}".
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1rem">
+        <button onclick="registerPayForManual('${guestId}','${escHtml(guestName)}',${amount},'Tarjeta')"
+          class="btn btn-primary">💳 Pagar con tarjeta — ${fmt(amount)}</button>
+        <button onclick="registerPayForManual('${guestId}','${escHtml(guestName)}',${amount},'Efectivo')"
+          style="width:100%;padding:12px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--bg);color:var(--t1);font-size:14px;font-weight:500;cursor:pointer;font-family:inherit">
+          💵 Pagar en efectivo — ${fmt(amount)}
+        </button>
+      </div>
+      <button onclick="document.getElementById('pay-for-manual-modal').remove()"
+        style="width:100%;padding:9px;border:none;background:none;color:var(--t3);font-size:13px;cursor:pointer;font-family:inherit">
+        Cancelar
+      </button>
+    </div>`;
+  document.body.appendChild(el);
+  el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+}
+
+async function registerPayForManual(guestId, guestName, amount, method) {
+  document.getElementById('pay-for-manual-modal')?.remove();
+  const myName = state.guests.find(g => g.id === state.myGuestId)?.name || 'Tú';
+  const { error } = await sb.from('payments').insert({
+    room_id: state.roomId,
+    guest_id: guestId,
+    amount,
+    method,
+    stripe_status: 'manual',
+    note: `Pagado por ${myName}`
+  });
+  if (error) { notify('Error al registrar el pago'); return; }
+  state.payments.push({ guest_id: guestId, amount, note: `Pagado por ${myName}` });
+  buildPayScreen();
+  notify(`Pago de ${guestName} registrado`, 'success');
+  // Check if all paid
+  const paidIds = new Set(state.payments.filter(p => p.guest_id).map(p => p.guest_id));
+  if (state.guests.every(g => paidIds.has(g.id))) {
+    setTimeout(() => showAccountClosed(), 600);
+  }
+}
+
 function showAccountClosed() {
-  // Don't show twice
   if (document.getElementById('account-closed-screen')) return;
   const el = document.createElement('div');
   el.id = 'account-closed-screen';
   el.style.cssText = 'position:fixed;inset:0;z-index:600;background:var(--brand-l);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;text-align:center';
+  const total = state.dishes.reduce((s,d)=>s+parseFloat(d.price||0),0);
+  const me = calcTotals().find(t => t.g.id === state.myGuestId);
+  const myTotal = me ? me.total : 0;
   el.innerHTML = `
     <div style="font-size:56px;margin-bottom:1rem">🎉</div>
     <div style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:var(--brand-d);margin-bottom:.5rem">¡Cuenta cerrada!</div>
     <div style="font-size:15px;color:var(--brand);margin-bottom:2rem;line-height:1.5">Todos han pagado. ¡Gracias por usar split<em style="color:var(--accent);font-style:normal">eat</em>!</div>
-    <div style="background:var(--card);border-radius:var(--r);padding:1rem 1.5rem;margin-bottom:2rem;min-width:200px">
+    <div style="background:var(--card);border-radius:var(--r);padding:1rem 1.5rem;margin-bottom:2rem;min-width:220px">
       <div style="font-size:12px;color:var(--t3);margin-bottom:.25rem">Total de la mesa</div>
-      <div style="font-family:'Fraunces',serif;font-size:32px;font-weight:700;color:var(--brand-d)">${fmt(state.dishes.reduce((s,d)=>s+parseFloat(d.price||0),0))}</div>
+      <div style="font-family:'Fraunces',serif;font-size:32px;font-weight:700;color:var(--brand-d)">${fmt(total)}</div>
+      ${myTotal > 0 ? `<div style="font-size:12px;color:var(--t2);margin-top:.25rem">Tu parte: ${fmt(myTotal)}</div>` : ''}
     </div>
-    <button onclick="document.getElementById('account-closed-screen').remove();showFacturaModal()"
-      style="padding:12px 32px;border-radius:var(--r-sm);border:2px solid var(--brand-d);background:none;color:var(--brand-d);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">
-      ¿Necesitas factura? →
-    </button>`;
+    <div style="display:flex;flex-direction:column;gap:.65rem;width:100%;max-width:260px">
+      <button onclick="downloadTicketPDF()"
+        style="padding:12px 24px;border-radius:var(--r-sm);border:2px solid var(--brand-d);background:var(--brand-d);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">
+        📄 Descargar ticket
+      </button>
+      <button onclick="document.getElementById('account-closed-screen').remove();showFacturaModal()"
+        style="padding:12px 24px;border-radius:var(--r-sm);border:2px solid var(--brand-d);background:none;color:var(--brand-d);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">
+        🧾 Solicitar factura
+      </button>
+    </div>`;
   document.body.appendChild(el);
 }
 
 // #BG8: Factura modal — request invoice after account closed
+function downloadTicketPDF() {
+  const totals = calcTotals();
+  const total = state.dishes.reduce((s,d)=>s+parseFloat(d.price||0),0);
+  const now = new Date().toLocaleString('es-ES', { dateStyle:'short', timeStyle:'short' });
+  const restName = state.restaurantName || 'Restaurante';
+
+  let rows = '';
+  state.dishes.forEach(d => {
+    rows += `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee">${escHtml(d.name)}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">${fmt(parseFloat(d.price))}</td></tr>`;
+  });
+
+  let guestRows = '';
+  totals.forEach((t, i) => {
+    const paid = state.payments.find(p => p.guest_id === t.g.id);
+    guestRows += `<tr><td style="padding:3px 8px">${escHtml(t.g.name)}</td><td style="padding:3px 8px;text-align:right">${fmt(t.total)}</td><td style="padding:3px 8px;text-align:center;color:${paid?'#2E7D2E':'#854F0B'}">${paid?'✓':'Pendiente'}</td></tr>`;
+  });
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ticket — ${restName}</title>
+  <style>body{font-family:Arial,sans-serif;max-width:400px;margin:0 auto;padding:20px;font-size:13px}
+  h1{font-size:20px;margin-bottom:4px} .muted{color:#888;font-size:11px} table{width:100%;border-collapse:collapse}
+  .total{font-size:18px;font-weight:700;margin-top:12px} hr{border:none;border-top:1px dashed #ccc;margin:12px 0}
+  </style></head><body>
+  <h1>${escHtml(restName)}</h1>
+  <div class="muted">${now} · spliteat</div>
+  <hr>
+  <table>${rows}</table>
+  <hr>
+  <div class="total">Total: ${fmt(total)}</div>
+  <hr>
+  <div style="font-size:12px;font-weight:600;margin-bottom:6px">Desglose por comensal</div>
+  <table><thead><tr><th style="text-align:left;padding:3px 8px">Comensal</th><th style="text-align:right;padding:3px 8px">Importe</th><th style="padding:3px 8px">Estado</th></tr></thead><tbody>${guestRows}</tbody></table>
+  <hr><div class="muted" style="text-align:center">Generado con spliteat.es</div>
+  </body></html>`;
+
+  const w = window.open('', '_blank');
+  if (w) {
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => w.print(), 400);
+  }
+}
+
 function showFacturaModal() {
   document.getElementById('factura-modal')?.remove();
   const total = state.dishes.reduce((s, d) => s + parseFloat(d.price || 0), 0);
@@ -4975,7 +5181,7 @@ async function registerFullPayment(me, method, totals) {
   // Cerrar mesa
   await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString() }).eq('id', state.roomId);
   clearSession();
-  setTimeout(() => go('s6-done'), 400);
+  setTimeout(() => showAccountClosed(), 400);
 }
 
 // Paga su parte en división equitativa
@@ -4993,7 +5199,8 @@ async function registerEqualPayment(me, method) {
     note: 'División equitativa ÷' + _equalPax
   });
   state.payments.push({ guest_id: state.myGuestId, amount: myShare });
-  buildPayScreen();
+  // #S7-2: Keep equal split display — don't call buildPayScreen (which uses spliteat calc)
+  buildEqualPayScreen(_equalPax);
 
   // Cerrar cuando paguen todos los del grupo (_equalPax personas)
   // O cuando todos los guests registrados hayan pagado
@@ -5009,7 +5216,7 @@ async function registerEqualPayment(me, method) {
   if (allGuestsPaid || tableTotalCovered) {
     await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString() }).eq('id', state.roomId);
     clearSession();
-    setTimeout(() => go('s6-done'), 800);
+    setTimeout(() => showAccountClosed(), 800);
   } else {
     showToast('✓ Tu parte pagada', `Esperando ${_equalPax - paidGuestIds.size} personas más`);
   }
@@ -5046,7 +5253,7 @@ async function registerManualPayment(me, method) {
   if (allPaid) {
     await sb.from('rooms').update({ closed: true }).eq('id', state.roomId);
     clearSession();
-    setTimeout(() => go('s6-done'), 800);
+    setTimeout(() => showAccountClosed(), 800);
   }
 }
 
@@ -5112,7 +5319,7 @@ async function payWithStripe(me, method) {
     state.payments.push({ guest_id: state.myGuestId, method, amount: me.total });
     buildPayScreen();
     const allPaid = state.guests.every(g => state.payments.find(p => p.guest_id === g.id));
-    if (allPaid) setTimeout(() => go('s6-done'), 800);
+    if (allPaid) setTimeout(() => showAccountClosed(), 800);
 
   } catch (err) {
     console.error('Stripe error:', err);
@@ -6015,6 +6222,36 @@ async function waiterLogin() {
     document.getElementById('waiter-name-badge').textContent = escHtml(w.name);
     go('s-waiter'); loadWaiterMesas(); loadWaiterTableSelects(); subscribeWaiterNotifications();
 
+    // #BG6: Load recent pending notifications into waiter history
+    try {
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { data: pendingNotifs } = await sb.from('kitchen_notifications')
+        .select('*')
+        .eq('restaurant_id', w.restaurant_id)
+        .gte('created_at', since)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (pendingNotifs && pendingNotifs.length > 0) {
+        pendingNotifs.forEach(n => {
+          const dishNames = (n.dishes || []).map(d => d.name).join(', ');
+          const label = n.is_bebidas ? '🥤 Bebidas' : `Pase ${n.course_label || ''}`;
+          const notif = {
+            id: n.id,
+            title: `${label} — ${n.table_label || 'Mesa'}`,
+            body: dishNames,
+            time: new Date(n.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+            seen: true, // historical — already seen
+            roomId: n.room_id,
+            dishes: n.dishes || [],
+          };
+          _waiterNotifHistory.unshift(notif);
+        });
+        if (pendingNotifs.length > 0) {
+          showToast(`${pendingNotifs.length} notificaci${pendingNotifs.length === 1 ? 'ón' : 'ones'} pendientes de cocina`, '');
+        }
+      }
+    } catch(e) {} // non-blocking
+
     // N1: Auto-assign any rooms that were opened with no active waiter
     try {
       const { data: unassigned } = await sb.from('rooms')
@@ -6725,11 +6962,15 @@ async function waiterMarkPaid(guestId, amount, roomId) {
   loadWaiterCobrar();
   // Check if all paid → close room
   const { data: guests } = await sb.from('guests').select('id').eq('room_id', roomId);
-  const { data: payments } = await sb.from('payments').select('id').eq('room_id', roomId);
-  if (guests && payments && payments.length >= guests.length) {
-    await sb.from('rooms').update({ closed: true }).eq('id', roomId);
+  const { data: payments } = await sb.from('payments').select('guest_id').eq('room_id', roomId);
+  const paidIds = new Set((payments||[]).filter(p=>p.guest_id).map(p=>p.guest_id));
+  const allPaid = (guests||[]).length > 0 && (guests||[]).every(g => paidIds.has(g.id));
+  if (allPaid) {
+    await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString() }).eq('id', roomId);
     showToast('✅ Mesa cerrada', 'Todos han pagado.');
     showWaiterTab('mesas');
+    loadWaiterMesas();
+    loadWaiterTableSelects();
   }
 }
 
@@ -7897,10 +8138,6 @@ async function loadAdminCartaInline() {
           <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
             <button onclick="openEditItem('${item.id}')" title="Editar plato"
               style="width:24px;height:24px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer">✏️</button>
-            <span title="Requiere punto de cocción" onclick="toggleCookingPoint('${item.id}',${!item.requires_cooking_point})"
-              style="cursor:pointer;padding:3px 8px;border-radius:99px;font-size:11px;font-weight:500;border:1px solid ${item.requires_cooking_point?'#E8C9A0':'var(--bd2)'};background:${item.requires_cooking_point?'#FFF3E0':'var(--bg)'};color:${item.requires_cooking_point?'#8B5E3C':'var(--t3)'};user-select:none">
-              ${item.requires_cooking_point?'✓ Punto':'Punto'}
-            </span>
             <div class="toggle-track ${item.active?'on':''}" onclick="toggleItemActive('${item.id}',${!item.active},this)"><div class="toggle-thumb"></div></div>
             <button onclick="deleteItem('${item.id}')" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer">✕</button>
           </div>
@@ -8514,7 +8751,7 @@ async function fireNextCourse(roomId, course, dishIds) {
       // No waiter assigned at all
       showKitchenWarning(
         'Sin camarero asignado',
-        'Esta mesa no tiene camarero asignado. El pase se notificará a todos los camareros activos.',
+        'Se notificará al próximo camarero que inicie sesión en serveat.',
         () => _doFireNextCourse(roomId, course, dishIds)
       );
       return;
@@ -8526,7 +8763,7 @@ async function fireNextCourse(roomId, course, dishIds) {
     if (waiter && !waiter.is_active) {
       showKitchenWarning(
         `${waiter.name} no está activo`,
-        `El camarero asignado no tiene sesión abierta en serveat. Pídele que inicie sesión antes de confirmar el pase.`,
+        'Se notificará al próximo camarero que inicie sesión en serveat.',
         () => _doFireNextCourse(roomId, course, dishIds)
       );
       return;
@@ -9174,7 +9411,15 @@ async function loadWaiterStatusBar() {
     .order('name');
   if (!waiters || !waiters.length) {
     el.innerHTML = '<div style="font-size:12px;color:var(--t3)">Sin camareros configurados</div>';
+    const warningEl = document.getElementById('no-waiter-warning');
+    if (warningEl) warningEl.style.display = 'flex';
     return;
+  }
+  const anyActive = waiters.some(w => w.is_active === true);
+  // #BG7: Show prominent warning if no active waiter sessions
+  const warningEl = document.getElementById('no-waiter-warning');
+  if (warningEl) {
+    warningEl.style.display = anyActive ? 'none' : 'flex';
   }
   el.innerHTML = waiters.map(w => {
     const isOn = w.is_active === true;
@@ -9221,8 +9466,17 @@ async function loadFloorPlan() {
       sb.from('payments').select('room_id,guest_id').in('room_id', roomIds),
       sb.from('guests').select('room_id,id').in('room_id', roomIds)
     ]);
-    // Fix #27: only count payments with a real guest_id
-    (pays || []).forEach(p => { if (p.guest_id) { if (!paysByRoom[p.room_id]) paysByRoom[p.room_id] = 0; paysByRoom[p.room_id]++; } });
+    // #S7-3: Count UNIQUE guest_ids that have paid — prevents "6/2 pagados" with duplicate payments
+    const paidGuestsByRoom = {}; // room_id → Set of guest_ids
+    (pays || []).forEach(p => {
+      if (p.guest_id) {
+        if (!paidGuestsByRoom[p.room_id]) paidGuestsByRoom[p.room_id] = new Set();
+        paidGuestsByRoom[p.room_id].add(p.guest_id);
+      }
+    });
+    Object.entries(paidGuestsByRoom).forEach(([roomId, set]) => {
+      paysByRoom[roomId] = set.size;
+    });
     (guests || []).forEach(g => { if (!guestsByRoom[g.room_id]) guestsByRoom[g.room_id] = 0; guestsByRoom[g.room_id]++; });
   }
 
@@ -11226,6 +11480,107 @@ function goToSummary() {
   _doGoToSummary();
 }
 
+// #S7-7: Full reparto view for editing before payment
+function showEditRepartoModal() {
+  document.getElementById('edit-reparto-modal')?.remove();
+  const el = document.createElement('div');
+  el.id = 'edit-reparto-modal';
+  el.style.cssText = 'position:fixed;inset:0;z-index:450;background:rgba(0,0,0,.6);display:flex;flex-direction:column;align-items:center;justify-content:flex-end';
+
+  const dishes = state.dishes.filter(d => d.kitchen_status && d.kitchen_status !== 'new');
+  const guests = state.guests || [];
+
+  const dishRows = dishes.map(d => {
+    const parts = state.participants[d.id] || [];
+    const isShared = d.type === 'shared';
+    const owner = d.assignee_id ? guests.find(g => g.id === d.assignee_id) : null;
+    const sharedNames = isShared
+      ? parts.map(id => guests.find(g => g.id === id)?.name || '?').join(', ')
+      : null;
+
+    const guestOpts = guests.map(g =>
+      `<option value="${g.id}" ${!isShared && d.assignee_id === g.id ? 'selected' : ''}>${escHtml(g.name)}</option>`
+    ).join('');
+
+    return `<div style="padding:.65rem 0;border-bottom:1px solid var(--bd)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(d.name)}</div>
+          <div style="font-size:11px;color:${isShared?'var(--blue)':'var(--t3)'};margin-top:2px">
+            ${isShared ? `🤝 Compartido: ${sharedNames}` : `👤 ${owner?.name || 'Sin asignar'}`}
+          </div>
+        </div>
+        <div style="font-size:13px;font-weight:600;color:var(--brand-d);flex-shrink:0">${fmt(parseFloat(d.price))}</div>
+      </div>
+      ${!isShared ? `<select onchange="quickReassignDish('${d.id}', this.value)"
+        style="margin-top:.35rem;width:100%;padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);font-size:12px;font-family:inherit;background:var(--bg)">
+        <option value="">— Cambiar a quién se le carga —</option>
+        ${guestOpts}
+      </select>` : ''}
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;max-height:85vh;display:flex;flex-direction:column;animation:slideUp .22s ease">
+      <div style="padding:1.25rem 1.25rem .75rem;border-bottom:1px solid var(--bd);flex-shrink:0;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:17px;font-weight:700;color:var(--t1)">✏️ Editar reparto</div>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">${dishes.length} platos · ${guests.length} comensales</div>
+        </div>
+        <button onclick="document.getElementById('edit-reparto-modal').remove()"
+          style="background:none;border:none;font-size:20px;color:var(--t3);cursor:pointer;padding:4px">✕</button>
+      </div>
+
+      <!-- Add person -->
+      <div style="padding:.65rem 1.25rem;border-bottom:1px solid var(--bd);flex-shrink:0">
+        <div style="display:flex;gap:.5rem">
+          <input id="reparto-new-name" type="text" placeholder="Añadir persona a la mesa..."
+            style="flex:1;padding:7px 10px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-size:13px;font-family:inherit;background:var(--bg)"
+            onkeydown="if(event.key==='Enter')addPersonFromReparto()">
+          <button onclick="addPersonFromReparto()"
+            style="padding:7px 14px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">+ Añadir</button>
+        </div>
+      </div>
+
+      <!-- Dish list -->
+      <div style="overflow-y:auto;padding:0 1.25rem;flex:1">
+        ${dishRows || '<div style="padding:1rem;text-align:center;font-size:13px;color:var(--t3)">Sin platos enviados a cocina</div>'}
+      </div>
+
+      <div style="padding:1rem 1.25rem;border-top:1px solid var(--bd);flex-shrink:0">
+        <button onclick="document.getElementById('edit-reparto-modal').remove();_doGoToSummary()"
+          class="btn btn-primary" style="width:100%">
+          Ver resumen de la cuenta →
+        </button>
+      </div>
+    </div>`;
+
+  document.body.appendChild(el);
+  el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+}
+
+async function quickReassignDish(dishId, newGuestId) {
+  if (!newGuestId) return;
+  await sb.from('dishes').update({ assignee_id: newGuestId }).eq('id', dishId);
+  const dish = state.dishes.find(d => d.id === dishId);
+  if (dish) dish.assignee_id = newGuestId;
+  notify('Plato reasignado', 'success');
+}
+
+async function addPersonFromReparto() {
+  const name = document.getElementById('reparto-new-name')?.value?.trim();
+  if (!name) return;
+  if (!state.roomId) return;
+  const { data: guest, error } = await sb.from('guests').insert({ room_id: state.roomId, name }).select().single();
+  if (error) { notify('Error al añadir'); return; }
+  state.guests.push(guest);
+  document.getElementById('reparto-new-name').value = '';
+  // Refresh the modal
+  document.getElementById('edit-reparto-modal')?.remove();
+  showEditRepartoModal();
+  notify(`${name} añadido/a`, 'success');
+}
+
 function showPrePayChecklist() {
   document.getElementById('pre-pay-checklist')?.remove();
   const el = document.createElement('div');
@@ -11255,14 +11610,14 @@ function showPrePayChecklist() {
           style="flex:1;padding:10px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit;text-align:center">
           + Pedir más platos
         </button>
-        <button onclick="document.getElementById('pre-pay-checklist').remove();go('s3-dishes');showDishTab('mesa')"
+        <button onclick="document.getElementById('pre-pay-checklist').remove();showEditRepartoModal()"
           style="flex:1;padding:10px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit;text-align:center">
           ✏️ Editar reparto
         </button>
       </div>
       <button onclick="document.getElementById('pre-pay-checklist').remove();_doGoToSummary()"
         class="btn btn-primary" style="width:100%;font-size:15px">
-        Sí, procedemos al pago →
+        Ver resumen de la cuenta →
       </button>
       <button onclick="document.getElementById('pre-pay-checklist').remove()"
         style="width:100%;padding:9px;border:none;background:none;color:var(--t3);font-size:13px;cursor:pointer;font-family:inherit;margin-top:.35rem">
