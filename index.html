@@ -6461,7 +6461,7 @@ function renderWaiterNotifBanner() {
   }
 
   banner.innerHTML = `<div style="background:#085041;color:#fff;border-radius:var(--r);padding:.7rem 1rem;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.25);cursor:pointer"
-    onclick="openWaiterNotifDetail(${latest.id})">
+    onclick="openWaiterNotifDetailIdx(${_waiterNotifHistory.indexOf(latest)})">
     <div style="font-size:20px;flex-shrink:0">🛎</div>
     <div style="flex:1;min-width:0">
       <div style="font-size:13px;font-weight:600">${latest.tableLabel} — ${latest.courseLabel} listos</div>
@@ -6469,19 +6469,12 @@ function renderWaiterNotifBanner() {
     </div>
     <div style="display:flex;gap:6px;flex-shrink:0">
       ${unseen.length > 1 ? `<span style="background:rgba(255,255,255,.2);border-radius:99px;padding:2px 7px;font-size:11px">+${unseen.length - 1}</span>` : ''}
-      <button onclick="event.stopPropagation();markWaiterNotifSeen(${latest.id})"
+      <button onclick="event.stopPropagation();markWaiterNotifSeen(${_waiterNotifHistory.indexOf(latest)})"
         style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:99px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit">
         ✓ Visto
       </button>
     </div>
   </div>`;
-}
-
-function markWaiterNotifSeen(id) {
-  const n = _waiterNotifHistory.find(n => n.id === id);
-  if (n) n.seen = true;
-  renderWaiterNotifBanner();
-  updateWaiterNotifBadge();
 }
 
 function markAllWaiterNotifSeen() {
@@ -6501,11 +6494,21 @@ function updateWaiterNotifBadge() {
 
 // Per-notif dish check state
 function openWaiterNotifDetail(id) {
-  const n = _waiterNotifHistory.find(n => n.id === id);
+  // Find by id (loose equality handles uuid vs number)
+  const n = _waiterNotifHistory.find(n => n.id == id);
   if (!n) return;
-  markWaiterNotifSeen(id);
-  if (!n.checked) n.checked = {};
+  _openNotifModalWith(n);
+}
 
+function openWaiterNotifDetailIdx(idx) {
+  const n = _waiterNotifHistory[idx];
+  if (!n) return;
+  _openNotifModalWith(n);
+}
+
+function _openNotifModalWith(n) {
+  markWaiterNotifSeenByRef(n);
+  if (!n.checked) n.checked = {};
   const modal = document.getElementById('waiter-notif-modal') || (() => {
     const el = document.createElement('div');
     el.id = 'waiter-notif-modal';
@@ -6513,9 +6516,24 @@ function openWaiterNotifDetail(id) {
     document.body.appendChild(el);
     return el;
   })();
-
   _renderNotifModal(modal, n);
   modal.style.display = 'flex';
+}
+
+function markWaiterNotifSeen(idOrIdx) {
+  // Try as index first, then as id
+  let n = typeof idOrIdx === 'number' && idOrIdx < _waiterNotifHistory.length
+    ? _waiterNotifHistory[idOrIdx]
+    : _waiterNotifHistory.find(x => x.id == idOrIdx);
+  if (n) { n.seen = true; }
+  renderWaiterNotifBanner();
+  updateWaiterNotifBadge();
+}
+
+function markWaiterNotifSeenByRef(n) {
+  if (n) n.seen = true;
+  renderWaiterNotifBanner();
+  updateWaiterNotifBadge();
 }
 
 function _renderNotifModal(modal, n) {
@@ -6525,12 +6543,14 @@ function _renderNotifModal(modal, n) {
   const total = n.dishes.length;
   const checkedCount = Object.values(n.checked || {}).filter(Boolean).length;
   const allChecked = checkedCount >= total;
+  // Use array index for safe onclick — UUIDs break when injected directly in HTML
+  const nIdx = _waiterNotifHistory.indexOf(n);
 
   const cpColors = {'Muy poco hecho':'#E74C3C','Poco hecho':'#E67E22','Al punto':'#F39C12','Hecho':'#8B5E3C','Muy hecho':'#2C2C2C'};
   const dishRows = n.dishes.map((d, i) => {
     const isChecked = n.checked[i] || false;
     const cp = d.cooking_point || d.cookingPoint || null;
-    return `<div onclick="toggleWaiterDishCheck(${n.id},${i})"
+    return `<div onclick="toggleWaiterDishCheckIdx(${nIdx},${i})"
       style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--bd);cursor:pointer;transition:opacity .15s;${isChecked?'opacity:.45;':''}">
       <div style="width:26px;height:26px;border-radius:50%;border:2px solid ${isChecked?color:'var(--bd2)'};background:${isChecked?color:'transparent'};
         display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s">
@@ -6574,11 +6594,11 @@ function _renderNotifModal(modal, n) {
 
       <div style="display:flex;gap:.5rem;margin-top:1rem">
         ${!allChecked ? `
-        <button onclick="_checkAllWaiterDishes(${n.id})"
+        <button onclick="_checkAllWaiterDishesIdx(${nIdx})"
           style="flex:1;padding:10px;border-radius:var(--r);border:1.5px solid ${color};background:none;color:${color};font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">
           Marcar todos
         </button>` : ''}
-        <button onclick="${allChecked ? `markCourseDelivered('${n.roomId}',${n.course},${n.isBebidas||false});document.getElementById('waiter-notif-modal').style.display='none'` : `_checkAllWaiterDishes(${n.id})`}"
+        <button onclick="${allChecked ? `markCourseDelivered('${n.roomId}',${n.course},${!!n.isBebidas});document.getElementById('waiter-notif-modal').style.display='none'` : `_checkAllWaiterDishesIdx(${nIdx})`}"
           class="btn btn-primary" style="flex:2;background:${allChecked?color:'var(--bd2)'};color:${allChecked?'#fff':'var(--t2)'};font-size:14px;${!allChecked?'cursor:default;':''}">
           ${allChecked ? '✓ Llevado a mesa' : '⬜ Marca todos los platos primero'}
         </button>
@@ -6590,18 +6610,37 @@ function _renderNotifModal(modal, n) {
 }
 
 function toggleWaiterDishCheck(notifId, dishIdx) {
-  const n = _waiterNotifHistory.find(n => n.id === notifId);
+  // Legacy — find by id (may be number or uuid)
+  const n = _waiterNotifHistory.find(n => n.id == notifId); // loose equality handles both
   if (!n) return;
   if (!n.checked) n.checked = {};
   n.checked[dishIdx] = !n.checked[dishIdx];
   haptic([30]);
-  // Re-render modal in place
+  const modal = document.getElementById('waiter-notif-modal');
+  if (modal && modal.style.display !== 'none') _renderNotifModal(modal, n);
+}
+
+function toggleWaiterDishCheckIdx(nIdx, dishIdx) {
+  const n = _waiterNotifHistory[nIdx];
+  if (!n) return;
+  if (!n.checked) n.checked = {};
+  n.checked[dishIdx] = !n.checked[dishIdx];
+  haptic([30]);
   const modal = document.getElementById('waiter-notif-modal');
   if (modal && modal.style.display !== 'none') _renderNotifModal(modal, n);
 }
 
 function _checkAllWaiterDishes(notifId) {
-  const n = _waiterNotifHistory.find(n => n.id === notifId);
+  const n = _waiterNotifHistory.find(n => n.id == notifId);
+  if (!n || !n.dishes) return;
+  n.checked = {};
+  n.dishes.forEach((_, i) => { n.checked[i] = true; });
+  const modal = document.getElementById('waiter-notif-modal');
+  if (modal) _renderNotifModal(modal, n);
+}
+
+function _checkAllWaiterDishesIdx(nIdx) {
+  const n = _waiterNotifHistory[nIdx];
   if (!n || !n.dishes) return;
   n.checked = {};
   n.dishes.forEach((_, i) => { n.checked[i] = true; });
