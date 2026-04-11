@@ -1104,7 +1104,7 @@
 
         <!-- #8: Bebida info — shown instead of course buttons for drinks -->
         <div id="modal-bebida-info" style="display:none;margin-bottom:1rem;background:var(--blue-l);border-radius:var(--r-sm);padding:.65rem .85rem">
-          <div style="font-size:12px;color:var(--blue);line-height:1.5">🥤 Las bebidas se traen a la mesa en cuanto se piden.</div>
+          <div style="font-size:12px;color:var(--blue);line-height:1.5">Las bebidas se traen a la mesa en cuanto se piden.</div>
         </div>
 
         <!-- #8: Café/infusión con postre option — only for can_go_with_postre items -->
@@ -1142,7 +1142,10 @@
 
         <!-- UX2: Guest multi-selector for shared -->
         <div id="modal-shared-selector" style="display:none;margin-bottom:1rem">
-          <div style="font-size:13px;color:var(--t2);margin-bottom:.35rem">¿Entre quiénes se divide?</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem">
+            <div style="font-size:13px;color:var(--t2)">¿Entre quiénes se divide?</div>
+            <button onclick="_selectAllSharedGuests()" style="font-size:11px;color:var(--brand);background:none;border:none;cursor:pointer;font-family:inherit;font-weight:500;padding:0">Toda la mesa ✓</button>
+          </div>
           <div id="modal-shared-guest-list" style="display:flex;flex-direction:column;gap:.35rem"></div>
         </div>
 
@@ -1292,7 +1295,7 @@
     <div class="hdr">
       <button class="back-btn" onclick="go('s4-summary')">← Resumen</button>
       <div class="logo">split<em>eat</em></div>
-    <button onclick="openNotifHistory()" style="position:relative;background:none;border:none;cursor:pointer;padding:4px;color:var(--t2);font-size:18px;line-height:1">🔔<span class="notif-bell-badge" style="display:none;position:absolute;top:-2px;right:-2px;background:var(--accent);color:#fff;border-radius:99px;font-size:9px;font-weight:700;min-width:14px;height:14px;text-align:center;line-height:14px;padding:0 3px">0</span></button>
+      <button id="btn-change-method" onclick="resetPayMethod()" style="display:none;background:none;border:none;font-size:12px;color:var(--t2);cursor:pointer;font-family:inherit;padding:4px 8px;border:1px solid var(--bd2);border-radius:var(--r-sm)">Cambiar</button>
     </div>
     <div class="body">
 
@@ -1521,7 +1524,7 @@
     </div>
     <div class="tab-bar">
       <button class="tab on" id="ktab-btn-pedidos" onclick="showKitchenTab('pedidos')">
-        🎯 KDS <span id="k-pedidos-badge" style="display:none;background:#E24B4A;color:#fff;border-radius:99px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:3px">0</span>
+        KDS - Kitchen Display System <span id="k-pedidos-badge" style="display:none;background:#E24B4A;color:#fff;border-radius:99px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:3px">0</span>
       </button>
       <button class="tab" id="ktab-btn-carta" onclick="showKitchenTab('carta')">Carta</button>
       <button class="tab" id="ktab-btn-config" onclick="showKitchenTab('config')">Tiempos</button>
@@ -2532,11 +2535,11 @@
           </div>
         </div>
         <!-- #8b: Can go with postre -->
-        <div style="display:flex;align-items:flex-start;gap:12px;padding:.85rem 1rem;background:var(--amber-l);border-radius:var(--r-sm);margin-bottom:.65rem;border:1px solid var(--amber)">
-          <input type="checkbox" id="edit-item-postre" style="width:18px;height:18px;margin-top:2px;accent-color:var(--amber);flex-shrink:0">
+        <div style="display:flex;align-items:flex-start;gap:12px;padding:.85rem 1rem;background:var(--bg2);border-radius:var(--r-sm);margin-bottom:.65rem;border:1px solid var(--bd2)">
+          <input type="checkbox" id="edit-item-postre" style="width:18px;height:18px;margin-top:2px;accent-color:var(--brand);flex-shrink:0">
           <div>
-            <div style="font-size:14px;font-weight:500;color:var(--amber)">Puede ir con el postre</div>
-            <div style="font-size:12px;color:var(--amber);margin-top:2px;line-height:1.5">Para cafés, infusiones y digestivos. El comensal podrá elegir servir esta bebida con el postre.</div>
+            <div style="font-size:14px;font-weight:500;color:var(--t1)">Puede ir con el postre</div>
+            <div style="font-size:12px;color:var(--t2);margin-top:2px;line-height:1.5">Para cafés, infusiones y digestivos. El comensal podrá elegir servir esta bebida con el postre.</div>
           </div>
         </div>
         <!-- #UX6: Cooking point as checkbox option — same style as shared -->
@@ -3428,16 +3431,25 @@ function subscribeRealtime() {
       const prev = idx >= 0 ? state.dishes[idx] : null;
       if (idx >= 0) state.dishes[idx] = d; else state.dishes.push(d);
       // Kitchen status push notifications
-      if (prev && d.category !== 'bebidas') {
+      if (prev) {
         const mine = d.assignee_id === state.myGuestId || (state.participants[d.id] || []).includes(state.myGuestId);
         if (mine) {
-          if (prev.kitchen_status !== 'making' && d.kitchen_status === 'making') {
-            playGuestSound('making');
-            showGuestNotification('🍳 En preparación', `"${d.name}" ya está en la cocina.`);
-          }
-          if (prev.kitchen_status !== 'ready' && d.kitchen_status === 'ready') {
-            playGuestSound('ready');
-            showGuestNotification('🛎 ¡Tu plato está listo!', `"${d.name}" llega en breve a tu mesa.`);
+          const isBebidaUpdate = d.category === 'bebidas' || d.course === 0;
+          if (isBebidaUpdate) {
+            // #8-B2: Notify when waiter confirms bebida delivered
+            if (prev.kitchen_status !== 'delivered' && d.kitchen_status === 'delivered') {
+              playGuestSound('ready');
+              showGuestNotification('Tu bebida ha llegado', `"${d.name}" ya está en la mesa.`);
+            }
+          } else {
+            if (prev.kitchen_status !== 'making' && d.kitchen_status === 'making') {
+              playGuestSound('making');
+              showGuestNotification('🍳 En preparación', `"${d.name}" ya está en la cocina.`);
+            }
+            if (prev.kitchen_status !== 'ready' && d.kitchen_status === 'ready') {
+              playGuestSound('ready');
+              showGuestNotification('🛎 ¡Tu plato está listo!', `"${d.name}" llega en breve a tu mesa.`);
+            }
           }
         }
       }
@@ -3856,6 +3868,11 @@ function _updateSharedGuests() {
   _modalSharedGuestIds = Array.from(
     document.querySelectorAll('#modal-shared-guest-list input[type=checkbox]:checked')
   ).map(cb => cb.value);
+}
+
+function _selectAllSharedGuests() {
+  document.querySelectorAll('#modal-shared-guest-list input[type=checkbox]').forEach(cb => { cb.checked = true; });
+  _modalSharedGuestIds = state.guests.map(g => g.id);
 }
 
 function closeModal() {
@@ -4666,9 +4683,12 @@ function buildSummary() {
   const grand = totals.reduce((a, t) => a + t.total, 0);
   document.getElementById('grand-total').textContent = fmt(grand);
 
-  // #21+#22: Update my-price preview card
+  // #8-U2: If equal split chosen, override preview with equal amount
+  const isEqual = typeof _payMethod !== 'undefined' && _payMethod === 'equal' && typeof _equalPax === 'number' && _equalPax > 0;
+  const equalShare = isEqual ? grand / _equalPax : 0;
+
   const me = totals.find(t => t.g.id === state.myGuestId);
-  const myAmt = me ? me.total : 0;
+  const myAmt = isEqual ? equalShare : (me ? me.total : 0);
   const myPreviewEl = document.getElementById('my-price-amount');
   const grandPreviewEl = document.getElementById('grand-total-preview');
   if (myPreviewEl) myPreviewEl.textContent = fmt(myAmt);
@@ -4735,18 +4755,49 @@ function buildSummary() {
 
     // #13: My card is large and prominent; others are compact
     if (isMe) {
+      // Build sectioned lines for my card
+      let myLines = '';
+      if (t.soloItems.length) {
+        myLines += `<div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin:6px 0 4px">Platos míos</div>`;
+        t.soloItems.forEach(d => {
+          myLines += `<div class="sum-line">
+            <span class="lbl" style="color:var(--t2)">↳ ${escHtml(d.name)}</span>
+            <span style="display:flex;align-items:center;gap:6px">
+              <span class="val">${fmt(parseFloat(d.price))}</span>
+              <button onclick="unassignDish('${d.id}','solo')" title="Desasignar"
+                style="background:#FFF5F5;border:1px solid #FCCACA;font-size:13px;color:var(--accent);cursor:pointer;padding:2px 7px;border-radius:4px;line-height:1;font-weight:600">✕</button>
+            </span>
+          </div>`;
+        });
+      }
+      if (t.sharedItems.length) {
+        myLines += `<div style="font-size:10px;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:.05em;margin:${t.soloItems.length?'10px':'6px'} 0 4px">Platos compartidos</div>`;
+        t.sharedItems.forEach(({ d, share, nP }) => {
+          const others = (state.participants[d.id]||[])
+            .filter(id => id !== t.g.id)
+            .map(id => state.guests.find(g=>g.id===id)?.name||'?');
+          const withStr = others.length ? `con ${others.join(', ')}` : `÷${nP}`;
+          myLines += `<div class="sum-line shared">
+            <span style="flex:1;min-width:0">
+              <span class="lbl" style="color:var(--blue)">↳ ${escHtml(d.name)}</span>
+              <span style="font-size:10px;color:var(--blue);opacity:.75;display:block">${withStr}</span>
+            </span>
+            <span style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+              <span class="val">${fmt(share)}</span>
+              <button onclick="unassignDish('${d.id}','shared','${t.g.id}')" title="Quitar de este plato"
+                style="background:#FFF5F5;border:1px solid #FCCACA;font-size:13px;color:var(--accent);cursor:pointer;padding:2px 7px;border-radius:4px;line-height:1;font-weight:600">✕</button>
+            </span>
+          </div>`;
+        });
+      }
+
       return `<div class="sum-card me" style="border:2px solid var(--brand);background:var(--brand-l);margin-bottom:1rem;padding:1rem 1.1rem${isManual?';border-color:var(--amber);border-style:dashed':''}">
         <div style="font-size:11px;font-weight:600;color:var(--brand);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.35rem">Tu parte</div>
-        <!-- #S7-10: Legend -->
-        <div style="display:flex;gap:.75rem;margin-bottom:.5rem;font-size:10px;color:var(--t3)">
-          <span>↳ <span style="color:var(--t2)">gris</span> = solo tuyo</span>
-          <span>↳ <span style="color:var(--blue)">azul</span> = compartido</span>
-        </div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem">
           <div style="font-size:16px;font-weight:600;color:var(--brand-d)">${escHtml(t.g.name)}</div>
           <div style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:var(--brand-d)">${fmt(t.total)}</div>
         </div>
-        ${lines || '<div class="muted" style="font-size:12px;color:var(--brand)">Sin platos asignados</div>'}
+        ${myLines || '<div class="muted" style="font-size:12px;color:var(--brand)">Sin platos asignados</div>'}
         ${(() => {
           const notMine = sentDishesAll.filter(d => {
             if (d.type === 'solo') return d.assignee_id !== t.g.id;
@@ -4852,6 +4903,12 @@ function buildSummary() {
 // PAY SCREEN
 // ══════════════════════════════════════════════════════
 function buildPayScreen() {
+  // #8-U4: Show change method button only if nobody has paid yet
+  const changeBtn = document.getElementById('btn-change-method');
+  if (changeBtn) {
+    const noPaidYet = !state.payments || state.payments.filter(p => p.guest_id).length === 0;
+    changeBtn.style.display = noPaidYet ? 'block' : 'none';
+  }
   const totals = calcTotals();
   const me = totals.find(t => t.g.id === state.myGuestId);
   if (me) {
@@ -4975,6 +5032,15 @@ async function registerPayForManual(guestId, guestName, amount, method) {
 
 function showAccountClosed() {
   if (document.getElementById('account-closed-screen')) return;
+
+  // #8-F3: Mark room as needing cleaning and notify assigned waiter
+  if (state.roomId) {
+    sb.from('rooms')
+      .update({ needs_cleaning: true, cleaning_requested_at: new Date().toISOString() })
+      .eq('id', state.roomId)
+      .then(() => {}) .catch(() => {});
+  }
+
   const el = document.createElement('div');
   el.id = 'account-closed-screen';
   el.style.cssText = 'position:fixed;inset:0;z-index:600;background:var(--brand-l);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;text-align:center';
@@ -5971,7 +6037,8 @@ function openWaiterNotifDetail(id) {
 }
 
 function _renderNotifModal(modal, n) {
-  const emoji = n.isBebidas ? '🥤' : { 1:'🥗', 2:'🍽', 3:'🍰' }[n.course] || '🍽';
+  const emoji = n.isBebidas ? '' : { 1:'🥗', 2:'🍽', 3:'🍰' }[n.course] || '🍽';
+  const label = n.isBebidas ? 'Bebidas' : `Pase ${n.course}`;
   const color = n.isBebidas ? '#185FA5' : '#085041';
   const total = n.dishes.length;
   const checkedCount = Object.values(n.checked || {}).filter(Boolean).length;
@@ -6234,7 +6301,7 @@ async function waiterLogin() {
       if (pendingNotifs && pendingNotifs.length > 0) {
         pendingNotifs.forEach(n => {
           const dishNames = (n.dishes || []).map(d => d.name).join(', ');
-          const label = n.is_bebidas ? '🥤 Bebidas' : `Pase ${n.course_label || ''}`;
+          const label = n.is_bebidas ? 'Bebidas' : `Pase ${n.course_label || ''}`;
           const notif = {
             id: n.id,
             title: `${label} — ${n.table_label || 'Mesa'}`,
@@ -8504,12 +8571,15 @@ async function loadAdminOrders() {
   rooms.forEach(r => { roomTableMap[r.id] = r; });
 
   // Load dishes + tables in parallel
-  const [{ data: dishes }, { data: tables }, { data: menuItems }] = await Promise.all([
+  const [{ data: allDishes }, { data: tables }, { data: menuItems }] = await Promise.all([
     sb.from('dishes').select('*').in('room_id', roomIds)
       .in('kitchen_status', ['sent','making','ready']).order('created_at'),
     sb.from('tables').select('*').eq('restaurant_id', state.adminRestaurantId),
     sb.from('menu_items').select('id,prep_time_minutes').eq('restaurant_id', state.adminRestaurantId)
   ]);
+
+  // #8-B3: Exclude with_postre drinks from KDS — served by waiter with postre, not prepared in kitchen
+  const dishes = (allDishes || []).filter(d => !d.with_postre);
 
   const tablesById = {};
   (tables || []).forEach(t => { tablesById[t.id] = t; });
@@ -8740,26 +8810,45 @@ async function fireNextCourse(roomId, course, dishIds) {
   // #4: manageat read-only guard — only cookeat can fire courses
   if (state.adminRole === 'admin') return;
 
-  // #B2: Check if room has an active waiter before firing the course
+  // #8-F4: Escalated check — 1) any active waiters? 2) assigned waiter active?
+  const restId = state.adminRestaurantId || state.kitchenRestaurantId;
+
+  // Check for any active waiters in the restaurant
+  const { data: activeWaiters } = await sb.from('waiters')
+    .select('id,name').eq('restaurant_id', restId).eq('is_active', true).eq('active', true);
+  const hasAnyActive = activeWaiters && activeWaiters.length > 0;
+
+  if (!hasAnyActive) {
+    // No active waiters at all — warn cookeat + notify manageat
+    showKitchenWarning(
+      'Sin camareros activos',
+      'Ningún camarero ha iniciado sesión en serveat. Pide a un camarero que inicie sesión para recibir el pase.',
+      () => _doFireNextCourse(roomId, course, dishIds)
+    );
+    // Notify manageat via rooms table flag
+    try {
+      await sb.from('rooms').update({ needs_waiter_assign: true }).eq('id', roomId);
+    } catch(e) {}
+    return;
+  }
+
+  // Check if room has an assigned waiter
   const { data: roomCheck } = await sb.from('rooms')
-    .select('assigned_waiter_id')
-    .eq('id', roomId).maybeSingle();
+    .select('assigned_waiter_id').eq('id', roomId).maybeSingle();
 
   if (roomCheck) {
     const assignedId = roomCheck.assigned_waiter_id;
     if (!assignedId) {
-      // No waiter assigned at all
       showKitchenWarning(
-        'Sin camarero asignado',
-        'Se notificará al próximo camarero que inicie sesión en serveat.',
+        'Sin camarero asignado a esta mesa',
+        `Hay ${activeWaiters.length} camarero${activeWaiters.length>1?'s':''} activo${activeWaiters.length>1?'s':''}. Asigna uno a esta mesa desde manageat → Sala.`,
         () => _doFireNextCourse(roomId, course, dishIds)
       );
       return;
     }
-    // Check if assigned waiter has active session
+    // Check assigned waiter is active
     const { data: waiter } = await sb.from('waiters')
-      .select('is_active, name')
-      .eq('id', assignedId).maybeSingle();
+      .select('is_active,name').eq('id', assignedId).maybeSingle();
     if (waiter && !waiter.is_active) {
       showKitchenWarning(
         `${waiter.name} no está activo`,
@@ -11498,25 +11587,41 @@ function showEditRepartoModal() {
       ? parts.map(id => guests.find(g => g.id === id)?.name || '?').join(', ')
       : null;
 
-    const guestOpts = guests.map(g =>
-      `<option value="${g.id}" ${!isShared && d.assignee_id === g.id ? 'selected' : ''}>${escHtml(g.name)}</option>`
+    const soloOpts = guests.map(g =>
+      `<option value="${g.id}" ${d.assignee_id === g.id ? 'selected' : ''}>${escHtml(g.name)}</option>`
     ).join('');
 
+    // For shared: multi-checkbox selector
+    const sharedCheckboxes = isShared ? guests.map(g => {
+      const checked = parts.includes(g.id) ? 'checked' : '';
+      return `<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;padding:3px 0">
+        <input type="checkbox" value="${g.id}" ${checked} style="accent-color:var(--brand)"
+          onchange="quickReassignShared('${d.id}', this)">
+        ${escHtml(g.name)}
+      </label>`;
+    }).join('') : '';
+
     return `<div style="padding:.65rem 0;border-bottom:1px solid var(--bd)">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:.3rem">
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(d.name)}</div>
-          <div style="font-size:11px;color:${isShared?'var(--blue)':'var(--t3)'};margin-top:2px">
-            ${isShared ? `🤝 Compartido: ${sharedNames}` : `👤 ${owner?.name || 'Sin asignar'}`}
+          <div style="font-size:11px;color:${isShared?'var(--blue)':'var(--t3)'};margin-top:1px">
+            ${isShared ? `Compartido con: ${sharedNames||'nadie'}` : `Solo: ${owner?.name || '⚠️ Sin asignar'}`}
           </div>
         </div>
         <div style="font-size:13px;font-weight:600;color:var(--brand-d);flex-shrink:0">${fmt(parseFloat(d.price))}</div>
       </div>
-      ${!isShared ? `<select onchange="quickReassignDish('${d.id}', this.value)"
-        style="margin-top:.35rem;width:100%;padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);font-size:12px;font-family:inherit;background:var(--bg)">
-        <option value="">— Cambiar a quién se le carga —</option>
-        ${guestOpts}
-      </select>` : ''}
+      ${isShared
+        ? `<div style="background:var(--bg2);border-radius:var(--r-sm);padding:.4rem .6rem;display:flex;flex-wrap:wrap;gap:4px 16px">
+            <div style="font-size:10px;color:var(--t3);width:100%;margin-bottom:2px">Selecciona con quién se comparte:</div>
+            ${sharedCheckboxes}
+           </div>`
+        : `<select onchange="quickReassignDish('${d.id}', this.value)"
+            style="width:100%;padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);font-size:12px;font-family:inherit;background:var(--bg)">
+            <option value="" disabled ${!d.assignee_id ? 'selected' : ''}>— Obligatorio: asignar a alguien —</option>
+            ${soloOpts}
+          </select>`
+      }
     </div>`;
   }).join('');
 
@@ -11565,6 +11670,23 @@ async function quickReassignDish(dishId, newGuestId) {
   const dish = state.dishes.find(d => d.id === dishId);
   if (dish) dish.assignee_id = newGuestId;
   notify('Plato reasignado', 'success');
+}
+
+async function quickReassignShared(dishId, checkbox) {
+  const guestId = checkbox.value;
+  const isChecked = checkbox.checked;
+  try {
+    if (isChecked) {
+      await sb.from('dish_participants').upsert({ dish_id: dishId, guest_id: guestId }, { onConflict: 'dish_id,guest_id' });
+      if (!state.participants[dishId]) state.participants[dishId] = [];
+      if (!state.participants[dishId].includes(guestId)) state.participants[dishId].push(guestId);
+    } else {
+      await sb.from('dish_participants').delete().eq('dish_id', dishId).eq('guest_id', guestId);
+      if (state.participants[dishId]) {
+        state.participants[dishId] = state.participants[dishId].filter(id => id !== guestId);
+      }
+    }
+  } catch(e) { notify('Error al actualizar reparto'); }
 }
 
 async function addPersonFromReparto() {
@@ -11740,6 +11862,21 @@ function showPaymentLockedModal(existingPayments) {
     </div>`;
   document.body.appendChild(el);
   el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+}
+
+// #8-U4: Reset payment method — only if nobody has paid
+function resetPayMethod() {
+  const noPaid = !state.payments || state.payments.filter(p => p.guest_id).length === 0;
+  if (!noPaid) {
+    notify('No se puede cambiar el método — alguien ya ha pagado.', 'info');
+    return;
+  }
+  _payMethod = null;
+  // Also clear DB lock if set
+  if (state.roomId) {
+    sb.from('rooms').update({ pay_method_locked: null, pay_method_locker_name: null }).eq('id', state.roomId).catch(() => {});
+  }
+  showPayMethodModal();
 }
 
 function showPayMethodModal() {
