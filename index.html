@@ -1118,19 +1118,17 @@
           </label>
         </div>
 
-        <div style="font-size:13px;color:var(--t2);margin-bottom:.65rem">¿Cómo lo pedís?</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:1.25rem">
+        <div style="font-size:13px;color:var(--t2);margin-bottom:.5rem">¿Cómo lo pedís?</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:1rem">
           <button class="modal-type-btn" id="btn-solo" onclick="setModalType('solo')"
-            style="padding:1rem;border-radius:var(--r);border:2px solid var(--bd2);background:var(--bg);cursor:pointer;text-align:center;transition:all .15s;font-family:inherit">
-            <div style="font-size:22px;margin-bottom:.35rem">👤</div>
-            <div style="font-size:14px;font-weight:500;color:var(--t1)">Solo para mí</div>
-            <div style="font-size:11px;color:var(--t2);margin-top:2px">Te lo cargo a ti</div>
+            style="padding:.65rem .75rem;border-radius:var(--r-sm);border:2px solid var(--bd2);background:var(--bg);cursor:pointer;text-align:center;transition:all .15s;font-family:inherit">
+            <div style="font-size:13px;font-weight:600;color:var(--t1)">Solo para mí</div>
+            <div style="font-size:11px;color:var(--t2);margin-top:1px">A mi cuenta</div>
           </button>
           <button class="modal-type-btn" id="btn-shared" onclick="setModalType('shared')"
-            style="padding:1rem;border-radius:var(--r);border:2px solid var(--bd2);background:var(--bg);cursor:pointer;text-align:center;transition:all .15s;font-family:inherit">
-            <div style="font-size:22px;margin-bottom:.35rem">🤝</div>
-            <div style="font-size:14px;font-weight:500;color:var(--t1)">Para compartir</div>
-            <div style="font-size:11px;color:var(--t2);margin-top:2px">Se divide entre varios</div>
+            style="padding:.65rem .75rem;border-radius:var(--r-sm);border:2px solid var(--bd2);background:var(--bg);cursor:pointer;text-align:center;transition:all .15s;font-family:inherit">
+            <div style="font-size:13px;font-weight:600;color:var(--t1)">Compartir</div>
+            <div style="font-size:11px;color:var(--t2);margin-top:1px">Entre varios</div>
           </button>
         </div>
 
@@ -1142,12 +1140,12 @@
 
         <!-- UX2: Guest multi-selector for shared -->
         <div id="modal-shared-selector" style="display:none;margin-bottom:1rem">
-          <div style="font-size:13px;color:var(--t2);margin-bottom:.5rem">¿Entre quiénes se divide?</div>
-          <button onclick="_selectAllSharedGuests()"
+          <div style="font-size:13px;color:var(--t2);margin-bottom:.5rem">¿Con quién lo vas a compartir?</div>
+          <button id="btn-select-all-shared" onclick="_selectAllSharedGuests()"
             style="width:100%;padding:9px;border-radius:var(--r-sm);border:2px solid var(--brand);background:var(--brand-l);color:var(--brand-d);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:.5rem">
-            ✓ Compartir con toda la mesa
+            Compartir con toda la mesa
           </button>
-          <div id="modal-shared-guest-list" style="display:flex;flex-direction:column;gap:.35rem;max-height:200px;overflow-y:auto"></div>
+          <div id="modal-shared-guest-list" style="display:flex;flex-direction:column;gap:.35rem;max-height:180px;overflow-y:auto"></div>
         </div>
 
         <div id="modal-shared-hint" style="display:none" class="notice" style="margin-bottom:1rem">
@@ -3807,7 +3805,7 @@ function openCartaDishEditModal(dish, item) {
       <!-- Shared: participants -->
       <div id="cde-shared-sec" style="display:${isShared?'block':'none'};margin-bottom:1rem">
         <div style="font-size:13px;color:var(--t2);margin-bottom:.5rem">¿Con quién se comparte?</div>
-        <button onclick="document.querySelectorAll('#cde-guests input').forEach(c=>c.checked=true)"
+        <button onclick="const cbs=document.querySelectorAll('#cde-guests input');const allOn=Array.from(cbs).every(c=>c.checked);cbs.forEach(c=>c.checked=!allOn);this.textContent=allOn?'Seleccionar todos':'✓ Compartir con toda la mesa'"
           style="width:100%;padding:9px;border-radius:var(--r-sm);border:2px solid var(--brand);background:var(--brand-l);color:var(--brand-d);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:.5rem">
           ✓ Compartir con toda la mesa
         </button>
@@ -3977,7 +3975,13 @@ function _openModalFor(itemId, item) {
   // Reset selector visibility based on default type
   setModalType(item.is_shared ? 'shared' : 'solo');
 
-  document.getElementById('dish-modal').style.display = 'flex';
+  const dishModalEl = document.getElementById('dish-modal');
+  dishModalEl.style.display = 'flex';
+  // Scroll inner content to top
+  setTimeout(() => {
+    const inner = dishModalEl.querySelector('[style*="overflow-y:auto"]');
+    if (inner) inner.scrollTop = 0;
+  }, 50);
 }
 
 function selectCookingPoint(pt) {
@@ -4045,12 +4049,12 @@ function _buildGuestSelectors() {
   if (sharedList) {
     sharedList.innerHTML = guests.map(g => {
       return `<label style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);cursor:pointer;background:var(--bg)">
-        <input type="checkbox" value="${g.id}" checked
+        <input type="checkbox" value="${g.id}"
           style="width:16px;height:16px;accent-color:var(--brand)" onchange="_updateSharedGuests()">
         <span style="font-size:14px">${escHtml(g.name)}</span>
       </label>`;
     }).join('');
-    _modalSharedGuestIds = guests.map(g => g.id);
+    _modalSharedGuestIds = []; // no default selection — user must choose
   }
 }
 
@@ -4063,12 +4067,10 @@ function _updateSharedGuests() {
 function _selectAllSharedGuests() {
   const checkboxes = document.querySelectorAll('#modal-shared-guest-list input[type=checkbox]');
   const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-  // Toggle: if all checked → deselect all; else select all
   checkboxes.forEach(cb => { cb.checked = !allChecked; });
-  _modalSharedGuestIds = allChecked ? [] : state.guests.map(g => g.id);
-  // Update button text
-  const btn = document.querySelector('[onclick="_selectAllSharedGuests()"]');
-  if (btn) btn.textContent = allChecked ? 'Seleccionar todos' : '✓ Compartir con toda la mesa';
+  _modalSharedGuestIds = allChecked ? [] : (window.state?.guests || []).map(g => g.id);
+  const btn = document.getElementById('btn-select-all-shared');
+  if (btn) btn.textContent = allChecked ? 'Compartir con toda la mesa' : '✓ Toda la mesa — clic para desmarcar';
 }
 
 function closeModal() {
@@ -5134,23 +5136,27 @@ function buildPayScreen() {
   if (container) {
     let btns = '';
     if (pm.mobilePay !== false) {
-      btns += `<button class="pay-main-btn" onclick="confirmPay('Apple Pay')"
-        style="display:flex;align-items:center;gap:14px;width:100%;padding:1rem 1.1rem;border-radius:var(--r);border:1.5px solid #000;background:#000;cursor:pointer;font-family:inherit;margin-bottom:.5rem;position:relative">
-        <svg width="44" height="28" viewBox="0 0 44 28" fill="none" style="flex-shrink:0"><rect width="44" height="28" rx="6" fill="#000"/><text x="22" y="19" text-anchor="middle" fill="white" font-size="12" font-family="sans-serif" font-weight="600"> Pay</text><path d="M10 10c1-1.5 2.5-2.5 4-2.5-.5 1.5-1.5 3-3 3.5S9 11.5 10 10z" fill="white"/><path d="M14 7.5c.8 0 1.8.5 2.3 1.3-1.8.3-3 1.8-2.8 3.5H12c-.2-2.3 1-4.8 2-4.8z" fill="white"/></svg>
-        <div style="flex:1;text-align:left"><div style="font-size:15px;font-weight:600;color:#fff">Apple Pay</div><div style="font-size:11px;color:rgba(255,255,255,.65)">Pago rápido con Face ID / Touch ID</div></div>
-        <div style="position:absolute;top:-8px;right:10px;background:#34A853;color:#fff;font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px">RECOMENDADO</div>
-      </button>
-      <button class="pay-main-btn" onclick="confirmPay('Google Pay')"
-        style="display:flex;align-items:center;gap:14px;width:100%;padding:1rem 1.1rem;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.5rem">
-        <div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:12px;font-weight:700"><span style="color:#4285F4">G</span><span style="color:#EA4335">o</span><span style="color:#FBBC04">o</span><span style="color:#4285F4">g</span><span style="color:#34A853">l</span><span style="color:#EA4335">e</span> <span style="color:#5F6368">Pay</span></span></div>
-        <div style="text-align:left"><div style="font-size:15px;font-weight:500;color:var(--t1)">Google Pay</div><div style="font-size:11px;color:var(--t2)">Pago rápido con Android</div></div>
-      </button>`;
+      btns += `<div style="position:relative;margin-bottom:.5rem">
+        <div style="font-size:10px;font-weight:700;color:var(--brand-d);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.35rem">Pago móvil <span style="font-size:9px;background:#34A853;color:#fff;padding:1px 6px;border-radius:99px;margin-left:4px">RECOMENDADO</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem">
+          <button class="pay-main-btn" onclick="confirmPay('Apple Pay')"
+            style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:.85rem .5rem;border-radius:var(--r);border:1.5px solid #000;background:#000;cursor:pointer;font-family:inherit">
+            <svg width="38" height="16" viewBox="0 0 44 28" fill="none"><rect width="44" height="28" rx="6" fill="#000"/><text x="22" y="19" text-anchor="middle" fill="white" font-size="12" font-family="sans-serif" font-weight="600"> Pay</text><path d="M10 10c1-1.5 2.5-2.5 4-2.5-.5 1.5-1.5 3-3 3.5S9 11.5 10 10z" fill="white"/><path d="M14 7.5c.8 0 1.8.5 2.3 1.3-1.8.3-3 1.8-2.8 3.5H12c-.2-2.3 1-4.8 2-4.8z" fill="white"/></svg>
+            <div style="font-size:12px;font-weight:600;color:#fff">Apple Pay</div>
+          </button>
+          <button class="pay-main-btn" onclick="confirmPay('Google Pay')"
+            style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:.85rem .5rem;border-radius:var(--r);border:1.5px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit">
+            <span style="font-size:13px;font-weight:700"><span style="color:#4285F4">G</span><span style="color:#EA4335">o</span><span style="color:#FBBC04">o</span><span style="color:#4285F4">g</span><span style="color:#34A853">l</span><span style="color:#EA4335">e</span></span>
+            <div style="font-size:12px;font-weight:500;color:var(--t1)">Google Pay</div>
+          </button>
+        </div>
+      </div>`;
     }
     if (pm.card !== false) {
-      btns += `<button class="pay-main-btn" onclick="confirmPayWaiter('Tarjeta física – datáfono')"
+      btns += `<button class="pay-main-btn" onclick="confirmPayWaiter('Tarjeta física (pedir datáfono)')"
         style="display:flex;align-items:center;gap:14px;width:100%;padding:1rem 1.1rem;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.5rem">
         <div style="width:44px;height:28px;background:linear-gradient(135deg,#1a1f71,#4b73c9);border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:28px;height:5px;background:rgba(255,255,255,.6);border-radius:2px;margin-top:4px"></div></div>
-        <div style="text-align:left"><div style="font-size:15px;font-weight:500;color:var(--t1)">Tarjeta física – datáfono</div><div style="font-size:11px;color:var(--t2)">El camarero vendrá a cobrarte</div></div>
+        <div style="text-align:left"><div style="font-size:15px;font-weight:500;color:var(--t1)">Tarjeta física (pedir datáfono)</div><div style="font-size:11px;color:var(--t2)">El camarero vendrá a cobrarte</div></div>
       </button>`;
     }
     if (pm.bizum === true) {
@@ -5169,9 +5175,9 @@ function buildPayScreen() {
     }
     if (pm.cash !== false) {
       btns += `<button class="pay-main-btn" onclick="confirmPayWaiter('Efectivo')"
-        style="display:flex;align-items:center;gap:14px;width:100%;padding:1rem 1.1rem;border-radius:var(--r);border:1px solid var(--bd);background:var(--bg2);cursor:pointer;font-family:inherit;margin-bottom:1rem">
-        <div style="width:44px;height:28px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">💶</div>
-        <div style="text-align:left"><div style="font-size:15px;font-weight:500;color:var(--t2)">Efectivo</div><div style="font-size:11px;color:var(--t3)">El camarero vendrá a cobrarte</div></div>
+        style="display:flex;align-items:center;gap:14px;width:100%;padding:1rem 1.1rem;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:1rem">
+        <div style="width:44px;height:28px;background:linear-gradient(135deg,#2E7D32,#66BB6A);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">€</div>
+        <div style="text-align:left"><div style="font-size:15px;font-weight:500;color:var(--t1)">Efectivo</div><div style="font-size:11px;color:var(--t2)">El camarero vendrá a cobrarte</div></div>
       </button>`;
     }
     container.innerHTML = btns;
@@ -5217,7 +5223,7 @@ function buildPayScreen() {
     const isMe = t.g.id === state.myGuestId;
     const paid = state.payments.find(p => p.guest_id === t.g.id);
     const isManualGuest = !isMe && t.total > 0;
-    const paidByNote = paid?.note?.includes('Pagado por') ? paid.note : null;
+    const paidByNote = paid?.method?.includes('por') ? paid.method : null;
 
     return `<div style="display:flex;align-items:center;gap:10px;padding:.6rem 0;border-bottom:1px solid var(--bd)">
       ${avEl(t.g.name, i, 30)}
@@ -5325,14 +5331,13 @@ async function registerPayForManual(guestId, guestName, amount, method) {
     amount: numAmount,
     method,
     stripe_status: 'manual',
-    note: `Pagado por ${myName}`
   });
   if (error) {
     console.error('registerPayForManual error:', error);
     notify(`Error: ${error.message || 'no se pudo registrar el pago'}`, 'error');
     return;
   }
-  state.payments.push({ guest_id: guestId, amount: numAmount, note: `Pagado por ${myName}` });
+  state.payments.push({ guest_id: guestId, amount: numAmount });
   buildPayScreen();
   notify(`Pago de ${guestName} registrado`, 'success');
   // Check if all paid
@@ -5607,38 +5612,48 @@ async function confirmPayWaiter(method) {
   const totals = calcTotals();
   const me = totals.find(t => t.g.id === state.myGuestId);
   const amount = me ? me.total : 0;
+  const myName = state.guests.find(g => g.id === state.myGuestId)?.name || 'Comensal';
+  const isCard = method.includes('datáfono') || method.includes('Tarjeta');
+  const icon = isCard ? '💳' : '💶';
 
   // Show waiting screen
   const el = document.createElement('div');
   el.id = 'pay-waiter-wait';
   el.style.cssText = 'position:fixed;inset:0;z-index:550;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;text-align:center';
   el.innerHTML = `
-    <div style="font-size:48px;margin-bottom:1rem">${method === 'Efectivo' ? '💶' : '💳'}</div>
+    <div style="font-size:48px;margin-bottom:1rem">${icon}</div>
     <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--t1);margin-bottom:.5rem">Espera al camarero</div>
     <div style="font-size:14px;color:var(--t2);margin-bottom:.5rem">Hemos avisado al camarero para que venga a cobrarte.</div>
-    <div style="font-size:22px;font-weight:700;color:var(--brand-d);margin-bottom:2rem;font-family:'Fraunces',serif">${fmt(amount)}</div>
-    <div style="font-size:13px;color:var(--t3);margin-bottom:1.5rem">Pago en ${method.toLowerCase()}</div>
+    <div style="font-size:22px;font-weight:700;color:var(--brand-d);margin-bottom:.5rem;font-family:'Fraunces',serif">${fmt(amount)}</div>
+    <div style="font-size:13px;color:var(--t3);margin-bottom:2rem">${method}</div>
     <button onclick="document.getElementById('pay-waiter-wait').remove()"
       style="padding:10px 24px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:none;color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit">
       Volver
     </button>`;
   document.body.appendChild(el);
 
-  // Notify waiter
-  if (state.roomId && state.restaurantId) {
-    const myName = state.guests.find(g => g.id === state.myGuestId)?.name || 'Comensal';
-    await sb.from('kitchen_notifications').insert({
-      restaurant_id: state.restaurantId,
-      room_id: state.roomId,
-      course: -1,
-      course_label: 'Cobro',
-      table_label: state.restaurantName || 'Mesa',
-      is_bebidas: false,
-      dishes: [{ name: `${myName} quiere pagar ${fmt(amount)} en ${method}` }],
-    }).catch(() => {});
+  // Notify waiter via kitchen_notifications
+  const restId = state.restaurantId || state.restaurantId;
+  if (state.roomId && restId) {
+    try {
+      // Get room info for assigned waiter
+      const { data: room } = await sb.from('rooms')
+        .select('assigned_waiter_id,waiter_id').eq('id', state.roomId).maybeSingle();
+      await sb.from('kitchen_notifications').insert({
+        restaurant_id: restId,
+        room_id: state.roomId,
+        course: -1,
+        course_label: 'Cobro',
+        table_label: state.restaurantName || 'Mesa',
+        is_bebidas: false,
+        dishes: [{ name: `${myName} — ${fmt(amount)} — ${method}` }],
+        assigned_waiter_id: room?.assigned_waiter_id || null,
+        waiter_id: room?.waiter_id || null,
+      });
+    } catch(e) { console.warn('waiter notify error:', e); }
   }
 
-  // Also register the payment in the DB
+  // Register the payment
   await registerManualPayment({ g: { id: state.myGuestId }, total: amount }, method);
 }
 
@@ -5687,7 +5702,6 @@ async function registerFullPayment(me, method, totals) {
     tip_amount: totals.reduce((s,t) => s + (t.tipAmt||0), 0),
     method,
     stripe_status: 'manual',
-    note: 'Pago completo — invitó'
   });
 
   // Insertar pago 0 para todos los demás → quedan como "pagados" (cubiertos)
@@ -5700,13 +5714,15 @@ async function registerFullPayment(me, method, totals) {
         amount: 0,
         method: 'Invitado',
         stripe_status: 'manual',
-        note: 'Cubierto por ' + me.g.name
       }))
     );
   }
 
   // Cerrar mesa
   await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString() }).eq('id', state.roomId);
+  // Update local state so ticket check passes
+  state.payments.push({ guest_id: state.myGuestId, amount: grand, method });
+  others.forEach(t => state.payments.push({ guest_id: t.g.id, amount: 0, method: 'Invitado' }));
   clearSession();
   setTimeout(() => showAccountClosed(), 400);
 }
@@ -5723,7 +5739,6 @@ async function registerEqualPayment(me, method) {
     amount: myShare,
     method,
     stripe_status: 'manual',
-    note: 'División equitativa ÷' + _equalPax
   });
   state.payments.push({ guest_id: state.myGuestId, amount: myShare });
   // #S7-2: Keep equal split display — don't call buildPayScreen (which uses spliteat calc)
@@ -5745,7 +5760,11 @@ async function registerEqualPayment(me, method) {
     clearSession();
     setTimeout(() => showAccountClosed(), 800);
   } else {
-    showToast('✓ Tu parte pagada', `Esperando ${_equalPax - paidGuestIds.size} personas más`);
+    // #16: Show names not count
+    const pendingNames = (state.guests || [])
+      .filter(g => !paidGuestIds.has(g.id))
+      .map(g => g.name).join(', ');
+    showMyPaymentConfirmed({ g: { id: state.myGuestId, name: state.myName || 'Tú' }, total: myShare }, freshPayments || []);
   }
 }
 
@@ -5763,7 +5782,7 @@ async function registerManualPayment(me, method) {
   // Recargar comensales Y pagos desde Supabase
   const [{ data: freshGuests }, { data: freshPayments }] = await Promise.all([
     sb.from('guests').select('id').eq('room_id', state.roomId),
-    sb.from('payments').select('guest_id,amount,note').eq('room_id', state.roomId)
+    sb.from('payments').select('guest_id,amount,method').eq('room_id', state.roomId)
   ]);
 
   const totalGuests = (freshGuests || []).length;
@@ -6379,8 +6398,9 @@ let _waiterNotifLastPoll = null;
 
 function _startWaiterNotifPolling() {
   if (_waiterNotifPollTimer) clearInterval(_waiterNotifPollTimer);
-  _waiterNotifLastPoll = new Date(Date.now() - 60000).toISOString(); // look back 1 min on start
-  _waiterNotifPollTimer = setInterval(_pollWaiterNotifs, 15000); // every 15s
+  // Start from NOW so we don't re-fetch what realtime already delivered
+  _waiterNotifLastPoll = new Date().toISOString();
+  _waiterNotifPollTimer = setInterval(_pollWaiterNotifs, 20000); // every 20s fallback
 }
 
 async function _pollWaiterNotifs() {
@@ -6397,8 +6417,8 @@ async function _pollWaiterNotifs() {
       const isBebidas = !!n.is_bebidas;
       const isMyTable = isBebidas || !n.assigned_waiter_id || n.assigned_waiter_id === _waiterId || n.waiter_id === _waiterId;
       if (!isMyTable) return;
-      const already = _waiterNotifHistory.find(x => x.id === n.id || (x.roomId === n.room_id && x.courseLabel === n.course_label && Math.abs(new Date(x.time) - new Date(n.created_at)) < 5000));
-      if (already) return;
+      const already = _waiterNotifHistory.find(x => x.id === n.id || String(x.id) === String(n.id));
+      if (already) { _waiterNotifLastPoll = n.created_at; return; }
       const dishes = Array.isArray(n.dishes) ? n.dishes : [];
       const course = n.course ?? 1;
       const courseLabel = n.course_label || (isBebidas ? 'Bebidas' : { 1:'Entrantes', 2:'Principales', 3:'Postres' }[course] || 'Platos');
@@ -6674,6 +6694,18 @@ function _renderNotifModal(modal, n) {
       <span style="font-size:12px;color:var(--t2);flex-shrink:0">${checkedCount}/${total}</span>
     </div>` : '';
 
+  // #8: Special action for "Con el postre" — add snooze button
+  const isPostreNotif = n.courseLabel === 'Con el postre';
+  const snoozeSection = isPostreNotif ? `
+    <div style="background:#FFF3E0;border-radius:var(--r-sm);padding:.65rem .85rem;margin-top:.75rem">
+      <div style="font-size:12px;color:#854F0B;font-weight:500;margin-bottom:.4rem">Preguntar cuándo quieren el café/bebida:</div>
+      <div style="display:flex;gap:.35rem;flex-wrap:wrap">
+        <button onclick="snoozePostreNotif(${nIdx}, 5)" style="padding:5px 10px;border-radius:99px;border:1px solid #E8C9A0;background:#FFF8F0;color:#854F0B;font-size:12px;cursor:pointer;font-family:inherit">En 5 min</button>
+        <button onclick="snoozePostreNotif(${nIdx}, 10)" style="padding:5px 10px;border-radius:99px;border:1px solid #E8C9A0;background:#FFF8F0;color:#854F0B;font-size:12px;cursor:pointer;font-family:inherit">En 10 min</button>
+        <button onclick="snoozePostreNotif(${nIdx}, 15)" style="padding:5px 10px;border-radius:99px;border:1px solid #E8C9A0;background:#FFF8F0;color:#854F0B;font-size:12px;cursor:pointer;font-family:inherit">En 15 min</button>
+      </div>
+    </div>` : '';
+
   modal.innerHTML = `<div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;animation:slideUp .2s ease;overflow:hidden">
     <!-- Header -->
     <div style="background:${color};padding:1rem 1.25rem">
@@ -6689,11 +6721,11 @@ function _renderNotifModal(modal, n) {
     <!-- Body -->
     <div style="padding:1rem 1.25rem">
       <div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.65rem">
-        ✅ Marca cada plato al recogerlo
+        Marca cada plato al recogerlo
       </div>
       ${progressBar}
       <div style="max-height:50vh;overflow-y:auto">${dishRows}</div>
-
+      ${snoozeSection}
       <div style="display:flex;gap:.5rem;margin-top:1rem">
         ${!allChecked ? `
         <button onclick="_checkAllWaiterDishesIdx(${nIdx})"
@@ -6702,13 +6734,30 @@ function _renderNotifModal(modal, n) {
         </button>` : ''}
         <button onclick="${allChecked ? `markCourseDelivered('${n.roomId}',${n.course},${!!n.isBebidas});document.getElementById('waiter-notif-modal').style.display='none'` : `_checkAllWaiterDishesIdx(${nIdx})`}"
           class="btn btn-primary" style="flex:2;background:${allChecked?color:'var(--bd2)'};color:${allChecked?'#fff':'var(--t2)'};font-size:14px;${!allChecked?'cursor:default;':''}">
-          ${allChecked ? '✓ Llevado a mesa' : '⬜ Marca todos los platos primero'}
+          ${allChecked ? 'Llevado a mesa' : 'Marca todos los platos primero'}
         </button>
       </div>
     </div>
   </div>`;
 
   modal.style.display = 'flex';
+}
+
+function snoozePostreNotif(nIdx, minutes) {
+  const n = _waiterNotifHistory[nIdx];
+  if (!n) return;
+  n.seen = true; // hide banner
+  document.getElementById('waiter-notif-modal').style.display = 'none';
+  renderWaiterNotifBanner();
+  updateWaiterNotifBadge();
+  notify(`Recordatorio del café/postre en ${minutes} minutos`, 'success');
+  setTimeout(() => {
+    n.seen = false;
+    n.time = new Date().toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
+    renderWaiterNotifBanner();
+    updateWaiterNotifBadge();
+    playKitchenSound();
+  }, minutes * 60 * 1000);
 }
 
 function toggleWaiterDishCheck(notifId, dishIdx) {
@@ -7638,7 +7687,6 @@ async function waiterCobrarMesaCompleta(roomId, amount, method) {
     method,
     waiter_id: _waiterId,
     stripe_status: 'manual',
-    note: 'Cobrado por camarero — cuenta completa'
   });
   if (error) { notify('Error al registrar pago: ' + error.message); return; }
   await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString() }).eq('id', roomId);
@@ -9452,8 +9500,23 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
       const maxPrepTime = Math.max(...cDishes.map(d => prepTimeByItem[d.menu_item_id] || 0));
       const prepHint = maxPrepTime > 0 ? `⏱ ${maxPrepTime} min est.` : '';
 
-      // Dish rows
-      const dishRows = cDishes.map(d => {
+      // #9: Group identical dishes (same name + cooking_point) and show xN
+      const kdsDishGroups = [];
+      const kdsSeenNames = {};
+      cDishes.forEach(d => {
+        const key = (d.name||'') + '|' + (d.cooking_point||'');
+        if (kdsSeenNames[key] !== undefined) {
+          kdsDishGroups[kdsSeenNames[key]].dishes.push(d);
+        } else {
+          kdsSeenNames[key] = kdsDishGroups.length;
+          kdsDishGroups.push({ dishes: [d], name: d.name, cooking_point: d.cooking_point });
+        }
+      });
+
+      // Dish rows — grouped
+      const dishRows = kdsDishGroups.map(group => {
+        const d = group.dishes[0]; // representative
+        const count = group.dishes.length;
         const prepTime = prepTimeByItem[d.menu_item_id] || 0;
         const ks = d.kitchen_status;
         const statusDot = ks === 'ready' ? '🟢' : ks === 'making' ? '🟡' : '🔴';
@@ -9461,11 +9524,13 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
 
         let actionBtn = '';
         if (!isWaiting) {
+          // For grouped: action applies to all dishes in group
+          const groupIds = group.dishes.map(x => x.id);
           if (ks === 'sent' && state.adminRole !== 'admin') {
-            actionBtn = `<button onclick="setOrderStatus('${d.id}','making')"
+            actionBtn = `<button onclick="groupIds=${JSON.stringify(groupIds)};groupIds.forEach(id=>setOrderStatus(id,'making'))"
               style="padding:3px 10px;border-radius:99px;border:none;background:var(--brand);color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">→ Prep.</button>`;
           } else if (ks === 'making' && state.adminRole !== 'admin') {
-            actionBtn = `<button onclick="setOrderStatus('${d.id}','ready')"
+            actionBtn = `<button onclick="[${groupIds.map(id=>`'${id}'`).join(',')}].forEach(id=>setOrderStatus(id,'ready'))"
               style="padding:3px 10px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">✓ Listo</button>`;
           } else if (ks !== 'sent' && ks !== 'making') {
             actionBtn = `<span style="font-size:13px">✓</span>`;
@@ -9475,7 +9540,10 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
         return `<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.05)">
           <span style="font-size:12px">${statusDot}</span>
           <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(d.name)}</div>
+            <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+              ${count > 1 ? `<strong style="color:var(--brand-d);margin-right:4px">×${count}</strong>` : ''}${escHtml(d.name)}
+              ${d.cooking_point ? `<span style="font-size:11px;background:#333;color:#fff;border-radius:99px;padding:1px 6px;margin-left:4px">${d.cooking_point}</span>` : ''}
+            </div>
             ${prepTime > 0 ? `<div style="font-size:10px;color:var(--t3)">⏱ ${prepTime} min · ${dishElapsed} min esperando</div>` : ''}
           </div>
           ${actionBtn}
