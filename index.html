@@ -1319,36 +1319,29 @@
         <div id="pay-breakdown" style="font-size:12px;color:var(--brand);margin-top:3px;display:none"></div>
       </div>
 
-      <!-- PROPINA — mejorada y divertida -->
-      <div style="background:var(--bg2);border-radius:var(--r);padding:1rem 1.1rem;margin-bottom:1.25rem;border:1px solid var(--bd)">
-        <div style="font-size:14px;font-weight:500;margin-bottom:.2rem">¿El equipo se ha lucido? 🌟</div>
-        <div style="font-size:12px;color:var(--t2);margin-bottom:.85rem;line-height:1.5">Las propinas son 100% para el equipo. Sin presión, pero se agradece infinito 🙏</div>
-        <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.6rem">
-          <button class="tip-opt" data-tip="0" onclick="selectTip(0)"
-            style="padding:7px 13px;border-radius:var(--r-full);border:1px solid var(--bd2);background:var(--brand);color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s">Sin propina</button>
-          <button class="tip-opt" data-tip="5" onclick="selectTip(5)"
-            style="padding:7px 13px;border-radius:var(--r-full);border:1px solid var(--bd2);background:var(--card);color:var(--t1);font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s">5%</button>
-          <button class="tip-opt" data-tip="10" onclick="selectTip(10)"
-            style="padding:7px 13px;border-radius:var(--r-full);border:1px solid var(--bd2);background:var(--card);color:var(--t1);font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s">10%</button>
-          <button class="tip-opt" data-tip="15" onclick="selectTip(15)"
-            style="padding:7px 13px;border-radius:var(--r-full);border:1px solid var(--bd2);background:var(--card);color:var(--t1);font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s">15%</button>
-          <button class="tip-opt" data-tip="custom" onclick="openCustomTip()"
-            style="padding:7px 13px;border-radius:var(--r-full);border:1px solid var(--bd2);background:var(--card);color:var(--t1);font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s">Otro €</button>
+      <!-- PROPINA — compacta y simpática -->
+      <div style="background:linear-gradient(135deg,#FFF8E7,#FFF3D4);border-radius:var(--r);padding:.75rem 1rem;margin-bottom:1rem;border:1.5px solid #F5CC6A">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
+          <div style="font-size:13px;font-weight:600;color:#8B6914">¿Dejar propina?</div>
+          <div style="font-size:11px;color:#B8860B;font-weight:500">100% para el equipo</div>
         </div>
-        <div id="custom-tip-row" style="display:none;align-items:center;gap:.5rem">
-          <input id="custom-tip-input" type="number" min="0" step="0.5" placeholder="ej. 2.00"
-            style="flex:1;padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--brand);font-size:14px;font-family:inherit"
+        <div style="display:flex;gap:.3rem;flex-wrap:nowrap;align-items:center">
+          <button class="tip-opt" data-tip="0" onclick="selectTip(0)"
+            style="padding:6px 10px;border-radius:var(--r-full);border:1.5px solid #E5A800;background:#F5CC6A;color:#5C4800;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap;flex-shrink:0">No</button>
+          <button class="tip-opt" data-tip="5" onclick="selectTip(5)"
+            style="padding:6px 10px;border-radius:var(--r-full);border:1.5px solid var(--bd2);background:var(--card);color:var(--t1);font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap;flex-shrink:0">5%</button>
+          <button class="tip-opt" data-tip="10" onclick="selectTip(10)"
+            style="padding:6px 10px;border-radius:var(--r-full);border:1.5px solid var(--bd2);background:var(--card);color:var(--t1);font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap;flex-shrink:0">10%</button>
+          <button class="tip-opt" data-tip="15" onclick="selectTip(15)"
+            style="padding:6px 10px;border-radius:var(--r-full);border:1.5px solid var(--bd2);background:var(--card);color:var(--t1);font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap;flex-shrink:0">15%</button>
+          <button class="tip-opt" data-tip="custom" onclick="openCustomTip()"
+            style="padding:6px 8px;border-radius:var(--r-full);border:1.5px solid var(--bd2);background:var(--card);color:var(--t1);font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap;flex-shrink:0">Otro €</button>
+          <input id="custom-tip-input" type="number" min="0" step="0.5" placeholder="0.00"
+            style="display:none;width:60px;padding:5px 7px;border-radius:var(--r-sm);border:1.5px solid #F5CC6A;font-size:12px;font-family:inherit;background:#FFFDF0"
             oninput="applyCustomTip(this.value)">
-          <span style="font-size:14px;color:var(--t2)">€</span>
         </div>
       </div>
 
-      <!-- EMAIL PARA FACTURA -->
-      <div style="margin-bottom:1.25rem">
-        <div style="font-size:13px;color:var(--t2);margin-bottom:.4rem">¿Quieres recibir la factura por email? (opcional)</div>
-        <input id="pay-email" type="email" placeholder="tu@email.com" autocomplete="email"
-          style="width:100%;padding:10px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);font-size:14px;font-family:inherit;background:var(--card)">
-      </div>
 
       <!-- MÉTODOS DE PAGO — rendered dynamically based on restaurant config -->
       <div class="sec-label">¿Cómo pagas?</div>
@@ -4040,7 +4033,11 @@ function setModalType(type) {
     if (soloSel) soloSel.style.display = 'none';
     if (sharedSel) sharedSel.style.display = hasMultipleGuests ? 'block' : 'none';
     hint.style.display = hasMultipleGuests ? 'none' : 'block';
-    // #8: Disable confirm until at least one guest selected
+    // Desmarcar todos los checkboxes y resetear — usuario debe elegir explícitamente
+    _modalSharedGuestIds = [];
+    document.querySelectorAll('#modal-shared-guest-list input[type=checkbox]').forEach(cb => { cb.checked = false; });
+    const allBtn = document.getElementById('btn-select-all-shared');
+    if (allBtn) allBtn.textContent = 'Compartir con toda la mesa';
     _setModalConfirmEnabled(!hasMultipleGuests);
   }
 }
@@ -4099,13 +4096,14 @@ function _updateSharedGuests() {
 }
 
 function _selectAllSharedGuests() {
-  const checkboxes = document.querySelectorAll('#modal-shared-guest-list input[type=checkbox]');
-  const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+  const checkboxes = Array.from(document.querySelectorAll('#modal-shared-guest-list input[type=checkbox]'));
+  if (!checkboxes.length) return;
+  const allChecked = checkboxes.every(cb => cb.checked);
   checkboxes.forEach(cb => { cb.checked = !allChecked; });
-  _modalSharedGuestIds = allChecked ? [] : (window.state?.guests || []).map(g => g.id);
+  // Recalcular desde DOM para evitar desfase con el array
+  _modalSharedGuestIds = checkboxes.filter(cb => cb.checked).map(cb => cb.value);
   const btn = document.getElementById('btn-select-all-shared');
   if (btn) btn.textContent = allChecked ? 'Compartir con toda la mesa' : '✓ Toda la mesa — clic para desmarcar';
-  // #8: Update confirm button state
   _setModalConfirmEnabled(_modalSharedGuestIds.length > 0);
 }
 
@@ -4689,6 +4687,11 @@ async function toggleDishType(dishId) {
 // SEND TO KITCHEN
 // ══════════════════════════════════════════════════════
 function showSendToKitchenConfirm() {
+  // Guard: bloquear envío si pago ya iniciado
+  if (state.payments && state.payments.filter(p => p.guest_id).length > 0) {
+    notify('El pago ya ha comenzado — no se pueden enviar más platos a cocina.', 'info');
+    return;
+  }
   const unsentDishes = state.dishes.filter(d => !d.kitchen_status || d.kitchen_status === 'new');
   if (!unsentDishes.length) return;
 
@@ -4769,6 +4772,11 @@ async function confirmSendToKitchen() {
 }
 
 async function sendToKitchen() {
+  // Guard: bloquear envío si pago ya iniciado
+  if (state.payments && state.payments.filter(p => p.guest_id).length > 0) {
+    notify('El pago ya ha comenzado — no se pueden enviar más platos a cocina.', 'info');
+    return;
+  }
   const unsentDishes = state.dishes.filter(d =>
     !d.kitchen_status || d.kitchen_status === 'new'
   );
@@ -4843,31 +4851,32 @@ function flashCard(dishId) {
 // TIP SELECTION — con importe personalizado
 // ══════════════════════════════════════════════════════
 function selectTip(pct) {
-  if (pct === 'custom') return; // handled by openCustomTip
+  if (pct === 'custom') return;
   state.tipPercent = pct;
-  state.tipFixed = null; // clear any fixed amount
+  state.tipFixed = null;
   document.querySelectorAll('.tip-opt').forEach(btn => {
     const val = btn.dataset.tip;
     const isSelected = parseInt(val) === pct;
-    btn.style.background = isSelected ? 'var(--brand)' : 'var(--card)';
-    btn.style.color = isSelected ? '#fff' : 'var(--t1)';
-    btn.style.borderColor = isSelected ? 'var(--brand)' : 'var(--bd2)';
-    btn.style.fontWeight = isSelected ? '500' : '400';
+    btn.style.background = isSelected ? '#F5CC6A' : 'var(--card)';
+    btn.style.color = isSelected ? '#5C4800' : 'var(--t1)';
+    btn.style.borderColor = isSelected ? '#E5A800' : 'var(--bd2)';
+    btn.style.fontWeight = isSelected ? '600' : '400';
   });
-  document.getElementById('custom-tip-row').style.display = 'none';
+  const inp = document.getElementById('custom-tip-input');
+  if (inp) inp.style.display = 'none';
   buildPayScreen();
 }
 
 function openCustomTip() {
-  // Deselect all percentage buttons
   document.querySelectorAll('.tip-opt').forEach(btn => {
-    btn.style.background = btn.dataset.tip === 'custom' ? 'var(--brand)' : 'var(--card)';
-    btn.style.color = btn.dataset.tip === 'custom' ? '#fff' : 'var(--t1)';
-    btn.style.borderColor = btn.dataset.tip === 'custom' ? 'var(--brand)' : 'var(--bd2)';
-    btn.style.fontWeight = btn.dataset.tip === 'custom' ? '500' : '400';
+    const isCust = btn.dataset.tip === 'custom';
+    btn.style.background = isCust ? '#F5CC6A' : 'var(--card)';
+    btn.style.color = isCust ? '#5C4800' : 'var(--t1)';
+    btn.style.borderColor = isCust ? '#E5A800' : 'var(--bd2)';
+    btn.style.fontWeight = isCust ? '600' : '400';
   });
-  document.getElementById('custom-tip-row').style.display = 'flex';
-  document.getElementById('custom-tip-input').focus();
+  const inp = document.getElementById('custom-tip-input');
+  if (inp) { inp.style.display = 'block'; inp.focus(); }
 }
 
 function applyCustomTip(value) {
@@ -5173,7 +5182,7 @@ function buildPayScreen() {
     if (pm.mobilePay !== false) {
       mobileBtns += `<div style="margin-bottom:.75rem">
         <div style="font-size:11px;font-weight:700;color:var(--brand-d);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">
-          Pago móvil — más rápido sin esperar al camarero
+          Rápido y sencillo, desde spliteat
           <span style="background:#34A853;color:#fff;font-size:9px;padding:1px 6px;border-radius:99px;margin-left:4px">RECOMENDADO</span>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
@@ -5222,7 +5231,7 @@ function buildPayScreen() {
 
     const otherSection = otherBtns ? `
       <div style="margin-top:.5rem">
-        <div style="font-size:11px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">Otras opciones</div>
+        <div style="font-size:11px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">Otras opciones — llamar al camarero</div>
         ${otherBtns}
       </div>` : '';
 
@@ -6204,25 +6213,43 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
 
       const maxPrep = Math.max(...cDishes.map(d => prepByItem[d.menu_item_id] || 0));
 
-      const dishRows = cDishes.map(d => {
+      // Agrupar platos idénticos (nombre + punto cocción) → mostrar ×2, ×3
+      const dishGroupsMap = {};
+      const dishGroupsOrder = [];
+      cDishes.forEach(d => {
+        const key = (d.name||'').trim().toLowerCase() + '|' + (d.cooking_point||'').trim().toLowerCase() + '|' + (d.kitchen_status||'');
+        if (dishGroupsMap[key]) {
+          dishGroupsMap[key].items.push(d);
+        } else {
+          dishGroupsMap[key] = { items: [d], name: d.name, cooking_point: d.cooking_point, kitchen_status: d.kitchen_status };
+          dishGroupsOrder.push(key);
+        }
+      });
+
+      const dishRows = dishGroupsOrder.map(key => {
+        const grp = dishGroupsMap[key];
+        const d = grp.items[0];
+        const count = grp.items.length;
         const prep = prepByItem[d.menu_item_id] || 0;
         const dishElapsed = Math.floor((Date.now() - new Date(d.sent_at || d.created_at).getTime()) / 60000);
         const ks = d.kitchen_status;
-        const dot = ks === 'ready' ? '✅' : ks === 'making' ? '🟡' : '🔴';
+        const dot = ks === 'ready' ? '●' : ks === 'making' ? '◎' : '○';
 
         let btn = '';
-        // #4: manageat (adminRole=admin) is read-only — only cookeat can set status
         if (!isDone && !isWaiting && state.adminRole !== 'admin') {
-          if (ks === 'sent') btn = `<button onclick="setOrderStatus('${d.id}','making')"
+          const ids = grp.items.map(x => `'${x.id}'`).join(',');
+          if (ks === 'sent') btn = `<button onclick="[${ids}].forEach(id=>setOrderStatus(id,'making'))"
             style="padding:4px 12px;border-radius:99px;border:none;background:var(--brand);color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">→ Prep.</button>`;
-          else if (ks === 'making') btn = `<button onclick="setOrderStatus('${d.id}','ready')"
+          else if (ks === 'making') btn = `<button onclick="[${ids}].forEach(id=>setOrderStatus(id,'ready'))"
             style="padding:4px 12px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">✓ Listo</button>`;
         }
 
         return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid rgba(0,0,0,.05);opacity:${isDone?'.5':'1'}">
-          <span style="font-size:12px;flex-shrink:0">${dot}</span>
+          <span style="font-size:12px;flex-shrink:0;color:${isDone?'#3B6D11':ks==='making'?'#B7560D':'#aaa'}">${dot}</span>
           <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:${isDone?'400':'500'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${isDone?'text-decoration:line-through;color:var(--t3)':''}">${escHtml(d.name)}</div>
+            <div style="font-size:13px;font-weight:${isDone?'400':'500'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${isDone?'text-decoration:line-through;color:var(--t3)':''}">
+              ${count > 1 ? `<strong style="color:var(--brand-d);margin-right:4px">×${count}</strong>` : ''}${escHtml(d.name)}
+            </div>
             ${d.cooking_point ? `<div style="font-size:11px;font-weight:600;color:#8B5E3C;margin-top:1px">${d.cooking_point}</div>` : ''}
             ${prep && !isDone ? `<div style="font-size:10px;color:var(--t3)">⏱ ${prep} min · ${dishElapsed} min esperando</div>` : ''}
           </div>
@@ -6243,9 +6270,9 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
         </button>`;
       }
 
-      const statusLabel = isDone ? '✅ Servido'
-        : isWaiting ? '⏳ En espera'
-        : cDishes.some(d=>d.kitchen_status==='making') ? '🍳 Preparando' : '🆕 Nuevo';
+      const statusLabel = isDone ? 'Servido'
+        : isWaiting ? 'En espera'
+        : cDishes.some(d=>d.kitchen_status==='making') ? 'Preparando' : 'Nuevo';
 
       const borderColor = isDone ? 'var(--bd)' : isWaiting ? 'var(--bd)' : col.border;
       const hdrBg = isDone ? 'var(--bg2)' : isWaiting ? 'var(--bg2)' : col.hdr;
@@ -6623,7 +6650,6 @@ function renderWaiterNotifBanner() {
 
   banner.innerHTML = `<div style="background:#085041;color:#fff;border-radius:var(--r);padding:.7rem 1rem;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.25);cursor:pointer"
     onclick="openWaiterNotifDetailIdx(${_waiterNotifHistory.indexOf(latest)})">
-    <div style="font-size:20px;flex-shrink:0">🛎</div>
     <div style="flex:1;min-width:0">
       <div style="font-size:13px;font-weight:600">${latest.tableLabel} — ${latest.courseLabel} listos</div>
       <div style="font-size:11px;opacity:.75">Toca para ver qué hay que servir · ${latest.time}</div>
@@ -6632,7 +6658,7 @@ function renderWaiterNotifBanner() {
       ${unseen.length > 1 ? `<span style="background:rgba(255,255,255,.2);border-radius:99px;padding:2px 7px;font-size:11px">+${unseen.length - 1}</span>` : ''}
       <button onclick="event.stopPropagation();markWaiterNotifSeen(${_waiterNotifHistory.indexOf(latest)})"
         style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:99px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit">
-        ✓ Visto
+        Visto
       </button>
     </div>
   </div>`;
@@ -6698,7 +6724,6 @@ function markWaiterNotifSeenByRef(n) {
 }
 
 function _renderNotifModal(modal, n) {
-  const emoji = n.isBebidas ? '' : { 1:'🥗', 2:'🍽', 3:'🍰' }[n.course] || '🍽';
   const label = n.isBebidas ? 'Bebidas' : `Pase ${n.course}`;
   const color = n.isBebidas ? '#185FA5' : '#085041';
   const checkedCount = Object.values(n.checked || {}).filter(Boolean).length;
@@ -6729,7 +6754,6 @@ function _renderNotifModal(modal, n) {
         display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s">
         ${isChecked?'<span style="color:#fff;font-size:13px;font-weight:700">✓</span>':''}
       </div>
-      <span style="font-size:16px;flex-shrink:0">${emoji}</span>
       <div style="flex:1;min-width:0">
         <div style="font-size:14px;font-weight:${isChecked?'400':'500'};${isChecked?'text-decoration:line-through;color:var(--t3);':'color:var(--t1)'}">
           ${escHtml(d.name)}${(d.count||1) > 1 ? ` <strong style="color:${color}">×${d.count}</strong>` : ''}
@@ -6944,15 +6968,15 @@ function openWaiterNotifHistory() {
   })();
 
   const items = _waiterNotifHistory.length
-    ? _waiterNotifHistory.map(n => `
-      <div onclick="openWaiterNotifDetail(${n.id})"
+    ? _waiterNotifHistory.map((n, idx) => `
+      <div onclick="openWaiterNotifDetailIdx(${idx})"
         style="display:flex;align-items:center;gap:10px;padding:.65rem .75rem;border-radius:var(--r-sm);border:1px solid var(--bd);background:${n.seen ? 'var(--card)' : 'var(--brand-l)'};margin-bottom:.35rem;cursor:pointer">
         <div style="width:8px;height:8px;border-radius:50%;background:${n.seen ? 'var(--bd2)' : 'var(--brand)'};flex-shrink:0"></div>
-        <div style="flex:1">
-          <div style="font-size:13px;font-weight:500">${n.tableLabel} — ${n.courseLabel}</div>
-          <div style="font-size:11px;color:var(--t2)">${n.time} · ${n.dishes.length} platos</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(n.tableLabel || 'Mesa')} — ${escHtml(n.courseLabel || 'Aviso')}</div>
+          <div style="font-size:11px;color:var(--t2)">${n.time || ''} · ${(n.dishes || []).length} plato${(n.dishes || []).length !== 1 ? 's' : ''}</div>
         </div>
-        <span style="font-size:11px;color:var(--t3)">→</span>
+        <span style="font-size:14px;color:var(--t3)">›</span>
       </div>`).join('')
     : '<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Sin notificaciones aún</div>';
 
@@ -7068,32 +7092,53 @@ async function waiterLogin() {
     document.getElementById('waiter-name-badge').textContent = escHtml(w.name);
     go('s-waiter'); loadWaiterMesas(); loadWaiterTableSelects(); subscribeWaiterNotifications();
 
-    // #BG6: Load recent pending notifications into waiter history
+    // #BG6: Cargar notificaciones recientes al login
     try {
-      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      // Solo últimas 8h y solo de rooms aún abiertas — evitar spam histórico
+      const since = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
+      const { data: openRooms } = await sb.from('rooms')
+        .select('id').eq('restaurant_id', w.restaurant_id).eq('closed', false);
+      const openRoomIds = new Set((openRooms || []).map(r => r.id));
+
       const { data: pendingNotifs } = await sb.from('kitchen_notifications')
         .select('*')
         .eq('restaurant_id', w.restaurant_id)
         .gte('created_at', since)
+        .gt('course', -1)          // excluir notifs de cobro/limpieza (course = -1)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(10);                // máx 10, no 20
+
       if (pendingNotifs && pendingNotifs.length > 0) {
+        let added = 0;
         pendingNotifs.forEach(n => {
-          const dishNames = (n.dishes || []).map(d => d.name).join(', ');
-          const label = n.is_bebidas ? 'Bebidas' : `Pase ${n.course_label || ''}`;
+          // Solo mostrar notifs de rooms que siguen abiertas
+          if (n.room_id && !openRoomIds.has(n.room_id)) return;
+          const isBebidas = !!n.is_bebidas;
+          const course = n.course ?? 1;
+          const courseLabel = n.course_label ||
+            (isBebidas ? 'Bebidas' : { 1: 'Entrantes', 2: 'Principales', 3: 'Postres' }[course] || 'Platos');
+          const tableLabel = n.table_label || 'Mesa';
+          // Construir objeto con TODOS los campos que usa openWaiterNotifHistory / _renderNotifModal
           const notif = {
             id: n.id,
-            title: `${label} — ${n.table_label || 'Mesa'}`,
-            body: dishNames,
-            time: new Date(n.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-            seen: true, // historical — already seen
+            createdAt: n.created_at,
+            tableLabel,
+            courseLabel,
+            course,
+            isBebidas,
             roomId: n.room_id,
-            dishes: n.dishes || [],
+            dishes: Array.isArray(n.dishes) ? n.dishes : [],
+            time: new Date(n.created_at).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+            seen: true,   // historial — ya visto
+            checked: {},
           };
-          _waiterNotifHistory.unshift(notif);
+          _waiterNotifHistory.push(notif);
+          added++;
         });
-        if (pendingNotifs.length > 0) {
-          showToast(`${pendingNotifs.length} notificaci${pendingNotifs.length === 1 ? 'ón' : 'ones'} pendientes de cocina`, '');
+        // Solo mostrar toast si hay notifs relevantes de rooms abiertas
+        if (added > 0) {
+          showToast('Avisos pendientes', `${added} aviso${added !== 1 ? 's' : ''} de cocina recientes`);
+          updateWaiterNotifBadge();
         }
       }
     } catch(e) {} // non-blocking
@@ -7759,23 +7804,49 @@ async function loadWaiterCobrar() {
   `;
 }
 
+// Notifica a manageat y serveat cuando se completa el pago de una mesa
+async function _notifyPaymentComplete(roomId, totalAmount) {
+  try {
+    const { data: room } = await sb.from('rooms')
+      .select('table_id,assigned_waiter_id,waiter_id,restaurant_id').eq('id', roomId).maybeSingle();
+    const restId = room?.restaurant_id || _waiterRestaurantId;
+    let tableLabel = 'Mesa';
+    if (room?.table_id) {
+      const { data: t } = await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle();
+      if (t) tableLabel = `Mesa ${t.number}${t.label ? ' — ' + t.label : ''}`;
+    }
+    // 1) Notif al camarero — limpiar mesa
+    await sb.from('kitchen_notifications').insert({
+      restaurant_id: restId, room_id: roomId, course: -1,
+      course_label: 'Mesa pagada — limpiar', table_label: tableLabel, is_bebidas: false,
+      dishes: [{ name: `Pago completado · ${totalAmount.toFixed(2)}€ · Limpiar y preparar para nuevos comensales` }],
+      assigned_waiter_id: room?.assigned_waiter_id || null,
+      waiter_id: room?.waiter_id || null,
+    }).catch(() => {});
+    // 2) Broadcast a manageat
+    sb.channel('manageat-' + restId).send({
+      type: 'broadcast', event: 'payment_complete',
+      payload: { roomId, tableLabel, total: totalAmount }
+    }).catch(() => {});
+    // 3) Marcar pendiente limpieza
+    await sb.from('rooms').update({
+      needs_cleaning: true, cleaning_requested_at: new Date().toISOString()
+    }).eq('id', roomId).catch(() => {});
+  } catch(e) { console.warn('_notifyPaymentComplete error:', e); }
+}
+
 async function waiterCobrarMesaCompleta(roomId, amount, method) {
   track('payment_full_waiter', { method, amount, waiter_id: _waiterId });
   const { error } = await sb.from('payments').insert({
-    room_id: roomId,
-    guest_id: null,
-    amount,
-    method,
-    waiter_id: _waiterId,
-    stripe_status: 'manual',
+    room_id: roomId, guest_id: null, amount, method,
+    waiter_id: _waiterId, stripe_status: 'manual',
   });
   if (error) { notify('Error al registrar pago: ' + error.message); return; }
   await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString() }).eq('id', roomId);
-  showToast('✅ Mesa cobrada', `${fmt(amount)} · Mesa cerrada.`);
+  showToast('Mesa cobrada', `${fmt(amount)} · Mesa cerrada.`);
   try { playPaymentSound(true); } catch(_) {}
-  loadWaiterCobrar();
-  loadWaiterMesas();
-  loadWaiterTableSelects();
+  await _notifyPaymentComplete(roomId, amount);
+  loadWaiterCobrar(); loadWaiterMesas(); loadWaiterTableSelects();
 }
 
 async function waiterCobrarPartesIguales(roomId, total) {
@@ -7783,47 +7854,37 @@ async function waiterCobrarPartesIguales(roomId, total) {
   if (!partes || isNaN(partes) || parseInt(partes) < 2) return;
   const n = parseInt(partes);
   const porParte = total / n;
-  // Create n payments
-  const inserts = Array.from({ length: n }, (_, i) => ({
-    room_id: roomId,
-    guest_id: null,
-    amount: porParte,
-    method: 'Partes iguales',
-    waiter_id: _waiterId,
-    stripe_status: 'manual'
+  const inserts = Array.from({ length: n }, () => ({
+    room_id: roomId, guest_id: null, amount: porParte,
+    method: 'Partes iguales', waiter_id: _waiterId, stripe_status: 'manual'
   }));
   const { error: payErr } = await sb.from('payments').insert(inserts);
   if (payErr) { notify('Error al registrar pagos: ' + payErr.message); return; }
   await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString() }).eq('id', roomId);
-  showToast('✅ Mesa cobrada', `${n} partes de ${fmt(porParte)}. Mesa cerrada.`);
+  showToast('Mesa cobrada', `${n} partes de ${fmt(porParte)}. Mesa cerrada.`);
   try { playPaymentSound(true); } catch(_) {}
-  loadWaiterMesas();
-  loadWaiterTableSelects();
+  await _notifyPaymentComplete(roomId, total);
+  loadWaiterMesas(); loadWaiterTableSelects();
 }
 
 async function waiterMarkPaid(guestId, amount, roomId) {
   track('payment_waiter', { amount, waiter_id: _waiterId });
   const { error } = await sb.from('payments').insert({
-    room_id: roomId,
-    guest_id: guestId,
-    amount,
-    method: 'Camarero',
-    waiter_id: _waiterId,
-    stripe_status: 'manual'
+    room_id: roomId, guest_id: guestId, amount,
+    method: 'Camarero', waiter_id: _waiterId, stripe_status: 'manual'
   });
   if (error) { notify('Error al registrar pago: ' + error.message); return; }
   loadWaiterCobrar();
-  // Check if all paid → close room
   const { data: guests } = await sb.from('guests').select('id').eq('room_id', roomId);
-  const { data: payments } = await sb.from('payments').select('guest_id').eq('room_id', roomId);
+  const { data: payments } = await sb.from('payments').select('guest_id,amount').eq('room_id', roomId);
   const paidIds = new Set((payments||[]).filter(p=>p.guest_id).map(p=>p.guest_id));
   const allPaid = (guests||[]).length > 0 && (guests||[]).every(g => paidIds.has(g.id));
   if (allPaid) {
+    const totalPaid = (payments||[]).reduce((s,p)=>s+parseFloat(p.amount||0),0);
     await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString() }).eq('id', roomId);
-    showToast('✅ Mesa cerrada', 'Todos han pagado.');
-    showWaiterTab('mesas');
-    loadWaiterMesas();
-    loadWaiterTableSelects();
+    showToast('Mesa cerrada', 'Todos han pagado.');
+    await _notifyPaymentComplete(roomId, totalPaid);
+    showWaiterTab('mesas'); loadWaiterMesas(); loadWaiterTableSelects();
   }
 }
 
@@ -9902,20 +9963,39 @@ function renderKDSKanban(dishes, roomTableMap, tablesById, prepTimeByItem) {
     const elapsed = Math.floor((Date.now() - oldest) / 60000);
     const timerColor = elapsed > 15 ? '#C0392B' : elapsed > 8 ? '#E67E22' : 'var(--t3)';
 
-    const dishRows = dishes.map(d => {
-      const courseBadge = d.course ? `<span style="font-size:10px;background:var(--bg2);border-radius:3px;padding:1px 5px;color:var(--t3);margin-right:4px">${d.course}º</span>` : '';
+    // Agrupar platos idénticos (nombre + cooking_point) → ×2, ×3
+    const seenKeys = {};
+    const dishGroups = [];
+    dishes.forEach(d => {
+      const key = (d.name||'').trim().toLowerCase() + '|' + (d.cooking_point||'').trim().toLowerCase();
+      if (seenKeys[key] !== undefined) {
+        dishGroups[seenKeys[key]].items.push(d);
+      } else {
+        seenKeys[key] = dishGroups.length;
+        dishGroups.push({ items: [d], name: d.name, cooking_point: d.cooking_point });
+      }
+    });
+
+    const dishRows = dishGroups.map(grp => {
+      const d = grp.items[0];
+      const count = grp.items.length;
       const prepTime = prepTimeByItem[d.menu_item_id] || 0;
       let btn = '';
       if (fromStatus === 'sent' && state.adminRole !== 'admin') {
-        btn = `<button onclick="setOrderStatus('${d.id}','making');event.stopPropagation()" style="padding:4px 12px;border-radius:99px;border:none;background:var(--brand);color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">→ Prep.</button>`;
+        const ids = grp.items.map(x => `'${x.id}'`).join(',');
+        btn = `<button onclick="[${ids}].forEach(id=>setOrderStatus(id,'making'));event.stopPropagation()" style="padding:4px 12px;border-radius:99px;border:none;background:var(--brand);color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">→ Prep.</button>`;
       } else if (fromStatus === 'making' && state.adminRole !== 'admin') {
-        btn = `<button onclick="setOrderStatus('${d.id}','ready');event.stopPropagation()" style="padding:4px 12px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">✓ Listo</button>`;
+        const ids = grp.items.map(x => `'${x.id}'`).join(',');
+        btn = `<button onclick="[${ids}].forEach(id=>setOrderStatus(id,'ready'));event.stopPropagation()" style="padding:4px 12px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">✓ Listo</button>`;
       } else if (fromStatus !== 'sent' && fromStatus !== 'making') {
         btn = `<span style="font-size:13px;color:#3B6D11">✓</span>`;
       }
       return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--bd)">
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${courseBadge}${escHtml(d.name)}</div>
+          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            ${count > 1 ? `<strong style="color:var(--brand-d);margin-right:4px">×${count}</strong>` : ''}${escHtml(d.name)}
+            ${d.cooking_point ? `<span style="font-size:10px;background:#333;color:#fff;border-radius:99px;padding:1px 5px;margin-left:3px">${d.cooking_point}</span>` : ''}
+          </div>
           ${prepTime > 0 ? `<div style="font-size:10px;color:var(--t3)">⏱ ${prepTime} min</div>` : ''}
         </div>${btn}
       </div>`;
@@ -11676,11 +11756,51 @@ async function handleQRUrl() {
     document.getElementById('qr-rest-nombre').textContent = rest.name;
 
     if (activeRoom) {
-      // Fix #28: show returning-vs-new choice instead of simple notice
-      document.getElementById('qr-returning-panel').style.display = 'block';
-      document.getElementById('qr-newuser-panel').style.display = 'none';
-      document.getElementById('qr-returning-pick').style.display = 'none';
+      if (activeRoom.needs_cleaning) {
+        // Mesa pendiente limpieza — avisar al comensal
+        document.getElementById('qr-returning-panel').style.display = 'none';
+        document.getElementById('qr-newuser-panel').style.display = 'none';
+        document.getElementById('qr-returning-pick').style.display = 'none';
+        let cw = document.getElementById('qr-cleaning-warn');
+        if (!cw) {
+          cw = document.createElement('div');
+          cw.id = 'qr-cleaning-warn';
+          const ref = document.getElementById('qr-returning-panel');
+          ref.parentNode.insertBefore(cw, ref.nextSibling);
+        }
+        window._cleaningNotifyWaiter = true;
+        cw.style.display = 'block';
+        cw.innerHTML = `
+          <div style="background:#FAEEDA;border:1.5px solid #E5A85A;border-radius:var(--r);padding:1rem 1.1rem;margin-bottom:1rem">
+            <div style="font-size:15px;font-weight:600;color:#854F0B;margin-bottom:.4rem">Mesa pendiente de limpieza</div>
+            <div style="font-size:13px;color:#633806;line-height:1.5;margin-bottom:.85rem">Puedes iniciar tu pedido igualmente. Avisamos al camarero para que limpie tan pronto como sea posible.</div>
+            <div style="font-size:13px;font-weight:500;color:#854F0B;margin-bottom:.5rem">¿La mesa ya está limpia?</div>
+            <div style="display:flex;gap:.5rem;margin-bottom:.85rem">
+              <button onclick="_setCleaningWarnChoice(true)"
+                style="flex:1;padding:10px;border-radius:var(--r-sm);border:1.5px solid #854F0B;background:#854F0B;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">
+                No — avisar al camarero
+              </button>
+              <button onclick="_setCleaningWarnChoice(false)"
+                style="flex:1;padding:10px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--card);color:var(--t1);font-size:13px;cursor:pointer;font-family:inherit">
+                Sí, ya está limpia
+              </button>
+            </div>
+            <input id="qr-name-cleaning" type="text" placeholder="Tu nombre para entrar"
+              style="width:100%;padding:12px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);font-size:15px;font-family:inherit;margin-bottom:.5rem;box-sizing:border-box">
+            <button class="btn btn-primary" onclick="_submitEnterCleaning()" style="width:100%">Entrar a la mesa →</button>
+          </div>`;
+        setTimeout(() => document.getElementById('qr-name-cleaning')?.focus(), 300);
+      } else {
+        const cw = document.getElementById('qr-cleaning-warn');
+        if (cw) cw.style.display = 'none';
+        // Fix #28: show returning-vs-new choice
+        document.getElementById('qr-returning-panel').style.display = 'block';
+        document.getElementById('qr-newuser-panel').style.display = 'none';
+        document.getElementById('qr-returning-pick').style.display = 'none';
+      }
     } else {
+      const cw = document.getElementById('qr-cleaning-warn');
+      if (cw) cw.style.display = 'none';
       document.getElementById('qr-returning-panel').style.display = 'none';
       document.getElementById('qr-returning-pick').style.display = 'none';
       document.getElementById('qr-newuser-panel').style.display = 'block';
@@ -11697,6 +11817,45 @@ async function handleQRUrl() {
 }
 
 let _enterMesaInProgress = false;
+window._cleaningNotifyWaiter = true;
+
+function _setCleaningWarnChoice(notifyWaiter) {
+  window._cleaningNotifyWaiter = notifyWaiter;
+  if (!notifyWaiter && _qrActiveRoomId) {
+    sb.from('rooms').update({ needs_cleaning: false, cleaned_at: new Date().toISOString() })
+      .eq('id', _qrActiveRoomId).catch(() => {});
+  }
+  const btns = document.querySelectorAll('#qr-cleaning-warn button:not(.btn-primary)');
+  btns.forEach(b => { b.style.opacity = '0.5'; b.disabled = true; });
+}
+
+async function _submitEnterCleaning() {
+  const nameEl = document.getElementById('qr-name-cleaning');
+  const name = (nameEl?.value || '').trim();
+  if (!name) { nameEl?.focus(); return; }
+  const mainName = document.getElementById('qr-name');
+  if (mainName) mainName.value = name;
+  if (window._cleaningNotifyWaiter && _qrActiveRoomId && _qrRestaurantId) {
+    try {
+      const { data: room } = await sb.from('rooms').select('table_id,assigned_waiter_id').eq('id', _qrActiveRoomId).maybeSingle();
+      let tableLabel = 'Mesa';
+      if (room?.table_id) {
+        const { data: t } = await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle();
+        if (t) tableLabel = `Mesa ${t.number}${t.label ? ' — ' + t.label : ''}`;
+      }
+      await sb.from('kitchen_notifications').insert({
+        restaurant_id: _qrRestaurantId, room_id: _qrActiveRoomId,
+        course: -1, course_label: 'Limpieza urgente', table_label: tableLabel, is_bebidas: false,
+        dishes: [{ name: `${tableLabel} — comensales pidiendo, pendiente de limpieza (PRIORIDAD)` }],
+        assigned_waiter_id: room?.assigned_waiter_id || null,
+      }).catch(() => {});
+    } catch(e) {}
+  }
+  const cw = document.getElementById('qr-cleaning-warn');
+  if (cw) cw.style.display = 'none';
+  document.getElementById('qr-newuser-panel').style.display = 'block';
+  enterMesa();
+}
 
 async function enterMesa() {
   if (_enterMesaInProgress) return; // #10: prevent double submit
