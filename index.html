@@ -850,7 +850,7 @@
       <!-- Fix #28: returning user modal — when table has an active session -->
       <div id="qr-returning-panel" style="display:none">
         <div style="background:var(--amber-l);border-radius:var(--r-sm);padding:.85rem 1rem;margin-bottom:1.25rem;line-height:1.5">
-          <div style="font-size:14px;font-weight:600;color:var(--amber);margin-bottom:.3rem">🍽 Esta mesa ya tiene una sesión activa</div>
+          <div style="font-size:14px;font-weight:600;color:var(--amber);margin-bottom:.3rem">Esta mesa ya tiene una sesión activa</div>
           <div style="font-size:13px;color:var(--amber)">¿Ya eres parte de esta mesa o eres una persona nueva?</div>
         </div>
         <button class="btn btn-primary" style="margin-bottom:.6rem;width:100%" onclick="qrSelectReturning()">
@@ -1047,7 +1047,7 @@
 
     <!-- #23: Kitchen-send lock overlay — shown to other guests while someone is sending -->
     <div id="kitchen-lock-overlay" style="display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.72);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:2rem">
-      <div style="font-size:48px;margin-bottom:1rem">🍳</div>
+      <div style="font-size:32px;margin-bottom:1rem;color:var(--brand);font-weight:700">KDS</div>
       <div style="font-size:18px;font-weight:600;color:#fff;margin-bottom:.5rem" id="kitchen-lock-msg">Enviando pedido a cocina…</div>
       <div style="font-size:14px;color:rgba(255,255,255,.7);line-height:1.5">En un momento podrás seguir añadiendo platos.</div>
     </div>
@@ -1276,7 +1276,7 @@
         </button>
         <div style="display:none;padding:.65rem">
           <button onclick="go('s3-dishes');window.scrollTo(0,0)" class="btn btn-secondary" style="width:100%;font-size:13px">
-            🍽 Volver a la carta
+            ← Volver a la carta
           </button>
         </div>
       </div>
@@ -1352,7 +1352,7 @@
       <div class="sec-label">Estado del grupo</div>
       <!-- #6: Live pending-payers banner -->
       <div id="pay-pending-banner" style="display:none;background:#FAEEDA;border-radius:var(--r-sm);padding:.75rem 1rem;margin-bottom:.75rem;border:1px solid #E5A85A">
-        <div style="font-size:13px;font-weight:600;color:#854F0B;margin-bottom:.35rem">⏳ Faltan por pagar</div>
+        <div style="font-size:13px;font-weight:600;color:#854F0B;margin-bottom:.35rem">Faltan por pagar</div>
         <div id="pay-pending-list" style="font-size:12px;color:#633806;line-height:1.8"></div>
       </div>
       <div id="pay-status-list"></div>
@@ -1409,7 +1409,7 @@
           </div>
         </div>
         <div style="background:var(--brand-l);border-radius:var(--r-sm);padding:.65rem .85rem;font-size:12px;color:var(--brand-d);line-height:1.5;margin:.75rem 0">
-          🔔 Activa las notificaciones para recibir el aviso aunque tengas la pantalla bloqueada.
+          Activa las notificaciones para recibir el aviso aunque tengas la pantalla bloqueada.
         </div>
         <button class="btn btn-primary" onclick="joinCalleatQueue()">Apuntarme → </button>
       </div>
@@ -1686,7 +1686,7 @@
         <div id="waiter-cart" style="display:none;margin-top:1rem">
           <div class="sec-label">Pedido actual</div>
           <div id="waiter-cart-items"></div>
-          <button class="btn btn-primary mt" onclick="waiterSendOrder()">🍳 Enviar a cocina</button>
+          <button class="btn btn-primary mt" onclick="waiterSendOrder()">Enviar a cocina</button>
         </div>
       </div>
     </div>
@@ -1791,7 +1791,7 @@
             <span id="calleat-nav-badge" style="display:none;background:#D85A30;color:#fff;border-radius:99px;padding:0px 6px;font-size:10px;font-weight:700;margin-left:auto">0</span>
           </button>
           <button class="adm-nav" data-tab="cocina" onclick="showAdminTab('cocina')">
-            <span class="adm-nav-icon">🍳</span><span class="adm-nav-label">cook<em style="color:#D85A30;font-style:normal">eat</em></span>
+            <span class="adm-nav-icon" style="font-size:13px;font-weight:700;letter-spacing:-1px">KDS</span><span class="adm-nav-label">cook<em style="color:#D85A30;font-style:normal">eat</em></span>
           </button>
           <button class="adm-nav" data-tab="reportes" onclick="showAdminTab('reportes')">
             <span class="adm-nav-icon">📊</span><span class="adm-nav-label">KPI Dashboard</span>
@@ -1828,7 +1828,7 @@
         <!-- Mobile bottom tabs — only shown on small screens (<900px), sidebar handles desktop -->
         <div class="admin-mobile-tabs">
           <button class="adm-mob-tab on" data-tab="encurso" onclick="showAdminTab('encurso')">🏠<br><span>Sala</span></button>
-          <button class="adm-mob-tab" data-tab="cocina" onclick="showAdminTab('cocina')">🍳<br><span>Cocina</span></button>
+          <button class="adm-mob-tab" data-tab="cocina" onclick="showAdminTab('cocina')">KDS<br><span>Cocina</span></button>
           <button class="adm-mob-tab" data-tab="facturas" onclick="showAdminTab('facturas')">🧾<br><span>Facturas</span></button>
           <button class="adm-mob-tab" data-tab="reportes" onclick="showAdminTab('reportes')">📊<br><span>Dashboard</span></button>
           <button class="adm-mob-tab" data-tab="gestion" onclick="showAdminTab('gestion')">⚙️<br><span>Ajustes</span></button>
@@ -2202,7 +2202,7 @@
           </div>
           <div class="kpi-card">
             <div class="kpi-value" id="kpi-mesas">—</div>
-            <div class="kpi-label">🍽 Mesas servidas</div>
+            <div class="kpi-label">Mesas servidas</div>
           </div>
           <div class="kpi-card">
             <div class="kpi-value" id="kpi-comensales">—</div>
@@ -2361,7 +2361,7 @@
 
         <!-- Carta -->
         <div class="settings-section">
-          <div class="settings-section-header">🍽 Carta</div>
+          <div class="settings-section-header">Carta</div>
           <div class="settings-row" onclick="openAjustesSection('carta')">
             <span class="settings-row-icon">📋</span>
             <div class="settings-row-content">
@@ -2597,7 +2597,7 @@
   <div id="notif-history-panel" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.5);align-items:flex-end;justify-content:center">
     <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;max-height:75vh;display:flex;flex-direction:column;animation:slideUp .22s ease">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid var(--bd);flex-shrink:0">
-        <div style="font-size:16px;font-weight:600;color:var(--t1)">🔔 Notificaciones</div>
+        <div style="font-size:16px;font-weight:600;color:var(--t1)">Notificaciones</div>
         <button onclick="closeNotifHistory()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2);padding:4px">✕</button>
       </div>
       <div id="notif-history-list" style="overflow-y:auto;padding:.5rem 1.25rem 1.5rem;flex:1"></div>
@@ -3120,7 +3120,7 @@ async function subscribeToPush(guestId, roomId) {
     }
 
     const permission = await Notification.requestPermission();
-    console.log('🔔 Permiso notificaciones:', permission);
+    console.log('Permiso notificaciones:', permission);
     if (permission !== 'granted') {
       console.warn('❌ Permiso denegado — no se puede suscribir a push');
       return;
@@ -3187,8 +3187,8 @@ function urlBase64ToUint8Array(base64String) {
 // Enviar push a todos los comensales de la sala cuando cambia estado
 async function sendPushToGuests(roomId, dishName, newStatus) {
   const title = newStatus === 'making'
-    ? '🍳 En preparación'
-    : '🛎 ¡Tu plato está listo!';
+    ? 'En preparación'
+    : 'Listo para servir';
   const body = newStatus === 'making'
     ? `"${dishName}" ya está en la cocina.`
     : `"${dishName}" llega en breve a tu mesa.`;
@@ -3238,7 +3238,7 @@ async function testPushNotification() {
     })
   });
   const data = await res.json();
-  console.log('📨 Resultado push:', data);
+  console.log('Resultado push:', data);
   console.log('Push enviado:', data); showToast('Push enviado', 'Revisa la consola');
 }
 
@@ -3407,11 +3407,11 @@ function subscribeRealtime() {
           } else {
             if (prev.kitchen_status !== 'making' && d.kitchen_status === 'making') {
               playGuestSound('making');
-              showGuestNotification('🍳 En preparación', `"${d.name}" ya está en la cocina.`);
+              showGuestNotification('En preparación', `"${d.name}" ya está en la cocina.`);
             }
             if (prev.kitchen_status !== 'ready' && d.kitchen_status === 'ready') {
               playGuestSound('ready');
-              showGuestNotification('🛎 ¡Tu plato está listo!', `"${d.name}" llega en breve a tu mesa.`);
+              showGuestNotification('Listo para servir', `"${d.name}" llega en breve a tu mesa.`);
             }
           }
         }
@@ -4277,7 +4277,7 @@ function renderMesaDishes() {
       const ks = d.kitchen_status;
       if (!ks || ks === 'new') return '';
       const color = ks === 'delivered' ? '#3B6D11' : ks === 'ready' ? '#27AE60' : ks === 'making' ? '#BA7517' : '#185FA5';
-      const label = ks === 'delivered' ? '✓ Servido' : ks === 'ready' ? '🛎 Listo' : ks === 'making' ? '🍳 Prep.' : '📨 Enviado';
+      const label = ks === 'delivered' ? '✓ Servido' : ks === 'ready' ? 'Listo' : ks === 'making' ? 'Prep.' : 'Enviado';
       return `<span style="font-size:10px;padding:1px 6px;border-radius:99px;background:${color}22;color:${color};font-weight:500;margin-left:4px;white-space:nowrap">${label}</span>`;
     };
 
@@ -4293,7 +4293,7 @@ function renderMesaDishes() {
     const readyDishes = state.dishes.filter(d => d.kitchen_status === 'ready');
     if (readyDishes.length) {
       html += `<div style="background:#EAF3DE;border-radius:var(--r);padding:.75rem 1rem;margin-bottom:.75rem;border:1px solid #A8D5A2">
-        <div style="font-size:14px;font-weight:600;color:#1E5C1E;margin-bottom:.2rem">🛎 ¡Platos listos para servir!</div>
+        <div style="font-size:14px;font-weight:600;color:#1E5C1E;margin-bottom:.2rem">Platos listos para servir!</div>
         <div style="font-size:12px;color:#2E7D2E">${readyDishes.map(d => escHtml(d.name)).join(', ')}</div>
       </div>`;
     }
@@ -4329,9 +4329,9 @@ function renderMesaDishes() {
     );
 
     [
-      { course: 1, label: '🥗 Primeros' },
-      { course: 2, label: '🍽 Segundos' },
-      { course: 3, label: '🍰 Postres' },
+      { course: 1, label: 'Entrantes' },
+      { course: 2, label: 'Principales' },
+      { course: 3, label: 'Postres' },
     ].forEach(({ course, label }) => {
       const group = solosByCourse.filter(d => (d.course || 1) === course);
       if (!group.length) return;
@@ -4399,15 +4399,17 @@ function renderMesaDishes() {
   const resumenWaitMsg = document.getElementById('resumen-wait-msg');
   if (resumenBtn && state.dishes.length > 0) {
     const sentDishes = state.dishes.filter(d => d.kitchen_status && d.kitchen_status !== 'new');
+    // Platos de comida que aún están en cocina (sent o making) — estos SÍ bloquean el pago
     const stillCooking = sentDishes.filter(d => {
       if (d.category === 'bebidas' || d.course === 0) return false;
       return d.kitchen_status === 'sent' || d.kitchen_status === 'making';
     });
-    const allDelivered = sentDishes.length > 0 && stillCooking.length === 0;
+    // Bug 5: permitir pagar cuando no quedan platos en sent/making
+    // ready = cocina terminó, delivered = camarero sirvió — ambos permiten pagar
+    const canPay = sentDishes.length > 0 && stillCooking.length === 0;
     resumenBtn.style.display = sentDishes.length > 0 ? 'block' : 'none';
 
-    // #5: "Todo en mesa" banner only when waiter has physically confirmed delivery (status=delivered)
-    // Not just when kitchen fires the pase (status=ready)
+    // Banner "Todo en mesa" — solo cuando todo está delivered
     const finishBanner = document.getElementById('finish-dinner-banner');
     if (finishBanner) {
       const unsentDishes = state.dishes.filter(d => !d.kitchen_status || d.kitchen_status === 'new');
@@ -4417,17 +4419,17 @@ function renderMesaDishes() {
     }
 
     if (resumenBtnInner) {
-      resumenBtnInner.disabled = !allDelivered;
-      resumenBtnInner.style.opacity = allDelivered ? '1' : '.55';
-      resumenBtnInner.style.background = allDelivered ? 'var(--brand)' : 'var(--t3)';
-      resumenBtnInner.innerHTML = allDelivered
-        ? '🧾 Ver resumen y pagar →'
-        : `⏳ En cocina: ${stillCooking.slice(0,2).map(d=>escHtml(d.name)).join(', ')}${stillCooking.length>2?'…':''}`;
+      resumenBtnInner.disabled = !canPay;
+      resumenBtnInner.style.opacity = canPay ? '1' : '.55';
+      resumenBtnInner.style.background = canPay ? 'var(--brand)' : 'var(--t3)';
+      resumenBtnInner.innerHTML = canPay
+        ? 'Ver resumen y pagar →'
+        : `En cocina: ${stillCooking.slice(0,2).map(d=>escHtml(d.name)).join(', ')}${stillCooking.length>2?'…':''}`;
     }
     if (resumenWaitMsg) {
       const refreshBtn = document.getElementById('resumen-refresh-btn');
-      resumenWaitMsg.style.display = (!allDelivered && sentDishes.length) ? 'block' : 'none';
-      if (refreshBtn) refreshBtn.style.display = (!allDelivered && sentDishes.length) ? 'block' : 'none';
+      resumenWaitMsg.style.display = (!canPay && sentDishes.length) ? 'block' : 'none';
+      if (refreshBtn) refreshBtn.style.display = (!canPay && sentDishes.length) ? 'block' : 'none';
       resumenWaitMsg.textContent = stillCooking.length === 1
         ? `1 plato todavía en preparación (${stillCooking[0]?.name || ''})`
         : `${stillCooking.length} platos en camino: ${stillCooking.map(d=>d.name).join(', ')}`;
@@ -4461,28 +4463,28 @@ function renderDishCard(dish) {
     : '';
 
   // Kitchen status badge (compact)
-  // #15 + #BG3: Status badge — bebidas handled by waiter, not kitchen
+  // #BG3: Bebidas → solo dos estados: En camino (naranja) o Servido (verde)
   const ksBadge = isSent
     ? `<span style="font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;white-space:nowrap;background:${
-        isDelivered ? 'var(--bg2)' :
-        isBebida ? '#F0F4FF' :
-        ks==='ready' ? '#EAF3DE' :
-        ks==='making' ? '#FFF3E0' : '#EBF4FB'
+        isDelivered ? '#EAF3DE' :
+        isBebida    ? '#FFF3E0' :
+        ks==='ready'   ? '#EAF3DE' :
+        ks==='making'  ? '#FFF3E0' : '#EBF4FB'
       };color:${
-        isDelivered ? 'var(--t3)' :
-        isBebida ? '#3D5A99' :
-        ks==='ready' ? '#2E7D2E' :
-        ks==='making' ? '#B7560D' : '#1565A8'
+        isDelivered ? '#2E7D2E' :
+        isBebida    ? '#B7560D' :
+        ks==='ready'   ? '#2E7D2E' :
+        ks==='making'  ? '#B7560D' : '#1565A8'
       };border:1px solid ${
-        isDelivered ? 'var(--bd)' :
-        isBebida ? '#BDC8E8' :
-        ks==='ready' ? '#A8D5A2' :
-        ks==='making' ? '#F5CBA7' : '#AED6F1'
+        isDelivered ? '#A8D5A2' :
+        isBebida    ? '#F5CBA7' :
+        ks==='ready'   ? '#A8D5A2' :
+        ks==='making'  ? '#F5CBA7' : '#AED6F1'
       }">
-        ${isDelivered ? '✓ Servido' :
-          isBebida ? '🧑‍🍳 Camarero' :
-          ks==='ready' ? '🛎 Listo' :
-          ks==='making' ? '🍳 Preparando' : '📨 En cocina'}
+        ${isDelivered ? 'Servido' :
+          isBebida    ? (ks === 'delivered' ? 'Servido' : 'En camino') :
+          ks==='ready'   ? 'Listo' :
+          ks==='making'  ? 'Preparando' : 'En cocina'}
       </span>` : '';
 
   // Consistent guest colors (same palette as carta initials)
@@ -5508,7 +5510,7 @@ function downloadTicketPDF() {
     el.style.cssText = 'position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:1.5rem';
     el.innerHTML = `
       <div style="background:var(--card);border-radius:var(--r-lg);width:100%;max-width:360px;padding:1.5rem 1.25rem;text-align:center">
-        <div style="font-size:32px;margin-bottom:.75rem">⏳</div>
+        <div style="font-size:32px;margin-bottom:.75rem;color:var(--t3);font-weight:300">···</div>
         <div style="font-size:17px;font-weight:700;color:var(--t1);margin-bottom:.5rem">Ticket no disponible aún</div>
         <div style="font-size:13px;color:var(--t2);line-height:1.5;margin-bottom:1rem">
           El ticket solo se puede generar cuando <strong>todos los comensales han pagado</strong>.
@@ -6308,8 +6310,8 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
       }
 
       const statusLabel = isDone ? '✅ Servido'
-        : isWaiting ? '⏳ En espera'
-        : cDishes.some(d=>d.kitchen_status==='making') ? '🍳 Preparando' : '🆕 Nuevo';
+        : isWaiting ? 'En espera'
+        : cDishes.some(d=>d.kitchen_status==='making') ? 'Preparando' : 'Nuevo';
 
       const borderColor = isDone ? 'var(--bd)' : isWaiting ? 'var(--bd)' : col.border;
       const hdrBg = isDone ? 'var(--bg2)' : isWaiting ? 'var(--bg2)' : col.hdr;
@@ -6482,7 +6484,7 @@ async function setOrderStatus(dishId, status) {
   loadKitchenOrders();
 
   if (dish && (status === 'making' || status === 'ready')) {
-    const title = status === 'making' ? '🍳 En preparación' : '🛎 ¡Plato listo para servir!';
+    const title = status === 'making' ? 'En preparación' : 'Listo para servir';
     const body = status === 'making'
       ? `"${dish.name}" ya está en la cocina.`
       : `"${dish.name}" está listo — llévalo a la mesa.`;
@@ -6761,7 +6763,7 @@ function markWaiterNotifSeenByRef(n) {
 }
 
 function _renderNotifModal(modal, n) {
-  const emoji = n.isBebidas ? '' : { 1:'🥗', 2:'🍽', 3:'🍰' }[n.course] || '🍽';
+  const emoji = '';
   const label = n.isBebidas ? 'Bebidas' : `Pase ${n.course}`;
   const color = n.isBebidas ? '#185FA5' : '#085041';
   const checkedCount = Object.values(n.checked || {}).filter(Boolean).length;
@@ -6951,28 +6953,41 @@ async function markCourseDelivered(roomId, course, isBebidas) {
     }).catch(() => {});
   } catch(e) {}
 
-  // #11-1: After any food delivered, check if all done → notify with_postre drinks
+  // #11-1: After any food delivered, check if all food done → notify with_postre drinks
   if (!isBebidas) {
     try {
-      const { data: remaining } = await sb.from('dishes').select('id,with_postre')
-        .eq('room_id', roomId).not('category','eq','bebidas').not('course','eq',0)
-        .not('kitchen_status','eq','delivered').not('with_postre','eq',true);
-      const allFoodDone = !remaining || remaining.length === 0;
+      // Buscar platos de comida pendientes: no bebidas, no with_postre, no entregados
+      const { data: remaining } = await sb.from('dishes').select('id')
+        .eq('room_id', roomId)
+        .neq('category', 'bebidas')
+        .neq('course', 0)
+        .neq('kitchen_status', 'delivered')
+        .neq('kitchen_status', 'ready'); // ready = listo pero pendiente de servir, no cuenta como done
+      // También excluir with_postre (son bebidas que aún no deben servirse)
+      const nonPostreRemaining = (remaining || []).filter(d => !d.with_postre);
+      const allFoodDone = nonPostreRemaining.length === 0;
       if (allFoodDone) {
         const { data: postreDrinks } = await sb.from('dishes').select('id,name')
-          .eq('room_id', roomId).eq('with_postre', true).not('kitchen_status','eq','delivered');
+          .eq('room_id', roomId)
+          .eq('with_postre', true)
+          .not('kitchen_status', 'eq', 'delivered');
         if (postreDrinks && postreDrinks.length > 0) {
           const { data: roomInfo } = await sb.from('rooms')
             .select('table_id,assigned_waiter_id,waiter_id,restaurant_id').eq('id', roomId).maybeSingle();
           const restId = roomInfo?.restaurant_id;
-          const tableLabel = roomInfo?.table_id
-            ? await sb.from('tables').select('number,label').eq('id', roomInfo.table_id).maybeSingle()
-                .then(({data:t}) => t ? `Mesa ${t.number}${t.label?' — '+t.label:''}` : 'Mesa')
-            : 'Mesa';
+          let tableLabel = 'Mesa';
+          if (roomInfo?.table_id) {
+            const { data: t } = await sb.from('tables').select('number,label').eq('id', roomInfo.table_id).maybeSingle();
+            if (t) tableLabel = `Mesa ${t.number}${t.label ? ' — ' + t.label : ''}`;
+          }
           if (restId) {
             await sb.from('kitchen_notifications').insert({
-              restaurant_id: restId, room_id: roomId, course: 0,
-              course_label: 'Con el postre', table_label: tableLabel, is_bebidas: true,
+              restaurant_id: restId,
+              room_id: roomId,
+              course: 0,
+              course_label: 'Con el postre',
+              table_label: tableLabel,
+              is_bebidas: true,
               dishes: postreDrinks.map(d => ({ id: d.id, name: d.name })),
               assigned_waiter_id: roomInfo?.assigned_waiter_id || null,
               waiter_id: roomInfo?.waiter_id || null,
@@ -6980,7 +6995,7 @@ async function markCourseDelivered(roomId, course, isBebidas) {
           }
         }
       }
-    } catch(e) {}
+    } catch(e) { console.warn('[Waiter] Error checking postre drinks:', e); }
   }
 }
 
@@ -6994,15 +7009,15 @@ function openWaiterNotifHistory() {
   })();
 
   const items = _waiterNotifHistory.length
-    ? _waiterNotifHistory.map(n => `
-      <div onclick="openWaiterNotifDetail(${n.id})"
+    ? _waiterNotifHistory.map((n, idx) => `
+      <div onclick="openWaiterNotifDetailIdx(${idx})"
         style="display:flex;align-items:center;gap:10px;padding:.65rem .75rem;border-radius:var(--r-sm);border:1px solid var(--bd);background:${n.seen ? 'var(--card)' : 'var(--brand-l)'};margin-bottom:.35rem;cursor:pointer">
         <div style="width:8px;height:8px;border-radius:50%;background:${n.seen ? 'var(--bd2)' : 'var(--brand)'};flex-shrink:0"></div>
         <div style="flex:1">
-          <div style="font-size:13px;font-weight:500">${n.tableLabel} — ${n.courseLabel}</div>
-          <div style="font-size:11px;color:var(--t2)">${n.time} · ${n.dishes.length} platos</div>
+          <div style="font-size:13px;font-weight:500">${n.tableLabel || 'Mesa'} — ${n.courseLabel || 'Pase'}</div>
+          <div style="font-size:11px;color:var(--t2)">${n.time || ''} · ${(n.dishes||[]).length} plato${(n.dishes||[]).length !== 1 ? 's' : ''}</div>
         </div>
-        <span style="font-size:11px;color:var(--t3)">→</span>
+        <span style="font-size:14px;color:var(--t3)">›</span>
       </div>`).join('')
     : '<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Sin notificaciones aún</div>';
 
@@ -7379,9 +7394,9 @@ async function loadWaiterMesas() {
   (allPayments || []).forEach(p => { if (!paysByRoom[p.room_id]) paysByRoom[p.room_id] = []; paysByRoom[p.room_id].push(p); });
   (allDishes || []).forEach(d => { if (!dishesByRoom[d.room_id]) dishesByRoom[d.room_id] = []; dishesByRoom[d.room_id].push(d); });
 
-  const STATUS_ICON = { new:'⬜', sent:'⏳', making:'🍳', ready:'🛎', delivered:'✅' };
+  const STATUS_ICON = { new:'○', sent:'→', making:'◎', ready:'●', delivered:'✓' };
   const STATUS_LABEL = { new:'Pendiente', sent:'Enviado', making:'Preparando', ready:'Listo', delivered:'Servido' };
-  const COURSE_EMOJI = { 0:'', 1:'🥗', 2:'🍽', 3:'🍰' };
+  const COURSE_EMOJI = { 0:'', 1:'', 2:'', 3:'' };
 
   el.innerHTML = myRooms.map(room => {
     const table = room.table_id ? tablesById[room.table_id] : null;
@@ -7399,9 +7414,9 @@ async function loadWaiterMesas() {
     const bebidas = dishes.filter(d => d.category === 'bebidas' || d.course === 0);
     const courseGroups = [
       { course: 0, label: 'Bebidas', dishes: bebidas },
-      { course: 1, label: '🥗 Entrantes', dishes: dishes.filter(d => d.course === 1) },
-      { course: 2, label: '🍽 Principales', dishes: dishes.filter(d => d.course === 2) },
-      { course: 3, label: '🍰 Postres', dishes: dishes.filter(d => d.course === 3) },
+      { course: 1, label: 'Entrantes', dishes: dishes.filter(d => d.course === 1) },
+      { course: 2, label: 'Principales', dishes: dishes.filter(d => d.course === 2) },
+      { course: 3, label: 'Postres', dishes: dishes.filter(d => d.course === 3) },
     ].filter(g => g.dishes.length > 0);
 
     const readyCount = dishes.filter(d => d.kitchen_status === 'ready').length;
@@ -7412,7 +7427,7 @@ async function loadWaiterMesas() {
       const allDelivered = cDishes.every(d => d.kitchen_status === 'delivered');
       const hasSentBebidas = isBebGroup && cDishes.some(d => d.kitchen_status === 'sent');
       return `<div style="margin-bottom:.35rem">
-        <div style="font-size:10px;font-weight:600;color:${isBebGroup?'#185FA5':'var(--t3)'};text-transform:uppercase;letter-spacing:.05em;margin-bottom:.2rem">${cLabel}${hasSentBebidas ? ' 🔔' : ''}</div>
+        <div style="font-size:10px;font-weight:600;color:${isBebGroup?'#185FA5':'var(--t3)'};text-transform:uppercase;letter-spacing:.05em;margin-bottom:.2rem">${cLabel}${hasSentBebidas ? ' ●' : ''}</div>
       ${cDishes.reduce((acc, d) => {
           const key = (d.name||'').trim().toLowerCase() + '|' + (d.kitchen_status||'');
           const existing = acc.find(x => x.key === key);
@@ -7443,8 +7458,8 @@ async function loadWaiterMesas() {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem">
         <div style="font-size:15px;font-weight:600">${label}</div>
         <div style="display:flex;gap:.35rem;align-items:center">
-          ${room.needs_cleaning ? `<span style="font-size:11px;font-weight:600;color:#854F0B;background:#FAEEDA;padding:2px 8px;border-radius:99px">🧹 Limpiar</span>` : ''}
-          ${hasReady ? `<span style="font-size:11px;font-weight:600;color:var(--brand);background:var(--brand-l);padding:2px 8px;border-radius:99px">${readyCount} listo${readyCount>1?'s':''} 🛎</span>` : ''}
+          ${room.needs_cleaning ? `<span style="font-size:11px;font-weight:600;color:#854F0B;background:#FAEEDA;padding:2px 8px;border-radius:99px">Limpiar</span>` : ''}
+          ${hasReady ? `<span style="font-size:11px;font-weight:600;color:var(--brand);background:var(--brand-l);padding:2px 8px;border-radius:99px">${readyCount} listo${readyCount>1?'s':''}</span>` : ''}
           <span style="font-size:11px;color:${allPaid ? '#3B6D11' : 'var(--t2)'}">${allPaid ? '✅ Pagada' : `${paidRealCount}/${guests.length} pagados`}</span>
         </div>
       </div>
@@ -7461,7 +7476,7 @@ async function loadWaiterMesas() {
         </button>
         ${room.needs_cleaning ? `<button onclick="confirmTableClean('${room.id}')"
           style="padding:7px 10px;border-radius:var(--r-sm);border:none;background:#FAEEDA;color:#854F0B;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500">
-          🧹 Limpia
+          Limpia
         </button>` : `<button onclick="adminCloseTable('${room.id}')"
           style="padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit">
           ✕
@@ -7711,7 +7726,7 @@ async function waiterSendOrder() {
 
   _waiterCart = [];
   updateWaiterCart();
-  if (btn) { btn.disabled = false; btn.textContent = '🍳 Enviar a cocina'; }
+  if (btn) { btn.disabled = false; btn.textContent = 'Enviar a cocina'; }
   showToast('✓ Pedido enviado', 'Los platos están en camino a cocina.');
   showWaiterTab('mesas');
 }
@@ -9370,7 +9385,7 @@ async function requestTableCleaning(roomId, tableLabel) {
   // Notify all active waiters
   const { data: waiters } = await sb.from('waiters')
     .select('id').eq('restaurant_id', state.adminRestaurantId).eq('is_active', true);
-  showToast('🧹 Limpieza solicitada', tableLabel + ' necesita limpieza');
+  showToast('Limpieza solicitada', tableLabel + ' necesita limpieza');
   loadFloorPlan();
 }
 
@@ -9639,7 +9654,7 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
       const rows = bebidasDishes.map(d => {
         const ks = d.kitchen_status || 'sent';
         const statusLabel = ks === 'delivered' ? '✓ Servido (camarero)' : '🧑‍🍳 Camarero';
-        const statusColor = ks === 'delivered' ? '#3B6D11' : '#3D5A99';
+        const statusColor = ks === 'delivered' ? '#3B6D11' : '#B7560D';
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.05);font-size:12px">
           <span style="color:var(--t1)">${escHtml(d.name)}</span>
           <span style="color:${statusColor};font-size:11px;font-weight:500">${statusLabel}</span>
@@ -9749,9 +9764,9 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
         }
       }
 
-      const statusLabel = isWaiting ? '⏳ En espera'
+      const statusLabel = isWaiting ? 'En espera'
         : allReady ? '✅ Servido'
-        : someMaking ? '🍳 Preparando'
+        : someMaking ? 'Preparando'
         : '🔴 Pendiente';
 
       return `<div style="margin-bottom:.5rem;border-radius:8px;overflow:hidden;border:1.5px solid ${isWaiting ? 'var(--bd)' : col.border};${isWaiting ? 'opacity:.5' : ''}">
@@ -9903,7 +9918,7 @@ async function _doFireNextCourse(roomId, course, dishIds) {
   const courseNames = {0:'Las bebidas', 1:'Los entrantes', 2:'Los principales', 3:'Los postres'};
   sendPushNotification({
     roomId,
-    title: `🛎 ¡${courseNames[course] || 'Tu pedido'} listo!`,
+    title: `¡${courseNames[course] || 'Tu pedido'} listo!`,
     message: `En camino a tu mesa. Espera un momento.`,
     tag: 'ready-' + roomId + '-' + course,
     requireInteraction: true,
@@ -9911,7 +9926,7 @@ async function _doFireNextCourse(roomId, course, dishIds) {
   // Push también al camarero
   sendPushNotification({
     roomId,
-    title: `🍳 ${tableLabel} — ${courseLabel} listos`,
+    title: `${tableLabel} — ${courseLabel} listos`,
     message: `Llevar a mesa: ${courseLabel}`,
     tag: 'kitchen-' + roomId + '-' + course,
     requireInteraction: true,
@@ -10786,7 +10801,7 @@ async function loadMesaDishDetail(roomId, tableLabel) {
   const foodStatusLabel = { new:'Por enviar', sent:'En cocina', making:'Preparando', ready:'Listo', delivered:'Servido' };
   const foodStatusColor = { new:'var(--t3)', sent:'#1565A8', making:'#B7560D', ready:'#2E7D2E', delivered:'var(--t3)' };
   const bebStatusLabel = { new:'Por enviar', sent:'Camarero', making:'Camarero', ready:'Camarero', delivered:'✓ Servido' };
-  const bebStatusColor = { new:'var(--t3)', sent:'#3D5A99', making:'#3D5A99', ready:'#3D5A99', delivered:'#2E7D2E' };
+  const bebStatusColor = { new:'var(--t3)', sent:'#B7560D', making:'#B7560D', ready:'#B7560D', delivered:'#2E7D2E' };
 
   let html = `<div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:.75rem">${escHtml(tableLabel)} — ${dishes.length} platos</div>`;
 
@@ -10796,7 +10811,7 @@ async function loadMesaDishDetail(roomId, tableLabel) {
     bebidas.forEach(d => {
       const ks = d.kitchen_status || 'new';
       const sl = bebStatusLabel[ks] || 'Camarero';
-      const sc = bebStatusColor[ks] || '#3D5A99';
+      const sc = bebStatusColor[ks] || '#B7560D';
       const who = d.assignee_id ? (guestMap[d.assignee_id] || '?') : d.type === 'shared' ? 'Compartida' : '—';
       html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(61,90,153,.15);gap:6px">
         <div style="flex:1;min-width:0">
