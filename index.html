@@ -3384,7 +3384,15 @@ function subscribeRealtime() {
       if (document.getElementById('s4-summary')?.classList.contains('active')) buildSummary();
     })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'dishes', filter: 'room_id=eq.' + state.roomId }, async (payload) => {
-      const d = payload.new;
+      let d = payload.new;
+      // If payload is incomplete (no REPLICA IDENTITY FULL), re-fetch from DB
+      if (!d || !d.kitchen_status) {
+        const dishId = payload.old?.id || d?.id;
+        if (dishId) {
+          const { data: fresh } = await sb.from('dishes').select('*').eq('id', dishId).maybeSingle();
+          if (fresh) d = fresh;
+        }
+      }
       if (!d) return;
       const idx = state.dishes.findIndex(x => x.id === d.id);
       const prev = idx >= 0 ? state.dishes[idx] : null;
@@ -4010,16 +4018,26 @@ function setModalType(type) {
   const sharedSel = document.getElementById('modal-shared-selector');
 
   if (type === 'solo') {
-    // UX1: Show who this dish is for when there are multiple guests
     if (soloSel) soloSel.style.display = hasMultipleGuests ? 'block' : 'none';
     if (sharedSel) sharedSel.style.display = 'none';
     hint.style.display = 'none';
+    _setModalConfirmEnabled(true);
   } else {
-    // UX2: Show guest checkboxes for shared
     if (soloSel) soloSel.style.display = 'none';
     if (sharedSel) sharedSel.style.display = hasMultipleGuests ? 'block' : 'none';
     hint.style.display = hasMultipleGuests ? 'none' : 'block';
+    // #8: Disable confirm until at least one guest selected
+    _setModalConfirmEnabled(!hasMultipleGuests);
   }
+}
+
+function _setModalConfirmEnabled(enabled) {
+  const btn = document.getElementById('modal-confirm-btn');
+  if (!btn) return;
+  btn.disabled = !enabled;
+  btn.style.opacity = enabled ? '1' : '0.45';
+  btn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+  btn.title = enabled ? '' : 'Selecciona con quién compartes el plato';
 }
 
 // UX1+UX2: Selected guest(s) for modal
@@ -4062,6 +4080,8 @@ function _updateSharedGuests() {
   _modalSharedGuestIds = Array.from(
     document.querySelectorAll('#modal-shared-guest-list input[type=checkbox]:checked')
   ).map(cb => cb.value);
+  // #8: Enable confirm when at least one guest selected
+  _setModalConfirmEnabled(_modalSharedGuestIds.length > 0);
 }
 
 function _selectAllSharedGuests() {
@@ -4071,6 +4091,8 @@ function _selectAllSharedGuests() {
   _modalSharedGuestIds = allChecked ? [] : (window.state?.guests || []).map(g => g.id);
   const btn = document.getElementById('btn-select-all-shared');
   if (btn) btn.textContent = allChecked ? 'Compartir con toda la mesa' : '✓ Toda la mesa — clic para desmarcar';
+  // #8: Update confirm button state
+  _setModalConfirmEnabled(_modalSharedGuestIds.length > 0);
 }
 
 function closeModal() {
@@ -4958,8 +4980,7 @@ function buildSummary() {
         </span>
         <span style="display:flex;align-items:center;gap:4px;flex-shrink:0">
           <span class="val">${fmt(share)}</span>
-          <button onclick="unassignDish('${d.id}','shared','${t.g.id}')" title="Quitar de este plato"
-            style="background:#FFF5F5;border:1px solid #FCCACA;font-size:13px;color:var(--accent);cursor:pointer;padding:2px 7px;border-radius:4px;line-height:1;font-weight:600">✕</button>
+          ${!paymentStarted ? `<button onclick="unassignDish('${d.id}','shared','${t.g.id}')" title="Quitar" style="background:#FFF5F5;border:1px solid #FCCACA;font-size:13px;color:var(--accent);cursor:pointer;padding:2px 7px;border-radius:4px;line-height:1;font-weight:600">✕</button>` : ''}
         </span>
       </div>`;
     });
@@ -4975,8 +4996,8 @@ function buildSummary() {
             <span class="lbl" style="color:var(--t2)">↳ ${escHtml(d.name)}</span>
             <span style="display:flex;align-items:center;gap:6px">
               <span class="val">${fmt(parseFloat(d.price))}</span>
-              <button onclick="unassignDish('${d.id}','solo')" title="Desasignar"
-                style="background:#FFF5F5;border:1px solid #FCCACA;font-size:13px;color:var(--accent);cursor:pointer;padding:2px 7px;border-radius:4px;line-height:1;font-weight:600">✕</button>
+              ${!paymentStarted ? `<button onclick="unassignDish('${d.id}','solo')" title="Desasignar"
+                style="background:#FFF5F5;border:1px solid #FCCACA;font-size:13px;color:var(--accent);cursor:pointer;padding:2px 7px;border-radius:4px;line-height:1;font-weight:600">✕</button>` : ''}
             </span>
           </div>`;
         });
@@ -4995,8 +5016,7 @@ function buildSummary() {
             </span>
             <span style="display:flex;align-items:center;gap:4px;flex-shrink:0">
               <span class="val">${fmt(share)}</span>
-              <button onclick="unassignDish('${d.id}','shared','${t.g.id}')" title="Quitar de este plato"
-                style="background:#FFF5F5;border:1px solid #FCCACA;font-size:13px;color:var(--accent);cursor:pointer;padding:2px 7px;border-radius:4px;line-height:1;font-weight:600">✕</button>
+              ${!paymentStarted ? `<button onclick="unassignDish('${d.id}','shared','${t.g.id}')" title="Quitar" style="background:#FFF5F5;border:1px solid #FCCACA;font-size:13px;color:var(--accent);cursor:pointer;padding:2px 7px;border-radius:4px;line-height:1;font-weight:600">✕</button>` : ''}
             </span>
           </div>`;
         });
@@ -5134,53 +5154,67 @@ function buildPayScreen() {
   const pm = state.paymentMethods || { mobilePay:true, card:true, cash:true };
   const container = document.getElementById('pay-methods-container');
   if (container) {
-    let btns = '';
+    // #6: Mobile pay = primary big button. Other options = collapsed under "Otras opciones"
+    let mobileBtns = '';
+    let otherBtns = '';
+
     if (pm.mobilePay !== false) {
-      btns += `<div style="position:relative;margin-bottom:.5rem">
-        <div style="font-size:10px;font-weight:700;color:var(--brand-d);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.35rem">Pago móvil <span style="font-size:9px;background:#34A853;color:#fff;padding:1px 6px;border-radius:99px;margin-left:4px">RECOMENDADO</span></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem">
+      mobileBtns += `<div style="margin-bottom:.75rem">
+        <div style="font-size:11px;font-weight:700;color:var(--brand-d);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">
+          Pago móvil — más rápido sin esperar al camarero
+          <span style="background:#34A853;color:#fff;font-size:9px;padding:1px 6px;border-radius:99px;margin-left:4px">RECOMENDADO</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
           <button class="pay-main-btn" onclick="confirmPay('Apple Pay')"
-            style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:.85rem .5rem;border-radius:var(--r);border:1.5px solid #000;background:#000;cursor:pointer;font-family:inherit">
-            <svg width="38" height="16" viewBox="0 0 44 28" fill="none"><rect width="44" height="28" rx="6" fill="#000"/><text x="22" y="19" text-anchor="middle" fill="white" font-size="12" font-family="sans-serif" font-weight="600"> Pay</text><path d="M10 10c1-1.5 2.5-2.5 4-2.5-.5 1.5-1.5 3-3 3.5S9 11.5 10 10z" fill="white"/><path d="M14 7.5c.8 0 1.8.5 2.3 1.3-1.8.3-3 1.8-2.8 3.5H12c-.2-2.3 1-4.8 2-4.8z" fill="white"/></svg>
-            <div style="font-size:12px;font-weight:600;color:#fff">Apple Pay</div>
+            style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:1rem .5rem;border-radius:var(--r);border:2px solid #000;background:#000;cursor:pointer;font-family:inherit">
+            <svg width="44" height="18" viewBox="0 0 44 28" fill="none"><rect width="44" height="28" rx="6" fill="#000"/><text x="22" y="19" text-anchor="middle" fill="white" font-size="12" font-family="sans-serif" font-weight="600"> Pay</text><path d="M10 10c1-1.5 2.5-2.5 4-2.5-.5 1.5-1.5 3-3 3.5S9 11.5 10 10z" fill="white"/><path d="M14 7.5c.8 0 1.8.5 2.3 1.3-1.8.3-3 1.8-2.8 3.5H12c-.2-2.3 1-4.8 2-4.8z" fill="white"/></svg>
+            <span style="font-size:13px;font-weight:700;color:#fff">Apple Pay</span>
           </button>
           <button class="pay-main-btn" onclick="confirmPay('Google Pay')"
-            style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:.85rem .5rem;border-radius:var(--r);border:1.5px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit">
-            <span style="font-size:13px;font-weight:700"><span style="color:#4285F4">G</span><span style="color:#EA4335">o</span><span style="color:#FBBC04">o</span><span style="color:#4285F4">g</span><span style="color:#34A853">l</span><span style="color:#EA4335">e</span></span>
-            <div style="font-size:12px;font-weight:500;color:var(--t1)">Google Pay</div>
+            style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:1rem .5rem;border-radius:var(--r);border:2px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit">
+            <span style="font-size:14px;font-weight:700"><span style="color:#4285F4">G</span><span style="color:#EA4335">o</span><span style="color:#FBBC04">o</span><span style="color:#4285F4">g</span><span style="color:#34A853">l</span><span style="color:#EA4335">e</span></span>
+            <span style="font-size:13px;font-weight:600;color:var(--t1)">Google Pay</span>
           </button>
         </div>
       </div>`;
     }
-    if (pm.card !== false) {
-      btns += `<button class="pay-main-btn" onclick="confirmPayWaiter('Tarjeta física (pedir datáfono)')"
-        style="display:flex;align-items:center;gap:14px;width:100%;padding:1rem 1.1rem;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.5rem">
-        <div style="width:44px;height:28px;background:linear-gradient(135deg,#1a1f71,#4b73c9);border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:28px;height:5px;background:rgba(255,255,255,.6);border-radius:2px;margin-top:4px"></div></div>
-        <div style="text-align:left"><div style="font-size:15px;font-weight:500;color:var(--t1)">Tarjeta física (pedir datáfono)</div><div style="font-size:11px;color:var(--t2)">El camarero vendrá a cobrarte</div></div>
-      </button>`;
-    }
+
     if (pm.bizum === true) {
-      btns += `<button class="pay-main-btn" onclick="confirmPay('Bizum')"
-        style="display:flex;align-items:center;gap:14px;width:100%;padding:1rem 1.1rem;border-radius:var(--r);border:1px solid #D4E6FF;background:#F0F7FF;cursor:pointer;font-family:inherit;margin-bottom:.5rem">
-        <div style="width:44px;height:28px;background:#0066FF;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#fff;font-size:11px;font-weight:700">bizum</span></div>
-        <div style="text-align:left"><div style="font-size:15px;font-weight:500;color:var(--t1)">Bizum</div><div style="font-size:11px;color:var(--t2)">Pago instantáneo entre móviles</div></div>
+      otherBtns += `<button class="pay-main-btn" onclick="confirmPay('Bizum')"
+        style="display:flex;align-items:center;gap:12px;width:100%;padding:.75rem 1rem;border-radius:var(--r-sm);border:1px solid #D4E6FF;background:#F0F7FF;cursor:pointer;font-family:inherit;margin-bottom:.35rem">
+        <div style="width:36px;height:22px;background:#0066FF;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#fff;font-size:10px;font-weight:700">bizum</span></div>
+        <div style="text-align:left"><div style="font-size:13px;font-weight:500;color:var(--t1)">Bizum</div><div style="font-size:11px;color:var(--t2)">Pago instantáneo entre móviles</div></div>
       </button>`;
     }
-    if (pm.ticketRestaurante === true) {
-      btns += `<button class="pay-main-btn" onclick="confirmPay('Ticket restaurante')"
-        style="display:flex;align-items:center;gap:14px;width:100%;padding:1rem 1.1rem;border-radius:var(--r);border:1px solid #E8F5E9;background:#F1F8F1;cursor:pointer;font-family:inherit;margin-bottom:.5rem">
-        <div style="width:44px;height:28px;background:#2E7D32;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🎫</div>
-        <div style="text-align:left"><div style="font-size:15px;font-weight:500;color:var(--t1)">Ticket restaurante</div><div style="font-size:11px;color:var(--t2)">Sodexo, Edenred, Pluxee…</div></div>
+    if (pm.card !== false) {
+      otherBtns += `<button class="pay-main-btn" onclick="confirmPayWaiter('Tarjeta física (pedir datáfono)')"
+        style="display:flex;align-items:center;gap:12px;width:100%;padding:.75rem 1rem;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.35rem">
+        <div style="width:36px;height:22px;background:linear-gradient(135deg,#1a1f71,#4b73c9);border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><div style="width:22px;height:4px;background:rgba(255,255,255,.6);border-radius:2px"></div></div>
+        <div style="text-align:left"><div style="font-size:13px;font-weight:500;color:var(--t1)">Tarjeta física (pedir datáfono)</div><div style="font-size:11px;color:var(--t2)">El camarero vendrá a cobrarte</div></div>
       </button>`;
     }
     if (pm.cash !== false) {
-      btns += `<button class="pay-main-btn" onclick="confirmPayWaiter('Efectivo')"
-        style="display:flex;align-items:center;gap:14px;width:100%;padding:1rem 1.1rem;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:1rem">
-        <div style="width:44px;height:28px;background:linear-gradient(135deg,#2E7D32,#66BB6A);border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">€</div>
-        <div style="text-align:left"><div style="font-size:15px;font-weight:500;color:var(--t1)">Efectivo</div><div style="font-size:11px;color:var(--t2)">El camarero vendrá a cobrarte</div></div>
+      otherBtns += `<button class="pay-main-btn" onclick="confirmPayWaiter('Efectivo')"
+        style="display:flex;align-items:center;gap:12px;width:100%;padding:.75rem 1rem;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.35rem">
+        <div style="width:36px;height:22px;background:linear-gradient(135deg,#2E7D32,#66BB6A);border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:14px;font-weight:700">€</div>
+        <div style="text-align:left"><div style="font-size:13px;font-weight:500;color:var(--t1)">Efectivo</div><div style="font-size:11px;color:var(--t2)">El camarero vendrá a cobrarte</div></div>
       </button>`;
     }
-    container.innerHTML = btns;
+    if (pm.ticketRestaurante === true) {
+      otherBtns += `<button class="pay-main-btn" onclick="confirmPay('Ticket restaurante')"
+        style="display:flex;align-items:center;gap:12px;width:100%;padding:.75rem 1rem;border-radius:var(--r-sm);border:1px solid #E8F5E9;background:#F1F8F1;cursor:pointer;font-family:inherit;margin-bottom:.35rem">
+        <div style="width:36px;height:22px;background:#2E7D32;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px">🎫</div>
+        <div style="text-align:left"><div style="font-size:13px;font-weight:500;color:var(--t1)">Ticket restaurante</div><div style="font-size:11px;color:var(--t2)">Sodexo, Edenred, Pluxee…</div></div>
+      </button>`;
+    }
+
+    const otherSection = otherBtns ? `
+      <div style="margin-top:.5rem">
+        <div style="font-size:11px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">Otras opciones</div>
+        ${otherBtns}
+      </div>` : '';
+
+    container.innerHTML = mobileBtns + otherSection;
   }
   const totals = calcTotals();
   const me = totals.find(t => t.g.id === state.myGuestId);
@@ -5241,7 +5275,7 @@ function buildPayScreen() {
           : isManualGuest
             ? `<button onclick="showPayForManual('${t.g.id}','${escHtml(t.g.name)}',${t.total})"
                 style="font-size:10px;font-weight:500;padding:2px 7px;border-radius:99px;background:var(--brand-l);color:var(--brand-d);border:1px solid var(--brand);cursor:pointer;font-family:inherit">
-                Pagar por él/ella
+                Pagar por ${escHtml(t.g.name.split(' ')[0])}
               </button>`
             : `<span style="font-size:11px;font-weight:500;padding:1px 7px;border-radius:99px;background:#FAEEDA;color:#854F0B">Pendiente</span>`
         }
@@ -5644,7 +5678,7 @@ async function confirmPayWaiter(method) {
         room_id: state.roomId,
         course: -1,
         course_label: 'Cobro',
-        table_label: state.restaurantName || 'Mesa',
+        table_label: state.tableLabel || state.restaurantName || 'Mesa',
         is_bebidas: false,
         dishes: [{ name: `${myName} — ${fmt(amount)} — ${method}` }],
         assigned_waiter_id: room?.assigned_waiter_id || null,
@@ -6417,7 +6451,11 @@ async function _pollWaiterNotifs() {
       const isBebidas = !!n.is_bebidas;
       const isMyTable = isBebidas || !n.assigned_waiter_id || n.assigned_waiter_id === _waiterId || n.waiter_id === _waiterId;
       if (!isMyTable) return;
-      const already = _waiterNotifHistory.find(x => x.id === n.id || String(x.id) === String(n.id));
+      const already = _waiterNotifHistory.find(x =>
+        String(x.id) === String(n.id) ||
+        (x.roomId === n.room_id && x.course === (n.course??1) &&
+         Math.abs(new Date(x.createdAt || 0) - new Date(n.created_at)) < 10000)
+      );
       if (already) { _waiterNotifLastPoll = n.created_at; return; }
       const dishes = Array.isArray(n.dishes) ? n.dishes : [];
       const course = n.course ?? 1;
@@ -6472,8 +6510,11 @@ function subscribeWaiterNotifications() {
       console.log('[Waiter] Notif recibida:', courseLabel, tableLabel, dishes.length, 'platos');
 
       // Deduplicate
-      const existing = _waiterNotifHistory.find(
-        x => !x.seen && x.roomId === n.room_id && x.course === course
+      // Robust dedup: check by DB id (primary) or room+course+time proximity
+      const existing = _waiterNotifHistory.find(x =>
+        String(x.id) === String(n.id) ||
+        (x.roomId === n.room_id && x.course === course &&
+         Math.abs(new Date(x.createdAt || 0) - new Date(n.created_at)) < 10000)
       );
       if (existing) {
         if (dishes.length) existing.dishes = dishes;
@@ -6482,7 +6523,8 @@ function subscribeWaiterNotifications() {
         playKitchenSound();
         haptic([200, 100, 200]);
         addWaiterNotif({
-          id: Date.now(),
+          id: n.id,  // ALWAYS use DB UUID — never Date.now() here
+          createdAt: n.created_at,
           tableLabel,
           roomId: n.room_id,
           courseLabel,
@@ -7275,13 +7317,20 @@ async function loadWaiterMesas() {
       const hasSentBebidas = isBebGroup && cDishes.some(d => d.kitchen_status === 'sent');
       return `<div style="margin-bottom:.35rem">
         <div style="font-size:10px;font-weight:600;color:${isBebGroup?'#185FA5':'var(--t3)'};text-transform:uppercase;letter-spacing:.05em;margin-bottom:.2rem">${cLabel}${hasSentBebidas ? ' 🔔' : ''}</div>
-        ${cDishes.map(d => {
+      ${cDishes.reduce((acc, d) => {
+          const key = (d.name||'').trim().toLowerCase() + '|' + (d.kitchen_status||'');
+          const existing = acc.find(x => x.key === key);
+          if (existing) { existing.count++; } else { acc.push({key, d, count:1}); }
+          return acc;
+        }, []).map(({d, count}) => {
           const isDel = d.kitchen_status === 'delivered';
           const isReady = d.kitchen_status === 'ready';
           const isSentBeb = isBebGroup && d.kitchen_status === 'sent';
           return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0">
             <span style="font-size:12px;flex-shrink:0">${STATUS_ICON[d.kitchen_status] || '⬜'}</span>
-            <span style="font-size:12px;flex:1;${isDel ? 'text-decoration:line-through;color:var(--t3)' : (isReady||isSentBeb) ? 'color:var(--brand-d);font-weight:500' : ''}">${escHtml(d.name)}</span>
+            <span style="font-size:12px;flex:1;${isDel ? 'text-decoration:line-through;color:var(--t3)' : (isReady||isSentBeb) ? 'color:var(--brand-d);font-weight:500' : ''}">
+              ${count > 1 ? `<strong>×${count}</strong> ` : ''}${escHtml(d.name)}
+            </span>
             ${isReady ? `<button onclick="markDishDelivered('${d.id}')"
               style="padding:2px 8px;border-radius:99px;border:none;background:var(--brand);color:#fff;font-size:10px;cursor:pointer;font-family:inherit;flex-shrink:0">
               Llevado ✓
@@ -9504,7 +9553,7 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
       const kdsDishGroups = [];
       const kdsSeenNames = {};
       cDishes.forEach(d => {
-        const key = (d.name||'') + '|' + (d.cooking_point||'');
+        const key = (d.name||'').trim().toLowerCase() + '|' + (d.cooking_point||'').trim().toLowerCase();
         if (kdsSeenNames[key] !== undefined) {
           kdsDishGroups[kdsSeenNames[key]].dishes.push(d);
         } else {
@@ -11744,6 +11793,13 @@ async function enterMesa() {
     state.tipPercent = 0;
     state.guests = guests || [];
     state.dishes = dishes || [];
+    // Load table label for notifications
+    if (room?.table_id) {
+      sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle()
+        .then(({ data: t }) => {
+          if (t) state.tableLabel = `Mesa ${t.number}${t.label ? ' — ' + t.label : ''}`;
+        }).catch(() => {});
+    }
     // Load restaurant payment methods config
     if (state.restaurantId) {
       sb.from('restaurants').select('payment_methods,tip_percent').eq('id', state.restaurantId).maybeSingle()
@@ -12465,6 +12521,11 @@ function goToSummary() {
 
 // #S7-7: Full reparto view for editing before payment
 function showEditRepartoModal() {
+  const paymentStarted = state.payments && state.payments.filter(p => p.guest_id).length > 0;
+  if (paymentStarted) {
+    notify('El pago ya ha comenzado — no se puede modificar el reparto.', 'info');
+    return;
+  }
   document.getElementById('edit-reparto-modal')?.remove();
   const el = document.createElement('div');
   el.id = 'edit-reparto-modal';
@@ -12778,15 +12839,26 @@ function showPaymentLockedModal(existingPayments) {
 function resetPayMethod() {
   const noPaid = !state.payments || state.payments.filter(p => p.guest_id).length === 0;
   if (!noPaid) {
-    notify('No se puede cambiar el método — alguien ya ha pagado.', 'info');
+    notify('No se puede cambiar — alguien ya ha pagado.', 'info');
     return;
   }
   _payMethod = null;
-  // Also clear DB lock if set
+  // Hide the change-method banner
+  const banner = document.getElementById('change-method-banner');
+  if (banner) banner.style.display = 'none';
+  // Clear DB lock if set
   if (state.roomId) {
-    sb.from('rooms').update({ pay_method_locked: null, pay_method_locker_name: null }).eq('id', state.roomId).catch(() => {});
+    sb.from('rooms').update({ pay_method_locked: null, pay_method_locker_name: null })
+      .eq('id', state.roomId).catch(() => {});
   }
-  showPayMethodModal();
+  // Show the method selection modal directly
+  document.getElementById('equal-split-panel').style.display = 'none';
+  document.querySelectorAll('.pay-method-btn').forEach(b => {
+    b.style.borderColor = 'var(--bd2)';
+    b.style.background = 'var(--card)';
+  });
+  const modal = document.getElementById('pay-method-modal');
+  if (modal) modal.style.display = 'flex';
 }
 
 function showPayMethodModal() {
@@ -12887,10 +12959,14 @@ function buildFullPayScreen() {
   const tipAmt = total * tipPct;
   const grandTotal = total + tipAmt;
 
+  // #9: Change "Tu parte" label to "Total mesa"
+  const parteLbl = document.querySelector('#s5-pay .body > div:first-child > div:first-child');
+  if (parteLbl) parteLbl.textContent = 'Total mesa';
+
   const nameEl = document.getElementById('pay-name-label');
   const amtEl = document.getElementById('pay-amount');
   const breakdownEl = document.getElementById('pay-breakdown');
-  if (nameEl) nameEl.textContent = (state.myName || 'Tú') + ' — invitas';
+  if (nameEl) nameEl.textContent = 'Invitas a toda la mesa';
   if (amtEl) amtEl.textContent = fmt(grandTotal);
   if (breakdownEl) {
     if (tipAmt > 0) { breakdownEl.textContent = `${fmt(total)} + ${fmt(tipAmt)} propina`; breakdownEl.style.display = 'block'; }
