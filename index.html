@@ -1838,13 +1838,14 @@
     <div id="atab-encurso" style="display:none;flex-direction:column;height:calc(100vh - 110px);overflow:hidden">
       <!-- Header bar -->
       <div style="display:flex;align-items:center;justify-content:space-between;padding:.6rem 1.25rem;border-bottom:1px solid var(--bd);background:var(--card);flex-shrink:0">
-        <div style="display:flex;align-items:center;gap:1rem">
+        <div style="display:flex;align-items:center;gap:.75rem">
           <div class="live-badge"><div class="live-dot"></div><span>Tiempo real</span></div>
+          <span style="color:var(--bd2);font-size:14px;line-height:1">|</span>
           <div style="display:flex;gap:.4rem;font-size:11px;flex-wrap:wrap">
             <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:#E24B4A;display:inline-block"></span>Con pedidos</span>
             <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:#EF9F27;display:inline-block"></span>Pagando</span>
-            <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:#854F0B;display:inline-block"></span>Pagada · Pendiente limpieza</span>
-            <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:var(--bd2);display:inline-block"></span>Libre</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:#854F0B;display:inline-block"></span>Pendiente limpieza</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:#22C55E;display:inline-block"></span>Libre y limpia</span>
           </div>
         </div>
         <div style="display:flex;gap:.5rem;align-items:center">
@@ -4378,13 +4379,17 @@ function renderMesaDishes() {
   const sendBtn = document.getElementById('btn-send-kitchen');
   const sentMsg = document.getElementById('kitchen-sent-msg');
   const unsentDishes = state.dishes.filter(d => !d.kitchen_status || d.kitchen_status === 'new');
+  const paymentStarted = state.payments && state.payments.filter(p => p.guest_id).length > 0;
   if (sendBtn) {
-    sendBtn.style.display = unsentDishes.length > 0 ? '' : 'none';
-    sendBtn.textContent = `Revisar y enviar a cocina (${unsentDishes.length}) →`;
+    // Fix #10: ocultar si pago iniciado
+    if (paymentStarted) {
+      sendBtn.style.display = 'none';
+    } else {
+      sendBtn.style.display = unsentDishes.length > 0 ? '' : 'none';
+      sendBtn.textContent = `Revisar y enviar a cocina (${unsentDishes.length}) →`;
+    }
   }
   if (sentMsg) {
-    // #36: Hide if payments already started — message about kitchen is irrelevant
-    const paymentStarted = state.payments && state.payments.length > 0;
     sentMsg.style.display = (state.dishes.length > 0 && unsentDishes.length === 0 && !paymentStarted) ? 'block' : 'none';
   }
 
@@ -4696,6 +4701,11 @@ async function toggleDishType(dishId) {
 // SEND TO KITCHEN
 // ══════════════════════════════════════════════════════
 function showSendToKitchenConfirm() {
+  // Fix #10: bloquear envío si pago ya iniciado
+  if (state.payments && state.payments.filter(p => p.guest_id).length > 0) {
+    notify('El pago ya ha comenzado — no se pueden enviar más platos a cocina.', 'info');
+    return;
+  }
   const unsentDishes = state.dishes.filter(d => !d.kitchen_status || d.kitchen_status === 'new');
   if (!unsentDishes.length) return;
 
@@ -4776,6 +4786,13 @@ async function confirmSendToKitchen() {
 }
 
 async function sendToKitchen() {
+  // Fix #10: bloquear envío si pago ya iniciado
+  if (state.payments && state.payments.filter(p => p.guest_id).length > 0) {
+    notify('El pago ya ha comenzado — no se pueden enviar más platos a cocina.', 'info');
+    const btn = document.getElementById('btn-send-kitchen');
+    if (btn) btn.style.display = 'none';
+    return;
+  }
   const unsentDishes = state.dishes.filter(d =>
     !d.kitchen_status || d.kitchen_status === 'new'
   );
@@ -5182,7 +5199,7 @@ function buildPayScreen() {
     if (pm.mobilePay !== false) {
       mobileBtns += `<div style="margin-bottom:.75rem">
         <div style="font-size:11px;font-weight:700;color:var(--brand-d);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">
-          Pago móvil — más rápido sin esperar al camarero
+          Rápido y sencillo, desde spliteat
           <span style="background:#34A853;color:#fff;font-size:9px;padding:1px 6px;border-radius:99px;margin-left:4px">RECOMENDADO</span>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
@@ -5231,7 +5248,7 @@ function buildPayScreen() {
 
     const otherSection = otherBtns ? `
       <div style="margin-top:.5rem">
-        <div style="font-size:11px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">Otras opciones</div>
+        <div style="font-size:11px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">Otras opciones — llamar al camarero</div>
         ${otherBtns}
       </div>` : '';
 
@@ -6670,7 +6687,6 @@ function renderWaiterNotifBanner() {
 
   banner.innerHTML = `<div style="background:#085041;color:#fff;border-radius:var(--r);padding:.7rem 1rem;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.25);cursor:pointer"
     onclick="openWaiterNotifDetailIdx(${_waiterNotifHistory.indexOf(latest)})">
-    <div style="font-size:20px;flex-shrink:0">🛎</div>
     <div style="flex:1;min-width:0">
       <div style="font-size:13px;font-weight:600">${latest.tableLabel} — ${latest.courseLabel} listos</div>
       <div style="font-size:11px;opacity:.75">Toca para ver qué hay que servir · ${latest.time}</div>
@@ -6679,7 +6695,7 @@ function renderWaiterNotifBanner() {
       ${unseen.length > 1 ? `<span style="background:rgba(255,255,255,.2);border-radius:99px;padding:2px 7px;font-size:11px">+${unseen.length - 1}</span>` : ''}
       <button onclick="event.stopPropagation();markWaiterNotifSeen(${_waiterNotifHistory.indexOf(latest)})"
         style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:99px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit">
-        ✓ Visto
+        Visto
       </button>
     </div>
   </div>`;
@@ -9971,20 +9987,39 @@ function renderKDSKanban(dishes, roomTableMap, tablesById, prepTimeByItem) {
     const elapsed = Math.floor((Date.now() - oldest) / 60000);
     const timerColor = elapsed > 15 ? '#C0392B' : elapsed > 8 ? '#E67E22' : 'var(--t3)';
 
-    const dishRows = dishes.map(d => {
-      const courseBadge = d.course ? `<span style="font-size:10px;background:var(--bg2);border-radius:3px;padding:1px 5px;color:var(--t3);margin-right:4px">${d.course}º</span>` : '';
+    // Fix #5: agrupar platos idénticos (nombre + punto cocción) → mostrar ×2, ×3
+    const seenKeys = {};
+    const dishGroups = [];
+    dishes.forEach(d => {
+      const key = (d.name||'').trim().toLowerCase() + '|' + (d.cooking_point||'').trim().toLowerCase();
+      if (seenKeys[key] !== undefined) {
+        dishGroups[seenKeys[key]].items.push(d);
+      } else {
+        seenKeys[key] = dishGroups.length;
+        dishGroups.push({ items: [d], name: d.name, cooking_point: d.cooking_point });
+      }
+    });
+
+    const dishRows = dishGroups.map(grp => {
+      const d = grp.items[0];
+      const count = grp.items.length;
       const prepTime = prepTimeByItem[d.menu_item_id] || 0;
       let btn = '';
       if (fromStatus === 'sent' && state.adminRole !== 'admin') {
-        btn = `<button onclick="setOrderStatus('${d.id}','making');event.stopPropagation()" style="padding:4px 12px;border-radius:99px;border:none;background:var(--brand);color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">→ Prep.</button>`;
+        const ids = grp.items.map(x => `'${x.id}'`).join(',');
+        btn = `<button onclick="[${ids}].forEach(id=>setOrderStatus(id,'making'));event.stopPropagation()" style="padding:4px 12px;border-radius:99px;border:none;background:var(--brand);color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">→ Prep.</button>`;
       } else if (fromStatus === 'making' && state.adminRole !== 'admin') {
-        btn = `<button onclick="setOrderStatus('${d.id}','ready');event.stopPropagation()" style="padding:4px 12px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">✓ Listo</button>`;
+        const ids = grp.items.map(x => `'${x.id}'`).join(',');
+        btn = `<button onclick="[${ids}].forEach(id=>setOrderStatus(id,'ready'));event.stopPropagation()" style="padding:4px 12px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">✓ Listo</button>`;
       } else if (fromStatus !== 'sent' && fromStatus !== 'making') {
         btn = `<span style="font-size:13px;color:#3B6D11">✓</span>`;
       }
       return `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--bd)">
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${courseBadge}${escHtml(d.name)}</div>
+          <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            ${count > 1 ? `<strong style="color:var(--brand-d);margin-right:4px">×${count}</strong>` : ''}${escHtml(d.name)}
+            ${d.cooking_point ? `<span style="font-size:10px;background:#333;color:#fff;border-radius:99px;padding:1px 5px;margin-left:3px">${d.cooking_point}</span>` : ''}
+          </div>
           ${prepTime > 0 ? `<div style="font-size:10px;color:var(--t3)">⏱ ${prepTime} min</div>` : ''}
         </div>${btn}
       </div>`;
@@ -10007,7 +10042,7 @@ function renderKDSKanban(dishes, roomTableMap, tablesById, prepTimeByItem) {
         <span style="font-size:13px;font-weight:600">${tableLabel}</span>
         <div style="display:flex;align-items:center;gap:8px">
           <span style="font-size:11px;color:${timerColor};font-weight:${elapsed > 8 ? '600' : '400'}">${elapsed > 0 ? elapsed + ' min' : 'ahora'}</span>
-          <span style="font-size:11px;color:var(--t3)">${dishes.length} platos</span>
+          <span style="font-size:11px;color:var(--t3)">${dishGroups.length} plato${dishGroups.length !== 1 ? 's' : ''}</span>
         </div>
       </div>
       ${dishRows}${confirmAllBtn}
@@ -10579,13 +10614,14 @@ async function loadFloorPlan() {
     const paying = room && paidCount > 0 && !allPaid;
     const hasOrder = room && guestCount === 0; // waiter-created room
 
-    // Color — needs_cleaning (brown) > paying (orange) > with orders (red) > libre (grey)
-    let color = 'var(--bd2)'; // libre
-    let textColor = 'var(--t2)';
-    let borderColor = 'var(--bd)';
-    if (room?.needs_cleaning || allPaid) { color = '#854F0B'; textColor = '#fff'; borderColor = '#854F0B'; }
+    // Color — needs_cleaning (brown) > paying (orange) > with orders (red) > libre (green)
+    let color = '#22C55E'; // libre y limpia = verde
+    let textColor = '#fff';
+    let borderColor = '#16A34A';
+    if (room?.needs_cleaning) { color = '#854F0B'; textColor = '#fff'; borderColor = '#854F0B'; }
+    else if (allPaid && room && !room.closed) { color = '#854F0B'; textColor = '#fff'; borderColor = '#854F0B'; }
     else if (paying) { color = '#EF9F27'; textColor = '#fff'; borderColor = '#EF9F27'; }
-    else if (room) { color = '#E24B4A'; textColor = '#fff'; borderColor = '#E24B4A'; }
+    else if (room && !room.closed) { color = '#E24B4A'; textColor = '#fff'; borderColor = '#E24B4A'; }
 
     // Position
     const isTerraza = (table.label||'').toLowerCase().includes('terraza');
@@ -11753,11 +11789,51 @@ async function handleQRUrl() {
     document.getElementById('qr-rest-nombre').textContent = rest.name;
 
     if (activeRoom) {
-      // Fix #28: show returning-vs-new choice instead of simple notice
-      document.getElementById('qr-returning-panel').style.display = 'block';
-      document.getElementById('qr-newuser-panel').style.display = 'none';
-      document.getElementById('qr-returning-pick').style.display = 'none';
+      if (activeRoom.needs_cleaning) {
+        // Mesa sucia — mostrar aviso pero permitir entrar
+        document.getElementById('qr-returning-panel').style.display = 'none';
+        document.getElementById('qr-newuser-panel').style.display = 'none';
+        document.getElementById('qr-returning-pick').style.display = 'none';
+        let cleanWarn = document.getElementById('qr-cleaning-warn');
+        if (!cleanWarn) {
+          cleanWarn = document.createElement('div');
+          cleanWarn.id = 'qr-cleaning-warn';
+          const ref = document.getElementById('qr-returning-panel');
+          ref.parentNode.insertBefore(cleanWarn, ref.nextSibling);
+        }
+        cleanWarn.style.display = 'block';
+        cleanWarn.innerHTML = `
+          <div style="background:#FAEEDA;border:1.5px solid #E5A85A;border-radius:var(--r);padding:1rem 1.1rem;margin-bottom:1rem">
+            <div style="font-size:15px;font-weight:600;color:#854F0B;margin-bottom:.4rem">Mesa pendiente de limpieza</div>
+            <div style="font-size:13px;color:#633806;line-height:1.5;margin-bottom:.85rem">Puedes iniciar tu pedido igualmente. Avisamos al camarero para que limpie tan pronto como sea posible.</div>
+            <div style="font-size:13px;font-weight:500;color:#854F0B;margin-bottom:.5rem">¿La mesa ya está limpia?</div>
+            <div style="display:flex;gap:.5rem;margin-bottom:.85rem">
+              <button onclick="_setCleaningWarnChoice(true)"
+                style="flex:1;padding:10px;border-radius:var(--r-sm);border:1.5px solid #854F0B;background:#854F0B;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">
+                No, avisar al camarero
+              </button>
+              <button onclick="_setCleaningWarnChoice(false)"
+                style="flex:1;padding:10px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--card);color:var(--t1);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">
+                Sí, ya está limpia
+              </button>
+            </div>
+            <input id="qr-name-cleaning" type="text" placeholder="Tu nombre para entrar"
+              style="width:100%;padding:12px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);font-size:15px;font-family:inherit;margin-bottom:.5rem;box-sizing:border-box">
+            <button class="btn btn-primary" onclick="_submitEnterCleaning()" style="width:100%">Entrar a la mesa →</button>
+          </div>`;
+        window._cleaningNotifyWaiter = true;
+        setTimeout(() => document.getElementById('qr-name-cleaning')?.focus(), 300);
+      } else {
+        // Fix #28: show returning-vs-new choice
+        const cw = document.getElementById('qr-cleaning-warn');
+        if (cw) cw.style.display = 'none';
+        document.getElementById('qr-returning-panel').style.display = 'block';
+        document.getElementById('qr-newuser-panel').style.display = 'none';
+        document.getElementById('qr-returning-pick').style.display = 'none';
+      }
     } else {
+      const cw = document.getElementById('qr-cleaning-warn');
+      if (cw) cw.style.display = 'none';
       document.getElementById('qr-returning-panel').style.display = 'none';
       document.getElementById('qr-returning-pick').style.display = 'none';
       document.getElementById('qr-newuser-panel').style.display = 'block';
@@ -11774,6 +11850,52 @@ async function handleQRUrl() {
 }
 
 let _enterMesaInProgress = false;
+window._cleaningNotifyWaiter = true;
+
+function _setCleaningWarnChoice(notifyWaiter) {
+  window._cleaningNotifyWaiter = notifyWaiter;
+  if (!notifyWaiter && _qrActiveRoomId) {
+    sb.from('rooms').update({ needs_cleaning: false, cleaned_at: new Date().toISOString() })
+      .eq('id', _qrActiveRoomId).catch(() => {});
+  }
+  // Feedback visual
+  const btns = document.querySelectorAll('#qr-cleaning-warn button:not(.btn-primary)');
+  btns.forEach(b => { b.style.opacity = '0.5'; b.disabled = true; });
+}
+
+async function _submitEnterCleaning() {
+  const nameEl = document.getElementById('qr-name-cleaning');
+  const name = (nameEl?.value || '').trim();
+  if (!name) { nameEl?.focus(); return; }
+  // Copiar nombre al input principal
+  const mainName = document.getElementById('qr-name');
+  if (mainName) mainName.value = name;
+  // Notificar al camarero si necesario
+  if (window._cleaningNotifyWaiter && _qrActiveRoomId && _qrRestaurantId) {
+    try {
+      const { data: room } = await sb.from('rooms').select('table_id,assigned_waiter_id,restaurant_id').eq('id', _qrActiveRoomId).maybeSingle();
+      let tableLabel = 'Mesa';
+      if (room?.table_id) {
+        const { data: t } = await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle();
+        if (t) tableLabel = `Mesa ${t.number}${t.label ? ' — ' + t.label : ''}`;
+      }
+      await sb.from('kitchen_notifications').insert({
+        restaurant_id: _qrRestaurantId,
+        room_id: _qrActiveRoomId,
+        course: -1,
+        course_label: 'Limpieza urgente',
+        table_label: tableLabel,
+        is_bebidas: false,
+        dishes: [{ name: `${tableLabel} — comensales pidiendo, pendiente de limpieza (PRIORIDAD)` }],
+        assigned_waiter_id: room?.assigned_waiter_id || null,
+      }).catch(() => {});
+    } catch(e) {}
+  }
+  const cw = document.getElementById('qr-cleaning-warn');
+  if (cw) cw.style.display = 'none';
+  document.getElementById('qr-newuser-panel').style.display = 'block';
+  enterMesa();
+}
 
 async function enterMesa() {
   if (_enterMesaInProgress) return; // #10: prevent double submit
