@@ -1800,11 +1800,6 @@
           <button class="adm-nav" data-tab="gestion" onclick="showAdminTab('gestion')">
             <span class="adm-nav-icon">⚙️</span><span class="adm-nav-label">Ajustes</span>
           </button>
-          <button class="adm-nav" data-tab="notificaciones" onclick="showAdminTab('notificaciones')">
-            <span class="adm-nav-icon" style="font-size:13px;font-weight:700">N</span>
-            <span class="adm-nav-label">Notificaciones</span>
-            <span id="admin-notif-badge" style="display:none;background:#E24B4A;color:#fff;border-radius:99px;padding:0px 6px;font-size:10px;font-weight:700;margin-left:auto">0</span>
-          </button>
         </nav>
 
         <div style="padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,.08)">
@@ -1828,11 +1823,38 @@
           <button onclick="adminLogout()" style="background:none;border:none;font-size:12px;color:var(--t2);cursor:pointer;font-family:inherit">Salir</button>
         </div>
 
+        <!-- Botón flotante de notificaciones — visible en TODAS las pestañas de manageat -->
+        <button id="admin-notif-fab" onclick="openAdminNotifPanel()"
+          style="position:fixed;bottom:72px;right:16px;z-index:400;width:48px;height:48px;border-radius:50%;background:var(--brand-d);color:#fff;border:none;cursor:pointer;font-family:inherit;box-shadow:0 4px 16px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;font-size:18px;transition:transform .15s"
+          onmouseenter="this.style.transform='scale(1.08)'" onmouseleave="this.style.transform='scale(1)'">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span id="admin-notif-badge" style="display:none;position:absolute;top:-2px;right:-2px;background:#E24B4A;color:#fff;border-radius:99px;font-size:10px;font-weight:700;min-width:18px;height:18px;text-align:center;line-height:18px;padding:0 3px">0</span>
+        </button>
+
+        <!-- Panel lateral de notificaciones -->
+        <div id="admin-notif-panel" style="display:none;position:fixed;top:0;right:0;bottom:0;width:min(360px,100vw);z-index:450;background:var(--card);box-shadow:-4px 0 24px rgba(0,0,0,.15);flex-direction:column">
+          <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--brand-d)">
+            <div style="font-size:15px;font-weight:600;color:#fff">Notificaciones</div>
+            <div style="display:flex;gap:.5rem;align-items:center">
+              <button onclick="markAllAdminNotifSeen()" style="font-size:12px;padding:3px 10px;border-radius:99px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;cursor:pointer;font-family:inherit">Todo visto</button>
+              <button onclick="closeAdminNotifPanel()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+            </div>
+          </div>
+          <div id="admin-notif-list" style="overflow-y:auto;flex:1;padding:.75rem 1.25rem">
+            <div style="text-align:center;padding:3rem 1rem;color:var(--t3);font-size:13px">Sin notificaciones aún</div>
+          </div>
+        </div>
+        <!-- Overlay para cerrar panel -->
+        <div id="admin-notif-overlay" onclick="closeAdminNotifPanel()" style="display:none;position:fixed;inset:0;z-index:440;background:rgba(0,0,0,.3)"></div>
+
         <!-- Mobile bottom tabs — only shown on small screens (<900px), sidebar handles desktop -->
         <div class="admin-mobile-tabs">
           <button class="adm-mob-tab on" data-tab="encurso" onclick="showAdminTab('encurso')">🏠<br><span>Sala</span></button>
-          <button class="adm-mob-tab" data-tab="cocina" onclick="showAdminTab('cocina')">🍳<br><span>Cocina</span></button>
-          <button class="adm-mob-tab" data-tab="facturas" onclick="showAdminTab('facturas')">🧾<br><span>Facturas</span></button>
+          <button class="adm-mob-tab" data-tab="cocina" onclick="showAdminTab('cocina')">KDS<br><span>Cocina</span></button>
+          <button class="adm-mob-tab" data-tab="facturas" onclick="showAdminTab('facturas')">📄<br><span>Facturas</span></button>
           <button class="adm-mob-tab" data-tab="reportes" onclick="showAdminTab('reportes')">📊<br><span>Dashboard</span></button>
           <button class="adm-mob-tab" data-tab="gestion" onclick="showAdminTab('gestion')">⚙️<br><span>Ajustes</span></button>
         </div>
@@ -3005,6 +3027,8 @@ document.addEventListener('visibilitychange', async () => {
 
 function resetState() {
   state.realtimeSubs.forEach(s => { try { sb.removeChannel(s); } catch(e){} });
+  // Limpiar polling de dishes
+  if (window._dishPollInterval) { clearInterval(window._dishPollInterval); window._dishPollInterval = null; }
   clearSession();
   state = { ...state, myName:'', myGuestId:null, roomId:null, roomCode:null,
     restaurantName:'', tipPercent:0, guests:[], dishes:[], participants:{},
@@ -3535,7 +3559,6 @@ function subscribeRealtime() {
     .subscribe();
 
   // CRÍTICO: recibir dishes_updated desde serveat (workaround REPLICA IDENTITY FULL)
-  // Cuando el camarero marca bebidas/platos como servidos, re-fetchamos dishes completo.
   const roomDeliveredSub = sb.channel('room-' + state.roomId)
     .on('broadcast', { event: 'dishes_updated' }, async () => {
       const { data: freshDishes } = await sb.from('dishes').select('*').eq('room_id', state.roomId);
@@ -3547,6 +3570,32 @@ function subscribeRealtime() {
       }
     })
     .subscribe();
+
+  // Fallback polling: re-fetch dishes cada 8s para capturar cambios perdidos por falta de REPLICA IDENTITY
+  // Solo activo en s3-dishes y cuando hay dishes enviados a cocina
+  if (window._dishPollInterval) clearInterval(window._dishPollInterval);
+  window._dishPollInterval = setInterval(async () => {
+    if (!state.roomId) return;
+    const activeScreen = document.querySelector('.screen.active');
+    if (!activeScreen || !['s3-dishes','s4-summary','s5-pay'].includes(activeScreen.id)) return;
+    const hasSentDishes = state.dishes.some(d => d.kitchen_status && d.kitchen_status !== 'new');
+    if (!hasSentDishes) return;
+    try {
+      const { data: freshDishes } = await sb.from('dishes').select('*').eq('room_id', state.roomId);
+      if (!freshDishes) return;
+      // Solo actualizar si hay cambios reales en kitchen_status
+      const changed = freshDishes.some(fd => {
+        const old = state.dishes.find(d => d.id === fd.id);
+        return old && old.kitchen_status !== fd.kitchen_status;
+      });
+      if (changed) {
+        state.dishes = freshDishes;
+        renderMesaDishes();
+        renderCarta();
+        if (document.getElementById('s4-summary')?.classList.contains('active')) buildSummary();
+      }
+    } catch(e) {}
+  }, 8000);
 
   state.realtimeSubs = [guestSub, dishSub, partSub, paySub, roomSub, broadcastSub, roomDeliveredSub];
 }
@@ -4478,6 +4527,36 @@ function renderDishCard(dish) {
   const isDelivered = ks === 'delivered';
   // #BG3: Bebidas are served by waiter, not kitchen
   const isBebida = dish.category === 'bebidas' || dish.course === 0;
+  // Bebidas "con el postre" — esperan hasta que todos los platos de comida estén servidos
+  const isWithPostre = !!dish.with_postre;
+
+  // Kitchen status badge — bebidas: estado especial o Servido
+  const ksBadge = isSent
+    ? `<span style="font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;white-space:nowrap;background:${
+        isDelivered   ? '#EAF3DE' :
+        isWithPostre  ? '#F5EEF8' :
+        isBebida      ? '#FFF3E0' :
+        ks==='ready'  ? '#EAF3DE' :
+        ks==='making' ? '#FFF3E0' : '#EBF4FB'
+      };color:${
+        isDelivered   ? '#2E7D2E' :
+        isWithPostre  ? '#7D3C98' :
+        isBebida      ? '#B7560D' :
+        ks==='ready'  ? '#2E7D2E' :
+        ks==='making' ? '#B7560D' : '#1565A8'
+      };border:1px solid ${
+        isDelivered   ? '#A8D5A2' :
+        isWithPostre  ? '#D7BDE2' :
+        isBebida      ? '#F5CBA7' :
+        ks==='ready'  ? '#A8D5A2' :
+        ks==='making' ? '#F5CBA7' : '#AED6F1'
+      }">
+        ${isDelivered  ? 'Servido' :
+          isWithPostre ? 'Con el postre' :
+          isBebida     ? 'En camino' :
+          ks==='ready' ? 'Listo' :
+          ks==='making'? 'Preparando' : 'En cocina'}
+      </span>` : '';
 
   // Course badge
   const courseLabels = { 0: '', 1: '1º', 2: '2º', 3: '3º' };
@@ -4489,30 +4568,6 @@ function renderDishCard(dish) {
   const cookingBadge = dish.cooking_point
     ? `<span style="font-size:10px;padding:2px 7px;border-radius:99px;background:${cpColors[dish.cooking_point]||'#666'};color:#fff;margin-left:4px;font-weight:500;white-space:nowrap;display:inline-block">${dish.cooking_point}</span>`
     : '';
-
-  // Kitchen status badge — bebidas: En camino (naranja) o Servido (verde)
-  const ksBadge = isSent
-    ? `<span style="font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;white-space:nowrap;background:${
-        isDelivered          ? '#EAF3DE' :
-        isBebida             ? '#FFF3E0' :
-        ks==='ready'         ? '#EAF3DE' :
-        ks==='making'        ? '#FFF3E0' : '#EBF4FB'
-      };color:${
-        isDelivered          ? '#2E7D2E' :
-        isBebida             ? '#B7560D' :
-        ks==='ready'         ? '#2E7D2E' :
-        ks==='making'        ? '#B7560D' : '#1565A8'
-      };border:1px solid ${
-        isDelivered          ? '#A8D5A2' :
-        isBebida             ? '#F5CBA7' :
-        ks==='ready'         ? '#A8D5A2' :
-        ks==='making'        ? '#F5CBA7' : '#AED6F1'
-      }">
-        ${isDelivered        ? 'Servido' :
-          isBebida           ? (ks === 'delivered' ? 'Servido' : 'En camino') :
-          ks==='ready'       ? 'Listo' :
-          ks==='making'      ? 'Preparando' : 'En cocina'}
-      </span>` : '';
 
   // Consistent guest colors (same palette as carta initials)
   const GUEST_COLORS = ['#D85A30','#185FA5','#7B3FA0','#C0392B','#117A65','#B7770D','#1A5276','#6E2C00'];
@@ -8169,7 +8224,6 @@ function showAdminTab(name) {
   if (name === 'cocina') loadAdminOrders();
   if (name === 'reservas') initReservasTab();
   if (name === 'reportes') { loadKPIs(); showReportesTab('kpis'); }
-  if (name === 'notificaciones') { renderAdminNotifList(); markAllAdminNotifSeen(); }
   // Populate sidebar restaurant name if available
   const restLabel = document.getElementById('admin-restaurant-label');
   const userInfo = document.getElementById('admin-user-info');
@@ -9438,9 +9492,32 @@ async function confirmTableClean(roomId) {
 }
 
 async function adminCloseTable(roomId) {
-  // Mark as needs cleaning before closing
-  await sb.from('rooms').update({ needs_cleaning: true, closed: true, closed_at: new Date().toISOString() }).eq('id', roomId);
-  // Notify active waiters for cleaning
+  await sb.from('rooms').update({
+    needs_cleaning: true, closed: true, closed_at: new Date().toISOString()
+  }).eq('id', roomId);
+
+  // Notificar al camarero que debe limpiar la mesa
+  try {
+    const { data: room } = await sb.from('rooms')
+      .select('table_id,assigned_waiter_id,waiter_id,restaurant_id').eq('id', roomId).maybeSingle();
+    const restId = room?.restaurant_id || state.adminRestaurantId;
+    let tableLabel = 'Mesa';
+    if (room?.table_id) {
+      const { data: t } = await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle();
+      if (t) tableLabel = `Mesa ${t.number}${t.label ? ' — ' + t.label : ''}`;
+    }
+    if (restId) {
+      await sb.from('kitchen_notifications').insert({
+        restaurant_id: restId, room_id: roomId,
+        course: -1, course_label: 'Mesa cerrada — limpiar',
+        table_label: tableLabel, is_bebidas: false,
+        dishes: [{ name: `${tableLabel} — mesa cerrada manualmente, pendiente de limpieza` }],
+        assigned_waiter_id: room?.assigned_waiter_id || null,
+        waiter_id: room?.waiter_id || null,
+      }).catch(() => {});
+    }
+  } catch(e) {}
+
   loadFloorPlan();
   loadEncurso();
   showToast('Mesa cerrada', 'Solicita limpieza a los camareros');
@@ -10521,17 +10598,31 @@ let _prevPaymentCounts = {}; // roomId → nº pagos anteriores
 let _adminNotifs = []; // { id, type, title, body, time, seen, tableLabel }
 let _adminNotifSub = null;
 
+function openAdminNotifPanel() {
+  renderAdminNotifList();
+  markAllAdminNotifSeen();
+  document.getElementById('admin-notif-panel').style.display = 'flex';
+  document.getElementById('admin-notif-overlay').style.display = 'block';
+}
+
+function closeAdminNotifPanel() {
+  document.getElementById('admin-notif-panel').style.display = 'none';
+  document.getElementById('admin-notif-overlay').style.display = 'none';
+}
+
 function _addAdminNotif(notif) {
   _adminNotifs.unshift({ ...notif, id: Date.now() + Math.random(), seen: false, time: new Date().toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }) });
   _updateAdminNotifBadge();
-  // Si el panel está abierto, actualizar
-  if (document.getElementById('atab-notificaciones')?.style.display !== 'none') renderAdminNotifList();
+  // Si el panel está abierto, actualizar lista
+  if (document.getElementById('admin-notif-panel')?.style.display !== 'none') renderAdminNotifList();
 }
 
 function _updateAdminNotifBadge() {
   const unseen = _adminNotifs.filter(n => !n.seen).length;
   const badge = document.getElementById('admin-notif-badge');
+  const fab = document.getElementById('admin-notif-fab');
   if (badge) { badge.textContent = unseen; badge.style.display = unseen > 0 ? 'inline' : 'none'; }
+  if (fab) fab.style.background = unseen > 0 ? '#E24B4A' : 'var(--brand-d)';
 }
 
 function markAllAdminNotifSeen() {
@@ -12042,22 +12133,28 @@ async function _submitEnterCleaning() {
   if (!name) { nameEl?.focus(); return; }
   const mainName = document.getElementById('qr-name');
   if (mainName) mainName.value = name;
-  if (window._cleaningNotifyWaiter && _qrActiveRoomId && _qrRestaurantId) {
+
+  // Usar la room activa O la última cerrada con needs_cleaning
+  const roomIdToNotify = _qrActiveRoomId || window._lastClosedRoomId;
+
+  if (window._cleaningNotifyWaiter && roomIdToNotify && _qrRestaurantId) {
     try {
-      const { data: room } = await sb.from('rooms').select('table_id,assigned_waiter_id').eq('id', _qrActiveRoomId).maybeSingle();
+      const { data: room } = await sb.from('rooms')
+        .select('table_id,assigned_waiter_id').eq('id', roomIdToNotify).maybeSingle();
       let tableLabel = 'Mesa';
       if (room?.table_id) {
         const { data: t } = await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle();
         if (t) tableLabel = `Mesa ${t.number}${t.label ? ' — ' + t.label : ''}`;
       }
       await sb.from('kitchen_notifications').insert({
-        restaurant_id: _qrRestaurantId, room_id: _qrActiveRoomId,
+        restaurant_id: _qrRestaurantId, room_id: roomIdToNotify,
         course: -1, course_label: 'Limpieza urgente', table_label: tableLabel, is_bebidas: false,
         dishes: [{ name: `${tableLabel} — comensales pidiendo, pendiente de limpieza (PRIORIDAD)` }],
         assigned_waiter_id: room?.assigned_waiter_id || null,
       }).catch(() => {});
-    } catch(e) {}
+    } catch(e) { console.warn('_submitEnterCleaning notif error:', e); }
   }
+
   const cw = document.getElementById('qr-cleaning-warn');
   if (cw) cw.style.display = 'none';
   document.getElementById('qr-newuser-panel').style.display = 'block';
