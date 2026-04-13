@@ -1390,14 +1390,15 @@
     <div class="body" style="padding-top:1.25rem;overflow-y:auto">
       <!-- FORM: Apuntarse -->
       <div id="calleat-form-area">
-        <div style="font-size:15px;font-weight:600;margin-bottom:1rem">Únete a la lista de espera</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:.5rem">Únete a la lista de espera</div>
+        <div style="font-size:13px;color:var(--t2);margin-bottom:1rem;line-height:1.5">Te avisamos cuando haya una mesa disponible para tu grupo. Puedes cerrar la app — te llegará igualmente.</div>
         <div class="field">
           <label>Tu nombre</label>
           <input id="calleat-name" type="text" placeholder="ej. María" autocomplete="given-name">
         </div>
         <div class="field">
           <label>Número de personas</label>
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:.35rem">
             <button class="pax-btn" data-n="1" onclick="selectCalleatPax(1)">1</button>
             <button class="pax-btn" data-n="2" onclick="selectCalleatPax(2)">2</button>
             <button class="pax-btn" data-n="3" onclick="selectCalleatPax(3)">3</button>
@@ -1405,11 +1406,12 @@
             <button class="pax-btn" data-n="5" onclick="selectCalleatPax(5)">5</button>
             <button class="pax-btn" data-n="6" onclick="selectCalleatPax(6)">6+</button>
           </div>
+          <div id="calleat-pax-info" style="font-size:12px;color:var(--t2);min-height:1.2em"></div>
         </div>
         <div style="background:var(--brand-l);border-radius:var(--r-sm);padding:.65rem .85rem;font-size:12px;color:var(--brand-d);line-height:1.5;margin:.75rem 0">
-          🔔 Activa las notificaciones para recibir el aviso aunque tengas la pantalla bloqueada.
+          Activa las notificaciones para recibir el aviso aunque tengas la pantalla bloqueada. Se te asignará la primera mesa libre con capacidad para tu grupo.
         </div>
-        <button class="btn btn-primary" onclick="joinCalleatQueue()">Apuntarme → </button>
+        <button class="btn btn-primary" onclick="joinCalleatQueue()">Apuntarme</button>
       </div>
 
       <!-- WAITING: en cola -->
@@ -9332,14 +9334,17 @@ async function addTable() {
   const number = prompt('Número de mesa:');
   if (!number) return;
   const label = prompt('Zona (opcional, ej: "Terraza"):') || '';
+  const capStr = prompt('Capacidad máxima de comensales (ej: 4):', '4');
+  const capacity = parseInt(capStr) || 4;
   const { error } = await sb.from('tables').insert({
     restaurant_id: state.adminRestaurantId,
     number: parseInt(number) || number,
-    label: label || null
+    label: label || null,
+    capacity
   });
   if (error) { notify('Error: ' + error.message); return; }
   loadAdminTablesInline();
-  loadAdminTables(); // refresh floor plan too
+  loadAdminTables();
 }
 
 async function deleteTable(tableId) {
@@ -9443,8 +9448,9 @@ async function loadAdminTables() {
   el.innerHTML = tables.map(t => {
     const activeRoom = activeByTable[t.id];
     const isActive = !!activeRoom;
+    const cap = t.capacity || 4;
     return `<div class="card" style="margin-bottom:.5rem">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${isActive ? '.65rem' : '0'}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
         <div>
           <div style="display:flex;align-items:center;gap:8px">
             <div style="font-size:14px;font-weight:500">Mesa ${t.number}${t.label ? ' — ' + t.label : ''}</div>
@@ -9452,7 +9458,14 @@ async function loadAdminTables() {
           </div>
           ${isActive ? `<div style="font-size:12px;color:var(--t2);margin-top:2px">${activeRoom.guests_count || '?'} comensales · abierta hoy</div>` : ''}
         </div>
-        <div style="display:flex;gap:6px">
+        <div style="display:flex;gap:6px;align-items:center">
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--t2)">
+            <span>Cap.</span>
+            <input type="number" min="1" max="20" value="${cap}"
+              style="width:42px;padding:3px 5px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-size:12px;font-family:inherit;text-align:center"
+              onchange="updateTableCapacity('${t.id}', this.value)"
+              title="Capacidad máxima de comensales">
+          </label>
           <button class="btn btn-secondary btn-sm" onclick="showQR('${t.id}','${state.adminRestaurantId}',${t.number},'${t.label||''}')">QR</button>
           <button class="btn btn-secondary btn-sm btn-icon" onclick="deleteTable('${t.id}')" title="Eliminar">✕</button>
         </div>
@@ -9474,6 +9487,13 @@ async function loadAdminTables() {
         </button>`}
     </div>`;
   }).join('');
+}
+
+async function updateTableCapacity(tableId, capacity) {
+  const cap = parseInt(capacity);
+  if (!cap || cap < 1) return;
+  await sb.from('tables').update({ capacity: cap }).eq('id', tableId);
+  // No recargar — el input ya muestra el valor correcto
 }
 
 async function adminOpenTable(tableId, tableNum, tableLabel) {
@@ -12593,6 +12613,26 @@ function selectCalleatPax(n) {
   document.querySelectorAll('.pax-btn').forEach(btn => {
     btn.classList.toggle('sel', parseInt(btn.dataset.n) === n || (n >= 6 && btn.dataset.n === '6'));
   });
+  // Mostrar info de mesas disponibles para ese pax
+  const infoEl = document.getElementById('calleat-pax-info');
+  if (infoEl && _calleatState.restaurantId) {
+    Promise.all([
+      sb.from('tables').select('id,number,label,capacity').eq('restaurant_id', _calleatState.restaurantId),
+      sb.from('rooms').select('table_id').eq('restaurant_id', _calleatState.restaurantId).eq('closed', false)
+    ]).then(([{data:tables},{data:rooms}]) => {
+      const occupied = new Set((rooms||[]).map(r=>r.table_id).filter(Boolean));
+      const free = (tables||[]).filter(t=>!occupied.has(t.id));
+      const suitable = free.filter(t=>(t.capacity||4)>=n);
+      if (suitable.length > 0) {
+        infoEl.innerHTML = `<span style="color:var(--brand);font-weight:500">${suitable.length} mesa${suitable.length!==1?'s':''} disponible${suitable.length!==1?'s':''} ahora para ${n} persona${n!==1?'s':''}</span>`;
+      } else {
+        const withCap = (tables||[]).filter(t=>(t.capacity||4)>=n);
+        infoEl.innerHTML = withCap.length
+          ? `<span style="color:#854F0B">Sin mesas libres ahora para ${n} persona${n!==1?'s':''}. Te avisamos cuando se libere una.</span>`
+          : `<span style="color:#E24B4A">No hay mesas con capacidad para ${n} persona${n!==1?'s':''} en este restaurante.</span>`;
+      }
+    }).catch(()=>{});
+  }
 }
 
 async function joinCalleatQueue() {
@@ -12735,25 +12775,63 @@ async function loadCalleatQueueMain() {
   const el = document.getElementById('calleat-queue-main');
   if (!el) return;
   el.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--t3);font-size:13px">Cargando...</div>';
+
   const { data: queue } = await sb.from('calleat_queue')
     .select('*').eq('restaurant_id', state.adminRestaurantId)
     .in('status', ['waiting','called']).order('joined_at');
+
   const navBadge = document.getElementById('calleat-nav-badge');
   if (navBadge) { navBadge.textContent = queue?.length || 0; navBadge.style.display = queue?.length ? 'inline' : 'none'; }
+
   if (!queue?.length) {
-    el.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">🪑 Sin grupos esperando</div>';
+    el.innerHTML = '<div style="text-align:center;padding:3rem 1rem;color:var(--t3);font-size:13px">Sin grupos esperando</div>';
     return;
   }
+
+  const now = Date.now();
   el.innerHTML = queue.map((entry, idx) => {
-    const mins = Math.floor((Date.now() - new Date(entry.joined_at).getTime()) / 60000);
+    const waitMins = Math.floor((now - new Date(entry.joined_at).getTime()) / 60000);
     const isReady = entry.status === 'called';
-    return `<div class="calleat-entry ${isReady ? 'ready' : ''}" style="margin-bottom:.5rem">
-      <div class="calleat-pos">${idx + 1}</div>
-      <div style="flex:1"><div style="font-size:14px;font-weight:600">${escHtml(entry.name)} · ${entry.pax} pers.</div><div style="font-size:12px;color:var(--t2)">${isReady ? '🔔 Llamado' : `Esperando ${mins}min`}</div></div>
-      ${!isReady ? `<button onclick="callCalleatEntry('${entry.id}')" style="padding:7px 14px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">Llamar 🔔</button>`
-        : `<button onclick="cancelCalleatEntry('${entry.id}')" style="padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit">✕</button>`}
+    const calledAt = entry.called_at ? new Date(entry.called_at).getTime() : null;
+    const limitMs = 10 * 60 * 1000; // 10 minutos
+    const elapsed = calledAt ? now - calledAt : 0;
+    const remaining = calledAt ? Math.max(0, limitMs - elapsed) : 0;
+    const remainMins = Math.floor(remaining / 60000);
+    const remainSecs = Math.floor((remaining % 60000) / 1000);
+    const pct = calledAt ? Math.max(0, 100 - (elapsed / limitMs * 100)) : 100;
+    const timerColor = pct < 30 ? '#E24B4A' : pct < 60 ? '#EF9F27' : '#2E7D2E';
+    const expired = calledAt && remaining <= 0;
+
+    const borderClr = isReady ? (expired ? '#E24B4A' : 'var(--brand)') : 'var(--bd)';
+    return `<div style="background:var(--card);border-radius:var(--r);padding:.85rem 1rem;margin-bottom:.65rem;border:1.5px solid ${borderClr};box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="display:flex;align-items:center;gap:.65rem;margin-bottom:${isReady ? '.6rem' : '0'}">
+        <div style="width:32px;height:32px;border-radius:50%;background:${isReady ? 'var(--brand)' : 'var(--bg2)'};color:${isReady ? '#fff' : 'var(--t3)'};font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${idx+1}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(entry.name)}</div>
+          <div style="font-size:12px;color:var(--t2)">${entry.pax} persona${entry.pax!==1?'s':''} · ${isReady ? `Mesa: <strong>${escHtml(entry.table_label||'—')}</strong>` : `esperando ${waitMins} min`}</div>
+        </div>
+        ${!isReady
+          ? `<button onclick="callCalleatEntry('${entry.id}')" style="padding:8px 14px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">Llamar</button>`
+          : `<button onclick="cancelCalleatEntry('${entry.id}')" style="padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit" title="Cancelar">✕</button>`}
+      </div>
+      ${isReady ? `
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+            <span style="color:${timerColor};font-weight:600">${expired ? 'Tiempo agotado' : `${remainMins}:${String(remainSecs).padStart(2,'0')} restantes`}</span>
+            <span style="color:var(--t3)">Tiempo límite: 10 min</span>
+          </div>
+          <div style="height:5px;background:var(--bg2);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${timerColor};border-radius:3px;transition:width 1s linear"></div>
+          </div>
+        </div>` : ''}
     </div>`;
   }).join('');
+
+  // Auto-refrescar cada 30s para actualizar temporizadores
+  if (window._calleatQueueRefresh) clearTimeout(window._calleatQueueRefresh);
+  if (document.getElementById('atab-calleat')?.style.display !== 'none') {
+    window._calleatQueueRefresh = setTimeout(() => loadCalleatQueueMain(), 30000);
+  }
 }
 
 async function loadCalleatQueue() {
@@ -12796,20 +12874,117 @@ async function loadCalleatQueue() {
 }
 
 async function callCalleatEntry(entryId) {
-  // Mark entry as called + set table label
-  const tableLabel = prompt('¿Qué mesa le asignas? (ej: Mesa 4, Terraza 2)') || '';
+  // Cargar la entrada para saber cuántas personas son
+  const { data: entry } = await sb.from('calleat_queue').select('*').eq('id', entryId).maybeSingle();
+  if (!entry) return;
+  const pax = entry.pax || 2;
+
+  // Cargar mesas libres con capacidad suficiente
+  const [{ data: tables }, { data: openRooms }] = await Promise.all([
+    sb.from('tables').select('*').eq('restaurant_id', state.adminRestaurantId).order('number'),
+    sb.from('rooms').select('table_id').eq('restaurant_id', state.adminRestaurantId).eq('closed', false)
+  ]);
+  const occupiedTableIds = new Set((openRooms||[]).map(r=>r.table_id).filter(Boolean));
+  const freeTables = (tables||[]).filter(t => !occupiedTableIds.has(t.id));
+  const suitableTables = freeTables.filter(t => (t.capacity||4) >= pax);
+  const tooSmallTables = freeTables.filter(t => (t.capacity||4) < pax);
+
+  // Mostrar modal de selección
+  const modal = document.createElement('div');
+  modal.id = 'calleat-assign-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center';
+
+  const suitable = suitableTables.length
+    ? suitableTables.map(t => `
+        <button onclick="window._calleatAssignTable('${entryId}','${t.id}','Mesa ${t.number}${t.label?' — '+t.label:''}','${entry.name||''}',${entry.pax})"
+          style="width:100%;padding:12px;border-radius:var(--r-sm);border:1.5px solid var(--brand);background:var(--brand-l);color:var(--brand-d);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;text-align:left;display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem">
+          <span>Mesa ${t.number}${t.label?' <span style="font-weight:400;color:var(--t2)">'+t.label+'</span>':''}</span>
+          <span style="font-size:12px;color:var(--brand)">${t.capacity||4} plazas</span>
+        </button>`).join('')
+    : '<div style="padding:.75rem;background:#FFF3E0;border-radius:var(--r-sm);color:#854F0B;font-size:13px">No hay mesas libres con capacidad para ${pax} personas en este momento.</div>';
+
+  const tooSmall = tooSmallTables.length
+    ? `<div style="margin-top:.75rem"><div style="font-size:11px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">Mesas libres sin capacidad suficiente</div>
+      ${tooSmallTables.map(t=>`<div style="display:flex;justify-content:space-between;padding:8px 10px;border-radius:var(--r-sm);background:var(--bg2);font-size:13px;color:var(--t3);margin-bottom:.25rem">
+        <span>Mesa ${t.number}${t.label?' — '+t.label:''}</span>
+        <span>${t.capacity||4} plazas</span>
+      </div>`).join('')}
+    </div>` : '';
+
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;padding:1.5rem 1.25rem 2rem;max-height:80vh;overflow-y:auto;animation:slideUp .2s ease">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+        <div>
+          <div style="font-size:16px;font-weight:700">Asignar mesa</div>
+          <div style="font-size:13px;color:var(--t2)">${escHtml(entry.name)} · ${pax} persona${pax!==1?'s':''}</div>
+        </div>
+        <button onclick="document.getElementById('calleat-assign-modal').remove()"
+          style="background:var(--bg2);border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer">✕</button>
+      </div>
+      ${suitableTables.length ? `<div style="font-size:11px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">Mesas libres con capacidad suficiente</div>` : ''}
+      ${suitable}
+      ${tooSmall}
+    </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click', e => { if(e.target===modal) modal.remove(); });
+}
+
+window._calleatAssignTable = async function(entryId, tableId, tableLabel, guestName, pax) {
+  document.getElementById('calleat-assign-modal')?.remove();
+
+  // Marcar como llamado en calleat_queue
   await sb.from('calleat_queue').update({
     status: 'called',
     called_at: new Date().toISOString(),
-    table_label: tableLabel
+    table_label: tableLabel,
+    table_id: tableId,
   }).eq('id', entryId);
-  showToast('🔔 Grupo llamado', 'Le notificaremos en su móvil');
+
+  // Enviar notificación push al grupo
+  try {
+    const { data: entry } = await sb.from('calleat_queue').select('push_subscription').eq('id', entryId).maybeSingle();
+    if (entry?.push_subscription) {
+      // Push se envía vía edge function si está disponible
+      fetch(`${SUPA_URL}/functions/v1/send-push`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY },
+        body: JSON.stringify({
+          subscription: entry.push_subscription,
+          title: '¡Tu mesa está lista!',
+          body: `${tableLabel} — Tienes 10 minutos para llegar`,
+          data: { entryId, tableLabel }
+        })
+      }).catch(() => {});
+    }
+  } catch(e) {}
+
+  showToast('Grupo llamado', `${guestName} — ${tableLabel}`);
+
+  // Añadir a notificaciones de manageat con temporizador
+  _addAdminNotif({
+    type: 'calleat',
+    title: `Mesa asignada — ${escHtml(guestName)}`,
+    body: `${tableLabel} · ${pax} personas · Tiempo límite: 10 min`,
+    calledAt: Date.now(),
+    limitMs: 10 * 60 * 1000,
+  });
+
   loadCalleatQueue();
-}
+  loadCalleatQueueMain();
+};
 
 async function cancelCalleatEntry(entryId) {
-  await sb.from('calleat_queue').update({ status: 'cancelled' }).eq('id', entryId);
+  const { data: entry } = await sb.from('calleat_queue').select('name,pax,table_label').eq('id', entryId).maybeSingle();
+  await sb.from('calleat_queue').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', entryId);
+  if (entry) {
+    _addAdminNotif({
+      type: 'calleat_cancel',
+      title: `Grupo canceló — ${escHtml(entry.name||'')}`,
+      body: `${entry.pax} personas${entry.table_label ? ' · Mesa asignada: ' + entry.table_label : ''} — Mesa queda libre`,
+    });
+  }
   loadCalleatQueue();
+  loadCalleatQueueMain();
 }
 
 // Auto-subscribe calleat realtime in manageat when sala tab open
