@@ -1635,6 +1635,32 @@
   </div>
 
   <!-- CAMARERO: PANEL PRINCIPAL -->
+
+    <!-- Botón flotante de notificaciones — fuera de admin-shell para evitar overflow:hidden -->
+    <button id="admin-notif-fab" onclick="openAdminNotifPanel()"
+      style="position:fixed;bottom:80px;right:20px;z-index:900;width:52px;height:52px;border-radius:50%;background:var(--brand-d);color:#fff;border:none;cursor:pointer;font-family:inherit;box-shadow:0 4px 20px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;transition:transform .15s,background .2s"
+      onmouseenter="this.style.transform='scale(1.08)'" onmouseleave="this.style.transform='scale(1)'">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      </svg>
+      <span id="admin-notif-badge" style="display:none;position:absolute;top:-3px;right:-3px;background:#E24B4A;color:#fff;border-radius:99px;font-size:10px;font-weight:700;min-width:18px;height:18px;text-align:center;line-height:18px;padding:0 4px;pointer-events:none">0</span>
+    </button>
+    <!-- Panel lateral de notificaciones -->
+    <div id="admin-notif-panel" style="display:none;position:fixed;top:0;right:0;bottom:0;width:min(360px,100vw);z-index:910;background:var(--card);box-shadow:-4px 0 24px rgba(0,0,0,.2);flex-direction:column">
+      <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--brand-d)">
+        <div style="font-size:15px;font-weight:600;color:#fff">Notificaciones</div>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <button onclick="markAllAdminNotifSeen()" style="font-size:12px;padding:3px 10px;border-radius:99px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;cursor:pointer;font-family:inherit">Todo visto</button>
+          <button onclick="closeAdminNotifPanel()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+        </div>
+      </div>
+      <div id="admin-notif-list" style="overflow-y:auto;flex:1;padding:.75rem 1.25rem">
+        <div style="text-align:center;padding:3rem 1rem;color:var(--t3);font-size:13px">Sin notificaciones aún</div>
+      </div>
+    </div>
+    <div id="admin-notif-overlay" onclick="closeAdminNotifPanel()" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.3)"></div>
+  </div><!-- fin s-admin -->
   <div class="screen" id="s-waiter">
     <div class="hdr">
       <div style="display:flex;align-items:center;gap:8px">
@@ -1822,33 +1848,6 @@
           <div class="logo" style="font-size:17px">manag<em style="color:#D85A30;font-style:normal">eat</em></div>
           <button onclick="adminLogout()" style="background:none;border:none;font-size:12px;color:var(--t2);cursor:pointer;font-family:inherit">Salir</button>
         </div>
-
-        <!-- Botón flotante de notificaciones — visible en TODAS las pestañas de manageat -->
-        <button id="admin-notif-fab" onclick="openAdminNotifPanel()"
-          style="position:fixed;bottom:72px;right:16px;z-index:400;width:48px;height:48px;border-radius:50%;background:var(--brand-d);color:#fff;border:none;cursor:pointer;font-family:inherit;box-shadow:0 4px 16px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;font-size:18px;transition:transform .15s"
-          onmouseenter="this.style.transform='scale(1.08)'" onmouseleave="this.style.transform='scale(1)'">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-          </svg>
-          <span id="admin-notif-badge" style="display:none;position:absolute;top:-2px;right:-2px;background:#E24B4A;color:#fff;border-radius:99px;font-size:10px;font-weight:700;min-width:18px;height:18px;text-align:center;line-height:18px;padding:0 3px">0</span>
-        </button>
-
-        <!-- Panel lateral de notificaciones -->
-        <div id="admin-notif-panel" style="display:none;position:fixed;top:0;right:0;bottom:0;width:min(360px,100vw);z-index:450;background:var(--card);box-shadow:-4px 0 24px rgba(0,0,0,.15);flex-direction:column">
-          <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--brand-d)">
-            <div style="font-size:15px;font-weight:600;color:#fff">Notificaciones</div>
-            <div style="display:flex;gap:.5rem;align-items:center">
-              <button onclick="markAllAdminNotifSeen()" style="font-size:12px;padding:3px 10px;border-radius:99px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;cursor:pointer;font-family:inherit">Todo visto</button>
-              <button onclick="closeAdminNotifPanel()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
-            </div>
-          </div>
-          <div id="admin-notif-list" style="overflow-y:auto;flex:1;padding:.75rem 1.25rem">
-            <div style="text-align:center;padding:3rem 1rem;color:var(--t3);font-size:13px">Sin notificaciones aún</div>
-          </div>
-        </div>
-        <!-- Overlay para cerrar panel -->
-        <div id="admin-notif-overlay" onclick="closeAdminNotifPanel()" style="display:none;position:fixed;inset:0;z-index:440;background:rgba(0,0,0,.3)"></div>
 
         <!-- Mobile bottom tabs — only shown on small screens (<900px), sidebar handles desktop -->
         <div class="admin-mobile-tabs">
@@ -3571,19 +3570,15 @@ function subscribeRealtime() {
     })
     .subscribe();
 
-  // Fallback polling: re-fetch dishes cada 8s para capturar cambios perdidos por falta de REPLICA IDENTITY
-  // Solo activo en s3-dishes y cuando hay dishes enviados a cocina
+  // Fallback polling: re-fetch dishes cada 4s para capturar cambios perdidos por falta de REPLICA IDENTITY
   if (window._dishPollInterval) clearInterval(window._dishPollInterval);
   window._dishPollInterval = setInterval(async () => {
     if (!state.roomId) return;
-    const activeScreen = document.querySelector('.screen.active');
-    if (!activeScreen || !['s3-dishes','s4-summary','s5-pay'].includes(activeScreen.id)) return;
     const hasSentDishes = state.dishes.some(d => d.kitchen_status && d.kitchen_status !== 'new');
     if (!hasSentDishes) return;
     try {
       const { data: freshDishes } = await sb.from('dishes').select('*').eq('room_id', state.roomId);
       if (!freshDishes) return;
-      // Solo actualizar si hay cambios reales en kitchen_status
       const changed = freshDishes.some(fd => {
         const old = state.dishes.find(d => d.id === fd.id);
         return old && old.kitchen_status !== fd.kitchen_status;
@@ -3595,7 +3590,7 @@ function subscribeRealtime() {
         if (document.getElementById('s4-summary')?.classList.contains('active')) buildSummary();
       }
     } catch(e) {}
-  }, 8000);
+  }, 4000);
 
   state.realtimeSubs = [guestSub, dishSub, partSub, paySub, roomSub, broadcastSub, roomDeliveredSub];
 }
@@ -4525,8 +4520,8 @@ function renderDishCard(dish) {
   const isConfirmed = ks === 'making' || ks === 'ready';
   const isSent = ks === 'sent' || isConfirmed;
   const isDelivered = ks === 'delivered';
-  // #BG3: Bebidas are served by waiter, not kitchen
-  const isBebida = dish.category === 'bebidas' || dish.course === 0;
+  // #BG3: Bebidas are served by waiter, not kitchen — case-insensitive check
+  const isBebida = (dish.category || '').toLowerCase() === 'bebidas' || dish.course === 0;
   // Bebidas "con el postre" — esperan hasta que todos los platos de comida estén servidos
   const isWithPostre = !!dish.with_postre;
 
@@ -5052,7 +5047,8 @@ function buildSummary() {
     d.kitchen_status && d.kitchen_status !== 'new'
   );
   const unassigned = sentDishesAll.filter(d => {
-    if (d.type === 'solo' && !d.assignee_id) return true;
+    // Platos tipo 'solo' sin assignee_id están implícitamente asignados al que los añadió — no son "sin asignar"
+    if (d.type === 'solo') return false;
     if (d.type === 'shared') {
       const parts = state.participants[d.id] || [];
       return parts.length === 0;
@@ -5258,8 +5254,10 @@ function buildPayScreen() {
   const banner = document.getElementById('change-method-banner');
   const labelEl = document.getElementById('change-method-label');
   if (banner) {
-    banner.style.display = noPaidYet ? 'flex' : 'none';
-    if (labelEl) {
+    // Mostrar banner solo si hay método seleccionado y nadie ha pagado aún
+    const showBanner = noPaidYet && !!_payMethod;
+    banner.style.display = showBanner ? 'flex' : 'none';
+    if (labelEl && _payMethod) {
       const methodName = _payMethod === 'full' ? 'Invito yo (cuenta completa)' :
                          _payMethod === 'equal' ? 'Partes iguales' : 'spliteat (por plato)';
       labelEl.textContent = `Has escogido: ${methodName}`;
@@ -5766,18 +5764,17 @@ async function confirmPayWaiter(method) {
   const me = totals.find(t => t.g.id === state.myGuestId);
   const amount = me ? me.total : 0;
   const myName = state.guests.find(g => g.id === state.myGuestId)?.name || 'Comensal';
-  const isCard = method.includes('datáfono') || method.includes('Tarjeta');
-  const icon = isCard ? '💳' : '💶';
+  const isCard = method.toLowerCase().includes('tarjeta') || method.toLowerCase().includes('datáfono');
 
-  // Show waiting screen
+  // Pantalla de espera — el pago NO se registra hasta que el camarero confirme desde serveat
   const el = document.createElement('div');
   el.id = 'pay-waiter-wait';
   el.style.cssText = 'position:fixed;inset:0;z-index:550;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;text-align:center';
   el.innerHTML = `
-    <div style="font-size:48px;margin-bottom:1rem">${icon}</div>
+    <div style="font-size:40px;margin-bottom:1rem">${isCard ? '💳' : '💵'}</div>
     <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--t1);margin-bottom:.5rem">Espera al camarero</div>
-    <div style="font-size:14px;color:var(--t2);margin-bottom:.5rem">Hemos avisado al camarero para que venga a cobrarte.</div>
-    <div style="font-size:22px;font-weight:700;color:var(--brand-d);margin-bottom:.5rem;font-family:'Fraunces',serif">${fmt(amount)}</div>
+    <div style="font-size:14px;color:var(--t2);margin-bottom:.5rem;line-height:1.5">Hemos avisado al camarero.<br>El pago se confirmará cuando venga a cobrarte.</div>
+    <div style="font-size:22px;font-weight:700;color:var(--brand-d);margin-bottom:.25rem;font-family:'Fraunces',serif">${fmt(amount)}</div>
     <div style="font-size:13px;color:var(--t3);margin-bottom:2rem">${method}</div>
     <button onclick="document.getElementById('pay-waiter-wait').remove()"
       style="padding:10px 24px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:none;color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit">
@@ -5785,29 +5782,31 @@ async function confirmPayWaiter(method) {
     </button>`;
   document.body.appendChild(el);
 
-  // Notify waiter via kitchen_notifications
-  const restId = state.restaurantId || state.restaurantId;
+  // Notificar al camarero — incluye roomId y guestId para que pueda confirmar
+  const restId = state.restaurantId;
   if (state.roomId && restId) {
     try {
-      // Get room info for assigned waiter
       const { data: room } = await sb.from('rooms')
-        .select('assigned_waiter_id,waiter_id').eq('id', state.roomId).maybeSingle();
+        .select('assigned_waiter_id,waiter_id,table_id').eq('id', state.roomId).maybeSingle();
+      let tableLabel = state.tableLabel || 'Mesa';
+      if (room?.table_id) {
+        const { data: t } = await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle();
+        if (t) tableLabel = `Mesa ${t.number}${t.label ? ' — ' + t.label : ''}`;
+      }
       await sb.from('kitchen_notifications').insert({
         restaurant_id: restId,
         room_id: state.roomId,
         course: -1,
-        course_label: 'Cobro',
-        table_label: state.tableLabel || state.restaurantName || 'Mesa',
+        course_label: 'Cobro pendiente',
+        table_label: tableLabel,
         is_bebidas: false,
-        dishes: [{ name: `${myName} — ${fmt(amount)} — ${method}` }],
+        dishes: [{ name: `${myName} — ${fmt(amount)} — ${method}`, guest_id: state.myGuestId, amount, method }],
         assigned_waiter_id: room?.assigned_waiter_id || null,
         waiter_id: room?.waiter_id || null,
       });
     } catch(e) { console.warn('waiter notify error:', e); }
   }
-
-  // Register the payment
-  await registerManualPayment({ g: { id: state.myGuestId }, total: amount }, method);
+  // NO llamar registerManualPayment aquí — se llama desde serveat al confirmar el cobro
 }
 
 async function confirmPay(method) {
@@ -6879,6 +6878,7 @@ function _renderNotifModal(modal, n) {
 
   // #8: Special action for "Con el postre" — add snooze button
   const isPostreNotif = n.courseLabel === 'Con el postre';
+  const isCobro = n.courseLabel === 'Cobro pendiente';
   const snoozeSection = isPostreNotif ? `
     <div style="background:#FFF3E0;border-radius:var(--r-sm);padding:.65rem .85rem;margin-top:.75rem">
       <div style="font-size:12px;color:#854F0B;font-weight:500;margin-bottom:.4rem">Preguntar cuándo quieren el café/bebida:</div>
@@ -6887,6 +6887,18 @@ function _renderNotifModal(modal, n) {
         <button onclick="snoozePostreNotif(${nIdx}, 10)" style="padding:5px 10px;border-radius:99px;border:1px solid #E8C9A0;background:#FFF8F0;color:#854F0B;font-size:12px;cursor:pointer;font-family:inherit">En 10 min</button>
         <button onclick="snoozePostreNotif(${nIdx}, 15)" style="padding:5px 10px;border-radius:99px;border:1px solid #E8C9A0;background:#FFF8F0;color:#854F0B;font-size:12px;cursor:pointer;font-family:inherit">En 15 min</button>
       </div>
+    </div>` : '';
+
+  // Cobro pendiente: datos del guest en dishes[0]
+  const cobroData = isCobro ? (n.dishes[0] || {}) : null;
+  const cobroActionSection = isCobro ? `
+    <div style="background:#EAF3DE;border-radius:var(--r-sm);padding:.85rem;margin-top:.75rem">
+      <div style="font-size:13px;font-weight:600;color:#2E7D2E;margin-bottom:.5rem">Cobro solicitado por el comensal</div>
+      <div style="font-size:14px;color:var(--t1);margin-bottom:.85rem">${escHtml(n.dishes[0]?.name || '')}</div>
+      <button onclick="waiterConfirmCobro('${n.roomId}','${cobroData.guest_id||''}',${cobroData.amount||0},'${cobroData.method||'Camarero'}',${nIdx})"
+        style="width:100%;padding:12px;border-radius:var(--r-sm);border:none;background:#2E7D2E;color:#fff;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit">
+        Confirmar cobro — ${cobroData.amount ? fmt(cobroData.amount) : ''}
+      </button>
     </div>` : '';
 
   modal.innerHTML = `<div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;animation:slideUp .2s ease;overflow:hidden">
@@ -6909,21 +6921,61 @@ function _renderNotifModal(modal, n) {
       ${progressBar}
       <div style="max-height:50vh;overflow-y:auto">${dishRows}</div>
       ${snoozeSection}
+      ${cobroActionSection}
       <div style="display:flex;gap:.5rem;margin-top:1rem">
-        ${!allChecked ? `
+        ${isCobro ? '' : !allChecked ? `
         <button onclick="_checkAllWaiterDishesIdx(${nIdx})"
           style="flex:1;padding:10px;border-radius:var(--r);border:1.5px solid ${color};background:none;color:${color};font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">
           Marcar todos
         </button>` : ''}
+        ${isCobro ? '' : `
         <button onclick="${allChecked ? `markCourseDelivered('${n.roomId}',${n.course},${!!n.isBebidas});document.getElementById('waiter-notif-modal').style.display='none'` : `_checkAllWaiterDishesIdx(${nIdx})`}"
           class="btn btn-primary" style="flex:2;background:${allChecked?color:'var(--bd2)'};color:${allChecked?'#fff':'var(--t2)'};font-size:14px;${!allChecked?'cursor:default;':''}">
           ${allChecked ? 'Llevado a mesa' : 'Marca todos los platos primero'}
-        </button>
+        </button>`}
       </div>
     </div>
   </div>`;
 
   modal.style.display = 'flex';
+}
+
+async function waiterConfirmCobro(roomId, guestId, amount, method, nIdx) {
+  // Registrar el pago en DB
+  try {
+    await sb.from('payments').insert({
+      room_id: roomId,
+      guest_id: guestId || null,
+      amount: parseFloat(amount) || 0,
+      method,
+      waiter_id: _waiterId,
+      stripe_status: 'manual',
+    });
+    // Comprobar si todos han pagado
+    const { data: guests } = await sb.from('guests').select('id').eq('room_id', roomId);
+    const { data: payments } = await sb.from('payments').select('guest_id,amount').eq('room_id', roomId);
+    const paidIds = new Set((payments||[]).filter(p=>p.guest_id).map(p=>p.guest_id));
+    const allPaid = (guests||[]).length > 0 && (guests||[]).every(g => paidIds.has(g.id));
+    if (allPaid) {
+      const totalPaid = (payments||[]).reduce((s,p)=>s+parseFloat(p.amount||0),0);
+      await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString() }).eq('id', roomId);
+      await _notifyPaymentComplete(roomId, totalPaid);
+      showToast('Mesa cerrada', 'Todos han pagado — recuerda limpiar la mesa');
+      loadWaiterMesas();
+      loadWaiterTableSelects();
+    } else {
+      showToast('Cobro confirmado', `${fmt(amount)} registrado`);
+      loadWaiterCobrar();
+    }
+    // Marcar notif como vista
+    const n = _waiterNotifHistory[nIdx];
+    if (n) { n.seen = true; n.courseLabel = 'Cobro completado'; }
+    document.getElementById('waiter-notif-modal').style.display = 'none';
+    updateWaiterNotifBadge();
+    renderWaiterNotifBanner();
+  } catch(e) {
+    notify('Error al confirmar el cobro: ' + e.message);
+  }
 }
 
 function snoozePostreNotif(nIdx, minutes) {
@@ -9497,30 +9549,31 @@ async function adminCloseTable(roomId) {
   }).eq('id', roomId);
 
   // Notificar al camarero que debe limpiar la mesa
+  const restId = state.adminRestaurantId;
+  if (!restId) { loadFloorPlan(); loadEncurso(); showToast('Mesa cerrada', 'Solicita limpieza'); return; }
   try {
+    // Buscar datos de la room (puede estar ya cerrada, buscar sin filtro closed)
     const { data: room } = await sb.from('rooms')
-      .select('table_id,assigned_waiter_id,waiter_id,restaurant_id').eq('id', roomId).maybeSingle();
-    const restId = room?.restaurant_id || state.adminRestaurantId;
+      .select('table_id,assigned_waiter_id,waiter_id').eq('id', roomId).maybeSingle();
     let tableLabel = 'Mesa';
     if (room?.table_id) {
       const { data: t } = await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle();
       if (t) tableLabel = `Mesa ${t.number}${t.label ? ' — ' + t.label : ''}`;
     }
-    if (restId) {
-      await sb.from('kitchen_notifications').insert({
-        restaurant_id: restId, room_id: roomId,
-        course: -1, course_label: 'Mesa cerrada — limpiar',
-        table_label: tableLabel, is_bebidas: false,
-        dishes: [{ name: `${tableLabel} — mesa cerrada manualmente, pendiente de limpieza` }],
-        assigned_waiter_id: room?.assigned_waiter_id || null,
-        waiter_id: room?.waiter_id || null,
-      }).catch(() => {});
-    }
-  } catch(e) {}
+    const { error } = await sb.from('kitchen_notifications').insert({
+      restaurant_id: restId, room_id: roomId,
+      course: -1, course_label: 'Mesa cerrada — limpiar',
+      table_label: tableLabel, is_bebidas: false,
+      dishes: [{ name: `${tableLabel} — mesa cerrada manualmente, pendiente de limpieza` }],
+      assigned_waiter_id: room?.assigned_waiter_id || null,
+      waiter_id: room?.waiter_id || null,
+    });
+    if (error) console.warn('adminCloseTable notif error:', error);
+  } catch(e) { console.warn('adminCloseTable error:', e); }
 
   loadFloorPlan();
   loadEncurso();
-  showToast('Mesa cerrada', 'Solicita limpieza a los camareros');
+  showToast('Mesa cerrada', 'Notificando al camarero para limpieza');
 }
 
 async function _originalCloseTable_unused(roomId) {
@@ -10767,9 +10820,14 @@ async function loadFloorPlan() {
 
   // Load payments for active rooms
   const openRooms = (rooms || []).filter(r => !r.closed);
-  const closedPaidRooms = (rooms || []).filter(r => r.closed);
+  // Rooms cerradas recientes (últimas 4h) con limpieza pendiente
+  const recentCutoff = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+  const closedNeedsCleaning = (rooms || []).filter(r => r.closed && r.needs_cleaning && r.closed_at >= recentCutoff);
   const activeRoomsByTable = {};
   openRooms.forEach(r => { if (r.table_id) activeRoomsByTable[r.table_id] = r; });
+  // Rooms cerradas con limpieza pendiente (para colorear en marrón)
+  const dirtyClosedByTable = {};
+  closedNeedsCleaning.forEach(r => { if (r.table_id) dirtyClosedByTable[r.table_id] = r; });
 
   // Get payment counts
   const roomIds = openRooms.map(r => r.id);
@@ -10834,7 +10892,8 @@ async function loadFloorPlan() {
     let color = '#22C55E'; // libre y limpia = verde
     let textColor = '#fff';
     let borderColor = '#16A34A';
-    if (room?.needs_cleaning) { color = '#854F0B'; textColor = '#fff'; borderColor = '#854F0B'; }
+    const dirtyClosed = dirtyClosedByTable[table.id];
+    if (room?.needs_cleaning || dirtyClosed) { color = '#854F0B'; textColor = '#fff'; borderColor = '#854F0B'; }
     else if (allPaid && room && !room.closed) { color = '#854F0B'; textColor = '#fff'; borderColor = '#854F0B'; }
     else if (paying) { color = '#EF9F27'; textColor = '#fff'; borderColor = '#EF9F27'; }
     else if (room && !room.closed) { color = '#E24B4A'; textColor = '#fff'; borderColor = '#E24B4A'; }
@@ -12011,97 +12070,26 @@ async function handleQRUrl() {
       `Mesa ${tableNum}${table?.label ? ' — ' + table.label : ''}`;
     document.getElementById('qr-rest-nombre').textContent = rest.name;
 
+    // Solo mostrar el aviso si REALMENTE hay limpieza pendiente
     if (activeRoom) {
       if (activeRoom.needs_cleaning) {
-        // Mesa pendiente limpieza — avisar al comensal
-        document.getElementById('qr-returning-panel').style.display = 'none';
-        document.getElementById('qr-newuser-panel').style.display = 'none';
-        document.getElementById('qr-returning-pick').style.display = 'none';
-        let cw = document.getElementById('qr-cleaning-warn');
-        if (!cw) {
-          cw = document.createElement('div');
-          cw.id = 'qr-cleaning-warn';
-          const ref = document.getElementById('qr-returning-panel');
-          ref.parentNode.insertBefore(cw, ref.nextSibling);
-        }
-        window._cleaningNotifyWaiter = true;
-        cw.style.display = 'block';
-        cw.innerHTML = `
-          <div style="background:#FAEEDA;border:1.5px solid #E5A85A;border-radius:var(--r);padding:1rem 1.1rem;margin-bottom:1rem">
-            <div style="font-size:15px;font-weight:600;color:#854F0B;margin-bottom:.4rem">Mesa pendiente de limpieza</div>
-            <div style="font-size:13px;color:#633806;line-height:1.5;margin-bottom:.85rem">Puedes iniciar tu pedido igualmente. Avisamos al camarero para que limpie tan pronto como sea posible.</div>
-            <div style="font-size:13px;font-weight:500;color:#854F0B;margin-bottom:.5rem">¿La mesa ya está limpia?</div>
-            <div style="display:flex;gap:.5rem;margin-bottom:.85rem">
-              <button onclick="_setCleaningWarnChoice(true)"
-                style="flex:1;padding:10px;border-radius:var(--r-sm);border:1.5px solid #854F0B;background:#854F0B;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">
-                No — avisar al camarero
-              </button>
-              <button onclick="_setCleaningWarnChoice(false)"
-                style="flex:1;padding:10px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--card);color:var(--t1);font-size:13px;cursor:pointer;font-family:inherit">
-                Sí, ya está limpia
-              </button>
-            </div>
-            <input id="qr-name-cleaning" type="text" placeholder="Tu nombre para entrar"
-              style="width:100%;padding:12px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);font-size:15px;font-family:inherit;margin-bottom:.5rem;box-sizing:border-box">
-            <button class="btn btn-primary" onclick="_submitEnterCleaning()" style="width:100%">Entrar a la mesa →</button>
-          </div>`;
-        setTimeout(() => document.getElementById('qr-name-cleaning')?.focus(), 300);
+        _showCleaningWarn(false); // sesión abierta, mesa sucia
       } else {
-        const cw = document.getElementById('qr-cleaning-warn');
-        if (cw) cw.style.display = 'none';
-        // Fix #28: show returning-vs-new choice
+        document.getElementById('qr-cleaning-warn')?.style && (document.getElementById('qr-cleaning-warn').style.display = 'none');
         document.getElementById('qr-returning-panel').style.display = 'block';
         document.getElementById('qr-newuser-panel').style.display = 'none';
         document.getElementById('qr-returning-pick').style.display = 'none';
       }
+    } else if (lastClosedNeedsCleaning) {
+      _showCleaningWarn(true); // sin sesión, mesa sucia de la sesión anterior
     } else {
-      // Sin room activa
-      const cw = document.getElementById('qr-cleaning-warn');
+      // Mesa libre y limpia — entrada directa
+      document.getElementById('qr-cleaning-warn')?.style && (document.getElementById('qr-cleaning-warn').style.display = 'none');
       document.getElementById('qr-returning-panel').style.display = 'none';
       document.getElementById('qr-returning-pick').style.display = 'none';
-
-      if (lastClosedNeedsCleaning) {
-        // Mesa pagada pero pendiente de limpieza — mostrar aviso antes de abrir mesa nueva
-        document.getElementById('qr-newuser-panel').style.display = 'none';
-        let cwEl = cw || (() => {
-          const el = document.createElement('div');
-          el.id = 'qr-cleaning-warn';
-          const ref = document.getElementById('qr-returning-panel');
-          ref.parentNode.insertBefore(el, ref.nextSibling);
-          return el;
-        })();
-        window._cleaningNotifyWaiter = true;
-        window._cleaningIsNewMesa = true; // flag: al confirmar se crea mesa nueva
-        cwEl.style.display = 'block';
-        cwEl.innerHTML = `
-          <div style="background:#FAEEDA;border:1.5px solid #E5A85A;border-radius:var(--r);padding:1rem 1.1rem;margin-bottom:1rem">
-            <div style="font-size:15px;font-weight:600;color:#854F0B;margin-bottom:.4rem">Mesa pagada — pendiente de limpieza</div>
-            <div style="font-size:13px;color:#633806;line-height:1.5;margin-bottom:.85rem">La mesa anterior ya ha pagado. Puedes abrir una nueva sesión igualmente. Avisamos al camarero para que limpie tan pronto como sea posible.</div>
-            <div style="font-size:13px;font-weight:500;color:#854F0B;margin-bottom:.5rem">¿La mesa ya está limpia?</div>
-            <div style="display:flex;gap:.5rem;margin-bottom:.85rem">
-              <button onclick="_setCleaningWarnChoice(true)"
-                style="flex:1;padding:10px;border-radius:var(--r-sm);border:1.5px solid #854F0B;background:#854F0B;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">
-                No — avisar al camarero
-              </button>
-              <button onclick="_setCleaningWarnChoice(false)"
-                style="flex:1;padding:10px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--card);color:var(--t1);font-size:13px;cursor:pointer;font-family:inherit">
-                Sí, ya está limpia
-              </button>
-            </div>
-            <input id="qr-name-cleaning" type="text" placeholder="Tu nombre para la nueva sesión"
-              style="width:100%;padding:12px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);font-size:15px;font-family:inherit;margin-bottom:.5rem;box-sizing:border-box">
-            <button class="btn btn-primary" onclick="_submitEnterCleaning()" style="width:100%">Abrir nueva sesión →</button>
-          </div>`;
-        setTimeout(() => document.getElementById('qr-name-cleaning')?.focus(), 300);
-      } else {
-        if (cw) cw.style.display = 'none';
-        document.getElementById('qr-newuser-panel').style.display = 'block';
-        setTimeout(() => document.getElementById('qr-name')?.focus(), 300);
-      }
+      document.getElementById('qr-newuser-panel').style.display = 'block';
+      setTimeout(() => document.getElementById('qr-name')?.focus(), 300);
     }
-
-    // Focus name input
-    setTimeout(() => document.getElementById('qr-name')?.focus(), 300);
 
   } catch(err) {
     console.error('handleQRUrl error:', err);
@@ -12112,31 +12100,92 @@ async function handleQRUrl() {
 
 let _enterMesaInProgress = false;
 window._cleaningNotifyWaiter = true;
+window._cleaningIsNewSession = false;
 
-function _setCleaningWarnChoice(notifyWaiter) {
+// Muestra la pantalla de aviso de limpieza — unificada para ambos casos:
+// isNewSession=true: mesa cerrada, hay que crear nueva sesión
+// isNewSession=false: sesión abierta, simplemente entrar
+function _showCleaningWarn(isNewSession) {
+  window._cleaningIsNewSession = isNewSession;
+  window._cleaningNotifyWaiter = true; // por defecto: avisar al camarero
+
+  ['qr-returning-panel','qr-newuser-panel','qr-returning-pick'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  let cw = document.getElementById('qr-cleaning-warn');
+  if (!cw) {
+    cw = document.createElement('div');
+    cw.id = 'qr-cleaning-warn';
+    const ref = document.getElementById('qr-returning-panel');
+    ref.parentNode.insertBefore(cw, ref);
+  }
+  cw.style.display = 'block';
+  cw.innerHTML = `
+    <div style="background:#FAEEDA;border:1.5px solid #E5A85A;border-radius:var(--r);padding:1.1rem 1.1rem 1.25rem;margin-bottom:1rem">
+      <div style="font-size:15px;font-weight:700;color:#854F0B;margin-bottom:.35rem">
+        Mesa pendiente de limpieza
+      </div>
+      <div style="font-size:13px;color:#633806;line-height:1.5;margin-bottom:.75rem">
+        ${isNewSession
+          ? 'La sesión anterior ya ha pagado. Puedes abrir una nueva sesión igualmente — avisamos al camarero para que limpie.'
+          : 'Puedes entrar igualmente. Avisamos al camarero para que limpie cuanto antes.'}
+      </div>
+
+      <input id="qr-name-cleaning" type="text" placeholder="Tu nombre"
+        style="width:100%;padding:12px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);font-size:15px;font-family:inherit;margin-bottom:.75rem;box-sizing:border-box">
+
+      <div style="font-size:12px;font-weight:600;color:#854F0B;margin-bottom:.4rem">¿La mesa ya está limpia?</div>
+      <div style="display:flex;gap:.5rem;margin-bottom:.85rem">
+        <button id="qr-clean-btn-no" onclick="_setCleaningWarnChoice(true,this)"
+          style="flex:1;padding:10px;border-radius:var(--r-sm);border:2px solid #854F0B;background:#854F0B;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">
+          No — avisar al camarero
+        </button>
+        <button id="qr-clean-btn-yes" onclick="_setCleaningWarnChoice(false,this)"
+          style="flex:1;padding:10px;border-radius:var(--r-sm);border:2px solid var(--bd2);background:var(--card);color:var(--t1);font-size:13px;cursor:pointer;font-family:inherit">
+          Sí, ya está limpia
+        </button>
+      </div>
+
+      <button class="btn btn-primary" onclick="_submitEnterCleaning()" style="width:100%;margin-bottom:.6rem">
+        ${isNewSession ? 'Abrir nueva sesión →' : 'Entrar a la mesa →'}
+      </button>
+
+      <div style="font-size:11px;color:#854F0B;line-height:1.5;text-align:center">
+        Más personas pueden unirse escaneando el QR desde su móvil<br>
+        o añadiéndose manualmente desde la app pulsando "Añadir persona"
+      </div>
+    </div>`;
+  setTimeout(() => document.getElementById('qr-name-cleaning')?.focus(), 300);
+}
+
+function _setCleaningWarnChoice(notifyWaiter, btn) {
   window._cleaningNotifyWaiter = notifyWaiter;
+  // Marcar el botón seleccionado visualmente
+  document.getElementById('qr-clean-btn-no')?.style && (document.getElementById('qr-clean-btn-no').style.opacity = notifyWaiter ? '1' : '0.4');
+  document.getElementById('qr-clean-btn-yes')?.style && (document.getElementById('qr-clean-btn-yes').style.opacity = notifyWaiter ? '0.4' : '1');
   if (!notifyWaiter) {
-    // Usuario dice que está limpia — marcar como limpia en DB
+    // Usuario dice que ya está limpia — marcar en DB
     const roomToClean = _qrActiveRoomId || window._lastClosedRoomId;
     if (roomToClean) {
       sb.from('rooms').update({ needs_cleaning: false, cleaned_at: new Date().toISOString() })
         .eq('id', roomToClean).catch(() => {});
     }
   }
-  const btns = document.querySelectorAll('#qr-cleaning-warn button:not(.btn-primary)');
-  btns.forEach(b => { b.style.opacity = '0.5'; b.disabled = true; });
 }
 
 async function _submitEnterCleaning() {
   const nameEl = document.getElementById('qr-name-cleaning');
   const name = (nameEl?.value || '').trim();
-  if (!name) { nameEl?.focus(); return; }
+  if (!name) { nameEl?.focus(); nameEl?.style && (nameEl.style.border = '2px solid #E24B4A'); return; }
+
+  // Copiar nombre al input principal
   const mainName = document.getElementById('qr-name');
   if (mainName) mainName.value = name;
 
-  // Usar la room activa O la última cerrada con needs_cleaning
+  // Si eligió "no — avisar al camarero": enviar notificación
   const roomIdToNotify = _qrActiveRoomId || window._lastClosedRoomId;
-
   if (window._cleaningNotifyWaiter && roomIdToNotify && _qrRestaurantId) {
     try {
       const { data: room } = await sb.from('rooms')
@@ -12147,14 +12196,19 @@ async function _submitEnterCleaning() {
         if (t) tableLabel = `Mesa ${t.number}${t.label ? ' — ' + t.label : ''}`;
       }
       await sb.from('kitchen_notifications').insert({
-        restaurant_id: _qrRestaurantId, room_id: roomIdToNotify,
-        course: -1, course_label: 'Limpieza urgente', table_label: tableLabel, is_bebidas: false,
-        dishes: [{ name: `${tableLabel} — comensales pidiendo, pendiente de limpieza (PRIORIDAD)` }],
+        restaurant_id: _qrRestaurantId,
+        room_id: roomIdToNotify,
+        course: -1,
+        course_label: 'Limpieza urgente',
+        table_label: tableLabel,
+        is_bebidas: false,
+        dishes: [{ name: `${tableLabel} — comensales en mesa, pendiente de limpieza` }],
         assigned_waiter_id: room?.assigned_waiter_id || null,
-      }).catch(() => {});
+      });
     } catch(e) { console.warn('_submitEnterCleaning notif error:', e); }
   }
 
+  // Ocultar aviso y entrar
   const cw = document.getElementById('qr-cleaning-warn');
   if (cw) cw.style.display = 'none';
   document.getElementById('qr-newuser-panel').style.display = 'block';
