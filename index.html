@@ -7473,18 +7473,27 @@ async function loadWaiterMesas() {
   const emptyEl = document.getElementById('waiter-mesas-empty');
   el.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--t3);font-size:13px">Cargando...</div>';
 
-  // Show only assigned rooms (or all if none assigned)
-  let roomsQ = sb.from('rooms').select('*')
-    .eq('restaurant_id', _waiterRestaurantId).eq('closed', false)
-    .order('created_at', { ascending: false });
-  const { data: rooms } = await roomsQ;
+  const since12h = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+
+  // Cargar rooms abiertas + rooms cerradas recientes con limpieza pendiente
+  const [{ data: openRooms }, { data: dirtyRooms }] = await Promise.all([
+    sb.from('rooms').select('*')
+      .eq('restaurant_id', _waiterRestaurantId).eq('closed', false)
+      .order('created_at', { ascending: false }),
+    sb.from('rooms').select('*')
+      .eq('restaurant_id', _waiterRestaurantId).eq('closed', true)
+      .eq('needs_cleaning', true).gte('closed_at', since12h)
+      .order('closed_at', { ascending: false })
+  ]);
+
+  const rooms = [...(openRooms || []), ...(dirtyRooms || [])];
 
   const { data: tables } = await sb.from('tables').select('*').eq('restaurant_id', _waiterRestaurantId);
   const tablesById = {};
   (tables || []).forEach(t => { tablesById[t.id] = t; });
 
   // Filter to assigned tables for this waiter (+ unassigned)
-  const myRooms = (rooms || []).filter(r =>
+  const myRooms = rooms.filter(r =>
     !r.assigned_waiter_id || r.assigned_waiter_id === _waiterId
   );
 
@@ -7566,33 +7575,36 @@ async function loadWaiterMesas() {
       </div>`;
     }).join('');
 
-    return `<div style="background:${allPaid ? '#EAF3DE' : 'var(--card)'};border:1.5px solid ${hasReady ? 'var(--brand)' : allPaid ? '#3B6D11' : 'var(--bd)'};border-radius:var(--r);padding:.85rem 1rem;margin-bottom:.5rem${hasReady ? ';box-shadow:0 0 0 3px rgba(29,158,117,.15)' : ''}">
+    return `<div style="background:${room.closed ? '#FFF8F0' : allPaid ? '#EAF3DE' : 'var(--card)'};border:1.5px solid ${room.needs_cleaning ? '#E5A85A' : hasReady ? 'var(--brand)' : allPaid ? '#3B6D11' : 'var(--bd)'};border-radius:var(--r);padding:.85rem 1rem;margin-bottom:.5rem${hasReady ? ';box-shadow:0 0 0 3px rgba(29,158,117,.15)' : ''}">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem">
         <div style="font-size:15px;font-weight:600">${label}</div>
         <div style="display:flex;gap:.35rem;align-items:center">
-          ${room.needs_cleaning ? `<span style="font-size:11px;font-weight:600;color:#854F0B;background:#FAEEDA;padding:2px 8px;border-radius:99px">🧹 Limpiar</span>` : ''}
-          ${hasReady ? `<span style="font-size:11px;font-weight:600;color:var(--brand);background:var(--brand-l);padding:2px 8px;border-radius:99px">${readyCount} listo${readyCount>1?'s':''}</span>` : ''}
-          <span style="font-size:11px;color:${allPaid ? '#3B6D11' : 'var(--t2)'}">${allPaid ? '✅ Pagada' : `${paidRealCount}/${guests.length} pagados`}</span>
+          ${room.needs_cleaning ? `<span style="font-size:11px;font-weight:600;color:#854F0B;background:#FAEEDA;padding:2px 8px;border-radius:99px">Pendiente limpieza</span>` : ''}
+          ${hasReady && !room.closed ? `<span style="font-size:11px;font-weight:600;color:var(--brand);background:var(--brand-l);padding:2px 8px;border-radius:99px">${readyCount} listo${readyCount>1?'s':''}</span>` : ''}
+          <span style="font-size:11px;color:${room.closed ? '#854F0B' : allPaid ? '#3B6D11' : 'var(--t2)'}">
+            ${room.closed ? 'Pagada · cerrada' : allPaid ? 'Pagada' : `${paidRealCount}/${guests.length} pagados`}
+          </span>
         </div>
       </div>
       <div style="font-size:11px;color:var(--t3);margin-bottom:.5rem">${timeStr} · ${guests.length} personas</div>
-      ${dishes.length > 0 ? `<div style="background:var(--bg2);border-radius:var(--r-sm);padding:.5rem .65rem;margin-bottom:.5rem">${dishesHtml}</div>` : ''}
+      ${!room.closed && dishes.length > 0 ? `<div style="background:var(--bg2);border-radius:var(--r-sm);padding:.5rem .65rem;margin-bottom:.5rem">${dishesHtml}</div>` : ''}
       <div style="display:flex;gap:.4rem">
+        ${room.closed ? '' : `
         <button onclick="waiterGoToPedido('${room.id}')"
           style="flex:1;padding:7px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--brand-l);color:var(--brand-d);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
           + Pedido
         </button>
         <button onclick="waiterGoToCobrar('${room.id}')"
           style="flex:1;padding:7px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg2);color:var(--t1);font-size:12px;cursor:pointer;font-family:inherit">
-          💳 Cobrar
-        </button>
+          Cobrar
+        </button>`}
         ${room.needs_cleaning ? `<button onclick="confirmTableClean('${room.id}')"
-          style="padding:7px 10px;border-radius:var(--r-sm);border:none;background:#FAEEDA;color:#854F0B;font-size:12px;cursor:pointer;font-family:inherit;font-weight:500">
-          🧹 Limpia
-        </button>` : `<button onclick="adminCloseTable('${room.id}')"
+          style="flex:1;padding:9px 10px;border-radius:var(--r-sm);border:none;background:#854F0B;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">
+          Mesa limpia
+        </button>` : !room.closed ? `<button onclick="adminCloseTable('${room.id}')"
           style="padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit">
           ✕
-        </button>`}
+        </button>` : ''}
       </div>
     </div>`;
   }).join('');
