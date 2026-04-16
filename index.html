@@ -7089,11 +7089,13 @@ async function markCourseDelivered(roomId, course, isBebidas) {
         .in('id', bebidas.map(d => d.id));
     }
   } else {
+    // Marcar como delivered desde cualquier estado previo (sent/making/ready)
+    // — sin cookeat los platos se quedan en 'sent', no pasan por 'ready'
     await sb.from('dishes')
       .update({ kitchen_status: 'delivered', delivered_at: new Date().toISOString() })
       .eq('room_id', roomId)
       .eq('course', course)
-      .eq('kitchen_status', 'ready');
+      .in('kitchen_status', ['sent', 'making', 'ready']);
   }
   loadWaiterMesas();
 
