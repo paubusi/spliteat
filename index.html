@@ -5891,7 +5891,12 @@ async function registerEqualPayment(me, method) {
   const tableTotalCovered = totalAmountPaid >= (state.dishes.reduce((s,d) => s+parseFloat(d.price||0),0) * 0.99);
 
   if (allGuestsPaid || tableTotalCovered) {
-    await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString() }).eq('id', state.roomId);
+    await sb.from('rooms').update({
+      closed: true,
+      closed_at: new Date().toISOString(),
+      needs_cleaning: true,
+      cleaning_requested_at: new Date().toISOString()
+    }).eq('id', state.roomId);
     clearSession();
     setTimeout(() => showAccountClosed(), 800);
   } else {
@@ -5929,7 +5934,13 @@ async function registerManualPayment(me, method) {
   });
 
   if (allPaid) {
-    await sb.from('rooms').update({ closed: true }).eq('id', state.roomId);
+    // Cerrar room con needs_cleaning:true en un solo UPDATE — sin race condition
+    await sb.from('rooms').update({
+      closed: true,
+      closed_at: new Date().toISOString(),
+      needs_cleaning: true,
+      cleaning_requested_at: new Date().toISOString()
+    }).eq('id', state.roomId);
     clearSession();
     setTimeout(() => showAccountClosed(), 800);
   } else {
@@ -6936,7 +6947,7 @@ async function waiterConfirmCobro(roomId, guestId, amount, method, nIdx) {
     const allPaid = (guests||[]).length > 0 && (guests||[]).every(g => paidIds.has(g.id));
     if (allPaid) {
       const totalPaid = (payments||[]).reduce((s,p)=>s+parseFloat(p.amount||0),0);
-      await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString() }).eq('id', roomId);
+      await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString(), needs_cleaning: true, cleaning_requested_at: new Date().toISOString() }).eq('id', roomId);
       await _notifyPaymentComplete(roomId, totalPaid);
       showToast('Mesa cerrada', 'Todos han pagado — recuerda limpiar la mesa');
       loadWaiterMesas();
@@ -7977,7 +7988,7 @@ async function waiterCobrarMesaCompleta(roomId, amount, method) {
     waiter_id: _waiterId, stripe_status: 'manual',
   });
   if (error) { notify('Error al registrar pago: ' + error.message); return; }
-  await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString() }).eq('id', roomId);
+  await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString(), needs_cleaning: true, cleaning_requested_at: new Date().toISOString() }).eq('id', roomId);
   showToast('Mesa cobrada', `${fmt(amount)} · Mesa cerrada.`);
   try { playPaymentSound(true); } catch(_) {}
   await _notifyPaymentComplete(roomId, amount);
@@ -7995,7 +8006,7 @@ async function waiterCobrarPartesIguales(roomId, total) {
   }));
   const { error: payErr } = await sb.from('payments').insert(inserts);
   if (payErr) { notify('Error al registrar pagos: ' + payErr.message); return; }
-  await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString() }).eq('id', roomId);
+  await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString(), needs_cleaning: true, cleaning_requested_at: new Date().toISOString() }).eq('id', roomId);
   showToast('Mesa cobrada', `${n} partes de ${fmt(porParte)}. Mesa cerrada.`);
   try { playPaymentSound(true); } catch(_) {}
   await _notifyPaymentComplete(roomId, total);
@@ -8016,7 +8027,7 @@ async function waiterMarkPaid(guestId, amount, roomId) {
   const allPaid = (guests||[]).length > 0 && (guests||[]).every(g => paidIds.has(g.id));
   if (allPaid) {
     const totalPaid = (payments||[]).reduce((s,p)=>s+parseFloat(p.amount||0),0);
-    await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString() }).eq('id', roomId);
+    await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString(), needs_cleaning: true, cleaning_requested_at: new Date().toISOString() }).eq('id', roomId);
     showToast('Mesa cerrada', 'Todos han pagado.');
     await _notifyPaymentComplete(roomId, totalPaid);
     showWaiterTab('mesas'); loadWaiterMesas(); loadWaiterTableSelects();
@@ -9605,6 +9616,9 @@ async function _originalCloseTable_unused(roomId) {
 
   await sb.from('rooms').update({
     closed: true,
+    closed_at: new Date().toISOString(),
+    needs_cleaning: true,
+    cleaning_requested_at: new Date().toISOString(),
     closed_reason: fullyPaid ? 'paid' : 'manual_unpaid'
   }).eq('id', roomId);
 
