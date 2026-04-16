@@ -1638,31 +1638,6 @@
 
   <!-- CAMARERO: PANEL PRINCIPAL -->
 
-    <!-- Botón flotante de notificaciones — fuera de admin-shell para evitar overflow:hidden -->
-    <button id="admin-notif-fab" onclick="openAdminNotifPanel()"
-      style="position:fixed;bottom:80px;right:20px;z-index:900;width:52px;height:52px;border-radius:50%;background:var(--brand-d);color:#fff;border:none;cursor:pointer;font-family:inherit;box-shadow:0 4px 20px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;transition:transform .15s,background .2s"
-      onmouseenter="this.style.transform='scale(1.08)'" onmouseleave="this.style.transform='scale(1)'">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-      </svg>
-      <span id="admin-notif-badge" style="display:none;position:absolute;top:-3px;right:-3px;background:#E24B4A;color:#fff;border-radius:99px;font-size:10px;font-weight:700;min-width:18px;height:18px;text-align:center;line-height:18px;padding:0 4px;pointer-events:none">0</span>
-    </button>
-    <!-- Panel lateral de notificaciones -->
-    <div id="admin-notif-panel" style="display:none;position:fixed;top:0;right:0;bottom:0;width:min(360px,100vw);z-index:910;background:var(--card);box-shadow:-4px 0 24px rgba(0,0,0,.2);flex-direction:column">
-      <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--brand-d)">
-        <div style="font-size:15px;font-weight:600;color:#fff">Notificaciones</div>
-        <div style="display:flex;gap:.5rem;align-items:center">
-          <button onclick="markAllAdminNotifSeen()" style="font-size:12px;padding:3px 10px;border-radius:99px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;cursor:pointer;font-family:inherit">Todo visto</button>
-          <button onclick="closeAdminNotifPanel()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
-        </div>
-      </div>
-      <div id="admin-notif-list" style="overflow-y:auto;flex:1;padding:.75rem 1.25rem">
-        <div style="text-align:center;padding:3rem 1rem;color:var(--t3);font-size:13px">Sin notificaciones aún</div>
-      </div>
-    </div>
-    <div id="admin-notif-overlay" onclick="closeAdminNotifPanel()" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.3)"></div>
-  </div><!-- fin s-admin -->
   <div class="screen" id="s-waiter">
     <div class="hdr">
       <div style="display:flex;align-items:center;gap:8px">
@@ -8240,7 +8215,10 @@ async function adminLogin() {
   renderAdminTabs();
   showAdminTab('encurso');
   loadEncurso();
-  subscribeAdminNotifications(); // notificaciones en tiempo real para manageat
+  subscribeAdminNotifications();
+  // Mostrar FAB de notificaciones solo en manageat
+  const fab = document.getElementById('admin-notif-fab');
+  if (fab) fab.style.display = 'flex';
 }
 
 function adminLogout() {
@@ -8251,6 +8229,10 @@ function adminLogout() {
   if (tabBar) tabBar.style.display = '';
   const logo = document.querySelector('#s-admin .hdr .logo');
   if (logo) logo.innerHTML = 'manag<em style="color:var(--accent);font-style:normal">eat</em>';
+  // Ocultar FAB y cerrar panel de notificaciones
+  const fab = document.getElementById('admin-notif-fab');
+  if (fab) fab.style.display = 'none';
+  closeAdminNotifPanel();
   go('s0');
 }
 
@@ -14863,6 +14845,30 @@ restoreSession().then(restored => {
     </div>
   </div>
 </div>
+
+<!-- FAB de notificaciones manageat — oculto por defecto, visible solo en manageat -->
+<button id="admin-notif-fab" onclick="openAdminNotifPanel()"
+  style="display:none;position:fixed;bottom:80px;right:20px;z-index:900;width:52px;height:52px;border-radius:50%;background:var(--brand-d);color:#fff;border:none;cursor:pointer;font-family:inherit;box-shadow:0 4px 20px rgba(0,0,0,.3);align-items:center;justify-content:center;transition:transform .15s,background .2s"
+  onmouseenter="this.style.transform='scale(1.08)'" onmouseleave="this.style.transform='scale(1)'">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+  </svg>
+  <span id="admin-notif-badge" style="display:none;position:absolute;top:-3px;right:-3px;background:#E24B4A;color:#fff;border-radius:99px;font-size:10px;font-weight:700;min-width:18px;height:18px;text-align:center;line-height:18px;padding:0 4px;pointer-events:none">0</span>
+</button>
+<div id="admin-notif-panel" style="display:none;position:fixed;top:0;right:0;bottom:0;width:min(360px,100vw);z-index:910;background:var(--card);box-shadow:-4px 0 24px rgba(0,0,0,.2);flex-direction:column">
+  <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--brand-d)">
+    <div style="font-size:15px;font-weight:600;color:#fff">Notificaciones</div>
+    <div style="display:flex;gap:.5rem;align-items:center">
+      <button onclick="markAllAdminNotifSeen()" style="font-size:12px;padding:3px 10px;border-radius:99px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;cursor:pointer;font-family:inherit">Todo visto</button>
+      <button onclick="closeAdminNotifPanel()" style="background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;border-radius:50%;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+    </div>
+  </div>
+  <div id="admin-notif-list" style="overflow-y:auto;flex:1;padding:.75rem 1.25rem">
+    <div style="text-align:center;padding:3rem 1rem;color:var(--t3);font-size:13px">Sin notificaciones aún</div>
+  </div>
+</div>
+<div id="admin-notif-overlay" onclick="closeAdminNotifPanel()" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.3)"></div>
 
 </body>
 </html>
