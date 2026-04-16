@@ -7029,6 +7029,24 @@ function _checkAllWaiterDishesIdx(nIdx) {
   if (modal) _renderNotifModal(modal, n);
 }
 
+// Broadcast dishes_updated al comensal — suscribe el canal antes de enviar
+// (Supabase requiere estado SUBSCRIBED para que el mensaje llegue)
+function _broadcastDishesUpdated(roomId, isBebidas) {
+  const chName = 'room-' + roomId;
+  const ch = sb.channel(chName);
+  ch.subscribe((status) => {
+    if (status === 'SUBSCRIBED') {
+      ch.send({
+        type: 'broadcast',
+        event: 'dishes_updated',
+        payload: { roomId, isBebidas }
+      }).catch(() => {});
+      // Desuscribir tras 3s para no acumular canales abiertos
+      setTimeout(() => { try { sb.removeChannel(ch); } catch(_) {} }, 3000);
+    }
+  });
+}
+
 async function markCourseDelivered(roomId, course, isBebidas) {
   sendPushNotification({
     roomId,
@@ -7057,14 +7075,8 @@ async function markCourseDelivered(roomId, course, isBebidas) {
   }
   loadWaiterMesas();
 
-  // CRÍTICO: spliteat no recibe UPDATEs de dishes sin REPLICA IDENTITY FULL.
-  // Broadcast explícito al canal de la room para forzar re-fetch en spliteat.
-  try {
-    sb.channel('room-' + roomId).send({
-      type: 'broadcast', event: 'dishes_updated',
-      payload: { roomId, isBebidas, course }
-    }).catch(() => {});
-  } catch(e) {}
+  // Broadcast al comensal (suscripción correcta via _broadcastDishesUpdated)
+  _broadcastDishesUpdated(roomId, isBebidas);
 
   // #11-1: After any food delivered, check if all food done → notify with_postre drinks
   if (!isBebidas) {
@@ -7623,22 +7635,15 @@ async function markDishDelivered(dishId) {
 }
 
 async function markBebidasReady(dishId) {
-  // Bebida preparada y entregada por el camarero — marcar como delivered directamente
   const now = new Date().toISOString();
-  // Obtener room_id antes del update para el broadcast
   const { data: dish } = await sb.from('dishes').select('room_id').eq('id', dishId).maybeSingle();
   await sb.from('dishes').update({
     kitchen_status: 'delivered',
-    making_at: now,
-    ready_at: now,
-    delivered_at: now
+    making_at: now, ready_at: now, delivered_at: now
   }).eq('id', dishId);
-  // Broadcast a spliteat para que actualice Tu Mesa sin esperar polling
+  // Broadcast: debe estar SUBSCRIBED para que Supabase lo entregue al comensal
   if (dish?.room_id) {
-    sb.channel('room-' + dish.room_id).send({
-      type: 'broadcast', event: 'dishes_updated',
-      payload: { roomId: dish.room_id, isBebidas: true }
-    }).catch(() => {});
+    _broadcastDishesUpdated(dish.room_id, true);
   }
   loadWaiterMesas();
 }
