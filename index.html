@@ -4520,8 +4520,9 @@ function renderDishCard(dish) {
   const perPerson = parseFloat(dish.price) / nParts;
   const ks = dish.kitchen_status || 'new';
   const isConfirmed = ks === 'making' || ks === 'ready';
-  const isSent = ks === 'sent' || isConfirmed;
   const isDelivered = ks === 'delivered';
+  // isSent = cualquier estado que no sea 'new' — incluye delivered para mostrar badge
+  const isSent = ks !== 'new';
   // #BG3: Bebidas are served by waiter, not kitchen — case-insensitive check
   const isBebida = (dish.category || '').toLowerCase() === 'bebidas' || dish.course === 0;
   // Bebidas "con el postre" — esperan hasta que todos los platos de comida estén servidos
@@ -7078,7 +7079,7 @@ async function markCourseDelivered(roomId, course, isBebidas) {
     try {
       // Platos de comida pendientes = los que aún están en sent o making (cocina no terminó)
       // ready y delivered ambos cuentan como "terminados" para este propósito
-      const { data: stillCooking } = await sb.from('dishes').select('id')
+      const { data: stillCooking } = await sb.from('dishes').select('id,with_postre')
         .eq('room_id', roomId)
         .neq('category', 'bebidas')
         .neq('course', 0)
@@ -12058,6 +12059,11 @@ async function handleQRUrl() {
     // Check for active room on this table
     let activeRoom = null;
     let lastClosedNeedsCleaning = null;
+
+    // SIEMPRE ocultar el aviso de limpieza al inicio — solo se muestra si hay motivo real
+    const _cwExisting = document.getElementById('qr-cleaning-warn');
+    if (_cwExisting) _cwExisting.style.display = 'none';
+
     if (table) {
       // Primero: buscar room abierta
       const { data: openRoom } = await sb.from('rooms')
@@ -12069,14 +12075,16 @@ async function handleQRUrl() {
         .maybeSingle();
       activeRoom = openRoom;
 
-      // Si no hay room abierta, comprobar si la última cerrada aún necesita limpieza
+      // Solo si no hay room abierta: buscar última cerrada con limpieza pendiente (máx 12h)
       if (!activeRoom) {
+        const since12h = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
         const { data: lastRoom } = await sb.from('rooms')
           .select('*')
           .eq('table_id', table.id)
           .eq('closed', true)
           .eq('needs_cleaning', true)
-          .order('created_at', { ascending: false })
+          .gte('closed_at', since12h)
+          .order('closed_at', { ascending: false })
           .limit(1)
           .maybeSingle();
         lastClosedNeedsCleaning = lastRoom;
@@ -12090,21 +12098,19 @@ async function handleQRUrl() {
       `Mesa ${tableNum}${table?.label ? ' — ' + table.label : ''}`;
     document.getElementById('qr-rest-nombre').textContent = rest.name;
 
-    // Solo mostrar el aviso si REALMENTE hay limpieza pendiente
+    // Mostrar aviso de limpieza SOLO si hay limpieza pendiente real
     if (activeRoom) {
       if (activeRoom.needs_cleaning) {
         _showCleaningWarn(false); // sesión abierta, mesa sucia
       } else {
-        document.getElementById('qr-cleaning-warn')?.style && (document.getElementById('qr-cleaning-warn').style.display = 'none');
         document.getElementById('qr-returning-panel').style.display = 'block';
         document.getElementById('qr-newuser-panel').style.display = 'none';
         document.getElementById('qr-returning-pick').style.display = 'none';
       }
     } else if (lastClosedNeedsCleaning) {
-      _showCleaningWarn(true); // sin sesión, mesa sucia de la sesión anterior
+      _showCleaningWarn(true); // sin sesión activa, mesa sucia de la sesión anterior
     } else {
-      // Mesa libre y limpia — entrada directa
-      document.getElementById('qr-cleaning-warn')?.style && (document.getElementById('qr-cleaning-warn').style.display = 'none');
+      // Mesa libre y limpia — entrada directa SIN ningún aviso
       document.getElementById('qr-returning-panel').style.display = 'none';
       document.getElementById('qr-returning-pick').style.display = 'none';
       document.getElementById('qr-newuser-panel').style.display = 'block';
