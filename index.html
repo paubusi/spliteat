@@ -4319,101 +4319,109 @@ function renderMesaDishes() {
     empty.style.display = 'none';
 
     const myId = state.myGuestId;
-    let html = '';
+    const isMine = d => d.type === 'shared'
+      ? (state.participants[d.id] || []).includes(myId)
+      : d.assignee_id === myId || !d.assignee_id;
 
-    // Helper: is this dish mine?
-    const isMine = d => {
-      if (d.type === 'solo') return d.assignee_id === myId;
-      return (state.participants[d.id] || []).includes(myId);
+    // Orden lógico: bebidas(0) → entrantes(1) → principales(2) → postres(3) → sin curso
+    const courseOrder = d => {
+      if ((d.category||'').toLowerCase() === 'bebidas' || d.course === 0) return 0;
+      return d.course || 9;
     };
 
-    // Status indicator helper
-    const statusDot = d => {
+    const sorted = [...state.dishes].sort((a,b) => courseOrder(a) - courseOrder(b));
+
+    const pending  = sorted.filter(d => !d.kitchen_status || d.kitchen_status !== 'delivered');
+    const served   = sorted.filter(d => d.kitchen_status === 'delivered');
+
+    // ── Helpers ──────────────────────────────────────────────
+    const COURSE_LABEL = { 0:'Bebidas', 1:'Entrantes', 2:'Principales', 3:'Postres' };
+    const STATUS_COLOR = {
+      new: null,
+      sent: { bg:'#EBF4FB', color:'#1565A8', text:'En cocina' },
+      making: { bg:'#FFF3E0', color:'#B7560D', text:'Preparando' },
+      ready:  { bg:'#EAF3DE', color:'#2E7D2E', text:'Listo' },
+      delivered:{ bg:'#EAF3DE', color:'#2E7D2E', text:'Servido' },
+    };
+
+    const statusBadge = d => {
       const ks = d.kitchen_status;
       if (!ks || ks === 'new') return '';
-      const color = ks === 'delivered' ? '#3B6D11' : ks === 'ready' ? '#27AE60' : ks === 'making' ? '#BA7517' : '#185FA5';
-      const label = ks === 'delivered' ? 'Servido' : ks === 'ready' ? 'Listo' : ks === 'making' ? 'Prep.' : 'Enviado';
-      return `<span style="font-size:10px;padding:1px 6px;border-radius:99px;background:${color}22;color:${color};font-weight:500;margin-left:4px;white-space:nowrap">${label}</span>`;
+      if (d.with_postre && ks !== 'delivered')
+        return `<span style="font-size:10px;padding:1px 7px;border-radius:99px;background:#F5EEF8;color:#7D3C98;font-weight:500">Con el postre</span>`;
+      const isBeb = (d.category||'').toLowerCase()==='bebidas'||d.course===0;
+      if (isBeb && ks !== 'delivered')
+        return `<span style="font-size:10px;padding:1px 7px;border-radius:99px;background:#FFF3E0;color:#B7560D;font-weight:500">En camino</span>`;
+      const st = STATUS_COLOR[ks];
+      if (!st) return '';
+      return `<span style="font-size:10px;padding:1px 7px;border-radius:99px;background:${st.bg};color:${st.color};font-weight:500">${st.text}</span>`;
     };
 
-    // Section header helper — optionally shows how many are already served (#25)
-    const secHeader = (label, color = 'var(--t2)', deliveredCount = 0, totalCount = 0) => {
-      const badge = (deliveredCount > 0 && totalCount > 0)
-        ? `<span style="font-size:10px;font-weight:500;color:#3B6D11;background:#EAF3DE;padding:2px 6px;border-radius:99px;margin-left:6px">${deliveredCount}/${totalCount} servidos</span>`
-        : '';
-      return `<div style="font-size:13px;font-weight:700;color:${color};padding:10px 0 5px;margin-top:.35rem;display:flex;align-items:center;border-bottom:1.5px solid var(--bd)">${label}${badge}</div>`;
+    const guestChips = d => {
+      const COLORS = ['#D85A30','#185FA5','#7B3FA0','#C0392B','#117A65','#B7770D','#1A5276','#6E2C00'];
+      if (d.type === 'shared') {
+        const parts = state.participants[d.id] || [];
+        if (!parts.length) return '<span style="font-size:11px;color:var(--t3)">Toda la mesa</span>';
+        return parts.map(gid => {
+          const g = state.guests.find(x=>x.id===gid);
+          if (!g) return '';
+          const i = state.guests.indexOf(g);
+          const bg = COLORS[i % COLORS.length];
+          return `<span style="font-size:11px;padding:1px 7px;border-radius:99px;background:${bg}22;color:${bg};font-weight:500">${escHtml(g.name)}</span>`;
+        }).join(' ');
+      }
+      if (d.assignee_id) {
+        const g = state.guests.find(x=>x.id===d.assignee_id);
+        if (g) {
+          const i = state.guests.indexOf(g);
+          const bg = COLORS[i % COLORS.length];
+          return `<span style="font-size:11px;padding:1px 7px;border-radius:99px;background:${bg}22;color:${bg};font-weight:500">${escHtml(g.name)}</span>`;
+        }
+      }
+      return '';
     };
 
-    // Ready banner
-    const readyDishes = state.dishes.filter(d => d.kitchen_status === 'ready');
-    if (readyDishes.length) {
-      html += `<div style="background:#EAF3DE;border-radius:var(--r);padding:.75rem 1rem;margin-bottom:.75rem;border:1px solid #A8D5A2">
-        <div style="font-size:14px;font-weight:600;color:#1E5C1E;margin-bottom:.2rem">Platos listos para servir!</div>
-        <div style="font-size:12px;color:#2E7D2E">${readyDishes.map(d => escHtml(d.name)).join(', ')}</div>
+    const renderRow = (d, dimmed=false) => {
+      const price = parseFloat(d.price||0);
+      const parts = d.type==='shared' ? Math.max(1,(state.participants[d.id]||[]).length) : 1;
+      const perPerson = price / parts;
+      const courseLbl = COURSE_LABEL[d.course||0] || '';
+      const mine = isMine(d);
+
+      return `<div style="display:flex;align-items:baseline;gap:.5rem;padding:.55rem 0;border-bottom:1px solid var(--bd);${dimmed?'opacity:.5':''}">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:.35rem;flex-wrap:wrap">
+            <span style="font-size:14px;font-weight:${mine?'500':'400'};color:${dimmed?'var(--t3)':'var(--t1)'}">${escHtml(d.name)}</span>
+            ${statusBadge(d)}
+          </div>
+          <div style="display:flex;align-items:center;gap:.35rem;margin-top:2px;flex-wrap:wrap">
+            ${courseLbl ? `<span style="font-size:11px;color:var(--t3)">${courseLbl}</span>` : ''}
+            ${guestChips(d)}
+            ${d.cooking_point ? `<span style="font-size:11px;color:var(--t3)">${escHtml(d.cooking_point)}</span>` : ''}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:13px;font-weight:500;color:${dimmed?'var(--t3)':'var(--t1)'}">${fmt(mine ? perPerson : price)}</div>
+          ${parts > 1 ? `<div style="font-size:10px;color:var(--t3)">÷${parts}</div>` : ''}
+        </div>
       </div>`;
+    };
+
+    let html = '';
+
+    // ── Sección: Por venir ────────────────────────────────────
+    if (pending.length) {
+      html += `<div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;padding:.5rem 0 .25rem">Por venir · ${pending.length} plato${pending.length!==1?'s':''}</div>`;
+      pending.forEach(d => { html += renderRow(d); });
     }
 
-    // ── 1. BEBIDAS — strictly by category, not course (course may be wrong) ──
-    const bebidas = state.dishes.filter(d => d.category === 'bebidas' || d.course === 0);
-    const bebidaIds = new Set(bebidas.map(d => d.id)); // exclude from all other sections
-    if (bebidas.length) {
-      const delivBeb = bebidas.filter(d => d.kitchen_status === 'delivered').length;
-      html += secHeader('Bebidas', '#185FA5', delivBeb, bebidas.length);
-      bebidas.forEach(d => { html += renderDishCard(d); });
-    }
-
-    // ── 2. PLATOS COMPARTIDOS (non-bebidas) ──
-    const compartidos = state.dishes.filter(d =>
-      d.type === 'shared' && !bebidaIds.has(d.id)
-    );
-    if (compartidos.length) {
-      html += secHeader('🤝 Compartidos');
-      // Group by course within shared
-      [1, 2, 3].forEach(course => {
-        const group = compartidos.filter(d => (d.course || 1) === course);
-        if (!group.length) return;
-        const cLabel = course === 1 ? 'Entrantes compartidos' : course === 2 ? 'Principales compartidos' : 'Postres compartidos';
-        html += `<div style="font-size:10px;color:var(--t3);margin-bottom:3px;margin-top:4px">${cLabel}</div>`;
-        group.forEach(d => { html += renderDishCard(d); });
-      });
-    }
-
-    // ── 3–5. PLATOS INDIVIDUALES por curso: primeros, segundos, postres ──
-    const solosByCourse = state.dishes.filter(d =>
-      d.type !== 'shared' && !bebidaIds.has(d.id)
-    );
-
-    [
-      { course: 1, label: '🥗 Primeros' },
-      { course: 2, label: '🍽 Segundos' },
-      { course: 3, label: '🍰 Postres' },
-    ].forEach(({ course, label }) => {
-      const group = solosByCourse.filter(d => (d.course || 1) === course);
-      if (!group.length) return;
-
-      const mine = group.filter(d => isMine(d));
-      const others = group.filter(d => !isMine(d));
-      const deliveredInGroup = group.filter(d => d.kitchen_status === 'delivered').length;
-
-      html += secHeader(label, 'var(--t3)', deliveredInGroup, group.length);
-
-      if (mine.length) {
-        html += `<div style="font-size:12px;color:var(--brand-d);font-weight:600;margin:6px 0 3px;padding-left:2px">Míos</div>`;
-        mine.forEach(d => { html += renderDishCard(d); });
-      }
-      if (others.length) {
-        html += `<div style="font-size:12px;color:var(--t2);font-weight:600;margin:${mine.length?'10px':'6px'} 0 3px;padding-left:2px">De otros</div>`;
-        others.forEach(d => { html += renderDishCard(d); });
-      }
-    });
-
-    // ── Platos sin curso asignado (catch-all, no bebidas) ──
-    const noCourse = state.dishes.filter(d =>
-      d.type !== 'shared' && !bebidaIds.has(d.id) && !d.course
-    );
-    if (noCourse.length) {
-      html += secHeader('Platos');
-      noCourse.forEach(d => { html += renderDishCard(d); });
+    // ── Sección: Ya servido ───────────────────────────────────
+    if (served.length) {
+      html += `<div style="font-size:11px;font-weight:700;color:#2E7D2E;text-transform:uppercase;letter-spacing:.08em;padding:.75rem 0 .25rem;display:flex;align-items:center;gap:.4rem">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#2E7D2E" stroke-width="1.5"/><path d="M5 8l2 2 4-4" stroke="#2E7D2E" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Servido · ${served.length} plato${served.length!==1?'s':''}
+      </div>`;
+      served.forEach(d => { html += renderRow(d, true); });
     }
 
     el.innerHTML = html;
@@ -4426,11 +4434,11 @@ function renderMesaDishes() {
     badge.textContent = state.dishes.length;
   }
 
-  // Show/hide mesa-actions (unified view #15)
+  // Show/hide mesa-actions
   const mesaActions = document.getElementById('mesa-actions');
   if (mesaActions) mesaActions.style.display = state.dishes.length > 0 ? 'block' : 'none';
 
-  // Update send-to-kitchen button
+  // Send-to-kitchen button
   const sendBtn = document.getElementById('btn-send-kitchen');
   const sentMsg = document.getElementById('kitchen-sent-msg');
   const unsentDishes = state.dishes.filter(d => !d.kitchen_status || d.kitchen_status === 'new');
@@ -4439,20 +4447,18 @@ function renderMesaDishes() {
     sendBtn.textContent = `Revisar y enviar a cocina (${unsentDishes.length}) →`;
   }
   if (sentMsg) {
-    // #36: Hide if payments already started — message about kitchen is irrelevant
     const paymentStarted = state.payments && state.payments.length > 0;
     sentMsg.style.display = (state.dishes.length > 0 && unsentDishes.length === 0 && !paymentStarted) ? 'block' : 'none';
   }
 
-  // Ver resumen / pagar button logic
+  // Botón pagar
   const resumenBtn = document.getElementById('btn-ver-resumen-area');
   const resumenBtnInner = document.getElementById('btn-ver-resumen-inner');
   const resumenWaitMsg = document.getElementById('resumen-wait-msg');
   if (resumenBtn && state.dishes.length > 0) {
     const sentDishes = state.dishes.filter(d => d.kitchen_status && d.kitchen_status !== 'new');
-    // sent/making/ready bloquean el pago — solo delivered (camarero sirvió) permite pagar
     const stillPending = sentDishes.filter(d => {
-      if (d.category === 'bebidas' || d.course === 0) return false; // bebidas no bloquean
+      if ((d.category||'').toLowerCase()==='bebidas' || d.course === 0) return false;
       return d.kitchen_status !== 'delivered';
     });
     const canPay = sentDishes.length > 0 && stillPending.length === 0;
@@ -4460,10 +4466,10 @@ function renderMesaDishes() {
 
     const finishBanner = document.getElementById('finish-dinner-banner');
     if (finishBanner) {
-      const unsentDishes = state.dishes.filter(d => !d.kitchen_status || d.kitchen_status === 'new');
-      const foodDishes = sentDishes.filter(d => d.category !== 'bebidas' && d.course !== 0);
+      const foodDishes = sentDishes.filter(d => (d.category||'').toLowerCase()!=='bebidas' && d.course !== 0);
       const allFoodDelivered = foodDishes.length > 0 && foodDishes.every(d => d.kitchen_status === 'delivered');
-      finishBanner.style.display = (allFoodDelivered && unsentDishes.length === 0) ? 'block' : 'none';
+      const noUnsent = unsentDishes.length === 0;
+      finishBanner.style.display = (allFoodDelivered && noUnsent) ? 'block' : 'none';
     }
 
     if (resumenBtnInner) {
@@ -4474,8 +4480,8 @@ function renderMesaDishes() {
       resumenBtnInner.innerHTML = canPay
         ? 'Ver resumen y pagar →'
         : stillPending.length > 0
-          ? `Esperando confirmación del camarero: ${pendingNames}${stillPending.length>2?'…':''}`
-          : 'Esperando que el camarero sirva los platos';
+          ? `Esperando: ${pendingNames}${stillPending.length>2?'…':''}`
+          : 'Esperando confirmación del camarero';
     }
     if (resumenWaitMsg) {
       const refreshBtn = document.getElementById('resumen-refresh-btn');
