@@ -2921,7 +2921,15 @@ function go(screenId) {
   }
   if (screenId === 's3-dishes') {
     loadCarta();
-    renderMesaDishes();
+    // Refresh inmediato desde DB — garantiza estado actual sin esperar poll
+    if (state.roomId) {
+      sb.from('dishes').select('*').eq('room_id', state.roomId).then(({ data: freshDishes }) => {
+        if (freshDishes) { state.dishes = freshDishes; }
+        renderMesaDishes();
+      });
+    } else {
+      renderMesaDishes();
+    }
     document.getElementById('s3-online').textContent = state.guests.length;
     showPushBannerIfNeeded();
   }
@@ -3524,9 +3532,8 @@ function subscribeRealtime() {
         }
       }
 
-      // FIABLE: re-fetch dishes cuando la room se actualiza
-      // (disparado por markBebidasReady/markCourseDelivered vía UPDATE room)
-      if (state.roomId && !room.closed) {
+      // Re-fetch dishes cuando la room se actualiza (triggered por markBebidasReady/markCourseDelivered)
+      if (state.roomId) {
         sb.from('dishes').select('*').eq('room_id', state.roomId).then(({ data: freshDishes }) => {
           if (!freshDishes) return;
           const changed = freshDishes.some(fd => {
@@ -3564,12 +3571,10 @@ function subscribeRealtime() {
     })
     .subscribe();
 
-  // Fallback polling: re-fetch dishes cada 4s para capturar cambios perdidos por falta de REPLICA IDENTITY
+  // Polling definitivo: sin condiciones, cada 2s — garantiza sincronía con serveat
   if (window._dishPollInterval) clearInterval(window._dishPollInterval);
   window._dishPollInterval = setInterval(async () => {
     if (!state.roomId) return;
-    const hasSentDishes = state.dishes.some(d => d.kitchen_status && d.kitchen_status !== 'new');
-    if (!hasSentDishes) return;
     try {
       const { data: freshDishes } = await sb.from('dishes').select('*').eq('room_id', state.roomId);
       if (!freshDishes) return;
@@ -3584,7 +3589,7 @@ function subscribeRealtime() {
         if (document.getElementById('s4-summary')?.classList.contains('active')) buildSummary();
       }
     } catch(e) {}
-  }, 4000);
+  }, 2000);
 
   state.realtimeSubs = [guestSub, dishSub, partSub, paySub, roomSub, broadcastSub, roomDeliveredSub];
 }
