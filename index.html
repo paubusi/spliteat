@@ -7625,12 +7625,21 @@ async function markDishDelivered(dishId) {
 async function markBebidasReady(dishId) {
   // Bebida preparada y entregada por el camarero — marcar como delivered directamente
   const now = new Date().toISOString();
+  // Obtener room_id antes del update para el broadcast
+  const { data: dish } = await sb.from('dishes').select('room_id').eq('id', dishId).maybeSingle();
   await sb.from('dishes').update({
     kitchen_status: 'delivered',
     making_at: now,
     ready_at: now,
     delivered_at: now
   }).eq('id', dishId);
+  // Broadcast a spliteat para que actualice Tu Mesa sin esperar polling
+  if (dish?.room_id) {
+    sb.channel('room-' + dish.room_id).send({
+      type: 'broadcast', event: 'dishes_updated',
+      payload: { roomId: dish.room_id, isBebidas: true }
+    }).catch(() => {});
+  }
   loadWaiterMesas();
 }
 
