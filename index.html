@@ -3523,6 +3523,23 @@ function subscribeRealtime() {
           setTimeout(() => showAccountClosed(), 500);
         }
       }
+
+      // FIABLE: re-fetch dishes cuando la room se actualiza
+      // (disparado por markBebidasReady/markCourseDelivered vía UPDATE room)
+      if (state.roomId && !room.closed) {
+        sb.from('dishes').select('*').eq('room_id', state.roomId).then(({ data: freshDishes }) => {
+          if (!freshDishes) return;
+          const changed = freshDishes.some(fd => {
+            const old = state.dishes.find(d => d.id === fd.id);
+            return old && old.kitchen_status !== fd.kitchen_status;
+          });
+          if (changed) {
+            state.dishes = freshDishes;
+            renderMesaDishes();
+            renderCarta();
+          }
+        });
+      }
     }).subscribe();
 
   // #17: Broadcast channel for instant peer-to-peer room notifications
@@ -7075,7 +7092,9 @@ async function markCourseDelivered(roomId, course, isBebidas) {
   }
   loadWaiterMesas();
 
-  // Broadcast al comensal (suscripción correcta via _broadcastDishesUpdated)
+  // Disparar roomSub en spliteat via postgres_changes (UPDATE rooms es fiable sin REPLICA IDENTITY)
+  sb.from('rooms').update({ cleaning_requested_at: new Date().toISOString() }).eq('id', roomId).catch(() => {});
+  // Broadcast como fallback adicional
   _broadcastDishesUpdated(roomId, isBebidas);
 
   // #11-1: After any food delivered, check if all food done → notify with_postre drinks
@@ -7630,7 +7649,12 @@ async function loadWaiterMesas() {
 
 async function markDishDelivered(dishId) {
   track('dish_delivered', { dish_id: dishId, waiter_id: _waiterId });
+  const { data: dish } = await sb.from('dishes').select('room_id').eq('id', dishId).maybeSingle();
   await sb.from('dishes').update({ kitchen_status: 'delivered' }).eq('id', dishId);
+  if (dish?.room_id) {
+    sb.from('rooms').update({ cleaning_requested_at: new Date().toISOString() }).eq('id', dish.room_id).catch(() => {});
+    _broadcastDishesUpdated(dish.room_id, false);
+  }
   loadWaiterMesas();
 }
 
@@ -7641,9 +7665,11 @@ async function markBebidasReady(dishId) {
     kitchen_status: 'delivered',
     making_at: now, ready_at: now, delivered_at: now
   }).eq('id', dishId);
-  // Broadcast: debe estar SUBSCRIBED para que Supabase lo entregue al comensal
+  // Disparar roomSub en spliteat via postgres_changes (más fiable que broadcast)
+  // Tocamos la room con un UPDATE para que spliteat reciba el evento y re-fetchee dishes
   if (dish?.room_id) {
-    _broadcastDishesUpdated(dish.room_id, true);
+    sb.from('rooms').update({ cleaning_requested_at: now }).eq('id', dish.room_id).catch(() => {});
+    _broadcastDishesUpdated(dish.room_id, true); // broadcast como fallback adicional
   }
   loadWaiterMesas();
 }
