@@ -7116,7 +7116,7 @@ async function markDishesDelivered(dishIds, roomId, isBebidas) {
 
   // Notificar a spliteat via roomSub touch + broadcast
   if (roomId) {
-    sb.from('rooms').update({ cleaning_requested_at: now }).eq('id', roomId).catch(() => {});
+    (async()=>{try{await sb.from('rooms').update({ cleaning_requested_at: now }).eq('id', roomId);}catch(_){}})();
     _broadcastDishesUpdated(roomId, isBebidas);
   }
 
@@ -7124,7 +7124,7 @@ async function markDishesDelivered(dishIds, roomId, isBebidas) {
   if (!isBebidas && roomId) {
     try {
       // Buscar platos de comida (no bebidas) aún pendientes — solo por kitchen_status, sin filtrar category/course
-      const { data: allDishes } = await sb.from('dishes').select('id,kitchen_status,with_postre,course')
+      const { data: allDishes } = await sb.from('dishes').select('id,name,kitchen_status,with_postre,course')
         .eq('room_id', roomId);
       if (allDishes) {
         const foodDishes = allDishes.filter(d => d.course !== 0 && !d.with_postre);
@@ -7148,7 +7148,8 @@ async function markDishesDelivered(dishIds, roomId, isBebidas) {
                 dishes: postreDrinks.map(d => ({ id: d.id, name: d.name || 'Bebida' })),
                 assigned_waiter_id: roomInfo?.assigned_waiter_id || null,
                 waiter_id: roomInfo?.waiter_id || null,
-              }).catch(() => {});
+              });
+              console.log('[Waiter] ✓ Notificación "Con el postre" enviada —', postreDrinks.length, 'bebidas');
             }
           }
         }
@@ -7199,7 +7200,7 @@ async function markCourseDelivered(roomId, course, isBebidas) {
   loadWaiterMesas();
 
   // Disparar roomSub en spliteat via postgres_changes (UPDATE rooms es fiable sin REPLICA IDENTITY)
-  sb.from('rooms').update({ cleaning_requested_at: new Date().toISOString() }).eq('id', roomId).catch(() => {});
+  (async()=>{try{await sb.from('rooms').update({ cleaning_requested_at: new Date().toISOString() }).eq('id', roomId);}catch(_){}})();
   // Broadcast como fallback adicional
   _broadcastDishesUpdated(roomId, isBebidas);
 
@@ -7758,7 +7759,7 @@ async function markDishDelivered(dishId) {
   const { data: dish } = await sb.from('dishes').select('room_id').eq('id', dishId).maybeSingle();
   await sb.from('dishes').update({ kitchen_status: 'delivered' }).eq('id', dishId);
   if (dish?.room_id) {
-    sb.from('rooms').update({ cleaning_requested_at: new Date().toISOString() }).eq('id', dish.room_id).catch(() => {});
+    (async()=>{try{await sb.from('rooms').update({ cleaning_requested_at: new Date().toISOString() }).eq('id', dish.room_id);}catch(_){}})();
     _broadcastDishesUpdated(dish.room_id, false);
   }
   loadWaiterMesas();
@@ -7776,7 +7777,7 @@ async function markBebidasReady(dishId) {
   if (error) console.error('[Waiter] ERROR markBebidasReady:', error.message);
   else console.log('[Waiter] ✓ dish marcada como delivered');
   if (dish?.room_id) {
-    sb.from('rooms').update({ cleaning_requested_at: now }).eq('id', dish.room_id).catch(() => {});
+    (async()=>{try{await sb.from('rooms').update({ cleaning_requested_at: now }).eq('id', dish.room_id);}catch(_){}})();
     _broadcastDishesUpdated(dish.room_id, true);
   }
   loadWaiterMesas();
