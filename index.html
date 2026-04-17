@@ -6949,9 +6949,10 @@ function _renderNotifModal(modal, n) {
           Marcar todos
         </button>` : ''}
         ${isCobro ? '' : `
-        <button onclick="${allChecked ? `markDishesDeliveredByNotif(${nIdx});document.getElementById('waiter-notif-modal').style.display='none'` : `_checkAllWaiterDishesIdx(${nIdx})`}"
-          class="btn btn-primary" style="flex:2;background:${allChecked?color:'var(--bd2)'};color:${allChecked?'#fff':'var(--t2)'};font-size:14px;${!allChecked?'cursor:default;':''}">
-          ${allChecked ? 'Llevado a mesa' : 'Marca todos los platos primero'}
+        <button onclick="confirmWaiterNotif(${nIdx})"
+          id="btn-confirm-notif-${nIdx}"
+          class="btn btn-primary" style="flex:2;background:${allChecked?color:'var(--bd2)'};color:${allChecked?'#fff':'var(--t2)'};font-size:14px;${!allChecked?'pointer-events:none;opacity:.7;':''}">
+          ${allChecked ? 'Llevado a mesa ✓' : 'Marca todos los platos primero'}
         </button>`}
       </div>
     </div>
@@ -7070,6 +7071,25 @@ function _broadcastDishesUpdated(roomId, isBebidas) {
       setTimeout(() => { try { sb.removeChannel(ch); } catch(_) {} }, 3000);
     }
   });
+}
+
+// Función unificada para confirmar entrega desde el modal — sin lógica en el onclick
+function confirmWaiterNotif(nIdx) {
+  const n = _waiterNotifHistory[nIdx];
+  if (!n) return;
+  const total = n.dishes ? n.dishes.length : 0;
+  const checkedCount = Object.values(n.checked || {}).filter(Boolean).length;
+  const allChecked = checkedCount >= total;
+  if (!allChecked) {
+    // Marcar todos primero
+    _checkAllWaiterDishesIdx(nIdx);
+    return;
+  }
+  // Cerrar modal
+  const modal = document.getElementById('waiter-notif-modal');
+  if (modal) modal.style.display = 'none';
+  // Marcar como delivered
+  markDishesDeliveredByNotif(nIdx);
 }
 
 // Wrapper llamado desde el onclick del modal — lee los datos de _waiterNotifHistory
