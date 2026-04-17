@@ -5055,12 +5055,15 @@ function buildSummary() {
   const sentDishesAll = state.dishes.filter(d =>
     d.kitchen_status && d.kitchen_status !== 'new'
   );
+  // Un plato solo está "sin asignar" si es shared con 0 participantes
+  // cargados explícitamente (no si simplemente no se han cargado aún).
+  // Para evitar falsos positivos, si participants no está en state la consideramos asignada.
   const unassigned = sentDishesAll.filter(d => {
-    // Platos tipo 'solo' sin assignee_id están implícitamente asignados al que los añadió — no son "sin asignar"
-    if (d.type === 'solo') return false;
+    if (d.type === 'solo') return false; // solo siempre tiene assignee
     if (d.type === 'shared') {
-      const parts = state.participants[d.id] || [];
-      return parts.length === 0;
+      // Solo contar como sin asignar si el array de participantes existe explícitamente vacío
+      const parts = state.participants[d.id];
+      return Array.isArray(parts) && parts.length === 0;
     }
     return false;
   });
@@ -13420,35 +13423,29 @@ function openRevisarCuenta() {
   const COLORS = ['#D85A30','#185FA5','#7B3FA0','#C0392B','#117A65','#B7770D','#1A5276','#6E2C00'];
   const n = state.guests.length;
 
-  // Quién está en un plato: "Todos", "Ana, Pedro" o "Ana"
-  const whoText = (dishId, isShared, assigneeId) => {
-    if (!isShared) {
-      const g = state.guests.find(x => x.id === assigneeId);
-      return g ? escHtml(g.name) : 'Sin asignar';
-    }
-    const parts = state.participants[dishId] || [];
-    if (parts.length === 0 || parts.length === n) return 'Todos';
-    return parts.map(id => {
-      const g = state.guests.find(x => x.id === id);
-      return g ? escHtml(g.name) : '';
-    }).filter(Boolean).join(', ');
-  };
-
-  const whoColor = (dishId, isShared, assigneeId) => {
+  // Nombres en sus colores para un plato
+  const whoHTML = (dishId, isShared, assigneeId) => {
     if (!isShared) {
       const idx = state.guests.findIndex(x => x.id === assigneeId);
-      return idx >= 0 ? COLORS[idx % COLORS.length] : 'var(--t2)';
+      const g = state.guests[idx];
+      if (!g) return '<span style="color:var(--t3)">Sin asignar</span>';
+      const c = COLORS[idx % COLORS.length];
+      return `<span style="color:${c};font-weight:500">${escHtml(g.name)}</span>`;
     }
     const parts = state.participants[dishId] || [];
-    if (parts.length === 0 || parts.length === n) return 'var(--brand-d)';
-    if (parts.length === 1) {
-      const idx = state.guests.findIndex(x => x.id === parts[0]);
-      return idx >= 0 ? COLORS[idx % COLORS.length] : 'var(--t2)';
+    if (parts.length === 0 || parts.length >= n) {
+      return `<span style="color:var(--brand-d);font-weight:500">Todos</span>`;
     }
-    return 'var(--t2)';
+    return parts.map(id => {
+      const idx = state.guests.findIndex(x => x.id === id);
+      const g = state.guests[idx];
+      if (!g) return '';
+      const c = COLORS[idx % COLORS.length];
+      return `<span style="color:${c};font-weight:500">${escHtml(g.name)}</span>`;
+    }).filter(Boolean).join('<span style="color:var(--t3)"> · </span>');
   };
 
-  // Agrupar por nombre
+  // Agrupar platos por nombre
   const grouped = [];
   const seen = {};
   state.dishes.forEach(d => {
@@ -13459,69 +13456,79 @@ function openRevisarCuenta() {
 
   const unitRow = (d) => {
     const isShared = d.type === 'shared';
-    const who = whoText(d.id, isShared, d.assignee_id);
-    const color = whoColor(d.id, isShared, d.assignee_id);
-    const parts = isShared ? (state.participants[d.id] || []) : [];
-    const isAll = isShared && (parts.length === 0 || parts.length === n);
-    // Botón de editar (solo si no está bloqueado)
     const editBtn = payLocked ? '' :
-      `<button onclick="rcOpenPicker('${d.id}')" style="background:none;border:none;padding:2px 6px;border-radius:99px;font-size:11px;color:var(--t3);cursor:pointer;white-space:nowrap;border:1px solid var(--bd)">
-        ${isAll ? '✎' : parts.length === 0 && !isShared ? '+ añadir' : '✎'}
-      </button>`;
-    return `<div style="display:flex;align-items:center;gap:.5rem;padding:4px 0">
-      <span style="font-size:12px;color:var(--t3);flex-shrink:0">1×</span>
-      <span style="font-size:13px;font-weight:500;color:${color};flex:1">${who}</span>
+      `<button onclick="rcOpenPicker('${d.id}')" style="background:none;border:1px solid var(--bd);padding:2px 8px;border-radius:99px;font-size:11px;color:var(--t3);cursor:pointer;white-space:nowrap;flex-shrink:0">✎</button>`;
+    return `<div style="display:flex;align-items:center;gap:.5rem;padding:3px 0">
+      <span style="font-size:11px;color:var(--t3);flex-shrink:0;min-width:16px">1×</span>
+      <span style="font-size:13px;flex:1">${whoHTML(d.id, isShared, d.assignee_id)}</span>
       ${editBtn}
     </div>`;
   };
 
   const dishCards = grouped.map(g => `
-    <div style="padding:.7rem 0;border-bottom:1px solid var(--bd)">
-      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:.2rem">
+    <div style="padding:.65rem 0;border-bottom:1px solid var(--bd)">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:.25rem">
         <div style="font-size:14px;font-weight:500;color:var(--t1)">${escHtml(g.name)}</div>
-        <div style="font-size:13px;color:var(--t2);flex-shrink:0;margin-left:.5rem">${g.items.length > 1 ? g.items.length+'× ' : ''}${fmt(g.price)}</div>
+        <div style="font-size:13px;color:var(--t2);flex-shrink:0;margin-left:.5rem">${fmt(g.price * g.items.length)}</div>
       </div>
       ${g.items.map(unitRow).join('')}
     </div>`).join('');
 
   const total = state.dishes.reduce((s,d) => s+parseFloat(d.price||0), 0);
 
+  // Avatares de comensales para la cabecera
+  const guestAvatars = state.guests.map((g, i) => {
+    const c = COLORS[i % COLORS.length];
+    return `<div style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:99px;background:${c}15;border:1.5px solid ${c}40">
+      <div style="width:8px;height:8px;border-radius:50%;background:${c};flex-shrink:0"></div>
+      <span style="font-size:13px;font-weight:500;color:${c}">${escHtml(g.name)}</span>
+    </div>`;
+  }).join('');
+
   const el = document.createElement('div');
   el.id = 'revisar-cuenta-screen';
   el.style.cssText = 'position:fixed;inset:0;z-index:450;background:var(--bg);display:flex;flex-direction:column;overflow:hidden';
   el.innerHTML = `
-    <div style="background:var(--card);border-bottom:1px solid var(--bd);padding:.85rem 1.25rem;flex-shrink:0;display:flex;align-items:center;justify-content:space-between">
-      <button onclick="document.getElementById('revisar-cuenta-screen').remove()" style="background:none;border:none;font-size:13px;color:var(--t2);cursor:pointer;font-family:inherit">← Volver</button>
-      <div style="font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:var(--brand-d)">Revisar cuenta</div>
-      <div style="width:60px;text-align:right;font-size:12px;color:var(--t3)">${state.guests.length} pers.</div>
+    <!-- Cabecera -->
+    <div style="background:var(--card);border-bottom:1px solid var(--bd);padding:.85rem 1.25rem;flex-shrink:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+        <button onclick="document.getElementById('revisar-cuenta-screen').remove()" style="background:none;border:none;font-size:13px;color:var(--t2);cursor:pointer;font-family:inherit">← Volver</button>
+        <div style="font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:var(--brand-d)">Revisar cuenta</div>
+        <div style="width:60px"></div>
+      </div>
+      <!-- Comensales en la mesa -->
+      <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.65rem">${guestAvatars}</div>
+      <!-- ¿Falta alguien? -->
+      ${!payLocked ? `<div id="rc-add-area">
+        <button onclick="rcToggleAddForm()" style="width:100%;padding:7px;border-radius:var(--r-sm);border:1.5px dashed var(--bd2);background:none;color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">
+          ¿Falta alguien? <span style="color:var(--brand-d);font-weight:500">+ Añadir persona</span>
+        </button>
+        <div id="rc-add-form" style="display:none;margin-top:.4rem;display:none">
+          <div style="display:flex;gap:.4rem">
+            <input id="rc-new-name" type="text" placeholder="Nombre" autocomplete="off"
+              style="flex:1;padding:8px 10px;border:1.5px solid var(--brand);border-radius:var(--r-sm);font-size:14px;font-family:inherit;background:var(--card)"
+              onkeydown="if(event.key==='Enter')rcConfirmAddPerson()">
+            <button onclick="rcConfirmAddPerson()" style="padding:8px 14px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:13px;cursor:pointer;font-family:inherit">Añadir</button>
+            <button onclick="document.getElementById('rc-add-form').style.display='none'" style="padding:8px;border-radius:var(--r-sm);border:1px solid var(--bd);background:none;color:var(--t3);font-size:13px;cursor:pointer">✕</button>
+          </div>
+        </div>
+      </div>` : `<div style="font-size:12px;color:#854F0B;background:var(--amber-l);padding:5px 8px;border-radius:var(--r-sm)">🔒 Pago iniciado — no se puede cambiar el reparto</div>`}
     </div>
 
+    <!-- Lista de platos -->
     <div style="flex:1;overflow-y:auto;padding:0 1.25rem .5rem">
-      ${payLocked ? `<div style="background:var(--amber-l);border-radius:var(--r-sm);padding:.6rem .85rem;margin:.75rem 0;font-size:12px;color:#633806">🔒 Pago iniciado — el reparto no se puede cambiar.</div>` : `<div style="font-size:12px;color:var(--t3);padding:.65rem 0">Toca ✎ para cambiar quién paga cada plato.</div>`}
-
-      <!-- Añadir persona -->
-      ${!payLocked ? `<button onclick="rcToggleAddForm()" style="width:100%;padding:8px;border-radius:var(--r-sm);border:1.5px dashed var(--bd2);background:none;color:var(--brand-d);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;margin-bottom:.5rem">
-        + Añadir persona a la mesa
-      </button>
-      <div id="rc-add-form" style="display:none;background:var(--bg2);border-radius:var(--r-sm);padding:.65rem;border:1.5px solid var(--brand);margin-bottom:.75rem">
-        <input id="rc-new-name" type="text" placeholder="Nombre" autocomplete="off"
-          style="width:100%;padding:8px 10px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-size:14px;font-family:inherit;background:var(--card);margin-bottom:.4rem"
-          onkeydown="if(event.key==='Enter')rcConfirmAddPerson()">
-        <div style="display:flex;gap:.4rem">
-          <button onclick="rcConfirmAddPerson()" style="flex:1;padding:8px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:13px;cursor:pointer;font-family:inherit">Añadir</button>
-          <button onclick="document.getElementById('rc-add-form').style.display='none'" style="padding:8px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:none;color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit">✕</button>
-        </div>
-      </div>` : ''}
-
+      ${!payLocked ? `<div style="font-size:11px;color:var(--t3);padding:.6rem 0">Toca <strong>✎</strong> para cambiar quién paga cada plato.</div>` : ''}
       ${dishCards || '<div style="text-align:center;padding:2rem;color:var(--t3)">No hay platos</div>'}
     </div>
 
-    <!-- Picker inline (se inyecta aquí) -->
+    <!-- Picker (se inyecta aquí) -->
     <div id="rc-picker-area" style="flex-shrink:0"></div>
 
+    <!-- Footer -->
     <div style="padding:.85rem 1.25rem;background:var(--card);border-top:1px solid var(--bd);flex-shrink:0">
-      <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--t2);margin-bottom:.6rem">
-        <span>Total mesa</span><strong style="color:var(--t1)">${fmt(total)}</strong>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.6rem">
+        <span style="font-size:13px;color:var(--t2)">Total mesa</span>
+        <strong style="font-family:'Fraunces',serif;font-size:18px;color:var(--brand-d)">${fmt(total)}</strong>
       </div>
       <button onclick="document.getElementById('revisar-cuenta-screen').remove();_doGoToSummary()" class="btn btn-primary" style="width:100%">
         Ver resumen de la cuenta →
@@ -13530,90 +13537,89 @@ function openRevisarCuenta() {
   document.body.appendChild(el);
 }
 
-// Picker inline al tocar ✎
+// Picker inline — aparece encima del footer
 function rcOpenPicker(dishId) {
   const area = document.getElementById('rc-picker-area');
   if (!area) return;
   const dish = state.dishes.find(d => d.id === dishId);
   if (!dish) return;
-  const isShared = dish.type === 'shared';
-  const parts = isShared ? [...(state.participants[dishId] || [])] : (dish.assignee_id ? [dish.assignee_id] : []);
   const COLORS = ['#D85A30','#185FA5','#7B3FA0','#C0392B','#117A65','#B7770D','#1A5276','#6E2C00'];
+  const isShared = dish.type === 'shared';
+  const current = isShared ? [...(state.participants[dishId] || [])] : (dish.assignee_id ? [dish.assignee_id] : []);
+  area._pick = { dishId, sel: current.length ? [...current] : [dish.assignee_id || state.myGuestId] };
 
   const chips = state.guests.map((g, i) => {
-    const sel = parts.includes(g.id);
-    const bg = COLORS[i % COLORS.length];
-    return `<button onclick="rcPickerToggle('${g.id}','${dishId}')" id="rcp-${dishId}-${g.id}"
-      style="padding:6px 14px;border-radius:99px;border:2px solid ${sel?bg:'var(--bd2)'};background:${sel?bg+'22':'var(--card)'};color:${sel?bg:'var(--t2)'};font-size:13px;font-weight:${sel?'600':'400'};cursor:pointer;font-family:inherit;transition:all .12s">
+    const sel = area._pick.sel.includes(g.id);
+    const c = COLORS[i % COLORS.length];
+    return `<button onclick="rcPickerToggle('${g.id}')" id="rcp-${g.id}"
+      style="padding:7px 16px;border-radius:99px;border:2px solid ${sel?c:'var(--bd2)'};background:${sel?c+'20':'var(--card)'};color:${sel?c:'var(--t2)'};font-size:13px;font-weight:${sel?'600':'400'};cursor:pointer;font-family:inherit;transition:all .12s">
       ${escHtml(g.name)}
     </button>`;
   }).join('');
 
-  area.innerHTML = `<div style="background:var(--card);border-top:2px solid var(--brand);padding:1rem 1.25rem">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem">
+  area.innerHTML = `<div style="background:var(--card);border-top:2px solid var(--brand);padding:.85rem 1.25rem;animation:slideUp .15s ease">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
       <div style="font-size:13px;font-weight:600;color:var(--t1)">${escHtml(dish.name)}</div>
-      <button onclick="document.getElementById('rc-picker-area').innerHTML=''" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--t3);line-height:1">✕</button>
+      <button onclick="document.getElementById('rc-picker-area').innerHTML='';document.getElementById('rc-picker-area')._pick=null" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--t3);line-height:1;padding:0">✕</button>
     </div>
-    <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.65rem" id="rcp-chips-${dishId}">${chips}</div>
-    <button onclick="rcSavePicker('${dishId}')" class="btn btn-primary" style="width:100%;padding:10px">Confirmar reparto</button>
+    <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:.65rem">${chips}</div>
+    <button onclick="rcSavePicker()" class="btn btn-primary" style="width:100%;padding:10px;font-size:14px">Confirmar</button>
   </div>`;
-  // Guardar estado temporal en el picker
-  area._pickerState = area._pickerState || {};
-  area._pickerState[dishId] = [...parts];
 }
 
-function rcPickerToggle(guestId, dishId) {
+function rcPickerToggle(guestId) {
   const area = document.getElementById('rc-picker-area');
-  if (!area || !area._pickerState) return;
-  const state_ = area._pickerState[dishId] || [];
-  const idx = state_.indexOf(guestId);
-  if (idx >= 0) {
-    if (state_.length <= 1) return; // al menos 1
-    state_.splice(idx, 1);
-  } else {
-    state_.push(guestId);
-  }
-  area._pickerState[dishId] = state_;
-  // Actualizar visual
+  if (!area || !area._pick) return;
+  const sel = area._pick.sel;
   const COLORS = ['#D85A30','#185FA5','#7B3FA0','#C0392B','#117A65','#B7770D','#1A5276','#6E2C00'];
+  const idx = sel.indexOf(guestId);
+  if (idx >= 0) {
+    if (sel.length <= 1) return; // mínimo 1
+    sel.splice(idx, 1);
+  } else {
+    sel.push(guestId);
+  }
+  // Actualizar visual con colores correctos
   state.guests.forEach((g, i) => {
-    const btn = document.getElementById(`rcp-${dishId}-${g.id}`);
+    const btn = document.getElementById(`rcp-${g.id}`);
     if (!btn) return;
-    const sel = state_.includes(g.id);
-    const bg = COLORS[i % COLORS.length];
-    btn.style.border = `2px solid ${sel?bg:'var(--bd2)'}`;
-    btn.style.background = sel ? bg+'22' : 'var(--card)';
-    btn.style.color = sel ? bg : 'var(--t2)';
-    btn.style.fontWeight = sel ? '600' : '400';
+    const s = sel.includes(g.id);
+    const c = COLORS[i % COLORS.length];
+    btn.style.border = `2px solid ${s ? c : 'var(--bd2)'}`;
+    btn.style.background = s ? c+'20' : 'var(--card)';
+    btn.style.color = s ? c : 'var(--t2)';
+    btn.style.fontWeight = s ? '600' : '400';
   });
 }
 
-async function rcSavePicker(dishId) {
+async function rcSavePicker() {
   const area = document.getElementById('rc-picker-area');
-  if (!area || !area._pickerState) return;
-  const newParts = area._pickerState[dishId] || [];
+  if (!area || !area._pick) return;
+  const { dishId, sel } = area._pick;
+  if (!sel.length) return;
   const dish = state.dishes.find(d => d.id === dishId);
   if (!dish) return;
-  if (newParts.length === 1) {
-    // Solo una persona → individual
-    await sb.from('dishes').update({ type: 'solo', assignee_id: newParts[0] }).eq('id', dishId);
+  if (sel.length === 1) {
+    await sb.from('dishes').update({ type: 'solo', assignee_id: sel[0] }).eq('id', dishId);
     await sb.from('dish_participants').delete().eq('dish_id', dishId);
-    dish.type = 'solo'; dish.assignee_id = newParts[0];
+    dish.type = 'solo'; dish.assignee_id = sel[0];
     state.participants[dishId] = [];
   } else {
-    // Varias → compartido
     await sb.from('dishes').update({ type: 'shared', assignee_id: null }).eq('id', dishId);
     await sb.from('dish_participants').delete().eq('dish_id', dishId);
-    await sb.from('dish_participants').insert(newParts.map(id => ({ dish_id: dishId, guest_id: id })));
+    await sb.from('dish_participants').insert(sel.map(id => ({ dish_id: dishId, guest_id: id })));
     dish.type = 'shared'; dish.assignee_id = null;
-    state.participants[dishId] = newParts;
+    state.participants[dishId] = [...sel];
   }
   openRevisarCuenta();
 }
 
 function rcToggleAddForm() {
   const f = document.getElementById('rc-add-form');
-  if (f) { f.style.display = f.style.display === 'none' ? 'block' : 'none'; document.getElementById('rc-new-name')?.focus(); }
+  if (!f) return;
+  const visible = f.style.display !== 'none';
+  f.style.display = visible ? 'none' : 'block';
+  if (!visible) setTimeout(() => document.getElementById('rc-new-name')?.focus(), 50);
 }
 
 async function rcConfirmAddPerson() {
