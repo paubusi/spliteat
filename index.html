@@ -6949,7 +6949,7 @@ function _renderNotifModal(modal, n) {
           Marcar todos
         </button>` : ''}
         ${isCobro ? '' : `
-        <button onclick="${allChecked ? `markDishesDelivered(${JSON.stringify(n.dishes.map(d=>d.id))},'${n.roomId}',${!!n.isBebidas});document.getElementById('waiter-notif-modal').style.display='none'` : `_checkAllWaiterDishesIdx(${nIdx})`}"
+        <button onclick="${allChecked ? `markDishesDeliveredByNotif(${nIdx});document.getElementById('waiter-notif-modal').style.display='none'` : `_checkAllWaiterDishesIdx(${nIdx})`}"
           class="btn btn-primary" style="flex:2;background:${allChecked?color:'var(--bd2)'};color:${allChecked?'#fff':'var(--t2)'};font-size:14px;${!allChecked?'cursor:default;':''}">
           ${allChecked ? 'Llevado a mesa' : 'Marca todos los platos primero'}
         </button>`}
@@ -7070,6 +7070,14 @@ function _broadcastDishesUpdated(roomId, isBebidas) {
       setTimeout(() => { try { sb.removeChannel(ch); } catch(_) {} }, 3000);
     }
   });
+}
+
+// Wrapper llamado desde el onclick del modal — lee los datos de _waiterNotifHistory
+function markDishesDeliveredByNotif(nIdx) {
+  const n = _waiterNotifHistory[nIdx];
+  if (!n) { console.error('[Waiter] Notif no encontrada:', nIdx); return; }
+  const dishIds = (n.dishes || []).map(d => d.id).filter(Boolean);
+  markDishesDelivered(dishIds, n.roomId, !!n.isBebidas);
 }
 
 // Marca platos como delivered usando IDs directos (sin SELECT previo que puede fallar por columnas faltantes)
