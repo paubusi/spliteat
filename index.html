@@ -3578,10 +3578,13 @@ function subscribeRealtime() {
     try {
       const { data: freshDishes } = await sb.from('dishes').select('*').eq('room_id', state.roomId);
       if (!freshDishes) return;
-      const changed = freshDishes.some(fd => {
-        const old = state.dishes.find(d => d.id === fd.id);
-        return old && old.kitchen_status !== fd.kitchen_status;
-      });
+      // Detectar cambio: distinto número de platos O cualquier kitchen_status distinto
+      const changed =
+        freshDishes.length !== state.dishes.length ||
+        freshDishes.some(fd => {
+          const old = state.dishes.find(d => d.id === fd.id);
+          return !old || old.kitchen_status !== fd.kitchen_status;
+        });
       if (changed) {
         state.dishes = freshDishes;
         renderMesaDishes();
@@ -7070,6 +7073,7 @@ function _broadcastDishesUpdated(roomId, isBebidas) {
 }
 
 async function markCourseDelivered(roomId, course, isBebidas) {
+  console.log('[Waiter] markCourseDelivered → roomId:', roomId, 'course:', course, 'isBebidas:', isBebidas);
   sendPushNotification({
     roomId,
     title: 'Platos en mesa',
@@ -7084,18 +7088,26 @@ async function markCourseDelivered(roomId, course, isBebidas) {
       .or('category.eq.bebidas,course.eq.0')
       .in('kitchen_status', ['sent', 'ready', 'making']);
     if (bebidas && bebidas.length) {
-      await sb.from('dishes')
+      console.log('[Waiter] Marcando', bebidas.length, 'bebidas como delivered');
+      const { error } = await sb.from('dishes')
         .update({ kitchen_status: 'delivered', delivered_at: new Date().toISOString() })
         .in('id', bebidas.map(d => d.id));
+      if (error) console.error('[Waiter] ERROR bebidas update:', error.message);
+      else console.log('[Waiter] ✓ bebidas delivered');
+    } else {
+      console.warn('[Waiter] No se encontraron bebidas para marcar');
     }
   } else {
     // Marcar como delivered desde cualquier estado previo (sent/making/ready)
     // — sin cookeat los platos se quedan en 'sent', no pasan por 'ready'
-    await sb.from('dishes')
+    const { data: updated, error } = await sb.from('dishes')
       .update({ kitchen_status: 'delivered', delivered_at: new Date().toISOString() })
       .eq('room_id', roomId)
       .eq('course', course)
-      .in('kitchen_status', ['sent', 'making', 'ready']);
+      .in('kitchen_status', ['sent', 'making', 'ready'])
+      .select('id');
+    if (error) console.error('[Waiter] ERROR food update:', error.message);
+    else console.log('[Waiter] ✓ food delivered, dishes actualizadas:', updated?.length);
   }
   loadWaiterMesas();
 
@@ -7667,16 +7679,18 @@ async function markDishDelivered(dishId) {
 
 async function markBebidasReady(dishId) {
   const now = new Date().toISOString();
-  const { data: dish } = await sb.from('dishes').select('room_id').eq('id', dishId).maybeSingle();
-  await sb.from('dishes').update({
+  console.log('[Waiter] markBebidasReady → dishId:', dishId);
+  const { data: dish } = await sb.from('dishes').select('room_id,kitchen_status').eq('id', dishId).maybeSingle();
+  console.log('[Waiter] dish antes del update:', dish?.kitchen_status, '| room_id:', dish?.room_id);
+  const { error } = await sb.from('dishes').update({
     kitchen_status: 'delivered',
     making_at: now, ready_at: now, delivered_at: now
   }).eq('id', dishId);
-  // Disparar roomSub en spliteat via postgres_changes (más fiable que broadcast)
-  // Tocamos la room con un UPDATE para que spliteat reciba el evento y re-fetchee dishes
+  if (error) console.error('[Waiter] ERROR markBebidasReady:', error.message);
+  else console.log('[Waiter] ✓ dish marcada como delivered');
   if (dish?.room_id) {
     sb.from('rooms').update({ cleaning_requested_at: now }).eq('id', dish.room_id).catch(() => {});
-    _broadcastDishesUpdated(dish.room_id, true); // broadcast como fallback adicional
+    _broadcastDishesUpdated(dish.room_id, true);
   }
   loadWaiterMesas();
 }
