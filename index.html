@@ -6949,7 +6949,7 @@ function _renderNotifModal(modal, n) {
           Marcar todos
         </button>` : ''}
         ${isCobro ? '' : `
-        <button onclick="${allChecked ? `markCourseDelivered('${n.roomId}',${n.course},${!!n.isBebidas});document.getElementById('waiter-notif-modal').style.display='none'` : `_checkAllWaiterDishesIdx(${nIdx})`}"
+        <button onclick="${allChecked ? `markDishesDelivered(${JSON.stringify(n.dishes.map(d=>d.id))},'${n.roomId}',${!!n.isBebidas});document.getElementById('waiter-notif-modal').style.display='none'` : `_checkAllWaiterDishesIdx(${nIdx})`}"
           class="btn btn-primary" style="flex:2;background:${allChecked?color:'var(--bd2)'};color:${allChecked?'#fff':'var(--t2)'};font-size:14px;${!allChecked?'cursor:default;':''}">
           ${allChecked ? 'Llevado a mesa' : 'Marca todos los platos primero'}
         </button>`}
@@ -7070,6 +7070,65 @@ function _broadcastDishesUpdated(roomId, isBebidas) {
       setTimeout(() => { try { sb.removeChannel(ch); } catch(_) {} }, 3000);
     }
   });
+}
+
+// Marca platos como delivered usando IDs directos (sin SELECT previo que puede fallar por columnas faltantes)
+async function markDishesDelivered(dishIds, roomId, isBebidas) {
+  console.log('[Waiter] markDishesDelivered → ids:', dishIds, 'room:', roomId, 'isBebidas:', isBebidas);
+  if (!dishIds || !dishIds.length) {
+    console.warn('[Waiter] No hay dish IDs para marcar');
+    return;
+  }
+  const now = new Date().toISOString();
+  const { error } = await sb.from('dishes')
+    .update({ kitchen_status: 'delivered', delivered_at: now })
+    .in('id', dishIds);
+  if (error) console.error('[Waiter] ERROR markDishesDelivered:', error.message);
+  else console.log('[Waiter] ✓', dishIds.length, 'platos marcados como delivered');
+
+  // Notificar a spliteat via roomSub touch + broadcast
+  if (roomId) {
+    sb.from('rooms').update({ cleaning_requested_at: now }).eq('id', roomId).catch(() => {});
+    _broadcastDishesUpdated(roomId, isBebidas);
+  }
+
+  // Check platos con postre si es food
+  if (!isBebidas && roomId) {
+    try {
+      // Buscar platos de comida (no bebidas) aún pendientes — solo por kitchen_status, sin filtrar category/course
+      const { data: allDishes } = await sb.from('dishes').select('id,kitchen_status,with_postre,course')
+        .eq('room_id', roomId);
+      if (allDishes) {
+        const foodDishes = allDishes.filter(d => d.course !== 0 && !d.with_postre);
+        const stillPending = foodDishes.filter(d => ['sent','making'].includes(d.kitchen_status));
+        const allFoodDone = stillPending.length === 0 && foodDishes.length > 0;
+        if (allFoodDone) {
+          const postreDrinks = allDishes.filter(d => d.with_postre && d.kitchen_status !== 'delivered');
+          if (postreDrinks.length > 0) {
+            const { data: roomInfo } = await sb.from('rooms')
+              .select('table_id,assigned_waiter_id,waiter_id,restaurant_id').eq('id', roomId).maybeSingle();
+            const restId = roomInfo?.restaurant_id;
+            let tableLabel = 'Mesa';
+            if (roomInfo?.table_id) {
+              const { data: t } = await sb.from('tables').select('number,label').eq('id', roomInfo.table_id).maybeSingle();
+              if (t) tableLabel = `Mesa ${t.number}${t.label ? ' — ' + t.label : ''}`;
+            }
+            if (restId) {
+              await sb.from('kitchen_notifications').insert({
+                restaurant_id: restId, room_id: roomId, course: 0,
+                course_label: 'Con el postre', table_label: tableLabel, is_bebidas: true,
+                dishes: postreDrinks.map(d => ({ id: d.id, name: d.name || 'Bebida' })),
+                assigned_waiter_id: roomInfo?.assigned_waiter_id || null,
+                waiter_id: roomInfo?.waiter_id || null,
+              }).catch(() => {});
+            }
+          }
+        }
+      }
+    } catch(e) { console.warn('[Waiter] postre notify error:', e); }
+  }
+
+  loadWaiterMesas();
 }
 
 async function markCourseDelivered(roomId, course, isBebidas) {
