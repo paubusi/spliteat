@@ -5430,19 +5430,20 @@ function showPayForManual(guestId, guestName, amount) {
       <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--t1);margin-bottom:.15rem">Pagar por ${escHtml(guestName)}</div>
       <div style="font-size:13px;color:var(--t2);margin-bottom:1.25rem">${fmt(numAmt)}</div>
 
-      <!-- Spliteat — opción principal -->
+      <!-- Pago móvil — opción principal -->
       ${pm.mobilePay !== false ? `
-      <button onclick="pfmPay('split')" style="width:100%;text-align:left;padding:1rem 1.1rem;border-radius:var(--r);border:2px solid var(--brand);background:var(--brand-l);cursor:pointer;font-family:inherit;margin-bottom:.85rem;display:flex;align-items:center;gap:.85rem;position:relative">
-        <div style="width:40px;height:40px;border-radius:var(--r-sm);background:var(--brand);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">✂️</div>
-        <div style="text-align:left">
-          <div style="font-size:14px;font-weight:700;color:var(--brand-d)">Pagar con split<em style="color:var(--accent);font-style:normal">eat</em></div>
-          <div style="font-size:11px;color:var(--brand)">Apple Pay o Google Pay · Rápido y sin contacto</div>
+      <button onclick="pfmPay('split')" style="width:100%;text-align:left;padding:1rem 1.1rem;border-radius:var(--r);border:2px solid var(--brand);background:var(--brand-l);cursor:pointer;font-family:inherit;margin-bottom:.85rem;display:flex;align-items:center;gap:.85rem">
+        <div style="width:40px;height:40px;border-radius:var(--r-sm);background:var(--brand);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="18" r=".5" fill="#fff"/></svg>
         </div>
-        <div style="position:absolute;top:-8px;right:10px;background:var(--brand);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px">RECOMENDADO</div>
+        <div style="text-align:left">
+          <div style="font-size:14px;font-weight:700;color:var(--brand-d)">Pago con móvil</div>
+          <div style="font-size:11px;color:var(--brand)">Apple Pay · Google Pay · Sin contacto</div>
+        </div>
       </button>` : ''}
 
-      <!-- Otras opciones -->
-      <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:.4rem">Otras opciones</div>
+      <!-- Pagar al camarero -->
+      <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:.4rem">Pagar al camarero</div>
       ${pm.card !== false ? `
       <button onclick="pfmPay('card')" style="width:100%;text-align:left;padding:.75rem 1rem;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.35rem;display:flex;align-items:center;gap:.75rem">
         <div style="width:36px;height:22px;background:linear-gradient(135deg,#1a1f71,#4b73c9);border-radius:4px;flex-shrink:0"></div>
@@ -5471,12 +5472,42 @@ async function pfmPay(method) {
   if (!guestId) return;
   document.getElementById('pay-for-manual-modal')?.remove();
   if (method === 'split') {
+    // Pago digital — registrar inmediatamente
     await registerPayForManual(guestId, guestName, amount, 'Apple Pay');
-  } else if (method === 'card') {
-    await registerPayForManualWaiter(guestId, guestName, amount, 'Tarjeta física – datáfono');
   } else {
-    await registerPayForManualWaiter(guestId, guestName, amount, 'Efectivo');
+    // Tarjeta física / Efectivo — solo notificar al camarero, NO registrar pago
+    // El pago se registra cuando el camarero confirma desde serveat
+    const methodLabel = method === 'card' ? 'Tarjeta física – datáfono' : 'Efectivo';
+    await notifyWaiterForPayment(guestId, guestName, amount, methodLabel);
   }
+}
+
+// Solo notifica al camarero, sin registrar pago ni cerrar mesa
+async function notifyWaiterForPayment(guestId, guestName, amount, method) {
+  const numAmt = parseFloat(amount);
+  notify(`Camarero avisado — vendrá a cobrarte en ${method}`, 'success');
+  const restId = state.restaurantId || _qrRestaurantId;
+  const roomId = state.roomId;
+  if (!roomId || !restId) { console.warn('[pfm] Sin restId/roomId'); return; }
+  try {
+    const { data: room } = await sb.from('rooms')
+      .select('assigned_waiter_id,waiter_id,table_id').eq('id', roomId).maybeSingle();
+    let tableLabel = state.restaurantName || 'Mesa';
+    if (room?.table_id) {
+      const { data: t } = await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle();
+      if (t) tableLabel = `Mesa ${t.number}${t.label ? ' — ' + t.label : ''}`;
+    }
+    const { error } = await sb.from('kitchen_notifications').insert({
+      restaurant_id: restId, room_id: roomId,
+      course: 99, course_label: 'Cobro pendiente',
+      table_label: tableLabel, is_bebidas: false,
+      dishes: [{ name: `${guestName} — ${fmt(numAmt)} — ${method}`, guest_id: guestId, amount: numAmt, method }],
+      assigned_waiter_id: room?.assigned_waiter_id || null,
+      waiter_id: room?.waiter_id || null,
+    });
+    if (error) console.error('[pfm] Error notif:', error.message);
+    else console.log('[pfm] ✓ Camarero notificado');
+  } catch(e) { console.error('[pfm] Exception:', e.message); }
 }
 
 // Card/cash pay-for-manual — notify waiter + register
