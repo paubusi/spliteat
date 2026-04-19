@@ -478,7 +478,8 @@
   #pay-method-modal.show { display: flex !important; }
   .pay-method-btn:active { transform: scale(.98); }
 
-  /* ══ DINER DARK MODE — activo cuando #app tiene data-diner="1" ══ */
+  /* ══ DINER DARK MODE — activo con body.diner-mode (afecta a TODO incl. modales) ══ */
+  body.diner-mode,
   #app[data-diner] {
     --bg: #0C110F;
     --card: #141C18;
@@ -501,19 +502,20 @@
   }
 
   /* Header diner */
-  #app[data-diner] .hdr {
+  body.diner-mode .hdr, #app[data-diner] .hdr {
     background: rgba(12,17,15,.92);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border-bottom: 1px solid rgba(255,255,255,.06);
   }
-  #app[data-diner] .logo { color: #EEF0EC; }
-  #app[data-diner] .back-btn { color: var(--t2); }
+  body.diner-mode .logo, #app[data-diner] .logo { color: #EEF0EC; }
+  body.diner-mode .back-btn, #app[data-diner] .back-btn { color: var(--t2); }
 
   /* Tracker hero */
   .tracker-hero {
-    background: linear-gradient(180deg,#0A1410 0%,var(--bg) 100%);
+    background: #0C110F;
     padding: 1rem 1.25rem 1.25rem;
+    border-bottom: 1px solid rgba(255,255,255,.07);
     border-bottom: 1px solid rgba(255,255,255,.06);
   }
   .tracker-status {
@@ -634,9 +636,9 @@
     padding: .75rem 0 .35rem;
   }
   /* Carta en modo diner: fondo oscuro */
-  #app[data-diner] #carta-content > div { background: transparent; }
-  #app[data-diner] .chip { background: var(--bg2); border-color: var(--bd2); }
-  #app[data-diner] .chip:hover { background: var(--brand-l); }
+  body.diner-mode #carta-content > div { background: transparent; }
+  body.diner-mode .chip { background: var(--bg2); border-color: var(--bd2); }
+  body.diner-mode .chip:hover { background: var(--brand-l); }
 
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -997,7 +999,7 @@
   ════════════════════════════════════════ -->
   <div class="screen" id="s1-qr">
     <!-- Hero oscuro con info de mesa -->
-    <div style="background:linear-gradient(160deg,#0A1410,#081510);padding:3.5rem 1.5rem 2rem;position:relative;overflow:hidden;flex-shrink:0">
+    <div style="background:#0C110F;padding:3rem 1.5rem 1.75rem;position:relative;overflow:hidden;flex-shrink:0">
       <div style="position:absolute;right:-40px;top:-40px;width:180px;height:180px;border-radius:50%;background:rgba(29,158,117,.07)"></div>
       <div style="position:absolute;left:-30px;bottom:-60px;width:140px;height:140px;border-radius:50%;background:rgba(8,80,65,.15)"></div>
       <div style="position:relative;z-index:1">
@@ -1008,7 +1010,7 @@
       </div>
     </div>
 
-    <div class="body" style="background:#0C110F">
+    <div class="body" style="background:var(--bg)">
       <!-- Aviso de limpieza (oculto por defecto) -->
       <div id="qr-cleaning-warn" style="display:none;background:rgba(186,117,23,.12);border:1px solid rgba(186,117,23,.25);border-radius:12px;padding:.85rem 1rem;margin-bottom:1rem;line-height:1.5">
         <div style="font-size:13px;font-weight:600;color:#D4A83A;margin-bottom:.2rem">⏳ Mesa pendiente de limpieza</div>
@@ -1117,7 +1119,7 @@
       </div>
     </div>
     <!-- TRACKER HERO — estado del pedido en vivo -->
-    <div class="tracker-hero" id="tracker-hero-section">
+    <div class="tracker-hero" id="tracker-hero-section" style="position:sticky;top:56px;z-index:9;flex-shrink:0">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.65rem">
         <div>
           <div id="tracker-mesa-label" style="font-size:11px;color:var(--t2);font-weight:500;margin-bottom:.15rem"></div>
@@ -1143,7 +1145,7 @@
     </div>
 
     <!-- Single scrollable view — Carta + Mesa unified (#15) -->
-    <div id="dtab-carta" class="body" style="padding-bottom:5rem">
+    <div id="dtab-carta" class="body" style="padding-bottom:5rem;background:var(--card)">
 
       <!-- ── SECCIÓN: CARTA ── -->
       <div id="carta-loading" style="text-align:center;padding:2rem;color:var(--t3);font-size:14px">Cargando carta...</div>
@@ -1169,7 +1171,7 @@
         <!-- #26: Todo servido — incitar a pagar -->
         <!-- finish-dinner-banner: oculto, la CTA bar sticky lo reemplaza -->
         <div id="finish-dinner-banner" style="display:none"></div>
-        <div id="mesa-actions" style="display:none;margin-top:.75rem">
+        <div id="mesa-actions" style="display:none;margin-top:.75rem;visibility:hidden;height:0;overflow:hidden">
           <button class="btn btn-accent" onclick="showSendToKitchenConfirm()" id="btn-send-kitchen" style="width:100%;margin-bottom:.5rem">
             Revisar y enviar a cocina →
           </button>
@@ -3072,8 +3074,8 @@ const now = () => new Date().toLocaleTimeString('es-ES', {hour:'2-digit',minute:
 function setDinerMode(on) {
   const app = document.getElementById('app');
   if (!app) return;
-  if (on) app.setAttribute('data-diner','1');
-  else app.removeAttribute('data-diner');
+  if (on) { app.setAttribute('data-diner','1'); document.body.classList.add('diner-mode'); }
+  else { app.removeAttribute('data-diner'); document.body.classList.remove('diner-mode'); }
 }
 
 // ══════════════════════════════════════════════════
@@ -5886,7 +5888,6 @@ async function registerPayForManualWaiter(guestId, guestName, amount, method) {
 
 async function registerPayForManual(guestId, guestName, amount, method) {
   document.getElementById('pay-for-manual-modal')?.remove();
-  const myName = state.guests.find(g => g.id === state.myGuestId)?.name || 'Tú';
   const numAmount = parseFloat(amount);
   const { error } = await sb.from('payments').insert({
     room_id: state.roomId,
@@ -5900,13 +5901,27 @@ async function registerPayForManual(guestId, guestName, amount, method) {
     notify(`Error: ${error.message || 'no se pudo registrar el pago'}`, 'error');
     return;
   }
-  state.payments.push({ guest_id: guestId, amount: numAmount });
+  state.payments.push({ guest_id: guestId, amount: numAmount, method });
+
+  // Recargar pagos frescos y re-renderizar
+  const { data: freshPayments } = await sb.from('payments').select('guest_id,amount,method').eq('room_id', state.roomId);
+  if (freshPayments) state.payments = freshPayments;
+
+  // Re-renderizar pantalla de confirmación si está visible
+  const confirmed = document.getElementById('pay-confirmed-screen');
+  if (confirmed) {
+    const totals = calcTotals();
+    const me = totals.find(t => t.g.id === state.myGuestId) || { g: { id: state.myGuestId, name: state.myName || 'Tú' }, total: 0 };
+    showMyPaymentConfirmed(me, state.payments, method);
+  }
+
+  notify(`✓ Pago de ${guestName} registrado`, 'success');
   buildPayScreen();
-  notify(`Pago de ${guestName} registrado`, 'success');
-  // Check if all paid
+
+  // Cerrar si todos han pagado
   const paidIds = new Set(state.payments.filter(p => p.guest_id).map(p => p.guest_id));
   if (state.guests.every(g => paidIds.has(g.id))) {
-    setTimeout(() => showAccountClosed(), 600);
+    setTimeout(() => showAccountClosed(), 800);
   }
 }
 
@@ -13943,11 +13958,11 @@ function openRevisarCuenta() {
   el.id = 'revisar-cuenta-screen';
   el.style.cssText = 'position:fixed;inset:0;z-index:450;background:var(--bg);display:flex;flex-direction:column;overflow:hidden';
   el.innerHTML = `
-    <!-- Cabecera -->
-    <div style="background:var(--card);border-bottom:1px solid var(--bd);padding:.85rem 1.25rem;flex-shrink:0">
+    <!-- Cabecera dark -->
+    <div style="background:#0C110F;border-bottom:1px solid rgba(255,255,255,.08);padding:.85rem 1.25rem 1rem;flex-shrink:0">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
-        <button onclick="document.getElementById('revisar-cuenta-screen').remove()" style="background:none;border:none;font-size:13px;color:var(--t2);cursor:pointer;font-family:inherit">← Volver</button>
-        <div style="font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:var(--brand-d)">Revisar cuenta</div>
+        <button onclick="document.getElementById('revisar-cuenta-screen').remove()" style="background:none;border:none;font-size:13px;color:rgba(255,255,255,.4);cursor:pointer;font-family:inherit">← Volver</button>
+        <div style="font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:#EEF0EC">Revisar cuenta</div>
         <div style="width:60px"></div>
       </div>
       <!-- Comensales en la mesa -->
@@ -13979,13 +13994,14 @@ function openRevisarCuenta() {
     <div id="rc-picker-area" style="flex-shrink:0"></div>
 
     <!-- Footer -->
-    <div style="padding:.85rem 1.25rem;background:var(--card);border-top:1px solid var(--bd);flex-shrink:0">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.6rem">
-        <span style="font-size:13px;color:var(--t2)">Total mesa</span>
-        <strong style="font-family:'Fraunces',serif;font-size:18px;color:var(--brand-d)">${fmt(total)}</strong>
+    <div style="padding:.85rem 1.25rem;background:#0C110F;border-top:1px solid rgba(255,255,255,.08);flex-shrink:0">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:.65rem">
+        <span style="font-size:13px;color:rgba(255,255,255,.4)">Total mesa</span>
+        <strong style="font-family:'Fraunces',serif;font-size:20px;color:#EEF0EC">${fmt(total)}</strong>
       </div>
-      <button onclick="document.getElementById('revisar-cuenta-screen').remove();_doGoToSummary()" class="btn btn-primary" style="width:100%">
-        Ver resumen de la cuenta →
+      <button onclick="document.getElementById('revisar-cuenta-screen').remove();_doGoToSummary()"
+        style="width:100%;padding:15px;border:none;border-radius:14px;background:linear-gradient(135deg,#1D9E75,#085041);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer">
+        Ver resumen y pagar →
       </button>
     </div>`;
   document.body.appendChild(el);
