@@ -5416,49 +5416,67 @@ function buildPayScreen() {
 // P2: Show account closed screen on ALL devices simultaneously
 function showPayForManual(guestId, guestName, amount) {
   document.getElementById('pay-for-manual-modal')?.remove();
-  const myName = state.guests.find(g => g.id === state.myGuestId)?.name || 'Tú';
   const numAmt = parseFloat(amount);
   const pm = state.paymentMethods || { mobilePay:true, card:true, cash:true };
-
-  let methodBtns = '';
-  if (pm.mobilePay !== false) {
-    methodBtns += `<button onclick="registerPayForManual('${guestId}','${escHtml(guestName)}',${numAmt},'Apple Pay')" class="btn btn-primary" style="margin-bottom:.4rem">
-      Pago móvil (Apple/Google Pay) — ${fmt(numAmt)}</button>`;
-  }
-  if (pm.card !== false) {
-    methodBtns += `<button onclick="registerPayForManualWaiter('${guestId}','${escHtml(guestName)}',${numAmt},'Tarjeta física – datáfono')"
-      style="width:100%;padding:11px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--bg);color:var(--t1);font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;margin-bottom:.4rem">
-      Tarjeta física – datáfono — ${fmt(numAmt)}</button>`;
-  }
-  if (pm.bizum === true) {
-    methodBtns += `<button onclick="registerPayForManual('${guestId}','${escHtml(guestName)}',${numAmt},'Bizum')"
-      style="width:100%;padding:11px;border-radius:var(--r-sm);border:1.5px solid #D4E6FF;background:#F0F7FF;color:#185FA5;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;margin-bottom:.4rem">
-      Bizum — ${fmt(numAmt)}</button>`;
-  }
-  if (pm.cash !== false) {
-    methodBtns += `<button onclick="registerPayForManualWaiter('${guestId}','${escHtml(guestName)}',${numAmt},'Efectivo')"
-      style="width:100%;padding:11px;border-radius:var(--r-sm);border:1.5px solid var(--bd);background:var(--bg2);color:var(--t2);font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:.4rem">
-      Efectivo — ${fmt(numAmt)}</button>`;
-  }
+  // Guardar en window para evitar comillas en onclick
+  window._pfm = { guestId, guestName, amount: numAmt };
 
   const el = document.createElement('div');
   el.id = 'pay-for-manual-modal';
-  el.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center';
+  el.style.cssText = 'position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center';
   el.innerHTML = `
     <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;padding:1.5rem 1.25rem 2rem;animation:slideUp .22s ease">
-      <div style="font-size:18px;font-weight:700;color:var(--t1);margin-bottom:.25rem">Pagar por ${escHtml(guestName)}</div>
-      <div style="font-size:13px;color:var(--t2);margin-bottom:1.25rem">
-        Tú pagarás <strong>${fmt(numAmt)}</strong> en nombre de ${escHtml(guestName)}.
-        Quedará registrado como "Pagado por ${escHtml(myName)}".
-      </div>
-      <div style="display:flex;flex-direction:column;gap:.35rem;margin-bottom:1rem">${methodBtns}</div>
-      <button onclick="document.getElementById('pay-for-manual-modal').remove()"
-        style="width:100%;padding:9px;border:none;background:none;color:var(--t3);font-size:13px;cursor:pointer;font-family:inherit">
-        Cancelar
-      </button>
+      <div style="width:36px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto .85rem"></div>
+      <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--t1);margin-bottom:.15rem">Pagar por ${escHtml(guestName)}</div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:1.25rem">${fmt(numAmt)}</div>
+
+      <!-- Spliteat — opción principal -->
+      ${pm.mobilePay !== false ? `
+      <button onclick="pfmPay('split')" style="width:100%;text-align:left;padding:1rem 1.1rem;border-radius:var(--r);border:2px solid var(--brand);background:var(--brand-l);cursor:pointer;font-family:inherit;margin-bottom:.85rem;display:flex;align-items:center;gap:.85rem;position:relative">
+        <div style="width:40px;height:40px;border-radius:var(--r-sm);background:var(--brand);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">✂️</div>
+        <div style="text-align:left">
+          <div style="font-size:14px;font-weight:700;color:var(--brand-d)">Pagar con split<em style="color:var(--accent);font-style:normal">eat</em></div>
+          <div style="font-size:11px;color:var(--brand)">Apple Pay o Google Pay · Rápido y sin contacto</div>
+        </div>
+        <div style="position:absolute;top:-8px;right:10px;background:var(--brand);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px">RECOMENDADO</div>
+      </button>` : ''}
+
+      <!-- Otras opciones -->
+      <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:.4rem">Otras opciones</div>
+      ${pm.card !== false ? `
+      <button onclick="pfmPay('card')" style="width:100%;text-align:left;padding:.75rem 1rem;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.35rem;display:flex;align-items:center;gap:.75rem">
+        <div style="width:36px;height:22px;background:linear-gradient(135deg,#1a1f71,#4b73c9);border-radius:4px;flex-shrink:0"></div>
+        <div style="text-align:left">
+          <div style="font-size:13px;font-weight:500;color:var(--t1)">Tarjeta física (datáfono)</div>
+          <div style="font-size:11px;color:var(--t2)">El camarero vendrá a cobrarte</div>
+        </div>
+      </button>` : ''}
+      ${pm.cash !== false ? `
+      <button onclick="pfmPay('cash')" style="width:100%;text-align:left;padding:.75rem 1rem;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.75rem;display:flex;align-items:center;gap:.75rem">
+        <div style="width:36px;height:22px;background:linear-gradient(135deg,#2E7D32,#66BB6A);border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;flex-shrink:0">€</div>
+        <div style="text-align:left">
+          <div style="font-size:13px;font-weight:500;color:var(--t1)">Efectivo</div>
+          <div style="font-size:11px;color:var(--t2)">El camarero vendrá a cobrarte</div>
+        </div>
+      </button>` : ''}
+
+      <button onclick="document.getElementById('pay-for-manual-modal').remove()" style="width:100%;padding:9px;border:none;background:none;color:var(--t3);font-size:13px;cursor:pointer;font-family:inherit">Cancelar</button>
     </div>`;
   document.body.appendChild(el);
   el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+}
+
+async function pfmPay(method) {
+  const { guestId, guestName, amount } = window._pfm || {};
+  if (!guestId) return;
+  document.getElementById('pay-for-manual-modal')?.remove();
+  if (method === 'split') {
+    await registerPayForManual(guestId, guestName, amount, 'Apple Pay');
+  } else if (method === 'card') {
+    await registerPayForManualWaiter(guestId, guestName, amount, 'Tarjeta física – datáfono');
+  } else {
+    await registerPayForManualWaiter(guestId, guestName, amount, 'Efectivo');
+  }
 }
 
 // Card/cash pay-for-manual — notify waiter + register
@@ -6027,18 +6045,18 @@ function showMyPaymentConfirmed(me, freshPayments, method) {
   el.innerHTML = `
     <!-- Confirmación propia -->
     <div style="background:var(--brand-l);padding:1.75rem 1.5rem 1.25rem;text-align:center;border-bottom:1px solid var(--brand)">
-      <div style="font-size:40px;margin-bottom:.5rem">✅</div>
       <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--brand-d);margin-bottom:.2rem">¡Tu parte pagada!</div>
       <div style="font-size:14px;color:var(--brand-d);font-weight:500">${escHtml(me.g.name)} — ${fmt(me.total)}</div>
-      <div style="font-size:12px;color:var(--brand);margin-top:.2rem">Gracias por usar split<em style="color:var(--accent);font-style:normal">eat</em></div>
+      <div style="font-size:13px;font-weight:600;color:var(--brand);margin-top:.35rem;font-family:'Fraunces',serif;font-style:italic">Gracias por usar split<em style="color:var(--accent);font-style:normal">eat</em></div>
     </div>
 
     <div style="padding:1.25rem 1.5rem;flex:1">
 
       <!-- Pendientes -->
       ${stillPending.length ? `
-      <div style="font-size:12px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.4rem">
-        Faltan por pagar
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:.4rem">
+        <div style="font-size:12px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em">Faltan por pagar</div>
+        <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:var(--accent)">${fmt(stillPending.reduce((s,t)=>s+t.total,0))}</div>
       </div>
       ${stillPending.map(t => personRow(t, true)).join('')}
       <div style="height:.75rem"></div>` : ''}
