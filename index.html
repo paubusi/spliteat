@@ -5482,23 +5482,42 @@ async function pfmPay(method) {
 // Card/cash pay-for-manual — notify waiter + register
 async function registerPayForManualWaiter(guestId, guestName, amount, method) {
   document.getElementById('pay-for-manual-modal')?.remove();
-  const myName = state.guests.find(g => g.id === state.myGuestId)?.name || 'Tú';
   const numAmt = parseFloat(amount);
 
-  // Show wait message
   notify(`Camarero avisado para cobrar ${fmt(numAmt)} a ${guestName} en ${method}`, 'success');
 
-  // Notify waiter
-  if (state.roomId && state.restaurantId) {
-    await sb.from('kitchen_notifications').insert({
-      restaurant_id: state.restaurantId, room_id: state.roomId,
-      course: -1, course_label: 'Cobro pendiente',
-      table_label: state.restaurantName || 'Mesa', is_bebidas: false,
-      dishes: [{ name: `${guestName} — ${fmt(numAmt)} — ${method}` }],
-    }).catch(() => {});
+  // Notificar al camarero
+  const restId = state.restaurantId || _qrRestaurantId;
+  const roomId = state.roomId;
+  console.log('[pfm] Notificando camarero — restId:', restId, 'roomId:', roomId);
+  if (roomId && restId) {
+    try {
+      // Obtener info de la room para el tableLabel y waiter
+      const { data: room } = await sb.from('rooms')
+        .select('assigned_waiter_id,waiter_id,table_id').eq('id', roomId).maybeSingle();
+      let tableLabel = state.restaurantName || 'Mesa';
+      if (room?.table_id) {
+        const { data: t } = await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle();
+        if (t) tableLabel = `Mesa ${t.number}${t.label ? ' — ' + t.label : ''}`;
+      }
+      const { error } = await sb.from('kitchen_notifications').insert({
+        restaurant_id: restId,
+        room_id: roomId,
+        course: 99,
+        course_label: 'Cobro pendiente',
+        table_label: tableLabel,
+        is_bebidas: false,
+        dishes: [{ name: `${guestName} — ${fmt(numAmt)} — ${method}` }],
+        assigned_waiter_id: room?.assigned_waiter_id || null,
+        waiter_id: room?.waiter_id || null,
+      });
+      if (error) console.error('[pfm] Error notif camarero:', error.message);
+      else console.log('[pfm] ✓ Notif camarero enviada');
+    } catch(e) { console.error('[pfm] Exception notif:', e.message); }
+  } else {
+    console.warn('[pfm] Sin restId o roomId — no se puede notificar al camarero');
   }
 
-  // Register payment
   await registerPayForManual(guestId, guestName, numAmt, method);
 }
 
