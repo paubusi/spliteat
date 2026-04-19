@@ -5979,54 +5979,85 @@ async function registerManualPayment(me, method) {
     setTimeout(() => showAccountClosed(), 800);
   } else {
     // #9-U5: Show who paid confirmation + who still needs to pay
-    showMyPaymentConfirmed(me, freshPayments || []);
+    showMyPaymentConfirmed(me, freshPayments || [], method);
   }
 }
 
-// #9-U5: Show post-payment confirmation with who still needs to pay
-function showMyPaymentConfirmed(me, freshPayments) {
+// Pantalla fusionada: confirmación de pago + estado del grupo + acciones
+function showMyPaymentConfirmed(me, freshPayments, method) {
   document.getElementById('pay-confirmed-screen')?.remove();
   const totals = calcTotals();
   const paidIds = new Set(freshPayments.filter(p => p.guest_id).map(p => p.guest_id));
   const stillPending = totals.filter(t => !paidIds.has(t.g.id) && t.g.id !== state.myGuestId);
+  const paidOthers = totals.filter(t => paidIds.has(t.g.id) && t.g.id !== state.myGuestId);
+  const COLORS = ['#D85A30','#185FA5','#7B3FA0','#C0392B','#117A65','#B7770D','#1A5276','#6E2C00'];
 
-  const pendingRows = stillPending.map((t, i) => `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem 0;border-bottom:1px solid var(--bd)">
-      <div style="font-size:14px;font-weight:500">${escHtml(t.g.name)}</div>
-      <div style="display:flex;align-items:center;gap:.5rem">
-        <span style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--brand-d)">${fmt(t.total)}</span>
-        <button onclick="showPayForManual('${t.g.id}','${escHtml(t.g.name)}',${t.total})"
-          style="font-size:11px;padding:3px 8px;border-radius:99px;border:1px solid var(--brand);background:var(--brand-l);color:var(--brand-d);cursor:pointer;font-family:inherit;white-space:nowrap">
-          Pagar por ${escHtml(t.g.name.split(' ')[0])}
-        </button>
+  // Métodos que requieren al camarero
+  const needsWaiter = method && (
+    method.toLowerCase().includes('efectivo') ||
+    method.toLowerCase().includes('tarjeta') ||
+    method.toLowerCase().includes('datáfono')
+  );
+
+  const personRow = (t, isPending) => {
+    const idx = state.guests.findIndex(g => g.id === t.g.id);
+    const color = COLORS[idx % COLORS.length];
+    const initial = (t.g.name || '?')[0].toUpperCase();
+    return `<div style="display:flex;align-items:center;gap:10px;padding:.55rem 0;border-bottom:1px solid var(--bd)">
+      <div style="width:32px;height:32px;border-radius:50%;background:${color}22;color:${color};font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initial}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:500;color:var(--t1)">${escHtml(t.g.name)}</div>
       </div>
-    </div>`).join('');
+      <div style="display:flex;align-items:center;gap:.5rem;flex-shrink:0">
+        <span style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:${isPending?'var(--t1)':'var(--brand-d)'}">${fmt(t.total)}</span>
+        ${isPending
+          ? `<button onclick="showPayForManual('${t.g.id}','${escHtml(t.g.name)}',${t.total})"
+              style="font-size:11px;padding:3px 10px;border-radius:99px;border:1.5px solid var(--brand);background:var(--brand-l);color:var(--brand-d);cursor:pointer;font-family:inherit;white-space:nowrap">
+              Pagar por ${escHtml(t.g.name.split(' ')[0])}
+            </button>`
+          : `<span style="font-size:11px;padding:2px 8px;border-radius:99px;background:var(--brand-l);color:var(--brand-d);font-weight:500">✓ Pagado</span>`
+        }
+      </div>
+    </div>`;
+  };
 
   const el = document.createElement('div');
   el.id = 'pay-confirmed-screen';
-  el.style.cssText = 'position:fixed;inset:0;z-index:550;background:var(--card);display:flex;flex-direction:column;align-items:center;padding:2rem 1.5rem;overflow-y:auto';
+  el.style.cssText = 'position:fixed;inset:0;z-index:550;background:var(--bg);display:flex;flex-direction:column;overflow-y:auto';
   el.innerHTML = `
-    <div style="font-size:48px;margin-bottom:.75rem">✅</div>
-    <div style="font-family:'Fraunces',serif;font-size:24px;font-weight:700;color:var(--brand-d);margin-bottom:.25rem;text-align:center">¡Tu parte pagada!</div>
-    <div style="font-size:14px;color:var(--t2);margin-bottom:.25rem">${escHtml(me.g.name)} — ${fmt(me.total)}</div>
-    <div style="font-size:13px;color:var(--t3);margin-bottom:2rem">Gracias por usar split<em style="color:var(--accent);font-style:normal">eat</em></div>
+    <!-- Confirmación propia -->
+    <div style="background:var(--brand-l);padding:1.75rem 1.5rem 1.25rem;text-align:center;border-bottom:1px solid var(--brand)">
+      <div style="font-size:40px;margin-bottom:.5rem">✅</div>
+      <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--brand-d);margin-bottom:.2rem">¡Tu parte pagada!</div>
+      <div style="font-size:14px;color:var(--brand-d);font-weight:500">${escHtml(me.g.name)} — ${fmt(me.total)}</div>
+      <div style="font-size:12px;color:var(--brand);margin-top:.2rem">Gracias por usar split<em style="color:var(--accent);font-style:normal">eat</em></div>
+    </div>
 
-    ${stillPending.length ? `
-    <div style="width:100%;max-width:360px">
-      <div style="font-size:14px;font-weight:600;color:var(--t1);margin-bottom:.5rem">
-        Faltan ${stillPending.length} persona${stillPending.length>1?'s':''} por pagar:
+    <div style="padding:1.25rem 1.5rem;flex:1">
+
+      <!-- Pendientes -->
+      ${stillPending.length ? `
+      <div style="font-size:12px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.4rem">
+        Faltan por pagar
       </div>
-      ${pendingRows}
-      <button onclick="callWaiterForRemaining()"
-        style="width:100%;margin-top:1rem;padding:11px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">
-        Llamar al camarero para cobrar el resto
-      </button>
-    </div>` : ''}
+      ${stillPending.map(t => personRow(t, true)).join('')}
+      <div style="height:.75rem"></div>` : ''}
 
-    <button onclick="document.getElementById('pay-confirmed-screen').remove();buildPayScreen()"
-      style="margin-top:1.5rem;padding:10px 24px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:none;color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit">
-      Ver estado del grupo
-    </button>`;
+      <!-- Pagados (incluido yo) -->
+      <div style="font-size:12px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:.4rem">
+        Ya pagado
+      </div>
+      ${personRow(me, false)}
+      ${paidOthers.map(t => personRow(t, false)).join('')}
+
+      <!-- Botón camarero — solo si pago requiere camarero -->
+      ${stillPending.length && needsWaiter ? `
+      <button onclick="callWaiterForRemaining()"
+        style="width:100%;margin-top:1.25rem;padding:13px;border-radius:var(--r);border:1.5px solid var(--bd2);background:var(--card);color:var(--t2);font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px">
+        🔔 Llamar al camarero para cobrar el resto
+      </button>` : ''}
+
+    </div>`;
   document.body.appendChild(el);
 }
 
