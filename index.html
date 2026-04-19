@@ -12332,7 +12332,7 @@ async function handleQRUrl() {
     if (_cwExisting) _cwExisting.style.display = 'none';
 
     if (table) {
-      // Primero: buscar room abierta
+      // Buscar room abierta
       const { data: openRoom } = await sb.from('rooms')
         .select('*')
         .eq('table_id', table.id)
@@ -12340,10 +12340,33 @@ async function handleQRUrl() {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      activeRoom = openRoom;
 
-      // Solo si no hay room abierta: buscar última cerrada con limpieza pendiente (máx 12h)
-      if (!activeRoom) {
+      if (openRoom) {
+        // Verificar si la room está completamente pagada aunque no esté cerrada aún
+        // (puede pasar si el cierre de room falló o está pendiente)
+        const { data: guests } = await sb.from('guests').select('id').eq('room_id', openRoom.id);
+        const { data: payments } = await sb.from('payments').select('guest_id').eq('room_id', openRoom.id);
+        const guestIds = (guests || []).map(g => g.id);
+        const paidIds = new Set((payments || []).map(p => p.guest_id).filter(Boolean));
+        const allPaid = guestIds.length > 0 && guestIds.every(id => paidIds.has(id));
+
+        if (allPaid) {
+          // Room completamente pagada — cerrarla ahora y tratarla como libre
+          await sb.from('rooms').update({
+            closed: true,
+            closed_at: new Date().toISOString(),
+            needs_cleaning: true,
+            cleaning_requested_at: new Date().toISOString()
+          }).eq('id', openRoom.id);
+          lastClosedNeedsCleaning = { ...openRoom, closed: true, needs_cleaning: true };
+          activeRoom = null;
+        } else {
+          activeRoom = openRoom;
+        }
+      }
+
+      // Solo si no hay room abierta válida: buscar última cerrada con limpieza pendiente (máx 12h)
+      if (!activeRoom && !lastClosedNeedsCleaning) {
         const since12h = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
         const { data: lastRoom } = await sb.from('rooms')
           .select('*')
