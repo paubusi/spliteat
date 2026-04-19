@@ -478,6 +478,166 @@
   #pay-method-modal.show { display: flex !important; }
   .pay-method-btn:active { transform: scale(.98); }
 
+  /* ══ DINER DARK MODE — activo cuando #app tiene data-diner="1" ══ */
+  #app[data-diner] {
+    --bg: #0C110F;
+    --card: #141C18;
+    --bg2: #1A2320;
+    --t1: #EEF0EC;
+    --t2: #7A8C85;
+    --t3: #3E4F49;
+    --bd: rgba(255,255,255,.06);
+    --bd2: rgba(255,255,255,.11);
+    --brand: #1D9E75;
+    --brand-d: #085041;
+    --brand-l: rgba(29,158,117,.14);
+    --accent: #D85A30;
+    --accent-l: rgba(216,90,48,.12);
+    --amber: #BA7517;
+    --amber-l: rgba(186,117,23,.14);
+    --blue: #185FA5;
+    --blue-l: rgba(24,95,165,.14);
+    --shadow: 0 1px 4px rgba(0,0,0,.35);
+  }
+
+  /* Header diner */
+  #app[data-diner] .hdr {
+    background: rgba(12,17,15,.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+  #app[data-diner] .logo { color: #EEF0EC; }
+  #app[data-diner] .back-btn { color: var(--t2); }
+
+  /* Tracker hero */
+  .tracker-hero {
+    background: linear-gradient(180deg,#0A1410 0%,var(--bg) 100%);
+    padding: 1rem 1.25rem 1.25rem;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+  }
+  .tracker-status {
+    font-family: 'Fraunces', serif;
+    font-size: 21px;
+    font-weight: 700;
+    color: var(--t1);
+    line-height: 1.2;
+    margin-bottom: .65rem;
+  }
+  .tracker-status .s-accent { color: var(--accent); font-style: italic; }
+  .tracker-status .s-green  { color: var(--brand); }
+
+  .progress-bar-wrap {
+    height: 7px;
+    background: rgba(255,255,255,.08);
+    border-radius: 99px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #085041, #1D9E75);
+    transition: width .8s cubic-bezier(.4,0,.2,1);
+    position: relative;
+  }
+  .progress-bar-fill::after {
+    content: '';
+    position: absolute; right: 0; top: 0; bottom: 0; width: 20px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.2));
+    animation: shimmer-bar 1.6s ease-in-out infinite;
+  }
+  @keyframes shimmer-bar { 0%,100%{opacity:0} 50%{opacity:1} }
+
+  /* Avatar pills */
+  .av-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px 4px 4px;
+    border-radius: 99px;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    font-size: 12px; font-weight: 500;
+  }
+  .av-pill .av-dot {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; font-family: 'Fraunces', serif;
+    flex-shrink: 0;
+  }
+  .av-pill.paid  { border-color: rgba(29,158,117,.3); background: rgba(29,158,117,.1); }
+  .av-pill.pending { border-color: rgba(216,90,48,.3); background: rgba(216,90,48,.08); }
+
+  /* Dish tracker rows */
+  .dish-track-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: .6rem 0; border-bottom: 1px solid rgba(255,255,255,.05);
+  }
+  .dish-track-row:last-child { border: none; }
+  .dish-status-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+  .dsd-new      { background: var(--t3); }
+  .dsd-sent     { background: var(--blue); animation: pulse-dot 2s infinite; }
+  .dsd-making   { background: var(--amber); animation: pulse-dot 1.2s infinite; }
+  .dsd-ready    { background: var(--brand); animation: pulse-dot .8s infinite; }
+  .dsd-delivered{ background: var(--brand); opacity: .4; }
+  @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* Status label */
+  .dish-status-lbl {
+    font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 99px; flex-shrink: 0;
+  }
+  .dsl-sent     { background: rgba(24,95,165,.2);  color: #5B9FD4; }
+  .dsl-making   { background: rgba(186,117,23,.2); color: #D4A83A; }
+  .dsl-ready    { background: rgba(29,158,117,.25);color: #1D9E75; }
+  .dsl-delivered{ background: rgba(255,255,255,.06); color: var(--t3); }
+
+  /* CTA bar fija */
+  .diner-cta-bar {
+    position: sticky; bottom: 0;
+    padding: .85rem 1.25rem 1.25rem;
+    background: linear-gradient(180deg, transparent, var(--bg) 35%);
+  }
+  .diner-btn-pay {
+    width: 100%; padding: 15px; border: none; border-radius: 14px;
+    background: linear-gradient(135deg, #1D9E75, #085041);
+    color: #fff; font-size: 15px; font-weight: 600; font-family: 'DM Sans', sans-serif;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 8px 20px rgba(8,80,65,.4);
+    transition: transform .12s, box-shadow .12s;
+  }
+  .diner-btn-pay:active { transform: scale(.98); box-shadow: 0 4px 10px rgba(8,80,65,.3); }
+  .diner-btn-pay:disabled { opacity: .35; cursor: default; }
+  .diner-btn-pay .pay-badge {
+    background: rgba(255,255,255,.18); border-radius: 99px;
+    padding: 2px 10px; font-size: 12px;
+  }
+  .diner-btn-secondary {
+    width: 100%; margin-top: 6px; padding: 10px; border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.1); background: transparent;
+    color: var(--t2); font-size: 13px; font-family: 'DM Sans', sans-serif; cursor: pointer;
+  }
+
+  /* Live pill */
+  .live-pill-d {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(29,158,117,.15); border: 1px solid rgba(29,158,117,.25);
+    border-radius: 99px; padding: 3px 10px;
+    font-size: 10px; font-weight: 700; color: var(--brand); letter-spacing: .05em;
+  }
+  .live-pill-d .ldot { width: 5px; height: 5px; border-radius: 50%; background: var(--brand); animation: pulse 1.8s infinite; }
+
+  /* Section headers diner */
+  .section-hdr-d {
+    font-size: 10px; font-weight: 700; color: var(--t3);
+    text-transform: uppercase; letter-spacing: .09em;
+    padding: .75rem 0 .35rem;
+  }
+  /* Carta en modo diner: fondo oscuro */
+  #app[data-diner] #carta-content > div { background: transparent; }
+  #app[data-diner] .chip { background: var(--bg2); border-color: var(--bd2); }
+  #app[data-diner] .chip:hover { background: var(--brand-l); }
+
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
@@ -836,106 +996,100 @@
        Pantalla que ve el comensal al escanear
   ════════════════════════════════════════ -->
   <div class="screen" id="s1-qr">
-    <div class="hdr">
-      <div class="logo">split<em>eat</em></div>
-      <div style="width:60px"></div>
+    <!-- Hero oscuro con info de mesa -->
+    <div style="background:linear-gradient(160deg,#0A1410,#081510);padding:3.5rem 1.5rem 2rem;position:relative;overflow:hidden;flex-shrink:0">
+      <div style="position:absolute;right:-40px;top:-40px;width:180px;height:180px;border-radius:50%;background:rgba(29,158,117,.07)"></div>
+      <div style="position:absolute;left:-30px;bottom:-60px;width:140px;height:140px;border-radius:50%;background:rgba(8,80,65,.15)"></div>
+      <div style="position:relative;z-index:1">
+        <div style="font-family:'Fraunces',serif;font-size:26px;color:#fff;letter-spacing:-.5px;margin-bottom:1.5rem">split<em style="color:#D85A30;font-style:normal">eat</em></div>
+        <div style="font-size:11px;font-weight:600;color:rgba(29,158,117,.8);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.3rem">Mesa</div>
+        <div id="qr-mesa-nombre" style="font-family:'Fraunces',serif;font-size:28px;font-weight:900;color:#fff;line-height:1.1">—</div>
+        <div id="qr-rest-nombre" style="font-size:13px;color:rgba(255,255,255,.45);margin-top:.3rem">—</div>
+      </div>
     </div>
-    <div class="body">
-      <div id="qr-mesa-info" style="background:var(--brand-l);border-radius:var(--r);padding:1rem 1.25rem;margin-bottom:1.25rem">
-        <div style="font-size:12px;color:var(--brand);font-weight:500;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem">Mesa</div>
-        <div id="qr-mesa-nombre" style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--brand-d)">—</div>
-        <div id="qr-rest-nombre" style="font-size:13px;color:var(--brand-d);margin-top:2px">—</div>
+
+    <div class="body" style="background:#0C110F">
+      <!-- Aviso de limpieza (oculto por defecto) -->
+      <div id="qr-cleaning-warn" style="display:none;background:rgba(186,117,23,.12);border:1px solid rgba(186,117,23,.25);border-radius:12px;padding:.85rem 1rem;margin-bottom:1rem;line-height:1.5">
+        <div style="font-size:13px;font-weight:600;color:#D4A83A;margin-bottom:.2rem">⏳ Mesa pendiente de limpieza</div>
+        <div style="font-size:12px;color:rgba(212,168,58,.7)">El restaurante está preparando la mesa. Serás redirigido en cuanto esté lista.</div>
       </div>
 
-      <!-- Fix #28: returning user modal — when table has an active session -->
+      <!-- Mesa ocupada: ¿quién eres? -->
       <div id="qr-returning-panel" style="display:none">
-        <div style="background:var(--amber-l);border-radius:var(--r-sm);padding:.85rem 1rem;margin-bottom:1.25rem;line-height:1.5">
-          <div style="font-size:14px;font-weight:600;color:var(--amber);margin-bottom:.3rem">Esta mesa ya tiene una sesión activa</div>
-          <div style="font-size:13px;color:var(--amber)">¿Ya eres parte de esta mesa o eres una persona nueva?</div>
-        </div>
-        <button class="btn btn-primary" style="margin-bottom:.6rem;width:100%" onclick="qrSelectReturning()">
-          Ya estoy en esta mesa — volver a entrar
+        <div style="font-size:16px;font-weight:600;color:#EEF0EC;margin-bottom:.4rem">Esta mesa ya tiene una sesión activa</div>
+        <div style="font-size:13px;color:#7A8C85;margin-bottom:1.25rem">¿Ya eres parte de esta mesa?</div>
+        <button class="diner-btn-pay" style="margin-bottom:.5rem" onclick="qrSelectReturning()">
+          Sí, ya estoy en esta mesa
         </button>
-        <button class="btn btn-secondary" style="width:100%" onclick="qrSelectNew()">
-          Soy una persona nueva en esta mesa
+        <button class="diner-btn-secondary" onclick="qrSelectNew()">
+          Soy una persona nueva
         </button>
       </div>
 
-      <!-- Returning user: pick name from existing guest list -->
+      <!-- Elegir nombre (mesa activa) -->
       <div id="qr-returning-pick" style="display:none">
-        <h2 class="title" style="font-size:19px;margin-bottom:.35rem">¿Quién eres?</h2>
-        <p class="subtitle" style="margin-bottom:1rem">Selecciona tu nombre de la lista.</p>
-        <div id="qr-guest-list" style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:1rem"></div>
-        <button class="btn btn-secondary" onclick="qrBackToChoice()" style="width:100%">← Atrás</button>
+        <div style="font-size:16px;font-weight:600;color:#EEF0EC;margin-bottom:.3rem">¿Quién eres?</div>
+        <div style="font-size:13px;color:#7A8C85;margin-bottom:1rem">Selecciona tu nombre</div>
+        <div id="qr-guest-list" style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:1rem"></div>
+        <button class="diner-btn-secondary" onclick="qrBackToChoice()">← Atrás</button>
         <div id="qr-err-pick" class="notice notice-err" style="display:none;margin-top:.75rem"></div>
       </div>
 
-      <!-- New user or no active session: enter name -->
+      <!-- Entrada nueva: nombre -->
       <div id="qr-newuser-panel">
-        <h2 class="title" style="font-size:20px;margin-bottom:.35rem">¿Cómo te llamas?</h2>
-        <p class="subtitle" style="margin-bottom:1.25rem">Solo tu nombre — sin registro, sin contraseña.</p>
-        <div class="field">
-          <input id="qr-name" type="text" placeholder="ej. Lucía" autocomplete="off"
-            style="font-size:18px;padding:14px 16px"
-            onkeydown="if(event.key==='Enter') enterMesa()">
-        </div>
-        <button class="btn btn-primary mt" onclick="enterMesa()">Entrar a la mesa →</button>
+        <div style="font-size:16px;font-weight:600;color:#EEF0EC;margin-bottom:.25rem">¿Cómo te llamas?</div>
+        <div style="font-size:13px;color:#7A8C85;margin-bottom:1.25rem">Sin registro · Sin contraseña</div>
+        <input id="qr-name" type="text" placeholder="Tu nombre" autocomplete="off"
+          style="width:100%;padding:16px 18px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#EEF0EC;font-size:18px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:1rem"
+          onfocus="this.style.borderColor='rgba(29,158,117,.6)'" onblur="this.style.borderColor='rgba(255,255,255,.1)'"
+          onkeydown="if(event.key==='Enter') enterMesa()">
+        <button class="diner-btn-pay" onclick="enterMesa()">
+          Entrar a la mesa →
+        </button>
       </div>
 
-      <div id="qr-err" class="notice notice-err" style="display:none;margin-top:.75rem"></div>
+      <div id="qr-err" style="display:none;background:rgba(216,90,48,.12);border:1px solid rgba(216,90,48,.25);border-radius:10px;padding:.75rem 1rem;margin-top:.75rem;font-size:13px;color:#E07B60"></div>
     </div>
   </div>
 
-  <!-- ════════════════════════════════════════
-       S2: SALA ACTIVA (código + comensales)
-  ════════════════════════════════════════ -->
+  <!-- S2: SALA ACTIVA — dark redesign -->
   <div class="screen" id="s2-room">
     <div class="hdr">
       <div class="logo">split<em>eat</em></div>
-      <div class="live-badge"><div class="live-dot"></div><span id="s2-online">0 conectados</span></div>
+      <div class="live-pill-d"><span class="ldot"></span><span id="s2-online">0</span></div>
     </div>
-    <div class="body">
-      <div style="background:var(--brand-l);border-radius:var(--r);padding:.85rem 1.1rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <div id="s2-room-name" style="font-size:16px;font-weight:500;color:var(--brand-d)">—</div>
-          <div style="font-size:12px;color:var(--brand);margin-top:1px">Mesa activa · en tiempo real</div>
-        </div>
-        <div class="live-dot"></div>
-      </div>
-
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem">
-        <div class="sec-label" style="margin:0">Comensales en la mesa</div>
-        <span id="s2-guest-count" style="font-size:12px;color:var(--t3)"></span>
-      </div>
-      <div id="s2-guests-list"></div>
-
-      <!-- #10b: Add person before going to carta -->
-      <div id="s2-add-person-panel" style="margin-top:.75rem">
-        <button onclick="toggleS2AddPerson()" id="s2-add-person-btn"
-          style="width:100%;padding:10px 14px;border-radius:var(--r-sm);border:1.5px dashed var(--bd2);background:var(--bg2);color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:8px">
-          <span style="font-size:16px">+</span> ¿Falta alguien? Añadir persona
-        </button>
-        <div id="s2-add-person-form" style="display:none;margin-top:.5rem;background:var(--bg2);border-radius:var(--r-sm);padding:.75rem;border:1px solid var(--bd2)">
-          <input id="s2-new-person-name" type="text" placeholder="Nombre de la persona"
-            style="width:100%;padding:9px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-size:14px;font-family:inherit;background:var(--card);margin-bottom:.5rem"
-            onkeydown="if(event.key==='Enter')addPersonS2()">
-          <div style="display:flex;gap:.5rem">
-            <button onclick="addPersonS2()" class="btn btn-primary btn-sm" style="flex:1">Añadir</button>
-            <button onclick="document.getElementById('s2-add-person-form').style.display='none'"
-              style="padding:8px 14px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:none;color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit">
-              Cancelar
-            </button>
+    <div class="body" style="padding-top:1.5rem">
+      <div style="padding:0 1.25rem">
+        <div id="s2-room-name" style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--t1);line-height:1.2;margin-bottom:.25rem">—</div>
+        <div style="font-size:13px;color:var(--t2);margin-bottom:1.75rem">Mesa activa · actualización en tiempo real</div>
+        <div class="section-hdr-d" id="s2-guest-label">Comensales</div>
+        <div id="s2-guests-list" style="margin-bottom:1.25rem"></div>
+        <div id="s2-add-person-panel">
+          <button onclick="toggleS2AddPerson()" id="s2-add-person-btn"
+            style="width:100%;padding:11px 14px;border-radius:12px;border:1px dashed rgba(255,255,255,.12);background:rgba(255,255,255,.03);color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:8px;margin-bottom:.5rem">
+            <span style="font-size:15px;opacity:.7">+</span> ¿Falta alguien? Añadir persona
+          </button>
+          <div id="s2-add-person-form" style="display:none;margin-bottom:.75rem">
+            <input id="s2-new-person-name" type="text" placeholder="Nombre"
+              style="width:100%;padding:12px 14px;border-radius:12px;border:1px solid rgba(29,158,117,.4);background:rgba(29,158,117,.06);color:var(--t1);font-size:14px;font-family:inherit;margin-bottom:.4rem"
+              onkeydown="if(event.key==='Enter')addPersonS2()">
+            <div style="display:flex;gap:.5rem">
+              <button onclick="addPersonS2()" style="flex:1;padding:10px;border-radius:10px;border:none;background:var(--brand);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Añadir</button>
+              <button onclick="document.getElementById('s2-add-person-form').style.display='none'"
+                style="padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:none;color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit">✕</button>
+            </div>
           </div>
         </div>
       </div>
-
-      <button class="btn btn-primary mt" onclick="go('s3-dishes')" style="margin-top:1.25rem">
-        Ver carta y añadir platos →
-      </button>
-      <div style="font-size:11px;color:var(--t3);text-align:center;margin-top:.5rem">
-        Puedes seguir añadiendo personas desde la carta
-      </div>
     </div>
+    <div class="diner-cta-bar">
+      <button class="diner-btn-pay" onclick="go('s3-dishes')">
+        Ver carta →
+      </button>
+    </div>
+  </div>
+
   </div>
 
   <!-- ════════════════════════════════════════
@@ -954,15 +1108,39 @@
     <div class="hdr">
       <button class="back-btn" onclick="go('s2-room')">← Mesa</button>
       <div class="logo">split<em>eat</em></div>
-      <div style="display:flex;align-items:center;gap:.5rem">
-        <div class="live-badge"><div class="live-dot"></div><span id="s3-online">0</span></div>
-        <button onclick="openNotifHistory()" style="position:relative;background:none;border:none;cursor:pointer;padding:4px;color:var(--t2);font-size:18px;line-height:1">
+      <div style="display:flex;align-items:center;gap:.4rem">
+        <div class="live-pill-d"><span class="ldot"></span></div>
+        <button onclick="openNotifHistory()" style="position:relative;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:8px;cursor:pointer;padding:5px 8px;color:var(--t2);font-size:14px;line-height:1">
           🔔
           <span class="notif-bell-badge" style="display:none;position:absolute;top:-2px;right:-2px;background:var(--accent);color:#fff;border-radius:99px;font-size:9px;font-weight:700;min-width:14px;height:14px;text-align:center;line-height:14px;padding:0 3px">0</span>
         </button>
       </div>
     </div>
-    <div class="steps"><div class="step done"></div><div class="step done"></div><div class="step done"></div><div class="step"></div></div>
+    <!-- TRACKER HERO — estado del pedido en vivo -->
+    <div class="tracker-hero" id="tracker-hero-section">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.65rem">
+        <div>
+          <div id="tracker-mesa-label" style="font-size:11px;color:var(--t2);font-weight:500;margin-bottom:.15rem"></div>
+          <div class="tracker-status" id="tracker-status-text">Añade tu primer plato</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;margin-left:.75rem">
+          <div id="tracker-total" style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--t1)"></div>
+          <div id="tracker-total-lbl" style="font-size:10px;color:var(--t2)"></div>
+        </div>
+      </div>
+      <!-- Barra de progreso del pedido -->
+      <div id="tracker-bar-wrap" style="display:none">
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="tracker-bar-fill" style="width:0%"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--t3);margin-bottom:.75rem">
+          <span id="tracker-bar-left">0 servidos</span>
+          <span id="tracker-bar-right">0 platos</span>
+        </div>
+      </div>
+      <!-- Avatares de comensales -->
+      <div id="tracker-avatars" style="display:flex;flex-wrap:wrap;gap:.4rem"></div>
+    </div>
 
     <!-- Single scrollable view — Carta + Mesa unified (#15) -->
     <div id="dtab-carta" class="body" style="padding-bottom:5rem">
@@ -975,20 +1153,12 @@
         <div class="empty-text">No hay carta disponible.<br>Pídele al restaurante que la configure.</div>
       </div>
 
-      <!-- ── SECCIÓN: TU MESA (inline bajo la carta) ── -->
-      <div id="dtab-mesa" style="margin-top:1.5rem">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
-          <div style="display:flex;align-items:center;gap:.5rem">
-            <div class="live-badge"><div class="live-dot"></div><span>Tu mesa</span></div>
-            <span id="mesa-count-badge" style="display:none;background:var(--brand);color:#fff;border-radius:99px;padding:1px 7px;font-size:11px">0</span>
-          </div>
-        </div>
-        <!-- U4: Color legend -->
-        <div style="display:flex;gap:.65rem;flex-wrap:wrap;margin-bottom:.65rem;font-size:10px;color:var(--t3);font-weight:500">
-          <span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:2px;background:#185FA5;display:inline-block"></span>En cocina</span>
-          <span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:2px;background:#E67E22;display:inline-block"></span>Preparando</span>
-          <span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:2px;background:#2E7D2E;display:inline-block"></span>Listo</span>
-          <span style="display:flex;align-items:center;gap:3px"><span style="font-size:9px">✓</span>Servido</span>
+      <!-- ── TU MESA: tracker de platos ── -->
+      <div id="dtab-mesa" style="margin-top:0;border-top:1px solid rgba(255,255,255,.06)">
+        <!-- Separador visual -->
+        <div style="padding:.75rem 0 .35rem;display:flex;align-items:center;gap:.5rem">
+          <div class="section-hdr-d" style="padding:0;flex:1">Tu pedido</div>
+          <span id="mesa-count-badge" style="display:none;background:rgba(29,158,117,.2);color:var(--brand);border-radius:99px;padding:1px 9px;font-size:11px;font-weight:600;border:1px solid rgba(29,158,117,.25)">0</span>
         </div>
         <div id="mesa-dishes-list"></div>
         <div id="mesa-empty" class="empty" style="display:none">
@@ -997,28 +1167,18 @@
         </div>
 
         <!-- #26: Todo servido — incitar a pagar -->
-        <div id="finish-dinner-banner" style="display:none;background:var(--brand-l);border:1.5px solid var(--brand);border-radius:var(--r);padding:1rem 1.1rem;margin-top:.75rem;text-align:center">
-          <div style="font-size:18px;margin-bottom:.35rem">🎉</div>
-          <div style="font-size:15px;font-weight:600;color:var(--brand-d);margin-bottom:.25rem">¡Todo en la mesa!</div>
-          <div style="font-size:13px;color:var(--brand);margin-bottom:.85rem">¿Habéis terminado? Podéis pedir más o pasar a pagar.</div>
-          <button onclick="goToSummary()" class="btn btn-primary" style="width:100%;margin-bottom:.5rem">Revisar cuenta →</button>
-          <button onclick="const s=document.getElementById('s3-dishes');if(s){s.scrollTop=0;}window.scrollTo(0,0);document.getElementById('dtab-carta')?.scrollIntoView({behavior:'smooth',block:'start'});" style="width:100%;padding:9px;border-radius:var(--r-sm);border:1.5px solid var(--brand);background:none;color:var(--brand);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">
-            + Pedir más
-          </button>
-        </div>
+        <!-- finish-dinner-banner: oculto, la CTA bar sticky lo reemplaza -->
+        <div id="finish-dinner-banner" style="display:none"></div>
         <div id="mesa-actions" style="display:none;margin-top:.75rem">
           <button class="btn btn-accent" onclick="showSendToKitchenConfirm()" id="btn-send-kitchen" style="width:100%;margin-bottom:.5rem">
             Revisar y enviar a cocina →
           </button>
-          <div id="kitchen-sent-msg" style="display:none;background:var(--brand-light);border-radius:var(--r-sm);padding:.65rem 1rem;font-size:13px;color:var(--brand-dark)">
+          <div id="kitchen-sent-msg" style="display:none;background:var(--brand-l);border-radius:var(--r-sm);padding:.65rem 1rem;font-size:13px;color:var(--brand)">
             ✓ Pedido enviado. Puedes seguir añadiendo platos.
           </div>
-          <!-- #6: Removed duplicate btn-ver-resumen-area — Ver resumen only in finish-dinner-banner -->
           <div id="btn-ver-resumen-area" style="display:none">
             <div id="resumen-wait-msg" style="display:none;text-align:center;font-size:12px;color:var(--t2);margin-top:.5rem;padding:.5rem;background:var(--bg2);border-radius:var(--r-sm);line-height:1.5"></div>
-            <button id="resumen-refresh-btn" onclick="refreshDishStatus()" style="display:none;margin-top:.35rem;width:100%;padding:7px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:none;color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit">
-              ↻ Actualizar estado de los platos
-            </button>
+            <button id="resumen-refresh-btn" onclick="refreshDishStatus()" style="display:none;margin-top:.35rem;width:100%;padding:7px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:none;color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit">↻ Actualizar</button>
           </div>
         </div>
       </div>
@@ -1044,6 +1204,15 @@
       </div>
 
     </div><!-- /dtab-carta -->
+
+    <!-- CTA BAR STICKY — siempre visible en s3 -->
+    <div id="s3-cta-bar" class="diner-cta-bar" style="display:none">
+      <div id="s3-cta-status" style="font-size:12px;color:var(--t2);text-align:center;margin-bottom:.5rem;display:none"></div>
+      <button id="s3-cta-primary" class="diner-btn-pay" onclick="s3CtaAction()" disabled>
+        <span id="s3-cta-label">Añade platos para empezar</span>
+        <span class="pay-badge" id="s3-cta-badge" style="display:none"></span>
+      </button>
+    </div>
 
     <!-- #23: Kitchen-send lock overlay — shown to other guests while someone is sending -->
     <div id="kitchen-lock-overlay" style="display:none;position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.72);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:2rem">
@@ -2897,7 +3066,168 @@ const now = () => new Date().toLocaleTimeString('es-ES', {hour:'2-digit',minute:
 // ══════════════════════════════════════════════════════
 // NAVIGATION
 // ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════
+// DINER DARK MODE — activar/desactivar en #app
+// ══════════════════════════════════════════════════
+function setDinerMode(on) {
+  const app = document.getElementById('app');
+  if (!app) return;
+  if (on) app.setAttribute('data-diner','1');
+  else app.removeAttribute('data-diner');
+}
+
+// ══════════════════════════════════════════════════
+// TRACKER HERO — actualiza el hero de s3 en tiempo real
+// ══════════════════════════════════════════════════
+function updateTrackerHero() {
+  const COLORS = ['#D85A30','#185FA5','#7B3FA0','#C0392B','#117A65','#B7770D','#1A5276','#6E2C00'];
+  const dishes = state.dishes || [];
+  const guests = state.guests || [];
+  const payments = state.payments || [];
+
+  // Mesa label
+  const lbl = document.getElementById('tracker-mesa-label');
+  if (lbl) lbl.textContent = state.restaurantName || '';
+
+  // Totales
+  const total = dishes.reduce((s,d) => s+parseFloat(d.price||0), 0);
+  const totalEl = document.getElementById('tracker-total');
+  const totalLbl = document.getElementById('tracker-total-lbl');
+  if (totalEl) totalEl.textContent = total > 0 ? fmt(total) : '';
+  if (totalLbl) totalLbl.textContent = total > 0 ? 'total mesa' : '';
+
+  // Estado dinámico
+  const statusEl = document.getElementById('tracker-status-text');
+  if (statusEl) {
+    const sent = dishes.filter(d => d.kitchen_status && d.kitchen_status !== 'new');
+    const delivered = dishes.filter(d => d.kitchen_status === 'delivered');
+    const allDelivered = sent.length > 0 && delivered.length === sent.length && dishes.every(d => d.kitchen_status !== 'new');
+    const paidIds = new Set(payments.filter(p=>p.guest_id).map(p=>p.guest_id));
+    const allPaid = guests.length > 0 && guests.every(g => paidIds.has(g.id));
+
+    if (allPaid) {
+      statusEl.innerHTML = 'Cuenta <span class="s-green">cerrada ✓</span>';
+    } else if (allDelivered) {
+      statusEl.innerHTML = '¡Todo en mesa! <span class="s-accent">Revisar cuenta</span>';
+    } else if (delivered.length > 0 && sent.length > 0) {
+      const pending = sent.filter(d => d.kitchen_status !== 'delivered');
+      statusEl.innerHTML = pending.length + ' plato' + (pending.length!==1?'s':'') + ' <span class="s-accent">en camino</span>';
+    } else if (sent.length > 0) {
+      statusEl.innerHTML = 'Pedido <span class="s-green">en cocina</span>';
+    } else if (dishes.length > 0) {
+      statusEl.innerHTML = dishes.length + ' plato' + (dishes.length!==1?'s':'') + ' por enviar';
+    } else {
+      statusEl.textContent = 'Añade tu primer plato';
+    }
+  }
+
+  // Barra de progreso
+  const barWrap = document.getElementById('tracker-bar-wrap');
+  const barFill = document.getElementById('tracker-bar-fill');
+  const barLeft = document.getElementById('tracker-bar-left');
+  const barRight = document.getElementById('tracker-bar-right');
+  const sentDishes = dishes.filter(d => d.kitchen_status && d.kitchen_status !== 'new');
+  const deliveredDishes = dishes.filter(d => d.kitchen_status === 'delivered');
+  if (barWrap) {
+    barWrap.style.display = sentDishes.length > 0 ? 'block' : 'none';
+    if (barFill && sentDishes.length > 0) {
+      const pct = Math.round((deliveredDishes.length / sentDishes.length) * 100);
+      barFill.style.width = pct + '%';
+    }
+    if (barLeft) barLeft.textContent = deliveredDishes.length + ' servido' + (deliveredDishes.length!==1?'s':'');
+    if (barRight) barRight.textContent = sentDishes.length + ' en total';
+  }
+
+  // Avatares
+  const avContainer = document.getElementById('tracker-avatars');
+  if (avContainer && guests.length > 0) {
+    const paidIds = new Set(payments.filter(p=>p.guest_id).map(p=>p.guest_id));
+    avContainer.innerHTML = guests.map((g, i) => {
+      const paid = paidIds.has(g.id);
+      const c = COLORS[i % COLORS.length];
+      const initial = (g.name||'?')[0].toUpperCase();
+      const cls = paid ? 'paid' : 'pending';
+      const avStyle = 'background:' + c + '22;color:' + c;
+      const spanColor = paid ? c : 'var(--t2)';
+      return '<div class="av-pill ' + cls + '">'
+        + '<div class="av-dot" style="' + avStyle + '">' + initial + '</div>'
+        + '<span style="color:' + spanColor + '">' + escHtml(g.name) + '</span>'
+        + '</div>';
+    }).join('');
+  }
+
+  // CTA bar sticky
+  updateS3CtaBar();
+}
+
+function updateS3CtaBar() {
+  const bar = document.getElementById('s3-cta-bar');
+  const btn = document.getElementById('s3-cta-primary');
+  const lbl = document.getElementById('s3-cta-label');
+  const badge = document.getElementById('s3-cta-badge');
+  const statusDiv = document.getElementById('s3-cta-status');
+  if (!bar) return;
+
+  const dishes = state.dishes || [];
+  const payments = state.payments || [];
+  const guests = state.guests || [];
+  const unsent = dishes.filter(d => !d.kitchen_status || d.kitchen_status === 'new');
+  const sent = dishes.filter(d => d.kitchen_status && d.kitchen_status !== 'new');
+  const delivered = dishes.filter(d => d.kitchen_status === 'delivered');
+  const allDelivered = sent.length > 0 && delivered.length === sent.length && unsent.length === 0;
+  const paidIds = new Set(payments.filter(p=>p.guest_id).map(p=>p.guest_id));
+  const allPaid = guests.length > 0 && guests.every(g => paidIds.has(g.id));
+
+  if (dishes.length === 0) {
+    bar.style.display = 'none';
+    return;
+  }
+  bar.style.display = 'block';
+
+  if (allPaid) {
+    if (btn) { btn.disabled = true; btn.style.opacity = '.4'; }
+    if (lbl) lbl.textContent = '✓ Todo pagado';
+    if (badge) badge.style.display = 'none';
+    if (statusDiv) statusDiv.style.display = 'none';
+  } else if (allDelivered) {
+    if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+    if (lbl) lbl.textContent = 'Revisar cuenta';
+    const total = dishes.reduce((s,d)=>s+parseFloat(d.price||0),0);
+    if (badge) { badge.textContent = fmt(total); badge.style.display = ''; }
+    if (statusDiv) { statusDiv.textContent = '¡Todo servido! Es hora de pagar.'; statusDiv.style.display = 'block'; }
+  } else if (unsent.length > 0) {
+    if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+    if (lbl) lbl.textContent = 'Enviar a cocina';
+    if (badge) { badge.textContent = unsent.length + ' plato' + (unsent.length!==1?'s':''); badge.style.display = ''; }
+    if (statusDiv) statusDiv.style.display = 'none';
+  } else {
+    // Todo enviado, esperando entrega
+    if (btn) { btn.disabled = true; btn.style.opacity = '.5'; }
+    if (lbl) lbl.textContent = 'Esperando platos…';
+    if (badge) badge.style.display = 'none';
+    if (statusDiv) { statusDiv.textContent = sent.length - delivered.length + ' plato' + (sent.length-delivered.length!==1?'s':'') + ' en camino'; statusDiv.style.display = 'block'; }
+  }
+}
+
+function s3CtaAction() {
+  const dishes = state.dishes || [];
+  const unsent = dishes.filter(d => !d.kitchen_status || d.kitchen_status === 'new');
+  const sent = dishes.filter(d => d.kitchen_status && d.kitchen_status !== 'new');
+  const delivered = dishes.filter(d => d.kitchen_status === 'delivered');
+  const allDelivered = sent.length > 0 && delivered.length === sent.length && unsent.length === 0;
+
+  if (allDelivered) {
+    goToSummary();
+  } else if (unsent.length > 0) {
+    showSendToKitchenConfirm();
+  }
+}
+
+
 function go(screenId) {
+  // Dark mode para pantallas del comensal
+  const dinerScreens = ['s1-qr','s2-room','s3-dishes','s4-summary','s5-pay','s6-done'];
+  setDinerMode(dinerScreens.includes(screenId));
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   const target = document.getElementById(screenId);
   if (target) {
@@ -4451,6 +4781,8 @@ function renderMesaDishes() {
 
     el.innerHTML = html;
   }
+
+  updateTrackerHero();
 
   // Update badge
   const badge = document.getElementById('mesa-count-badge');
