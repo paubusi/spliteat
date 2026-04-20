@@ -23,7 +23,7 @@
     --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
   }
   html, body { height: 100%; background: var(--bg); color: var(--t1); font-family: 'DM Sans', sans-serif; font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
-  #app { max-width: 430px; margin: 0 auto; min-height: 100vh; position: relative; background: var(--bg); }
+  #app { max-width: 430px; margin: 0 auto; min-height: 100dvh; position: relative; background: var(--bg); }
   #s0 { max-width: none !important; width: 100vw !important; margin: 0 !important; position: fixed !important; inset: 0 !important; z-index: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   #s-kitchen { max-width: 100% !important; width: 100% !important; }
   #s0.active ~ * { pointer-events: none; }
@@ -67,7 +67,7 @@
   }
 
   /* ── SCREENS ── */
-  .screen { display: none; min-height: 100vh; flex-direction: column; animation: fadeUp .22s ease; }
+  .screen { display: none; min-height: 100dvh; flex-direction: column; animation: fadeUp .22s ease; }
   .screen.active { display: flex; }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -274,7 +274,7 @@
   /* ── s0: Mobile-first responsive ── */
   @media (min-width: 700px) {
     #s0 .s0-grid { flex-direction: row !important; }
-    #s0 .s0-grid > div:first-child { min-height: 100vh; }
+    #s0 .s0-grid > div:first-child { min-height: 100dvh; }
   }
 
   /* ── KPI period buttons ── */
@@ -429,19 +429,20 @@
   .settings-row-arrow { color: var(--t3); font-size: 13px; }
 
 
-  @media (prefers-color-scheme: dark) {
+  /* Dark mode del SO deshabilitado — se mantiene light mode siempre */
+  /* @media (prefers-color-scheme: dark) {
     #s-kitchen {
       --bg: #1a1a18; --card: #242422; --t1: #f0efeb; --t2: #a09e97;
       --t3: #6b6a64; --bd: rgba(255,255,255,0.08); --bd2: rgba(255,255,255,0.12);
       --bg2: #2a2a28; background: var(--bg);
     }
-  }
-  /* cookeat manual dark toggle */
-  #s-kitchen.dark-mode {
+  } */
+  /* cookeat manual dark toggle (deshabilitado) */
+  /* #s-kitchen.dark-mode {
     --bg: #1a1a18; --card: #242422; --t1: #f0efeb; --t2: #a09e97;
     --t3: #6b6a64; --bd: rgba(255,255,255,0.08); --bd2: rgba(255,255,255,0.12);
     --bg2: #2a2a28; background: var(--bg);
-  }
+  } */
 
 
   /* ── Offline indicator ── */
@@ -660,7 +661,7 @@
   <!-- ════════════════════════════════════════
        S0: INICIO (solo para acceso directo sin QR)
   ════════════════════════════════════════ -->
-  <div class="screen active" id="s0" style="background:#F3F7F5;flex-direction:column;min-height:100vh;padding:0;max-width:none!important;width:100%!important;overflow-y:auto">
+  <div class="screen active" id="s0" style="background:#F3F7F5;flex-direction:column;min-height:100dvh;padding:0;max-width:none!important;width:100%!important;overflow-y:auto">
 
 <!-- ═══════════ NAV ═══════════ -->
 <nav style="position:sticky;top:0;z-index:50;background:rgba(243,247,245,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(8,80,65,.08);padding:.65rem 1.5rem;display:flex;align-items:center;justify-content:space-between">
@@ -1532,7 +1533,7 @@
        S6: CONFIRMACIÓN FINAL
   ════════════════════════════════════════ -->
   <div class="screen" id="s6-done">
-    <div class="body" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:2rem">
+    <div class="body" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100dvh;text-align:center;padding:2rem">
       <div style="font-size:64px;margin-bottom:1.25rem">🎉</div>
       <h2 class="title">¡Cuenta cerrada!</h2>
       <p class="subtitle" style="max-width:280px;margin:.5rem auto 2rem">Sin deudas, sin incómodos recordatorios. Que aproveche.</p>
@@ -1629,12 +1630,13 @@
   <!-- ════════════════════════════════════════
        COCINA: PANTALLA DE COCINA
   ════════════════════════════════════════ -->
-  <div class="screen" id="s-kitchen" style="height:100vh;overflow:hidden">
+  <div class="screen" id="s-kitchen" style="height:100dvh;overflow:hidden">
     <div class="hdr">
       <div class="logo">cook<em style="color:var(--accent);font-style:normal">eat</em></div>
       <div style="display:flex;align-items:center;gap:8px">
         <div class="live-badge"><div class="live-dot"></div><span id="k-rest-name">—</span></div>
-        <button onclick="document.getElementById('s-kitchen').classList.toggle('dark-mode')" style="background:none;border:none;cursor:pointer;font-size:16px;padding:4px" title="Modo oscuro">🌙</button>
+        <!-- botón dark mode desactivado -->
+        <button style="display:none" title="Modo oscuro">🌙</button>
         <button class="back-btn" onclick="kitchenLogout()" style="color:var(--accent)">Salir</button>
       </div>
     </div>
@@ -1647,7 +1649,7 @@
     </div>
 
     <!-- TAB KDS — vista por pases -->
-    <div id="ktab-pedidos" style="height:calc(100vh - 110px);overflow-y:auto;padding:.65rem">
+    <div id="ktab-pedidos" style="height:calc(100dvh - 110px);overflow-y:auto;padding:.65rem">
       <!-- Disabled dishes warning -->
       <div id="k-disabled-warning" style="display:none;background:#FAEEDA;border:1px solid #E5A85A;border-radius:var(--r-sm);padding:.6rem .85rem;margin-bottom:.65rem;font-size:12px;color:#854F0B;display:flex;align-items:center;justify-content:space-between">
         <span id="k-disabled-warning-text"></span>
@@ -1666,7 +1668,7 @@
     </div>
 
     <!-- TAB CARTA — activar/desactivar platos -->
-    <div id="ktab-carta" style="display:none;height:calc(100vh - 110px);overflow-y:auto;padding:.65rem">
+    <div id="ktab-carta" style="display:none;height:calc(100dvh - 110px);overflow-y:auto;padding:.65rem">
       <div style="max-width:860px;margin:0 auto">
         <div style="font-size:12px;color:var(--t2);margin-bottom:.75rem;line-height:1.5;background:var(--bg2);padding:.65rem .85rem;border-radius:var(--r-sm)">
           Activa o desactiva platos según disponibilidad. <strong>Los desactivados no aparecen en la carta del comensal.</strong><br>
@@ -1680,7 +1682,7 @@
     </div>
 
     <!-- TAB CONFIG — tiempos de preparación -->
-    <div id="ktab-config" style="display:none;height:calc(100vh - 110px);overflow-y:auto;padding:.65rem">
+    <div id="ktab-config" style="display:none;height:calc(100dvh - 110px);overflow-y:auto;padding:.65rem">
       <div style="max-width:860px;margin:0 auto">
         <div style="font-size:15px;font-weight:500;margin-bottom:.25rem">Tiempos de preparación</div>
         <div style="font-size:12px;color:var(--t2);margin-bottom:.75rem;line-height:1.5">
@@ -1921,7 +1923,7 @@
   ════════════════════════════════════════ -->
   <div class="screen" id="s-admin">
     <!-- SIDEBAR (desktop) + TOPBAR mobile hybrid -->
-    <div id="admin-shell" style="display:flex;height:100vh;overflow:hidden;position:relative">
+    <div id="admin-shell" style="display:flex;height:100dvh;overflow:hidden;position:relative">
       <!-- Sidebar reopen button: fixed overlay, shown ONLY on desktop when sidebar is collapsed -->
       <button id="sidebar-reopen-btn" onclick="toggleAdminSidebar()"
         title="Abrir menú lateral"
@@ -2007,7 +2009,7 @@
         </div>
 
     <!-- TAB EN CURSO — Mesas activas con estado de pago -->
-    <div id="atab-encurso" style="display:none;flex-direction:column;height:calc(100vh - 110px);overflow:hidden">
+    <div id="atab-encurso" style="display:none;flex-direction:column;height:calc(100dvh - 110px);overflow:hidden">
       <!-- Header bar -->
       <div style="display:flex;align-items:center;justify-content:space-between;padding:.6rem 1.25rem;border-bottom:1px solid var(--bd);background:var(--card);flex-shrink:0">
         <div style="display:flex;align-items:center;gap:.75rem">
@@ -2072,7 +2074,7 @@
     </div><!-- /atab-encurso -->
 
     <!-- ── CALLEAT TAB (standalone panel in sidebar) ── -->
-    <div id="atab-calleat" style="display:none;flex-direction:column;height:calc(100vh - 57px);overflow:hidden">
+    <div id="atab-calleat" style="display:none;flex-direction:column;height:calc(100dvh - 57px);overflow:hidden">
       <!-- Header -->
       <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.25rem;border-bottom:1px solid var(--bd);flex-shrink:0">
         <div style="font-size:15px;font-weight:600">🪑 En espera — call<em style="color:#D85A30;font-style:normal">eat</em></div>
@@ -2144,7 +2146,7 @@
     </div>
 
     <!-- ── FACTURAS TAB ── -->
-    <div id="atab-facturas" style="display:none;flex-direction:column;height:calc(100vh - 57px);overflow:hidden">
+    <div id="atab-facturas" style="display:none;flex-direction:column;height:calc(100dvh - 57px);overflow:hidden">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.25rem;border-bottom:1px solid var(--bd);flex-shrink:0;gap:.5rem;flex-wrap:wrap">
         <div style="font-size:15px;font-weight:600">🧾 Facturas</div>
         <div style="display:flex;align-items:center;gap:.5rem">
@@ -2194,7 +2196,7 @@
     </div>
 
     <!-- TAB COCINA (admin) — Vista por pases -->
-    <div id="atab-cocina" style="display:none;flex-direction:column;height:calc(100vh - 110px);width:100%">
+    <div id="atab-cocina" style="display:none;flex-direction:column;height:calc(100dvh - 110px);width:100%">
       <!-- Header -->
       <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem 1rem;border-bottom:1px solid var(--bd);flex-shrink:0">
         <div class="live-badge"><div class="live-dot"></div><span>Tiempo real</span></div>
@@ -2217,7 +2219,7 @@
     </div><!-- close atab-cocina -->
 
     <!-- TAB RESERVAS -->
-    <div id="atab-reservas" style="display:none;flex-direction:column;height:calc(100vh - 110px);width:100%">
+    <div id="atab-reservas" style="display:none;flex-direction:column;height:calc(100dvh - 110px);width:100%">
 
       <!-- Header -->
       <div style="display:flex;align-items:center;justify-content:space-between;padding:.6rem 1rem;border-bottom:1px solid var(--bd);background:var(--card);flex-shrink:0;gap:.5rem">
@@ -2336,7 +2338,7 @@
 
     <!-- TAB REPORTES -->
     <!-- ═══════════════ DASHBOARD (old: Reportes) ═══════════════ -->
-    <div id="atab-reportes" style="display:none;flex-direction:column;height:calc(100vh - 57px);overflow:hidden">
+    <div id="atab-reportes" style="display:none;flex-direction:column;height:calc(100dvh - 57px);overflow:hidden">
       <!-- Sub-nav: only Resumen (platos + propinas embedded) -->
       <div style="display:flex;border-bottom:1px solid var(--bd);background:var(--card);padding:0 1rem;overflow-x:auto;flex-shrink:0;gap:2px">
         <button class="tab on" id="rtab-btn-kpis" onclick="showReportesTab('kpis')" style="font-size:13px;padding:.6rem .85rem;white-space:nowrap">📊 Resumen</button>
@@ -2524,7 +2526,7 @@
 
     <!-- ═══════════════ AJUSTES (old: Gestión + Perfil merged) ═══════════════ -->
     <!-- TAB NOTIFICACIONES -->
-    <div id="atab-notificaciones" style="display:none;flex-direction:column;height:calc(100vh - 57px);overflow-y:auto">
+    <div id="atab-notificaciones" style="display:none;flex-direction:column;height:calc(100dvh - 57px);overflow-y:auto">
       <div style="padding:1rem 1.5rem;border-bottom:1px solid var(--bd);background:var(--card);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
         <div style="font-size:16px;font-weight:600">Notificaciones</div>
         <button onclick="markAllAdminNotifSeen()" style="font-size:12px;padding:4px 10px;border-radius:99px;border:1px solid var(--bd);background:none;color:var(--t2);cursor:pointer;font-family:inherit">Todo visto</button>
@@ -2534,7 +2536,7 @@
       </div>
     </div>
 
-    <div id="atab-gestion" style="display:none;flex-direction:column;height:calc(100vh - 57px);overflow-y:auto">
+    <div id="atab-gestion" style="display:none;flex-direction:column;height:calc(100dvh - 57px);overflow-y:auto">
       <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--bd);background:var(--card);flex-shrink:0">
         <div style="font-size:16px;font-weight:600">⚙️ Ajustes</div>
       </div>
@@ -3072,10 +3074,11 @@ const now = () => new Date().toLocaleTimeString('es-ES', {hour:'2-digit',minute:
 // DINER DARK MODE — activar/desactivar en #app
 // ══════════════════════════════════════════════════
 function setDinerMode(on) {
+  // Dark mode del comensal deshabilitado — siempre light mode
   const app = document.getElementById('app');
   if (!app) return;
-  if (on) { app.setAttribute('data-diner','1'); document.body.classList.add('diner-mode'); }
-  else { app.removeAttribute('data-diner'); document.body.classList.remove('diner-mode'); }
+  app.removeAttribute('data-diner');
+  document.body.classList.remove('diner-mode');
 }
 
 // ══════════════════════════════════════════════════
