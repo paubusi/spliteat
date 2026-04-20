@@ -4544,6 +4544,7 @@ async function confirmAddDish() {
   }
   closeModal();
   const dishPayload = {
+    restaurant_id: state.restaurantId,
     room_id: state.roomId,
     name: item.name,
     price: item.price,
@@ -8435,6 +8436,7 @@ async function waiterSendOrder() {
   for (const item of _waiterCart) {
     for (let q = 0; q < item.qty; q++) {
       const wDishPayload = {
+        restaurant_id: _waiterRestaurantId,
         room_id: _waiterActiveRoomId,
         name: item.name + (item.cookingPoint ? ' — ' + item.cookingPoint : ''),
         price: item.price,
