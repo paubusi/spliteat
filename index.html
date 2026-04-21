@@ -1133,14 +1133,10 @@
   ════════════════════════════════════════ -->
   <div class="screen" id="s3-dishes">
     <!-- Push notification banner -->
-    <div id="push-permission-banner" style="display:none;background:#085041;padding:10px 1.25rem;display:flex;align-items:center;gap:10px;cursor:pointer;flex-shrink:0" onclick="requestPushPermissionFromBanner()">
-      <span style="font-size:20px">🔔</span>
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:600;color:#fff">Activar notificaciones</div>
-        <div style="font-size:11px;color:rgba(255,255,255,.7)">Recibe avisos cuando tu plato esté listo, aunque tengas la pantalla bloqueada</div>
-      </div>
-      <span style="color:rgba(255,255,255,.6);font-size:18px">›</span>
-    </div>
+    <!-- Push banner deshabilitado: iOS Safari no soporta push sin añadir a pantalla de inicio
+         (solo PWA instaladas). En Android técnicamente funciona pero lo ocultamos
+         para consistencia — los comensales que escanean QR son sesiones efímeras. -->
+    <div id="push-permission-banner" style="display:none !important"></div>
     <div class="hdr">
       <button class="back-btn" onclick="go('s2-room')">← Mesa</button>
       <div class="logo">split<em>eat</em></div>
@@ -14893,22 +14889,21 @@ async function unsubscribePush(guestId) {
 
 
 
-// ── Show push permission banner when needed ──
+// ── Push permission banner — DESHABILITADO para comensales ──
+// Razón: iOS Safari (WebKit) NO soporta push notifications desde una pestaña
+// normal, solo desde PWAs añadidas a pantalla de inicio. Los comensales que
+// escanean un QR no van a instalar PWA, por lo que mostrar el banner es
+// ruido confuso. En Android sí funcionaría pero lo deshabilitamos también
+// para mantener UX consistente.
 async function showPushBannerIfNeeded() {
   const banner = document.getElementById('push-permission-banner');
-  if (!banner) return;
-  if (!('Notification' in window)) { banner.style.display = 'none'; return; }
-  if (Notification.permission === 'granted') { banner.style.display = 'none'; return; }
-  if (Notification.permission === 'denied') { banner.style.display = 'none'; return; }
-  // Permission is 'default' — show banner
-  banner.style.display = 'flex';
+  if (banner) banner.style.display = 'none';
 }
 
 async function requestPushPermissionFromBanner() {
+  // No-op — banner deshabilitado
   const banner = document.getElementById('push-permission-banner');
   if (banner) banner.style.display = 'none';
-  await subscribePush(state.myGuestId, state.roomId, state.restaurantId);
-  showToast('🔔 Notificaciones activadas', 'Te avisamos cuando tu plato esté listo');
 }
 
 
