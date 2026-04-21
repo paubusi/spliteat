@@ -22,14 +22,16 @@
     --r: 12px; --r-sm: 8px; --r-lg: 18px; --r-full: 999px;
     --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
   }
-  html, body { height: 100%; background: var(--bg); color: var(--t1); font-family: 'DM Sans', sans-serif; font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
-  body { position: relative; }
-  #app { max-width: 430px; margin: 0 auto; min-height: 100vh; min-height: -webkit-fill-available; min-height: 100dvh; position: relative; background: var(--bg); }
+  html, body { height: 100%; background: var(--bg); color: var(--t1); font-family: 'DM Sans', sans-serif; font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; overflow-x: hidden; scroll-behavior: auto; }
+  body { position: relative; margin: 0; padding: 0; }
+  #app { max-width: 430px; margin: 0 auto; min-height: 100vh; min-height: -webkit-fill-available; min-height: 100dvh; position: relative; background: var(--bg); display: flex; flex-direction: column; }
   /* #s0: solo full-screen cuando está activo. Cuando no, OCULTO del layout. */
   #s0 { max-width: none !important; width: 100vw !important; margin: 0 !important; z-index: 1; }
   #s0.active { position: fixed !important; inset: 0 !important; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex !important; }
   #s0:not(.active) { display: none !important; }
   #s-kitchen { max-width: 100% !important; width: 100% !important; }
+  /* Screen activa ocupa todo el alto del #app flex container */
+  .screen.active { flex: 1; }
   #s0.active ~ * { pointer-events: none; }
 
   /* Pantallas de admin y cocina usan todo el ancho en desktop */
@@ -75,10 +77,8 @@
   }
 
   /* ── SCREENS ── */
-  .screen { display: none; min-height: 100vh; min-height: -webkit-fill-available; min-height: 100dvh; flex-direction: column; animation: fadeUp .22s ease; padding-top: env(safe-area-inset-top, 0); padding-bottom: env(safe-area-inset-bottom, 0); }
+  .screen { display: none; min-height: 100vh; min-height: -webkit-fill-available; min-height: 100dvh; flex-direction: column; animation: fadeUp .22s ease; }
   .screen.active { display: flex; }
-  /* Evitar que .screen empuje su contenido abajo — justify-content debe ser flex-start siempre */
-  .screen, #app { justify-content: flex-start !important; }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
   /* ── HEADER ── */
@@ -108,14 +108,13 @@
     border-color: var(--brand-l);
   }
 
-  /* En desktop, pantallas de login centran verticalmente su contenido */
+  /* En desktop, pantallas de login centradas horizontalmente — NO verticalmente para evitar huecos */
   @media (min-width: 600px) {
     #s-admin-login .body,
     #s-admin-login-form .body,
     #s-kitchen-login .body,
     #s-waiter .body,
     #s-waiter-select .body {
-      display: flex; flex-direction: column; justify-content: center;
       max-width: 380px; margin: 0 auto; width: 100%;
     }
   }
@@ -2689,6 +2688,8 @@
         <button id="stk-tab-inv" class="stk-tab on" onclick="showStockeatTab('inventory')">📊 Inventario</button>
         <button id="stk-tab-ing" class="stk-tab" onclick="showStockeatTab('ingredients')">🥕 Ingredientes</button>
         <button id="stk-tab-rec" class="stk-tab" onclick="showStockeatTab('recipes')">📖 Recetas</button>
+        <button id="stk-tab-sup" class="stk-tab" onclick="showStockeatTab('suppliers')">🚚 Proveedores</button>
+        <button id="stk-tab-pur" class="stk-tab" onclick="showStockeatTab('purchases')">🧾 Compras</button>
       </div>
 
       <!-- INVENTORY subtab -->
@@ -2730,6 +2731,34 @@
         </div>
         <div id="stk-rec-list" style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;min-height:200px"></div>
       </div>
+
+      <!-- SUPPLIERS subtab -->
+      <div id="stk-suppliers" style="display:none;flex:1;overflow-y:auto;padding:1rem 1.25rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+          <div>
+            <div style="font-size:17px;font-weight:600;color:var(--t1)">Proveedores</div>
+            <div style="font-size:12px;color:var(--t2);margin-top:2px">Tus proveedores habituales · los usaremos para generar pedidos automáticos</div>
+          </div>
+          <button onclick="openSupplierModal()" class="btn btn-primary" style="width:auto;padding:10px 18px;font-size:13px">+ Nuevo</button>
+        </div>
+        <div id="stk-sup-list" style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;min-height:200px"></div>
+      </div>
+
+      <!-- PURCHASES subtab -->
+      <div id="stk-purchases" style="display:none;flex:1;overflow-y:auto;padding:1rem 1.25rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
+          <div>
+            <div style="font-size:17px;font-weight:600;color:var(--t1)">Pedidos de compra</div>
+            <div style="font-size:12px;color:var(--t2);margin-top:2px">Registra lo que pides · al marcar recibido se suma al stock automáticamente</div>
+          </div>
+          <div style="display:flex;gap:.5rem">
+            <button onclick="suggestPurchases()" style="padding:10px 16px;border-radius:var(--r);border:1px solid var(--brand);background:var(--brand-l);color:var(--brand-d);font-size:13px;cursor:pointer;font-family:inherit;font-weight:500">⚡ Sugerir</button>
+            <button onclick="openPurchaseModal()" class="btn btn-primary" style="width:auto;padding:10px 18px;font-size:13px">+ Nuevo</button>
+          </div>
+        </div>
+        <div id="stk-pur-list" style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;min-height:200px"></div>
+      </div>
+
     </div><!-- /atab-stockeat -->
       </div><!-- /admin-main -->
     </div><!-- /admin-shell -->
@@ -15798,21 +15827,23 @@ async function initStockeat() {
 
 function showStockeatTab(name) {
   _stk.activeSubtab = name;
-  ['inventory','ingredients','recipes'].forEach(t => {
+  ['inventory','ingredients','recipes','suppliers','purchases'].forEach(t => {
     const el = document.getElementById('stk-' + t);
     if (el) el.style.display = t === name ? 'block' : 'none';
   });
   // Actualizar estilos de tab botones
-  ['inv','ing','rec'].forEach(abbr => {
+  ['inv','ing','rec','sup','pur'].forEach(abbr => {
     const btn = document.getElementById('stk-tab-' + abbr);
     if (btn) btn.classList.remove('on');
   });
-  const activeBtn = {inventory:'stk-tab-inv',ingredients:'stk-tab-ing',recipes:'stk-tab-rec'}[name];
+  const activeBtn = {inventory:'stk-tab-inv',ingredients:'stk-tab-ing',recipes:'stk-tab-rec',suppliers:'stk-tab-sup',purchases:'stk-tab-pur'}[name];
   if (activeBtn) document.getElementById(activeBtn)?.classList.add('on');
 
   if (name === 'inventory') loadStockInventory();
   if (name === 'ingredients') loadStockIngredients();
   if (name === 'recipes') loadStockRecipes();
+  if (name === 'suppliers') loadStockSuppliers();
+  if (name === 'purchases') loadStockPurchases();
 }
 
 // ── INVENTORY ───────────────────────────────────────────────────
@@ -16330,6 +16361,485 @@ async function recalcMenuItemCost(recipeId) {
 // Helper notify (usa el existente del proyecto si existe)
 if (typeof notify === 'undefined') {
   window.notify = (msg) => { try { showToast('', msg); } catch { alert(msg); } };
+}
+
+// ══════════════════════════════════════════════════════════════════
+// STOCKEAT — Proveedores + Compras (Sprint S4)
+// ══════════════════════════════════════════════════════════════════
+
+const _stkSup = { suppliers: [], purchases: [] };
+
+// ── SUPPLIERS ────────────────────────────────────────────────────
+async function loadStockSuppliers() {
+  const restId = state.adminRestaurantId;
+  if (!restId) return;
+  const { data } = await sb.from('stock_suppliers')
+    .select('*').eq('restaurant_id', restId).order('name');
+  _stkSup.suppliers = data || [];
+  renderSuppliersList();
+}
+
+function renderSuppliersList() {
+  const el = document.getElementById('stk-sup-list');
+  if (!el) return;
+  if (!_stkSup.suppliers.length) {
+    el.innerHTML = `<div style="padding:2rem 1rem;text-align:center;color:var(--t2);font-size:13px">
+      Aún no hay proveedores. Pulsa <strong>+ Nuevo</strong> para añadir el primero.
+    </div>`;
+    return;
+  }
+  el.innerHTML = _stkSup.suppliers.map(s => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:.85rem 1rem;border-bottom:1px solid var(--bd);${s.is_active === false ? 'opacity:.5' : ''}">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:500;color:var(--t1)">${escHtml(s.name)}</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px">
+          ${s.email ? escHtml(s.email) + ' · ' : ''}${s.phone ? escHtml(s.phone) + ' · ' : ''}Entrega ${s.lead_time_days || 2}d
+        </div>
+      </div>
+      <button onclick="openSupplierModal('${s.id}')" style="padding:6px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);font-size:12px;cursor:pointer;font-family:inherit;margin-left:.5rem">Editar</button>
+    </div>
+  `).join('');
+}
+
+function openSupplierModal(supId) {
+  const s = supId ? _stkSup.suppliers.find(x => x.id === supId) : null;
+  const modal = document.createElement('div');
+  modal.id = 'sup-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:1rem';
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg);width:100%;max-width:440px;padding:1.5rem;max-height:90dvh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <div style="font-size:17px;font-weight:600;color:var(--t1)">${s ? 'Editar' : 'Nuevo'} proveedor</div>
+        <button onclick="document.getElementById('sup-modal')?.remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+      </div>
+      <div class="field"><label>Nombre</label><input id="sup-f-name" type="text" placeholder="Ej: Carnicería Luis" value="${s ? escHtml(s.name) : ''}"></div>
+      <div class="field"><label>Email (opcional)</label><input id="sup-f-email" type="email" placeholder="pedidos@proveedor.com" value="${s ? escHtml(s.email || '') : ''}"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
+        <div class="field"><label>Teléfono</label><input id="sup-f-phone" type="tel" placeholder="+34..." value="${s ? escHtml(s.phone || '') : ''}"></div>
+        <div class="field"><label>Plazo entrega (días)</label><input id="sup-f-lead" type="number" min="0" value="${s ? s.lead_time_days : 2}" placeholder="2"></div>
+      </div>
+      <div class="field"><label>Notas</label><input id="sup-f-notes" type="text" placeholder="Ej: pide antes de las 10h" value="${s ? escHtml(s.notes || '') : ''}"></div>
+      <div style="display:flex;gap:.5rem;margin-top:1rem">
+        <button onclick="saveSupplier('${s ? s.id : ''}')" class="btn btn-primary" style="flex:1">Guardar</button>
+        ${s ? `<button onclick="deleteSupplier('${s.id}')" style="padding:10px 14px;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);color:var(--accent);font-family:inherit;cursor:pointer;font-size:13px">Eliminar</button>` : ''}
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  setTimeout(() => document.getElementById('sup-f-name')?.focus(), 50);
+}
+
+async function saveSupplier(supId) {
+  const name = document.getElementById('sup-f-name').value.trim();
+  if (!name) { notify('Introduce un nombre'); return; }
+  const payload = {
+    restaurant_id: state.adminRestaurantId,
+    name,
+    email: document.getElementById('sup-f-email').value.trim() || null,
+    phone: document.getElementById('sup-f-phone').value.trim() || null,
+    lead_time_days: parseInt(document.getElementById('sup-f-lead').value) || 2,
+    notes: document.getElementById('sup-f-notes').value.trim() || null,
+    is_active: true
+  };
+  let error;
+  if (supId) {
+    ({ error } = await sb.from('stock_suppliers').update(payload).eq('id', supId));
+  } else {
+    ({ error } = await sb.from('stock_suppliers').insert(payload));
+  }
+  if (error) { notify('Error: ' + error.message); return; }
+  document.getElementById('sup-modal')?.remove();
+  loadStockSuppliers();
+}
+
+async function deleteSupplier(supId) {
+  if (!confirm('¿Eliminar este proveedor?')) return;
+  const { error } = await sb.from('stock_suppliers').delete().eq('id', supId);
+  if (error) { notify('No se puede eliminar: tiene pedidos asociados'); return; }
+  document.getElementById('sup-modal')?.remove();
+  loadStockSuppliers();
+}
+
+// ── PURCHASES ────────────────────────────────────────────────────
+async function loadStockPurchases() {
+  const restId = state.adminRestaurantId;
+  if (!restId) return;
+  // Cargar suppliers e ingredients en paralelo si no están
+  if (!_stkSup.suppliers.length) {
+    const { data: sups } = await sb.from('stock_suppliers').select('*').eq('restaurant_id', restId).order('name');
+    _stkSup.suppliers = sups || [];
+  }
+  if (!_stk.ingredients.length) {
+    const { data: ings } = await sb.from('stock_ingredients').select('*').eq('restaurant_id', restId).eq('is_active', true).order('name');
+    _stk.ingredients = ings || [];
+  }
+  const { data: purchases } = await sb.from('stock_purchases')
+    .select('*').eq('restaurant_id', restId).order('created_at', { ascending: false }).limit(30);
+  _stkSup.purchases = purchases || [];
+  renderPurchasesList();
+}
+
+function renderPurchasesList() {
+  const el = document.getElementById('stk-pur-list');
+  if (!el) return;
+  if (!_stkSup.purchases.length) {
+    el.innerHTML = `<div style="padding:2rem 1rem;text-align:center;color:var(--t2);font-size:13px">
+      No hay pedidos registrados.<br>
+      <span style="font-size:11px">Pulsa <strong>⚡ Sugerir</strong> para generar un pedido automático basado en tu stock actual.</span>
+    </div>`;
+    return;
+  }
+  const supMap = new Map(_stkSup.suppliers.map(s => [s.id, s]));
+  const statusColors = {
+    draft: { bg: 'var(--bd)', color: 'var(--t2)', label: 'Borrador' },
+    sent: { bg: 'var(--amber-l)', color: 'var(--amber)', label: 'Enviado' },
+    received: { bg: 'var(--brand-l)', color: 'var(--brand-d)', label: 'Recibido ✓' },
+    cancelled: { bg: 'var(--accent-l)', color: 'var(--accent)', label: 'Cancelado' }
+  };
+  el.innerHTML = _stkSup.purchases.map(p => {
+    const sup = supMap.get(p.supplier_id);
+    const st = statusColors[p.status] || statusColors.draft;
+    const date = new Date(p.created_at).toLocaleDateString('es-ES', { day:'2-digit', month:'short' });
+    return `<div onclick="openPurchaseDetail('${p.id}')" style="display:flex;align-items:center;gap:.75rem;padding:.85rem 1rem;border-bottom:1px solid var(--bd);cursor:pointer">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:500;color:var(--t1)">${sup ? escHtml(sup.name) : '(sin proveedor)'}</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px">${date}${p.total_amount ? ' · €' + parseFloat(p.total_amount).toFixed(2) : ''}</div>
+      </div>
+      <span style="padding:3px 10px;border-radius:99px;background:${st.bg};color:${st.color};font-size:11px;font-weight:500">${st.label}</span>
+    </div>`;
+  }).join('');
+}
+
+function openPurchaseModal(prefill) {
+  if (!_stkSup.suppliers.length) {
+    notify('Crea primero un proveedor');
+    showStockeatTab('suppliers');
+    return;
+  }
+  if (!_stk.ingredients.length) {
+    notify('Crea primero ingredientes');
+    showStockeatTab('ingredients');
+    return;
+  }
+
+  const supOpts = _stkSup.suppliers.map(s => `<option value="${s.id}">${escHtml(s.name)}</option>`).join('');
+
+  // Si hay prefill (sugerencia), usarlo; si no, array vacío
+  _stkSup.currentPurchaseLines = prefill?.items || [];
+  _stkSup.currentPurchaseSupplier = prefill?.supplier_id || _stkSup.suppliers[0]?.id;
+
+  const modal = document.createElement('div');
+  modal.id = 'pur-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:flex;align-items:flex-end;justify-content:center';
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:600px;max-height:90dvh;display:flex;flex-direction:column">
+      <div style="padding:1.25rem 1.25rem .75rem;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:17px;font-weight:600">${prefill ? '⚡ Pedido sugerido' : 'Nuevo pedido'}</div>
+        <button onclick="document.getElementById('pur-modal')?.remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+      </div>
+      <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--bd);flex-shrink:0">
+        <div class="field"><label>Proveedor</label>
+          <select id="pur-f-supplier" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">${supOpts}</select>
+        </div>
+      </div>
+      <div id="pur-lines-list" style="flex:1;overflow-y:auto;padding:.5rem 1.25rem"></div>
+      <div style="padding:.75rem 1.25rem;border-top:1px solid var(--bd);background:var(--bg);display:flex;gap:.5rem;flex-shrink:0">
+        <button onclick="addPurchaseLine()" style="padding:12px;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);color:var(--t1);font-family:inherit;font-size:13px;cursor:pointer;flex:0 0 auto">+ Ingrediente</button>
+        <button onclick="savePurchase()" class="btn btn-primary" style="flex:1">Crear pedido</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  setTimeout(() => {
+    const supSel = document.getElementById('pur-f-supplier');
+    if (supSel && _stkSup.currentPurchaseSupplier) supSel.value = _stkSup.currentPurchaseSupplier;
+  }, 30);
+
+  renderPurchaseLines();
+}
+
+function renderPurchaseLines() {
+  const el = document.getElementById('pur-lines-list');
+  if (!el) return;
+  const lines = _stkSup.currentPurchaseLines;
+  if (!lines.length) {
+    el.innerHTML = `<div style="padding:1.5rem 1rem;text-align:center;color:var(--t2);font-size:13px">
+      Añade ingredientes al pedido
+    </div>`;
+    return;
+  }
+  const ingMap = new Map(_stk.ingredients.map(i => [i.id, i]));
+  let total = 0;
+  el.innerHTML = lines.map((ln, idx) => {
+    const ing = ingMap.get(ln.ingredient_id);
+    const lineTotal = (ln.qty || 0) * (ln.unit_price || 0);
+    total += lineTotal;
+    return `<div style="display:flex;align-items:center;gap:.5rem;padding:.65rem 0;border-bottom:1px solid var(--bd)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500;color:var(--t1)">${ing ? escHtml(ing.name) : 'Ingrediente'}</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px">${ln.qty} ${ln.unit} × €${(ln.unit_price || 0).toFixed(3)} = €${lineTotal.toFixed(2)}</div>
+      </div>
+      <button onclick="removePurchaseLine(${idx})" style="background:none;border:none;color:var(--accent);font-size:16px;cursor:pointer;padding:4px 8px">×</button>
+    </div>`;
+  }).join('') + `<div style="display:flex;justify-content:space-between;padding:.75rem 0;font-weight:600">
+    <span>Total</span><span style="font-family:'Fraunces',serif">€${total.toFixed(2)}</span>
+  </div>`;
+}
+
+function addPurchaseLine() {
+  const ingOpts = _stk.ingredients.map(i => `<option value="${i.id}">${escHtml(i.name)}</option>`).join('');
+  const unitOpts = _stk.units.map(u => `<option value="${u.code}">${u.code}</option>`).join('');
+
+  const sub = document.createElement('div');
+  sub.id = 'pur-line-modal';
+  sub.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;display:flex;align-items:center;justify-content:center;padding:1rem';
+  sub.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg);width:100%;max-width:400px;padding:1.5rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <div style="font-size:16px;font-weight:600">Añadir línea</div>
+        <button onclick="document.getElementById('pur-line-modal')?.remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+      </div>
+      <div class="field"><label>Ingrediente</label>
+        <select id="pl-ing" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">${ingOpts}</select>
+      </div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:.65rem">
+        <div class="field"><label>Cantidad</label><input id="pl-qty" type="number" step="0.01" min="0.01" placeholder="Ej: 5"></div>
+        <div class="field"><label>Unidad</label>
+          <select id="pl-unit" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">${unitOpts}</select>
+        </div>
+      </div>
+      <div class="field"><label>Precio unitario (€)</label><input id="pl-price" type="number" step="0.001" min="0" placeholder="0.00"></div>
+      <button onclick="confirmAddPurchaseLine()" class="btn btn-primary" style="margin-top:.5rem">Añadir</button>
+    </div>`;
+  document.body.appendChild(sub);
+
+  // Pre-llenar unidad + precio al elegir ingrediente
+  setTimeout(() => {
+    const sel = document.getElementById('pl-ing');
+    const applyDefaults = () => {
+      const ing = _stk.ingredients.find(i => i.id === sel.value);
+      if (ing) {
+        const unitSel = document.getElementById('pl-unit');
+        if (unitSel) unitSel.value = ing.base_unit;
+        const priceInput = document.getElementById('pl-price');
+        if (priceInput && !priceInput.value) priceInput.value = parseFloat(ing.avg_cost || 0).toFixed(3);
+      }
+    };
+    sel?.addEventListener('change', applyDefaults);
+    applyDefaults();
+  }, 30);
+}
+
+function confirmAddPurchaseLine() {
+  const ingredient_id = document.getElementById('pl-ing').value;
+  const qty = parseFloat(document.getElementById('pl-qty').value);
+  const unit = document.getElementById('pl-unit').value;
+  const unit_price = parseFloat(document.getElementById('pl-price').value) || 0;
+  if (!ingredient_id || !qty || qty <= 0) { notify('Completa ingrediente y cantidad'); return; }
+  _stkSup.currentPurchaseLines.push({ ingredient_id, qty, unit, unit_price });
+  document.getElementById('pur-line-modal')?.remove();
+  renderPurchaseLines();
+}
+
+function removePurchaseLine(idx) {
+  _stkSup.currentPurchaseLines.splice(idx, 1);
+  renderPurchaseLines();
+}
+
+async function savePurchase() {
+  const supplier_id = document.getElementById('pur-f-supplier').value;
+  const lines = _stkSup.currentPurchaseLines;
+  if (!supplier_id) { notify('Selecciona un proveedor'); return; }
+  if (!lines.length) { notify('Añade al menos una línea'); return; }
+
+  const total = lines.reduce((s, ln) => s + (ln.qty * (ln.unit_price || 0)), 0);
+
+  // 1. Crear cabecera
+  const { data: purchase, error: e1 } = await sb.from('stock_purchases').insert({
+    restaurant_id: state.adminRestaurantId,
+    supplier_id,
+    status: 'draft',
+    total_amount: total
+  }).select().single();
+  if (e1) { notify('Error: ' + e1.message); return; }
+
+  // 2. Crear líneas
+  const itemsPayload = lines.map(ln => ({
+    purchase_id: purchase.id,
+    ingredient_id: ln.ingredient_id,
+    qty: ln.qty, unit: ln.unit, unit_price: ln.unit_price
+  }));
+  const { error: e2 } = await sb.from('stock_purchase_items').insert(itemsPayload);
+  if (e2) { notify('Error al guardar líneas: ' + e2.message); return; }
+
+  document.getElementById('pur-modal')?.remove();
+  _stkSup.currentPurchaseLines = [];
+  loadStockPurchases();
+  notify('Pedido creado (borrador)');
+}
+
+async function openPurchaseDetail(purchaseId) {
+  const purchase = _stkSup.purchases.find(p => p.id === purchaseId);
+  if (!purchase) return;
+  const { data: items } = await sb.from('stock_purchase_items').select('*').eq('purchase_id', purchaseId);
+  const sup = _stkSup.suppliers.find(s => s.id === purchase.supplier_id);
+  const ingMap = new Map(_stk.ingredients.map(i => [i.id, i]));
+
+  const canReceive = purchase.status === 'draft' || purchase.status === 'sent';
+  const canSend = purchase.status === 'draft';
+
+  const modal = document.createElement('div');
+  modal.id = 'pur-detail-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:flex;align-items:flex-end;justify-content:center';
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:600px;max-height:90dvh;display:flex;flex-direction:column">
+      <div style="padding:1.25rem 1.25rem .75rem;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:17px;font-weight:600">${sup ? escHtml(sup.name) : 'Pedido'}</div>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">
+            ${new Date(purchase.created_at).toLocaleDateString('es-ES', { day:'2-digit', month:'long', year:'numeric' })} · Estado: <strong>${purchase.status}</strong>
+          </div>
+        </div>
+        <button onclick="document.getElementById('pur-detail-modal')?.remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:1rem 1.25rem">
+        ${(items || []).map(it => {
+          const ing = ingMap.get(it.ingredient_id);
+          return `<div style="display:flex;justify-content:space-between;padding:.55rem 0;border-bottom:1px solid var(--bd)">
+            <div>
+              <div style="font-size:13px;color:var(--t1)">${ing ? escHtml(ing.name) : '(ingrediente)'}</div>
+              <div style="font-size:11px;color:var(--t3)">${it.qty} ${it.unit} × €${parseFloat(it.unit_price).toFixed(3)}</div>
+            </div>
+            <div style="font-size:13px;font-weight:500;font-family:'Fraunces',serif">€${(it.qty * it.unit_price).toFixed(2)}</div>
+          </div>`;
+        }).join('')}
+        <div style="display:flex;justify-content:space-between;padding:.75rem 0;font-weight:600;font-size:15px;margin-top:.5rem">
+          <span>Total</span><span style="font-family:'Fraunces',serif">€${parseFloat(purchase.total_amount || 0).toFixed(2)}</span>
+        </div>
+      </div>
+      <div style="padding:.75rem 1.25rem;border-top:1px solid var(--bd);background:var(--bg);display:flex;gap:.5rem;flex-shrink:0;flex-wrap:wrap">
+        ${canSend ? `<button onclick="markPurchaseStatus('${purchase.id}','sent')" style="padding:12px 16px;border-radius:var(--r);border:1px solid var(--amber);background:var(--amber-l);color:var(--amber);font-family:inherit;font-size:13px;cursor:pointer;flex:1">Marcar enviado</button>` : ''}
+        ${canReceive ? `<button onclick="markPurchaseStatus('${purchase.id}','received')" class="btn btn-primary" style="flex:1">✓ Marcar recibido</button>` : ''}
+        ${purchase.status !== 'cancelled' && purchase.status !== 'received' ? `<button onclick="markPurchaseStatus('${purchase.id}','cancelled')" style="padding:12px 16px;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);color:var(--accent);font-family:inherit;font-size:13px;cursor:pointer">Cancelar</button>` : ''}
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function markPurchaseStatus(purchaseId, newStatus) {
+  if (newStatus === 'received') {
+    if (!confirm('¿Marcar como recibido? Se sumará al stock automáticamente.')) return;
+  } else if (newStatus === 'cancelled') {
+    if (!confirm('¿Cancelar este pedido?')) return;
+  }
+  const update = { status: newStatus };
+  if (newStatus === 'sent') update.sent_at = new Date().toISOString();
+  const { error } = await sb.from('stock_purchases').update(update).eq('id', purchaseId);
+  if (error) { notify('Error: ' + error.message); return; }
+  document.getElementById('pur-detail-modal')?.remove();
+  loadStockPurchases();
+  if (newStatus === 'received') notify('Pedido recibido. Stock actualizado.');
+}
+
+// ── SMART PURCHASE SUGGESTION ───────────────────────────────────
+async function suggestPurchases() {
+  const restId = state.adminRestaurantId;
+  if (!restId) return;
+
+  // Cargar datos frescos
+  await loadStockPurchases();  // garantiza suppliers + ingredients
+
+  // Cargar inventory actual
+  const { data: inv } = await sb.from('stock_inventory').select('*').eq('restaurant_id', restId);
+  const invMap = new Map((inv || []).map(i => [i.ingredient_id, i.qty_on_hand || 0]));
+
+  // Detectar ingredientes bajo par_min
+  const needed = _stk.ingredients.filter(ing => {
+    const qty = invMap.get(ing.id) || 0;
+    return ing.par_min > 0 && qty < ing.par_min;
+  });
+
+  if (!needed.length) {
+    notify('✓ No hay ingredientes bajo mínimo');
+    return;
+  }
+
+  // Si no hay proveedores, no podemos sugerir
+  if (!_stkSup.suppliers.length) {
+    notify('Crea primero proveedores para poder sugerir pedidos');
+    showStockeatTab('suppliers');
+    return;
+  }
+
+  // Cargar precios por proveedor
+  const { data: supIngs } = await sb.from('stock_supplier_ingredients').select('*');
+  const priceMap = new Map();  // key: supplierId-ingId → {price, unit}
+  (supIngs || []).forEach(si => {
+    priceMap.set(si.supplier_id + '-' + si.ingredient_id, si);
+  });
+
+  // Generar líneas: para cada needed, elegir proveedor preferido o primer supplier con precio
+  const suggestionLines = [];
+  needed.forEach(ing => {
+    const qtyCurrent = invMap.get(ing.id) || 0;
+    const qtyToOrder = (ing.par_max || ing.par_min * 2) - qtyCurrent;
+
+    // 1. Proveedor preferido del ingrediente
+    let supplierId = ing.preferred_supplier_id;
+    let price = ing.avg_cost || 0;
+    let unit = ing.base_unit;
+
+    if (supplierId) {
+      const sp = priceMap.get(supplierId + '-' + ing.id);
+      if (sp) { price = sp.price; unit = sp.purchase_unit; }
+    } else {
+      // 2. Buscar el proveedor más barato
+      let bestPrice = Infinity;
+      let bestSupId = null;
+      let bestUnit = ing.base_unit;
+      priceMap.forEach((sp, key) => {
+        if (key.endsWith('-' + ing.id) && sp.price < bestPrice) {
+          bestPrice = sp.price; bestSupId = sp.supplier_id; bestUnit = sp.purchase_unit;
+        }
+      });
+      if (bestSupId) {
+        supplierId = bestSupId; price = bestPrice; unit = bestUnit;
+      } else {
+        // 3. Fallback: primer supplier activo
+        supplierId = _stkSup.suppliers[0].id;
+      }
+    }
+
+    suggestionLines.push({
+      ingredient_id: ing.id,
+      qty: Math.ceil(qtyToOrder * 100) / 100,
+      unit,
+      unit_price: price,
+      supplier_id: supplierId
+    });
+  });
+
+  // Agrupar por proveedor (creamos 1 modal con el proveedor que tenga más líneas)
+  const bySupplier = new Map();
+  suggestionLines.forEach(ln => {
+    if (!bySupplier.has(ln.supplier_id)) bySupplier.set(ln.supplier_id, []);
+    bySupplier.get(ln.supplier_id).push(ln);
+  });
+
+  // Elegir el proveedor con más líneas para el primer modal
+  let maxSup = null; let maxLen = 0;
+  bySupplier.forEach((arr, supId) => {
+    if (arr.length > maxLen) { maxSup = supId; maxLen = arr.length; }
+  });
+
+  const totalSupliers = bySupplier.size;
+  if (totalSupliers > 1) {
+    notify(`${needed.length} ingredientes bajo mínimo en ${totalSupliers} proveedores. Mostrando el de mayor volumen.`);
+  }
+
+  openPurchaseModal({
+    supplier_id: maxSup,
+    items: bySupplier.get(maxSup)
+  });
 }
 
 // ══════════════════════════════════════════════════════════════════
