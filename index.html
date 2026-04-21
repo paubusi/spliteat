@@ -31,8 +31,12 @@
   /* Pantallas de admin y cocina usan todo el ancho en desktop */
   @media (min-width: 600px) {
     #app { max-width: 100%; }
-    .screen:not(#s-admin):not(#s-admin-login):not(#s-admin-login-form):not(#s-kitchen-login):not(#s-waiter):not(#s-waiter-select) { max-width: 430px; margin: 0 auto; }
-    #s-admin { max-width: 100%; width: 100%; }
+    /* Por defecto, todas las pantallas están centradas a 430px en desktop */
+    .screen { max-width: 430px; margin: 0 auto; }
+    /* Excepción: pantallas internas post-login usan todo el ancho */
+    #s-admin, #s-kitchen, #s-waiter {
+      max-width: 100% !important; width: 100% !important; margin: 0 !important;
+    }
     #atab-cocina { width: 100% !important; }
     /* Gestión: 3 columnas en desktop */
     #atab-gestion { width: 100%; }
@@ -83,6 +87,32 @@
   /* ── BODY SCROLL ── */
   .body { flex: 1; overflow-y: auto; padding: 1.25rem; }
   .body.no-pad { padding: 0; }
+
+  /* ── STOCKEAT sub-tabs ── */
+  .stk-tab {
+    padding: 8px 14px; border-radius: var(--r-sm);
+    border: 1px solid transparent; background: transparent;
+    font-family: inherit; font-size: 13px; font-weight: 500;
+    color: var(--t2); cursor: pointer; white-space: nowrap;
+    transition: all .15s;
+  }
+  .stk-tab:hover { background: var(--bg2, var(--bg)); color: var(--t1); }
+  .stk-tab.on {
+    background: var(--brand-l); color: var(--brand-d);
+    border-color: var(--brand-l);
+  }
+
+  /* En desktop, pantallas de login centran verticalmente su contenido */
+  @media (min-width: 600px) {
+    #s-admin-login .body,
+    #s-admin-login-form .body,
+    #s-kitchen-login .body,
+    #s-waiter .body,
+    #s-waiter-select .body {
+      display: flex; flex-direction: column; justify-content: center;
+      max-width: 380px; margin: 0 auto; width: 100%;
+    }
+  }
 
   /* ── TYPOGRAPHY ── */
   .title { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 700; line-height: 1.15; color: var(--t1); }
@@ -1976,6 +2006,10 @@
           <button class="adm-nav" data-tab="gestion" onclick="showAdminTab('gestion')">
             <span class="adm-nav-icon">⚙️</span><span class="adm-nav-label">Ajustes</span>
           </button>
+          <button class="adm-nav" data-tab="stockeat" onclick="showAdminTab('stockeat')">
+            <span class="adm-nav-icon">📦</span><span class="adm-nav-label">stock<em style="color:#D85A30;font-style:normal">eat</em></span>
+            <span id="stockeat-nav-badge" style="display:none;background:#D85A30;color:#fff;border-radius:99px;padding:0px 6px;font-size:10px;font-weight:700;margin-left:auto">0</span>
+          </button>
         </nav>
 
         <div style="padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,.08)">
@@ -2641,6 +2675,53 @@
       </div>
 
     </div><!-- /atab-gestion -->
+
+    <!-- TAB STOCKEAT — Inventario + Recetas + Ingredientes -->
+    <div id="atab-stockeat" style="display:none;flex-direction:column;height:calc(100dvh - 57px);overflow:hidden">
+      <!-- Sub-tabs header -->
+      <div style="display:flex;gap:.25rem;padding:.65rem 1rem;background:var(--card);border-bottom:1px solid var(--bd);flex-shrink:0;overflow-x:auto">
+        <button id="stk-tab-inv" class="stk-tab on" onclick="showStockeatTab('inventory')">📊 Inventario</button>
+        <button id="stk-tab-ing" class="stk-tab" onclick="showStockeatTab('ingredients')">🥕 Ingredientes</button>
+        <button id="stk-tab-rec" class="stk-tab" onclick="showStockeatTab('recipes')">📖 Recetas</button>
+      </div>
+
+      <!-- INVENTORY subtab -->
+      <div id="stk-inventory" style="flex:1;overflow-y:auto;padding:1rem 1.25rem">
+        <!-- KPIs row -->
+        <div id="stk-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;margin-bottom:1rem"></div>
+        <!-- Alerts -->
+        <div id="stk-alerts" style="margin-bottom:1rem"></div>
+        <!-- Inventory table -->
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden">
+          <div style="padding:.75rem 1rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between">
+            <div style="font-weight:600;font-size:14px">Stock actual</div>
+            <button onclick="openStockAdjustModal()" style="padding:6px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);font-size:12px;cursor:pointer;font-family:inherit">+ Ajuste</button>
+          </div>
+          <div id="stk-inv-list" style="min-height:200px"></div>
+        </div>
+      </div>
+
+      <!-- INGREDIENTS subtab -->
+      <div id="stk-ingredients" style="display:none;flex:1;overflow-y:auto;padding:1rem 1.25rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+          <div>
+            <div style="font-size:17px;font-weight:600;color:var(--t1)">Ingredientes</div>
+            <div style="font-size:12px;color:var(--t2);margin-top:2px">Materia prima que se descuenta al vender un plato</div>
+          </div>
+          <button onclick="openIngredientModal()" class="btn btn-primary" style="width:auto;padding:10px 18px;font-size:13px">+ Nuevo</button>
+        </div>
+        <div id="stk-ing-list" style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;min-height:200px"></div>
+      </div>
+
+      <!-- RECIPES subtab -->
+      <div id="stk-recipes" style="display:none;flex:1;overflow-y:auto;padding:1rem 1.25rem">
+        <div style="margin-bottom:1rem">
+          <div style="font-size:17px;font-weight:600;color:var(--t1)">Recetas</div>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">Define los ingredientes que lleva cada plato · el coste se calcula solo</div>
+        </div>
+        <div id="stk-rec-list" style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;min-height:200px"></div>
+      </div>
+    </div><!-- /atab-stockeat -->
       </div><!-- /admin-main -->
     </div><!-- /admin-shell -->
     <!-- Mobile sidebar overlay — must be OUTSIDE sidebar div -->
@@ -8875,7 +8956,7 @@ function adminLogout() {
 // ══════════════════════════════════════════════════════
 function showAdminTab(name) {
   closeMobileSidebar();
-  ['encurso','gestion','cocina','reservas','reportes','facturas','calleat','notificaciones'].forEach(t => {
+  ['encurso','gestion','cocina','reservas','reportes','facturas','calleat','notificaciones','stockeat'].forEach(t => {
     const el = document.getElementById('atab-' + t);
     if (el) el.style.display = t === name ? 'flex' : 'none';
   });
@@ -8895,6 +8976,7 @@ function showAdminTab(name) {
   if (name === 'cocina') loadAdminOrders();
   if (name === 'reservas') initReservasTab();
   if (name === 'reportes') { loadKPIs(); showReportesTab('kpis'); }
+  if (name === 'stockeat') { initStockeat(); }
   // Populate sidebar restaurant name if available
   const restLabel = document.getElementById('admin-restaurant-label');
   const userInfo = document.getElementById('admin-user-info');
@@ -15674,6 +15756,566 @@ restoreSession().then(restored => {
     }
   }
 });
+
+// ══════════════════════════════════════════════════════════════════
+// STOCKEAT — Módulo de inventario, recetas y costes
+// ══════════════════════════════════════════════════════════════════
+
+const _stk = {
+  units: [],           // catálogo de unidades
+  ingredients: [],     // cache ingredientes del restaurante
+  inventory: [],       // cache inventario (qty_on_hand por ingrediente)
+  menuItems: [],       // cache carta
+  activeSubtab: 'inventory'
+};
+
+async function initStockeat() {
+  if (!state.adminRestaurantId) return;
+  // Cargar unidades (global, se cachea)
+  if (!_stk.units.length) {
+    const { data } = await sb.from('stock_units').select('*').order('dimension,to_base_factor');
+    _stk.units = data || [];
+  }
+  // Por defecto arranca en inventario
+  showStockeatTab(_stk.activeSubtab || 'inventory');
+}
+
+function showStockeatTab(name) {
+  _stk.activeSubtab = name;
+  ['inventory','ingredients','recipes'].forEach(t => {
+    const el = document.getElementById('stk-' + t);
+    if (el) el.style.display = t === name ? 'block' : 'none';
+  });
+  // Actualizar estilos de tab botones
+  ['inv','ing','rec'].forEach(abbr => {
+    const btn = document.getElementById('stk-tab-' + abbr);
+    if (btn) btn.classList.remove('on');
+  });
+  const activeBtn = {inventory:'stk-tab-inv',ingredients:'stk-tab-ing',recipes:'stk-tab-rec'}[name];
+  if (activeBtn) document.getElementById(activeBtn)?.classList.add('on');
+
+  if (name === 'inventory') loadStockInventory();
+  if (name === 'ingredients') loadStockIngredients();
+  if (name === 'recipes') loadStockRecipes();
+}
+
+// ── INVENTORY ───────────────────────────────────────────────────
+async function loadStockInventory() {
+  const restId = state.adminRestaurantId;
+  if (!restId) return;
+
+  // 1) Ingredientes del restaurante
+  const { data: ings } = await sb.from('stock_ingredients')
+    .select('*').eq('restaurant_id', restId).eq('is_active', true).order('name');
+  _stk.ingredients = ings || [];
+
+  // 2) Inventario actual
+  const { data: inv } = await sb.from('stock_inventory')
+    .select('*').eq('restaurant_id', restId);
+  _stk.inventory = inv || [];
+
+  // 3) Alertas sin resolver
+  const { data: alerts } = await sb.from('stock_alerts')
+    .select('*').eq('restaurant_id', restId).is('resolved_at', null)
+    .order('created_at', { ascending: false }).limit(20);
+
+  renderStockKPIs(alerts || []);
+  renderStockAlerts(alerts || []);
+  renderStockInventoryList();
+}
+
+function renderStockKPIs(alerts) {
+  const el = document.getElementById('stk-kpis');
+  if (!el) return;
+
+  // Valor total del stock: sum(qty_on_hand * avg_cost) para cada ingrediente
+  const invByIng = new Map(_stk.inventory.map(i => [i.ingredient_id, i.qty_on_hand || 0]));
+  let totalValue = 0;
+  let belowPar = 0;
+  _stk.ingredients.forEach(ing => {
+    const qty = invByIng.get(ing.id) || 0;
+    totalValue += qty * (parseFloat(ing.avg_cost) || 0);
+    if (ing.par_min > 0 && qty < ing.par_min) belowPar++;
+  });
+
+  const activeAlerts = alerts.length;
+
+  el.innerHTML = `
+    ${stkKpiCard('Valor stock', '€' + totalValue.toFixed(2), 'var(--brand-d)')}
+    ${stkKpiCard('Ingredientes', _stk.ingredients.length, 'var(--t1)')}
+    ${stkKpiCard('Bajo mínimo', belowPar, belowPar > 0 ? 'var(--accent)' : 'var(--t2)')}
+    ${stkKpiCard('Alertas activas', activeAlerts, activeAlerts > 0 ? 'var(--accent)' : 'var(--t2)')}
+  `;
+
+  // Badge en el sidebar
+  const badge = document.getElementById('stockeat-nav-badge');
+  if (badge) {
+    if (activeAlerts > 0) { badge.style.display = 'inline-block'; badge.textContent = activeAlerts; }
+    else { badge.style.display = 'none'; }
+  }
+}
+
+function stkKpiCard(label, value, color) {
+  return `<div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.85rem 1rem">
+    <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:500">${label}</div>
+    <div style="font-size:22px;font-weight:700;color:${color};margin-top:4px;font-family:'Fraunces',serif">${value}</div>
+  </div>`;
+}
+
+function renderStockAlerts(alerts) {
+  const el = document.getElementById('stk-alerts');
+  if (!el) return;
+  if (!alerts.length) { el.innerHTML = ''; return; }
+  const ingMap = new Map(_stk.ingredients.map(i => [i.id, i]));
+  el.innerHTML = `<div style="background:#FAECE7;border:1px solid rgba(216,90,48,.25);border-radius:var(--r);padding:.85rem 1rem">
+    <div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:.5rem">⚠️ ${alerts.length} alerta${alerts.length > 1 ? 's' : ''} activa${alerts.length > 1 ? 's' : ''}</div>
+    ${alerts.slice(0, 5).map(a => {
+      const ing = ingMap.get(a.ingredient_id);
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;color:var(--t1)">
+        <span>${escHtml(a.message || (ing ? ing.name : 'Alerta'))}</span>
+        <button onclick="resolveStockAlert('${a.id}')" style="padding:3px 9px;border-radius:99px;border:1px solid var(--bd2);background:#fff;font-size:11px;cursor:pointer;font-family:inherit">Resolver</button>
+      </div>`;
+    }).join('')}
+    ${alerts.length > 5 ? `<div style="font-size:11px;color:var(--t2);margin-top:6px">+ ${alerts.length - 5} más</div>` : ''}
+  </div>`;
+}
+
+async function resolveStockAlert(alertId) {
+  await sb.from('stock_alerts').update({ resolved_at: new Date().toISOString() }).eq('id', alertId);
+  loadStockInventory();
+}
+
+function renderStockInventoryList() {
+  const el = document.getElementById('stk-inv-list');
+  if (!el) return;
+  if (!_stk.ingredients.length) {
+    el.innerHTML = `<div style="padding:2rem 1rem;text-align:center;color:var(--t2);font-size:13px">
+      Aún no hay ingredientes. <a href="#" onclick="event.preventDefault();showStockeatTab('ingredients')" style="color:var(--brand);text-decoration:underline">Crear el primero →</a>
+    </div>`;
+    return;
+  }
+  const invByIng = new Map(_stk.inventory.map(i => [i.ingredient_id, i.qty_on_hand || 0]));
+  el.innerHTML = _stk.ingredients.map(ing => {
+    const qty = invByIng.get(ing.id) || 0;
+    const isLow = ing.par_min > 0 && qty < ing.par_min;
+    const isZero = qty <= 0;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-bottom:1px solid var(--bd)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:500;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(ing.name)}</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px">
+          ${ing.par_min > 0 ? 'Mínimo: ' + ing.par_min + ' ' + ing.base_unit + ' · ' : ''}Coste: €${(parseFloat(ing.avg_cost) || 0).toFixed(3)}/${ing.base_unit}
+        </div>
+      </div>
+      <div style="text-align:right;margin-left:1rem">
+        <div style="font-size:15px;font-weight:600;color:${isZero ? 'var(--accent)' : isLow ? 'var(--amber)' : 'var(--t1)'};font-family:'Fraunces',serif">
+          ${qty.toLocaleString('es-ES', {maximumFractionDigits:2})} ${ing.base_unit}
+        </div>
+        ${isLow ? `<div style="font-size:10px;color:var(--accent);font-weight:500">Bajo mínimo</div>` : ''}
+      </div>
+      <button onclick="openStockAdjustModal('${ing.id}')" style="margin-left:.75rem;padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0">Ajustar</button>
+    </div>`;
+  }).join('');
+}
+
+// ── INGREDIENTS CRUD ────────────────────────────────────────────
+async function loadStockIngredients() {
+  const restId = state.adminRestaurantId;
+  if (!restId) return;
+  const { data } = await sb.from('stock_ingredients')
+    .select('*').eq('restaurant_id', restId).order('name');
+  _stk.ingredients = data || [];
+  renderIngredientsList();
+}
+
+function renderIngredientsList() {
+  const el = document.getElementById('stk-ing-list');
+  if (!el) return;
+  if (!_stk.ingredients.length) {
+    el.innerHTML = `<div style="padding:2rem 1rem;text-align:center;color:var(--t2);font-size:13px">
+      No hay ingredientes creados. Pulsa <strong>+ Nuevo</strong> para empezar.
+    </div>`;
+    return;
+  }
+  el.innerHTML = _stk.ingredients.map(ing => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-bottom:1px solid var(--bd);${ing.is_active === false ? 'opacity:.5' : ''}">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:500;color:var(--t1)">${escHtml(ing.name)}</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px">
+          ${ing.base_unit} · €${(parseFloat(ing.avg_cost) || 0).toFixed(3)}/${ing.base_unit}${ing.par_min > 0 ? ' · min ' + ing.par_min : ''}
+        </div>
+      </div>
+      <button onclick="openIngredientModal('${ing.id}')" style="padding:6px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);font-size:12px;cursor:pointer;font-family:inherit;margin-left:.5rem">Editar</button>
+    </div>
+  `).join('');
+}
+
+function openIngredientModal(ingId) {
+  const ing = ingId ? _stk.ingredients.find(i => i.id === ingId) : null;
+  const unitOpts = _stk.units.map(u => `<option value="${u.code}" ${ing && ing.base_unit === u.code ? 'selected' : ''}>${u.label} (${u.code})</option>`).join('');
+  const modal = document.createElement('div');
+  modal.id = 'ing-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:1rem';
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg);width:100%;max-width:440px;padding:1.5rem;max-height:90dvh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <div style="font-size:17px;font-weight:600;color:var(--t1)">${ing ? 'Editar' : 'Nuevo'} ingrediente</div>
+        <button onclick="document.getElementById('ing-modal')?.remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+      </div>
+      <div class="field"><label>Nombre</label><input id="ing-f-name" type="text" placeholder="Ej: Tomate, Aceite de oliva" value="${ing ? escHtml(ing.name) : ''}"></div>
+      <div class="field"><label>Unidad base</label>
+        <select id="ing-f-unit" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">${unitOpts}</select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
+        <div class="field"><label>Coste (€/unidad)</label><input id="ing-f-cost" type="number" step="0.001" min="0" value="${ing ? (parseFloat(ing.avg_cost) || 0) : ''}" placeholder="0.00"></div>
+        <div class="field"><label>Stock mínimo</label><input id="ing-f-parmin" type="number" step="0.01" min="0" value="${ing && ing.par_min ? ing.par_min : ''}" placeholder="0"></div>
+      </div>
+      <div style="display:flex;gap:.5rem;margin-top:1rem">
+        <button onclick="saveIngredient('${ing ? ing.id : ''}')" class="btn btn-primary" style="flex:1">Guardar</button>
+        ${ing ? `<button onclick="deleteIngredient('${ing.id}')" style="padding:10px 14px;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);color:var(--accent);font-family:inherit;cursor:pointer;font-size:13px">Eliminar</button>` : ''}
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  setTimeout(() => document.getElementById('ing-f-name')?.focus(), 50);
+}
+
+async function saveIngredient(ingId) {
+  const name = document.getElementById('ing-f-name').value.trim();
+  const base_unit = document.getElementById('ing-f-unit').value;
+  const avg_cost = parseFloat(document.getElementById('ing-f-cost').value) || 0;
+  const parMinVal = document.getElementById('ing-f-parmin').value;
+  const par_min = parMinVal ? parseFloat(parMinVal) : 0;
+  if (!name) { notify('Introduce un nombre'); return; }
+  if (!base_unit) { notify('Selecciona una unidad'); return; }
+
+  const payload = {
+    restaurant_id: state.adminRestaurantId,
+    name, base_unit, avg_cost, par_min,
+    is_active: true
+  };
+  let error;
+  if (ingId) {
+    ({ error } = await sb.from('stock_ingredients').update(payload).eq('id', ingId));
+  } else {
+    ({ error } = await sb.from('stock_ingredients').insert(payload));
+  }
+  if (error) { notify('Error: ' + error.message); return; }
+  document.getElementById('ing-modal')?.remove();
+  loadStockIngredients();
+}
+
+async function deleteIngredient(ingId) {
+  if (!confirm('¿Eliminar este ingrediente? Solo se puede borrar si no está en ninguna receta.')) return;
+  const { error } = await sb.from('stock_ingredients').delete().eq('id', ingId);
+  if (error) { notify('No se puede eliminar: está en uso en alguna receta'); return; }
+  document.getElementById('ing-modal')?.remove();
+  loadStockIngredients();
+}
+
+// ── STOCK ADJUST ────────────────────────────────────────────────
+function openStockAdjustModal(ingId) {
+  if (!_stk.ingredients.length) { notify('Crea primero un ingrediente'); return; }
+  const opts = _stk.ingredients.map(i => `<option value="${i.id}" ${ingId === i.id ? 'selected' : ''}>${escHtml(i.name)} (${i.base_unit})</option>`).join('');
+  const modal = document.createElement('div');
+  modal.id = 'adj-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:flex;align-items:center;justify-content:center;padding:1rem';
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg);width:100%;max-width:440px;padding:1.5rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <div style="font-size:17px;font-weight:600">Ajuste de stock</div>
+        <button onclick="document.getElementById('adj-modal')?.remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+      </div>
+      <div class="field"><label>Ingrediente</label>
+        <select id="adj-f-ing" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">${opts}</select>
+      </div>
+      <div class="field"><label>Tipo de movimiento</label>
+        <select id="adj-f-type" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
+          <option value="initial">Stock inicial / entrada</option>
+          <option value="purchase">Compra</option>
+          <option value="waste">Merma</option>
+          <option value="adjust_count">Ajuste tras conteo</option>
+        </select>
+      </div>
+      <div class="field"><label>Cantidad (positiva añade, negativa resta)</label>
+        <input id="adj-f-qty" type="number" step="0.01" placeholder="Ej: 5 o -2">
+      </div>
+      <div class="field"><label>Notas (opcional)</label><input id="adj-f-notes" type="text" placeholder="Ej: reposición semanal"></div>
+      <button onclick="saveStockAdjust()" class="btn btn-primary" style="margin-top:.5rem">Registrar</button>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function saveStockAdjust() {
+  const ingredient_id = document.getElementById('adj-f-ing').value;
+  const type = document.getElementById('adj-f-type').value;
+  const delta = parseFloat(document.getElementById('adj-f-qty').value);
+  const notes = document.getElementById('adj-f-notes').value.trim() || null;
+  if (!ingredient_id || !delta || isNaN(delta)) { notify('Completa ingrediente y cantidad'); return; }
+  const ing = _stk.ingredients.find(i => i.id === ingredient_id);
+  const { error } = await sb.from('stock_movements').insert({
+    restaurant_id: state.adminRestaurantId,
+    ingredient_id, type, delta,
+    unit_cost_at_time: parseFloat(ing?.avg_cost) || 0,
+    notes
+  });
+  if (error) { notify('Error: ' + error.message); return; }
+  document.getElementById('adj-modal')?.remove();
+  loadStockInventory();
+}
+
+// ── RECIPES ─────────────────────────────────────────────────────
+async function loadStockRecipes() {
+  const restId = state.adminRestaurantId;
+  if (!restId) return;
+  const [menuRes, recipeItemsRes, ingsRes] = await Promise.all([
+    sb.from('menu_items').select('id,name,price,category,recipe_id,cost_theoretical').eq('restaurant_id', restId).eq('active', true).order('name'),
+    sb.from('stock_recipes').select('id').eq('restaurant_id', restId),
+    sb.from('stock_ingredients').select('*').eq('restaurant_id', restId).eq('is_active', true).order('name')
+  ]);
+  _stk.menuItems = menuRes.data || [];
+  _stk.ingredients = ingsRes.data || [];
+  renderRecipesList();
+}
+
+function renderRecipesList() {
+  const el = document.getElementById('stk-rec-list');
+  if (!el) return;
+  if (!_stk.menuItems.length) {
+    el.innerHTML = `<div style="padding:2rem 1rem;text-align:center;color:var(--t2);font-size:13px">
+      No hay platos en la carta. Añade platos desde <strong>Ajustes → Carta</strong>.
+    </div>`;
+    return;
+  }
+  el.innerHTML = _stk.menuItems.map(mi => {
+    const hasRecipe = !!mi.recipe_id;
+    const cost = parseFloat(mi.cost_theoretical) || 0;
+    const price = parseFloat(mi.price) || 0;
+    const foodcost = price > 0 && cost > 0 ? (cost / price * 100) : null;
+    const fcColor = foodcost === null ? 'var(--t3)'
+                  : foodcost < 30 ? 'var(--brand)'
+                  : foodcost < 40 ? 'var(--amber)'
+                  : 'var(--accent)';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-bottom:1px solid var(--bd)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:500;color:var(--t1)">${escHtml(mi.name)}</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px">
+          Precio: €${price.toFixed(2)}${hasRecipe ? ' · Coste: €' + cost.toFixed(2) : ''}
+        </div>
+      </div>
+      ${foodcost !== null ? `<div style="margin-right:.75rem;text-align:right">
+        <div style="font-size:14px;font-weight:600;color:${fcColor};font-family:'Fraunces',serif">${foodcost.toFixed(1)}%</div>
+        <div style="font-size:10px;color:var(--t3)">foodcost</div>
+      </div>` : `<div style="margin-right:.75rem;font-size:11px;color:var(--t3)">sin receta</div>`}
+      <button onclick="openRecipeEditor('${mi.id}')" style="padding:6px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);font-size:12px;cursor:pointer;font-family:inherit">${hasRecipe ? 'Editar' : '+ Receta'}</button>
+    </div>`;
+  }).join('');
+}
+
+async function openRecipeEditor(menuItemId) {
+  const mi = _stk.menuItems.find(m => m.id === menuItemId);
+  if (!mi) return;
+
+  // Si el plato no tiene recipe, creamos una al vuelo
+  let recipeId = mi.recipe_id;
+  if (!recipeId) {
+    const { data, error } = await sb.from('stock_recipes').insert({
+      restaurant_id: state.adminRestaurantId,
+      name: mi.name, kind: 'dish'
+    }).select().single();
+    if (error) { notify('Error: ' + error.message); return; }
+    recipeId = data.id;
+    await sb.from('menu_items').update({ recipe_id: recipeId }).eq('id', menuItemId);
+    mi.recipe_id = recipeId;
+  }
+
+  // Cargar líneas
+  const { data: items } = await sb.from('stock_recipe_items')
+    .select('*').eq('recipe_id', recipeId).order('sort_order');
+
+  const modal = document.createElement('div');
+  modal.id = 'rec-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:flex;align-items:flex-end;justify-content:center';
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:600px;max-height:90dvh;display:flex;flex-direction:column">
+      <div style="padding:1.25rem 1.25rem .75rem;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:17px;font-weight:600;color:var(--t1)">${escHtml(mi.name)}</div>
+          <div id="rec-foodcost-label" style="font-size:12px;color:var(--t2);margin-top:2px">—</div>
+        </div>
+        <button onclick="closeRecipeEditor()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+      </div>
+      <div id="rec-items" style="flex:1;overflow-y:auto;padding:.75rem 1.25rem"></div>
+      <div style="padding:.75rem 1.25rem;border-top:1px solid var(--bd);background:var(--bg)">
+        <button onclick="addRecipeLine('${recipeId}')" class="btn btn-primary">+ Añadir ingrediente</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal._recipeId = recipeId;
+  modal._menuItemId = menuItemId;
+  modal._menuItemPrice = parseFloat(mi.price) || 0;
+  renderRecipeLines(items || []);
+}
+
+function closeRecipeEditor() {
+  document.getElementById('rec-modal')?.remove();
+  loadStockRecipes();
+}
+
+function renderRecipeLines(items) {
+  const el = document.getElementById('rec-items');
+  if (!el) return;
+  const ingMap = new Map(_stk.ingredients.map(i => [i.id, i]));
+
+  // Calcular coste total
+  let totalCost = 0;
+  items.forEach(it => {
+    if (it.ingredient_id) {
+      const ing = ingMap.get(it.ingredient_id);
+      if (ing) {
+        // Convertir qty a base_unit (simplificado: si unidades compatibles)
+        const qtyBase = convertUnit(it.qty, it.unit, ing.base_unit);
+        if (qtyBase !== null) totalCost += qtyBase * (parseFloat(ing.avg_cost) || 0);
+      }
+    }
+  });
+
+  const modal = document.getElementById('rec-modal');
+  const price = modal?._menuItemPrice || 0;
+  const foodcost = price > 0 && totalCost > 0 ? (totalCost / price * 100) : null;
+  const fcLabel = document.getElementById('rec-foodcost-label');
+  if (fcLabel) {
+    const fcColor = foodcost === null ? 'var(--t2)' : foodcost < 30 ? 'var(--brand)' : foodcost < 40 ? 'var(--amber)' : 'var(--accent)';
+    fcLabel.innerHTML = `Coste: <strong style="color:var(--t1)">€${totalCost.toFixed(2)}</strong>${foodcost !== null ? ` · Foodcost: <strong style="color:${fcColor}">${foodcost.toFixed(1)}%</strong>` : ''} · Precio: €${price.toFixed(2)}`;
+  }
+
+  if (!items.length) {
+    el.innerHTML = `<div style="padding:1.5rem 1rem;text-align:center;color:var(--t2);font-size:13px">
+      Aún no hay ingredientes en esta receta.
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = items.map(it => {
+    const ing = ingMap.get(it.ingredient_id);
+    const ingName = ing ? ing.name : '(ingrediente borrado)';
+    const itemCost = ing ? (convertUnit(it.qty, it.unit, ing.base_unit) || 0) * (parseFloat(ing.avg_cost) || 0) : 0;
+    return `<div style="display:flex;align-items:center;gap:.5rem;padding:.5rem 0;border-bottom:1px solid var(--bd)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500;color:var(--t1)">${escHtml(ingName)}</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px">${it.qty} ${it.unit} · €${itemCost.toFixed(3)}</div>
+      </div>
+      <button onclick="deleteRecipeLine('${it.id}')" style="background:none;border:none;color:var(--accent);font-size:16px;cursor:pointer;padding:4px 8px">×</button>
+    </div>`;
+  }).join('');
+}
+
+// Conversión simple entre unidades compatibles (cliente)
+function convertUnit(qty, fromUnit, toUnit) {
+  if (!qty || !fromUnit || !toUnit) return null;
+  if (fromUnit === toUnit) return qty;
+  const from = _stk.units.find(u => u.code === fromUnit);
+  const to = _stk.units.find(u => u.code === toUnit);
+  if (!from || !to) return null;
+  if (from.base_unit !== to.base_unit) return null; // incompatibles
+  return (qty * from.to_base_factor) / to.to_base_factor;
+}
+
+function addRecipeLine(recipeId) {
+  if (!_stk.ingredients.length) {
+    notify('Primero crea ingredientes en la pestaña Ingredientes');
+    return;
+  }
+  const ingOpts = _stk.ingredients.map(i => `<option value="${i.id}">${escHtml(i.name)}</option>`).join('');
+  const unitOpts = _stk.units.map(u => `<option value="${u.code}">${u.code} (${u.label})</option>`).join('');
+
+  const sub = document.createElement('div');
+  sub.id = 'rec-line-modal';
+  sub.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;display:flex;align-items:center;justify-content:center;padding:1rem';
+  sub.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg);width:100%;max-width:380px;padding:1.5rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <div style="font-size:16px;font-weight:600">Añadir ingrediente</div>
+        <button onclick="document.getElementById('rec-line-modal')?.remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+      </div>
+      <div class="field"><label>Ingrediente</label>
+        <select id="rl-ing" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">${ingOpts}</select>
+      </div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:.65rem">
+        <div class="field"><label>Cantidad</label><input id="rl-qty" type="number" step="0.01" min="0.01" placeholder="Ej: 150"></div>
+        <div class="field"><label>Unidad</label>
+          <select id="rl-unit" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">${unitOpts}</select>
+        </div>
+      </div>
+      <button onclick="saveRecipeLine('${recipeId}')" class="btn btn-primary" style="margin-top:.5rem">Añadir</button>
+    </div>`;
+  document.body.appendChild(sub);
+
+  // Autoseleccionar unidad base del ingrediente al cambiar
+  setTimeout(() => {
+    const ingSel = document.getElementById('rl-ing');
+    const unitSel = document.getElementById('rl-unit');
+    const syncUnit = () => {
+      const ing = _stk.ingredients.find(i => i.id === ingSel.value);
+      if (ing && unitSel) unitSel.value = ing.base_unit;
+    };
+    ingSel?.addEventListener('change', syncUnit);
+    syncUnit();
+  }, 30);
+}
+
+async function saveRecipeLine(recipeId) {
+  const ingredient_id = document.getElementById('rl-ing').value;
+  const qty = parseFloat(document.getElementById('rl-qty').value);
+  const unit = document.getElementById('rl-unit').value;
+  if (!ingredient_id || !qty || qty <= 0 || !unit) { notify('Completa todos los campos'); return; }
+
+  // Validar compatibilidad de unidad con base del ingrediente
+  const ing = _stk.ingredients.find(i => i.id === ingredient_id);
+  if (ing) {
+    const converted = convertUnit(qty, unit, ing.base_unit);
+    if (converted === null) {
+      notify(`Unidad incompatible. ${ing.name} usa ${ing.base_unit} como base.`);
+      return;
+    }
+  }
+
+  const { error } = await sb.from('stock_recipe_items').insert({
+    recipe_id: recipeId, ingredient_id, qty, unit
+  });
+  if (error) { notify('Error: ' + error.message); return; }
+  document.getElementById('rec-line-modal')?.remove();
+
+  // Recargar líneas + recalcular coste
+  const { data: items } = await sb.from('stock_recipe_items')
+    .select('*').eq('recipe_id', recipeId).order('sort_order');
+  renderRecipeLines(items || []);
+  recalcMenuItemCost(recipeId);
+}
+
+async function deleteRecipeLine(lineId) {
+  const modal = document.getElementById('rec-modal');
+  const recipeId = modal?._recipeId;
+  await sb.from('stock_recipe_items').delete().eq('id', lineId);
+  const { data: items } = await sb.from('stock_recipe_items')
+    .select('*').eq('recipe_id', recipeId).order('sort_order');
+  renderRecipeLines(items || []);
+  recalcMenuItemCost(recipeId);
+}
+
+async function recalcMenuItemCost(recipeId) {
+  // Llamar a la función SQL fn_recalc_menu_item_cost — encuentra el menu_item y recalcula
+  const modal = document.getElementById('rec-modal');
+  const menuItemId = modal?._menuItemId;
+  if (!menuItemId) return;
+  try {
+    await sb.rpc('fn_recalc_menu_item_cost', { p_menu_item_id: menuItemId });
+  } catch (e) { /* non-blocking */ }
+}
+
+// Helper notify (usa el existente del proyecto si existe)
+if (typeof notify === 'undefined') {
+  window.notify = (msg) => { try { showToast('', msg); } catch { alert(msg); } };
+}
+
 </script>
 
 <!-- FACTURA MODAL — global overlay -->
