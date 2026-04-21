@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>spliteat · manageat · cookeat · serveat</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,700&display=swap" rel="stylesheet">
@@ -22,9 +22,13 @@
     --r: 12px; --r-sm: 8px; --r-lg: 18px; --r-full: 999px;
     --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
   }
-  html, body { height: 100%; background: var(--bg); color: var(--t1); font-family: 'DM Sans', sans-serif; font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
-  #app { max-width: 430px; margin: 0 auto; min-height: 100dvh; position: relative; background: var(--bg); }
-  #s0 { max-width: none !important; width: 100vw !important; margin: 0 !important; position: fixed !important; inset: 0 !important; z-index: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  html, body { height: 100%; background: var(--bg); color: var(--t1); font-family: 'DM Sans', sans-serif; font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  body { position: relative; }
+  #app { max-width: 430px; margin: 0 auto; min-height: 100vh; min-height: -webkit-fill-available; min-height: 100dvh; position: relative; background: var(--bg); }
+  /* #s0: solo full-screen cuando está activo. Cuando no, OCULTO del layout. */
+  #s0 { max-width: none !important; width: 100vw !important; margin: 0 !important; z-index: 1; }
+  #s0.active { position: fixed !important; inset: 0 !important; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex !important; }
+  #s0:not(.active) { display: none !important; }
   #s-kitchen { max-width: 100% !important; width: 100% !important; }
   #s0.active ~ * { pointer-events: none; }
 
@@ -71,8 +75,10 @@
   }
 
   /* ── SCREENS ── */
-  .screen { display: none; min-height: 100dvh; flex-direction: column; animation: fadeUp .22s ease; }
+  .screen { display: none; min-height: 100vh; min-height: -webkit-fill-available; min-height: 100dvh; flex-direction: column; animation: fadeUp .22s ease; padding-top: env(safe-area-inset-top, 0); padding-bottom: env(safe-area-inset-bottom, 0); }
   .screen.active { display: flex; }
+  /* Evitar que .screen empuje su contenido abajo — justify-content debe ser flex-start siempre */
+  .screen, #app { justify-content: flex-start !important; }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
   /* ── HEADER ── */
@@ -2693,9 +2699,12 @@
         <div id="stk-alerts" style="margin-bottom:1rem"></div>
         <!-- Inventory table -->
         <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden">
-          <div style="padding:.75rem 1rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between">
+          <div style="padding:.75rem 1rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap">
             <div style="font-weight:600;font-size:14px">Stock actual</div>
-            <button onclick="openStockAdjustModal()" style="padding:6px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);font-size:12px;cursor:pointer;font-family:inherit">+ Ajuste</button>
+            <div style="display:flex;gap:.5rem">
+              <button onclick="startStockCount()" style="padding:6px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);font-size:12px;cursor:pointer;font-family:inherit">📋 Conteo físico</button>
+              <button onclick="openStockAdjustModal()" style="padding:6px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);font-size:12px;cursor:pointer;font-family:inherit">+ Ajuste</button>
+            </div>
           </div>
           <div id="stk-inv-list" style="min-height:200px"></div>
         </div>
@@ -3325,7 +3334,14 @@ function go(screenId) {
     if (s0) s0.classList.add('active');
     return;
   }
+  // Scroll al top — doble scroll + rAF para iOS Safari (address bar quirk)
   window.scrollTo(0, 0);
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
+  requestAnimationFrame(() => {
+    window.scrollTo(0, 0);
+    if (target.scrollTop !== undefined) target.scrollTop = 0;
+  });
   if (screenId === 's0') initLanding();
   // Show acceso button only on s0
   const btnAcceso = document.getElementById('btn-acceso-restaurante');
@@ -16315,6 +16331,295 @@ async function recalcMenuItemCost(recipeId) {
 if (typeof notify === 'undefined') {
   window.notify = (msg) => { try { showToast('', msg); } catch { alert(msg); } };
 }
+
+// ══════════════════════════════════════════════════════════════════
+// STOCKEAT — Conteo físico (Sprint S3)
+// ══════════════════════════════════════════════════════════════════
+
+const _stkCount = {
+  countId: null,
+  items: [],          // [{ingredient_id, name, base_unit, qty_theoretical, qty_real}]
+  currentIdx: 0
+};
+
+async function startStockCount() {
+  if (!_stk.ingredients.length) {
+    notify('Crea primero ingredientes antes de hacer un conteo');
+    return;
+  }
+  const activeIngs = _stk.ingredients.filter(i => i.is_active !== false);
+  if (!activeIngs.length) {
+    notify('No hay ingredientes activos para contar');
+    return;
+  }
+
+  // 1. Crear registro de conteo
+  const { data: countRow, error } = await sb.from('stock_counts').insert({
+    restaurant_id: state.adminRestaurantId,
+    status: 'open'
+  }).select().single();
+  if (error) { notify('Error: ' + error.message); return; }
+
+  _stkCount.countId = countRow.id;
+
+  // 2. Snapshot del stock teórico actual
+  const invMap = new Map(_stk.inventory.map(i => [i.ingredient_id, i.qty_on_hand || 0]));
+  _stkCount.items = activeIngs.map(ing => ({
+    ingredient_id: ing.id,
+    name: ing.name,
+    base_unit: ing.base_unit,
+    qty_theoretical: invMap.get(ing.id) || 0,
+    qty_real: null
+  }));
+  _stkCount.currentIdx = 0;
+
+  renderStockCountModal();
+}
+
+function renderStockCountModal() {
+  document.getElementById('count-modal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'count-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:var(--bg);z-index:9000;display:flex;flex-direction:column;overflow:hidden';
+  document.body.appendChild(modal);
+  renderStockCountStep();
+}
+
+function renderStockCountStep() {
+  const modal = document.getElementById('count-modal');
+  if (!modal) return;
+  const total = _stkCount.items.length;
+  const idx = _stkCount.currentIdx;
+
+  // ¿Hemos terminado?
+  if (idx >= total) {
+    renderStockCountSummary();
+    return;
+  }
+
+  const item = _stkCount.items[idx];
+  const qtyReal = item.qty_real;
+  const diff = qtyReal !== null ? qtyReal - item.qty_theoretical : null;
+
+  modal.innerHTML = `
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--bd);background:var(--card);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <button onclick="cancelStockCount()" style="background:none;border:none;font-size:14px;color:var(--t2);cursor:pointer;font-family:inherit">Cancelar</button>
+      <div style="font-size:12px;color:var(--t2);font-weight:500">${idx + 1} de ${total}</div>
+      <div style="width:60px"></div>
+    </div>
+
+    <!-- Progress bar -->
+    <div style="height:3px;background:var(--bd);flex-shrink:0">
+      <div style="height:100%;background:var(--brand);width:${Math.round((idx / total) * 100)}%;transition:width .3s"></div>
+    </div>
+
+    <div style="flex:1;overflow-y:auto;padding:2rem 1.5rem;display:flex;flex-direction:column;align-items:center;justify-content:center">
+      <div style="text-align:center;margin-bottom:2rem">
+        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem">Cuenta el stock de</div>
+        <div style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:var(--t1);margin-bottom:.25rem">${escHtml(item.name)}</div>
+        <div style="font-size:13px;color:var(--t2)">Teórico: <strong>${item.qty_theoretical.toLocaleString('es-ES', {maximumFractionDigits:2})} ${item.base_unit}</strong></div>
+      </div>
+
+      <div style="width:100%;max-width:280px">
+        <input id="count-input" type="number" step="0.01" min="0"
+          placeholder="0"
+          value="${qtyReal !== null ? qtyReal : ''}"
+          style="width:100%;padding:1.25rem;font-size:42px;font-weight:700;font-family:'Fraunces',serif;text-align:center;border:2px solid var(--bd2);border-radius:var(--r);background:var(--card);color:var(--t1);outline:none"
+          onfocus="this.select()">
+        <div style="text-align:center;font-size:13px;color:var(--t2);margin-top:.5rem">${item.base_unit}</div>
+
+        ${diff !== null ? `<div style="margin-top:1rem;padding:.75rem;border-radius:var(--r-sm);text-align:center;background:${Math.abs(diff) < 0.01 ? 'var(--brand-l)' : 'var(--accent-l)'};color:${Math.abs(diff) < 0.01 ? 'var(--brand-d)' : 'var(--accent)'};font-size:13px;font-weight:500">
+          ${Math.abs(diff) < 0.01 ? '✓ Cuadra' : `Desviación: ${diff > 0 ? '+' : ''}${diff.toFixed(2)} ${item.base_unit}`}
+        </div>` : ''}
+      </div>
+    </div>
+
+    <div style="padding:1rem 1.25rem;border-top:1px solid var(--bd);background:var(--card);display:flex;gap:.5rem;flex-shrink:0">
+      ${idx > 0 ? `<button onclick="prevCountItem()" style="padding:14px;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);color:var(--t1);font-family:inherit;font-size:14px;cursor:pointer;flex:0 0 90px">← Anterior</button>` : '<div style="flex:0 0 90px"></div>'}
+      <button onclick="nextCountItem()" class="btn btn-primary" style="flex:1">${idx === total - 1 ? 'Revisar →' : 'Siguiente →'}</button>
+    </div>
+  `;
+  setTimeout(() => {
+    const input = document.getElementById('count-input');
+    if (input) { input.focus(); input.select(); }
+  }, 50);
+}
+
+function prevCountItem() {
+  saveCurrentCountValue();
+  if (_stkCount.currentIdx > 0) {
+    _stkCount.currentIdx--;
+    renderStockCountStep();
+  }
+}
+
+function nextCountItem() {
+  saveCurrentCountValue();
+  _stkCount.currentIdx++;
+  renderStockCountStep();
+}
+
+function saveCurrentCountValue() {
+  const input = document.getElementById('count-input');
+  if (!input) return;
+  const val = input.value.trim();
+  const item = _stkCount.items[_stkCount.currentIdx];
+  if (!item) return;
+  item.qty_real = val === '' ? null : parseFloat(val);
+}
+
+function renderStockCountSummary() {
+  const modal = document.getElementById('count-modal');
+  if (!modal) return;
+
+  const counted = _stkCount.items.filter(i => i.qty_real !== null);
+  const skipped = _stkCount.items.length - counted.length;
+  const withDeviation = counted.filter(i => Math.abs((i.qty_real - i.qty_theoretical)) > 0.01);
+
+  // Valor económico de la desviación
+  let deviationValue = 0;
+  withDeviation.forEach(item => {
+    const ing = _stk.ingredients.find(i => i.id === item.ingredient_id);
+    if (ing) {
+      deviationValue += (item.qty_real - item.qty_theoretical) * (parseFloat(ing.avg_cost) || 0);
+    }
+  });
+
+  modal.innerHTML = `
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--bd);background:var(--card);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <button onclick="backToCountStep()" style="background:none;border:none;font-size:14px;color:var(--t2);cursor:pointer;font-family:inherit">← Revisar</button>
+      <div style="font-size:14px;font-weight:600">Resumen</div>
+      <div style="width:60px"></div>
+    </div>
+
+    <div style="flex:1;overflow-y:auto;padding:1.5rem 1.25rem">
+      <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:1.25rem;margin-bottom:1rem">
+        <div style="font-size:12px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:500;margin-bottom:.5rem">Conteo completado</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+          <div>
+            <div style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:var(--t1)">${counted.length}</div>
+            <div style="font-size:11px;color:var(--t2)">contados</div>
+          </div>
+          <div>
+            <div style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:${withDeviation.length > 0 ? 'var(--accent)' : 'var(--brand)'}">${withDeviation.length}</div>
+            <div style="font-size:11px;color:var(--t2)">con desviación</div>
+          </div>
+        </div>
+        ${skipped > 0 ? `<div style="margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--bd);font-size:12px;color:var(--t2)">⚠️ ${skipped} ingrediente${skipped > 1 ? 's' : ''} sin contar (no se ajustarán)</div>` : ''}
+        ${deviationValue !== 0 ? `<div style="margin-top:.75rem;padding-top:.75rem;border-top:1px solid var(--bd);font-size:13px">
+          Impacto: <strong style="color:${deviationValue < 0 ? 'var(--accent)' : 'var(--brand)'}">${deviationValue > 0 ? '+' : ''}€${deviationValue.toFixed(2)}</strong>
+        </div>` : ''}
+      </div>
+
+      ${withDeviation.length > 0 ? `
+        <div style="font-size:12px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:500;margin-bottom:.5rem">Desviaciones</div>
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden">
+          ${withDeviation.map(item => {
+            const diff = item.qty_real - item.qty_theoretical;
+            return `<div style="padding:.75rem 1rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:500;color:var(--t1)">${escHtml(item.name)}</div>
+                <div style="font-size:11px;color:var(--t3);margin-top:2px">Teórico ${item.qty_theoretical.toFixed(2)} → Real ${item.qty_real.toFixed(2)}</div>
+              </div>
+              <div style="font-size:13px;font-weight:600;color:${diff < 0 ? 'var(--accent)' : 'var(--brand)'};font-family:'Fraunces',serif">${diff > 0 ? '+' : ''}${diff.toFixed(2)}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      ` : `<div style="padding:1rem;text-align:center;color:var(--brand);font-size:13px;font-weight:500">✓ Todo cuadra</div>`}
+    </div>
+
+    <div style="padding:1rem 1.25rem;border-top:1px solid var(--bd);background:var(--card);display:flex;gap:.5rem;flex-shrink:0">
+      <button onclick="cancelStockCount()" style="padding:14px;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);color:var(--t1);font-family:inherit;font-size:14px;cursor:pointer;flex:0 0 100px">Descartar</button>
+      <button onclick="finalizeStockCount()" class="btn btn-primary" style="flex:1">${withDeviation.length > 0 ? `Aplicar ajustes (${withDeviation.length})` : 'Cerrar conteo'}</button>
+    </div>
+  `;
+}
+
+function backToCountStep() {
+  _stkCount.currentIdx = Math.max(0, _stkCount.items.length - 1);
+  renderStockCountStep();
+}
+
+async function finalizeStockCount() {
+  const countId = _stkCount.countId;
+  if (!countId) return;
+
+  // 1. Guardar count_items
+  const itemsToInsert = _stkCount.items
+    .filter(i => i.qty_real !== null)
+    .map(i => ({
+      count_id: countId,
+      ingredient_id: i.ingredient_id,
+      qty_theoretical: i.qty_theoretical,
+      qty_real: i.qty_real,
+      unit: i.base_unit,
+      counted_at: new Date().toISOString()
+    }));
+
+  if (itemsToInsert.length > 0) {
+    await sb.from('stock_count_items').insert(itemsToInsert);
+  }
+
+  // 2. Generar movimientos de ajuste para cada desviación
+  const ingMap = new Map(_stk.ingredients.map(i => [i.id, i]));
+  const movements = _stkCount.items
+    .filter(i => i.qty_real !== null && Math.abs(i.qty_real - i.qty_theoretical) > 0.01)
+    .map(i => {
+      const ing = ingMap.get(i.ingredient_id);
+      return {
+        restaurant_id: state.adminRestaurantId,
+        ingredient_id: i.ingredient_id,
+        type: 'adjust_count',
+        delta: i.qty_real - i.qty_theoretical,
+        unit_cost_at_time: parseFloat(ing?.avg_cost) || 0,
+        source_table: 'stock_counts',
+        source_id: countId,
+        notes: 'Ajuste tras conteo físico'
+      };
+    });
+
+  if (movements.length > 0) {
+    await sb.from('stock_movements').insert(movements);
+  }
+
+  // 3. Cerrar el conteo
+  await sb.from('stock_counts').update({
+    status: 'closed',
+    closed_at: new Date().toISOString()
+  }).eq('id', countId);
+
+  document.getElementById('count-modal')?.remove();
+  _stkCount.countId = null;
+  _stkCount.items = [];
+  _stkCount.currentIdx = 0;
+
+  notify('Conteo cerrado. Stock actualizado.');
+  loadStockInventory();
+}
+
+async function cancelStockCount() {
+  if (!confirm('¿Descartar conteo? No se aplicarán ajustes.')) return;
+  if (_stkCount.countId) {
+    // Marcar conteo como cancelado (status=closed sin movements)
+    await sb.from('stock_counts').update({
+      status: 'closed',
+      closed_at: new Date().toISOString(),
+      notes: 'cancelled by user'
+    }).eq('id', _stkCount.countId);
+  }
+  document.getElementById('count-modal')?.remove();
+  _stkCount.countId = null;
+  _stkCount.items = [];
+  _stkCount.currentIdx = 0;
+}
+
+// Enter en el input del conteo → siguiente
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && document.getElementById('count-input')) {
+    e.preventDefault();
+    nextCountItem();
+  }
+});
 
 </script>
 
