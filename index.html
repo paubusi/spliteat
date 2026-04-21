@@ -512,45 +512,44 @@
   #pay-method-modal.show { display: flex !important; }
   .pay-method-btn:active { transform: scale(.98); }
 
-  /* ══ DINER DARK MODE — activo con body.diner-mode (afecta a TODO incl. modales) ══ */
+  /* ══ DINER MODE — pantallas del comensal: fondo oscuro con tonos de marca spliteat ══ */
   body.diner-mode,
   #app[data-diner] {
-    --bg: #0C110F;
-    --card: #141C18;
-    --bg2: #1A2320;
-    --t1: #EEF0EC;
-    --t2: #7A8C85;
-    --t3: #3E4F49;
-    --bd: rgba(255,255,255,.06);
-    --bd2: rgba(255,255,255,.11);
-    --brand: #1D9E75;
-    --brand-d: #085041;
-    --brand-l: rgba(29,158,117,.14);
-    --accent: #D85A30;
-    --accent-l: rgba(216,90,48,.12);
-    --amber: #BA7517;
-    --amber-l: rgba(186,117,23,.14);
-    --blue: #185FA5;
-    --blue-l: rgba(24,95,165,.14);
-    --shadow: 0 1px 4px rgba(0,0,0,.35);
+    --bg: #052821;          /* verde muy oscuro derivado de brand-d */
+    --card: #0A3A30;        /* card con tono verde, no gris */
+    --bg2: #0E4638;
+    --t1: #EEF0EC;          /* texto principal claro */
+    --t2: #9BB5AA;          /* texto secundario verdoso, más legible */
+    --t3: #5A7A6D;
+    --bd: rgba(255,255,255,.08);
+    --bd2: rgba(255,255,255,.14);
+    --brand: #2AB589;       /* verde más brillante para contrastar */
+    --brand-d: #1D9E75;
+    --brand-l: rgba(42,181,137,.18);
+    --accent: #FF7048;      /* naranja spliteat más vivo */
+    --accent-l: rgba(255,112,72,.16);
+    --amber: #D4A83A;
+    --amber-l: rgba(212,168,58,.14);
+    --blue: #3F8EDC;
+    --blue-l: rgba(63,142,220,.16);
+    --shadow: 0 1px 4px rgba(0,0,0,.4);
   }
 
-  /* Header diner */
+  /* Header diner — verde oscuro de marca */
   body.diner-mode .hdr, #app[data-diner] .hdr {
-    background: rgba(12,17,15,.92);
+    background: rgba(5,40,33,.95);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border-bottom: 1px solid rgba(255,255,255,.06);
+    border-bottom: 1px solid rgba(255,255,255,.08);
   }
   body.diner-mode .logo, #app[data-diner] .logo { color: #EEF0EC; }
   body.diner-mode .back-btn, #app[data-diner] .back-btn { color: var(--t2); }
 
   /* Tracker hero */
   .tracker-hero {
-    background: #0C110F;
+    background: #052821;
     padding: 1rem 1.25rem 1.25rem;
     border-bottom: 1px solid rgba(255,255,255,.07);
-    border-bottom: 1px solid rgba(255,255,255,.06);
   }
   .tracker-status {
     font-family: 'Fraunces', serif;
@@ -3187,11 +3186,11 @@ const now = () => new Date().toLocaleTimeString('es-ES', {hour:'2-digit',minute:
 // DINER DARK MODE — activar/desactivar en #app
 // ══════════════════════════════════════════════════
 function setDinerMode(on) {
-  // Dark mode del comensal deshabilitado — siempre light mode
+  // Diner-mode: pantallas del comensal con fondo oscuro y colores de marca spliteat
   const app = document.getElementById('app');
   if (!app) return;
-  app.removeAttribute('data-diner');
-  document.body.classList.remove('diner-mode');
+  if (on) { app.setAttribute('data-diner','1'); document.body.classList.add('diner-mode'); }
+  else { app.removeAttribute('data-diner'); document.body.classList.remove('diner-mode'); }
 }
 
 // ══════════════════════════════════════════════════
@@ -5593,16 +5592,15 @@ function buildSummary() {
           const others = (state.participants[d.id]||[])
             .filter(id => id !== t.g.id)
             .map(id => state.guests.find(g=>g.id===id)?.name||'?');
-          const withStr = others.length ? `con ${others.join(', ')}` : `÷${nP}`;
-          myLines += `<div class="sum-line shared">
+          const fullPrice = parseFloat(d.price) || 0;
+          const divisionText = `${fmt(fullPrice)} ÷ ${nP} ${nP === 1 ? 'persona' : 'personas'}`;
+          const withStr = others.length ? `con ${others.join(', ')}` : '';
+          myLines += `<div class="sum-line shared" style="padding:6px 0">
             <span style="flex:1;min-width:0">
-              <span class="lbl" style="color:var(--blue)">↳ ${escHtml(d.name)}</span>
-              <span style="font-size:10px;color:var(--blue);opacity:.75;display:block">${withStr}</span>
+              <span class="lbl" style="color:var(--blue);font-weight:500">↳ ${escHtml(d.name)}</span>
+              <span style="font-size:10px;color:var(--blue);opacity:.75;display:block;margin-top:1px">${divisionText}${withStr ? ' · ' + withStr : ''}</span>
             </span>
-            <span style="display:flex;align-items:center;gap:4px;flex-shrink:0">
-              <span class="val">${fmt(share)}</span>
-              ${!paymentStarted ? `<button onclick="unassignDish('${d.id}','shared','${t.g.id}')" title="Quitar" style="background:#FFF5F5;border:1px solid #FCCACA;font-size:13px;color:var(--accent);cursor:pointer;padding:2px 7px;border-radius:4px;line-height:1;font-weight:600">✕</button>` : ''}
-            </span>
+            <span style="font-family:'Fraunces',serif;font-weight:700;color:var(--blue);flex-shrink:0">${fmt(share)}</span>
           </div>`;
         });
       }
@@ -5625,7 +5623,7 @@ function buildSummary() {
           return `<div style="margin-top:.65rem;padding-top:.65rem;border-top:1px solid var(--brand)">
             <button onclick="const d=document.getElementById('${accordId}');d.style.display=d.style.display==='none'?'block':'none';this.querySelector('.arr').textContent=d.style.display==='none'?'▸':'▾'"
               style="width:100%;text-align:left;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between">
-              <span style="font-size:12px;color:var(--brand);font-weight:600">¿Falta un plato tuyo? <span style="font-weight:400;font-size:11px">${notMine.length} disponible${notMine.length>1?'s':''}</span></span>
+              <span style="font-size:12px;color:var(--brand);font-weight:600">✏️ Editar reparto <span style="font-weight:400;font-size:11px">${notMine.length} plato${notMine.length>1?'s':''} por asignar</span></span>
               <span class="arr" style="font-size:11px;color:var(--brand)">▸</span>
             </button>
             <div id="${accordId}" style="display:none;margin-top:.5rem;display:none">
