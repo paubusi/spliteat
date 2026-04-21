@@ -24,14 +24,12 @@
   }
   html, body { height: 100%; background: var(--bg); color: var(--t1); font-family: 'DM Sans', sans-serif; font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; overflow-x: hidden; scroll-behavior: auto; }
   body { position: relative; margin: 0; padding: 0; }
-  #app { max-width: 430px; margin: 0 auto; min-height: 100vh; min-height: -webkit-fill-available; min-height: 100dvh; position: relative; background: var(--bg); display: flex; flex-direction: column; }
+  #app { max-width: 430px; margin: 0 auto; position: relative; background: var(--bg); }
   /* #s0: solo full-screen cuando está activo. Cuando no, OCULTO del layout. */
   #s0 { max-width: none !important; width: 100vw !important; margin: 0 !important; z-index: 1; }
   #s0.active { position: fixed !important; inset: 0 !important; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex !important; }
   #s0:not(.active) { display: none !important; }
   #s-kitchen { max-width: 100% !important; width: 100% !important; }
-  /* Screen activa ocupa todo el alto del #app flex container */
-  .screen.active { flex: 1; }
   #s0.active ~ * { pointer-events: none; }
 
   /* Pantallas de admin y cocina usan todo el ancho en desktop */
