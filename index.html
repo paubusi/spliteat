@@ -1052,8 +1052,8 @@
 
       <!-- Mesa ocupada: ¿quién eres? -->
       <div id="qr-returning-panel" style="display:none">
-        <div style="font-size:16px;font-weight:600;color:#EEF0EC;margin-bottom:.4rem">Esta mesa ya tiene una sesión activa</div>
-        <div style="font-size:13px;color:#7A8C85;margin-bottom:1.25rem">¿Ya eres parte de esta mesa?</div>
+        <div style="font-size:16px;font-weight:600;color:var(--t1);margin-bottom:.4rem">Esta mesa ya tiene una sesión activa</div>
+        <div style="font-size:13px;color:var(--t2);margin-bottom:1.25rem">¿Ya eres parte de esta mesa?</div>
         <button class="diner-btn-pay" style="margin-bottom:.5rem" onclick="qrSelectReturning()">
           Sí, ya estoy en esta mesa
         </button>
@@ -1064,8 +1064,8 @@
 
       <!-- Elegir nombre (mesa activa) -->
       <div id="qr-returning-pick" style="display:none">
-        <div style="font-size:16px;font-weight:600;color:#EEF0EC;margin-bottom:.3rem">¿Quién eres?</div>
-        <div style="font-size:13px;color:#7A8C85;margin-bottom:1rem">Selecciona tu nombre</div>
+        <div style="font-size:16px;font-weight:600;color:var(--t1);margin-bottom:.3rem">¿Quién eres?</div>
+        <div style="font-size:13px;color:var(--t2);margin-bottom:1rem">Selecciona tu nombre</div>
         <div id="qr-guest-list" style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:1rem"></div>
         <button class="diner-btn-secondary" onclick="qrBackToChoice()">← Atrás</button>
         <div id="qr-err-pick" class="notice notice-err" style="display:none;margin-top:.75rem"></div>
@@ -1073,11 +1073,11 @@
 
       <!-- Entrada nueva: nombre -->
       <div id="qr-newuser-panel">
-        <div style="font-size:16px;font-weight:600;color:#EEF0EC;margin-bottom:.25rem">¿Cómo te llamas?</div>
-        <div style="font-size:13px;color:#7A8C85;margin-bottom:1.25rem">Sin registro · Sin contraseña</div>
+        <div style="font-size:16px;font-weight:600;color:var(--t1);margin-bottom:.25rem">¿Cómo te llamas?</div>
+        <div style="font-size:13px;color:var(--t2);margin-bottom:1.25rem">Sin registro · Sin contraseña</div>
         <input id="qr-name" type="text" placeholder="Tu nombre" autocomplete="off"
-          style="width:100%;padding:16px 18px;border-radius:14px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#EEF0EC;font-size:18px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:1rem"
-          onfocus="this.style.borderColor='rgba(29,158,117,.6)'" onblur="this.style.borderColor='rgba(255,255,255,.1)'"
+          style="width:100%;padding:16px 18px;border-radius:14px;border:1.5px solid var(--bd2);background:var(--card);color:var(--t1);font-size:18px;font-family:'DM Sans',sans-serif;outline:none;margin-bottom:1rem"
+          onfocus="this.style.borderColor='var(--brand)'" onblur="this.style.borderColor='var(--bd2)'"
           onkeydown="if(event.key==='Enter') enterMesa()">
         <button class="diner-btn-pay" onclick="enterMesa()">
           Entrar a la mesa →
@@ -3186,11 +3186,12 @@ const now = () => new Date().toLocaleTimeString('es-ES', {hour:'2-digit',minute:
 // DINER DARK MODE — activar/desactivar en #app
 // ══════════════════════════════════════════════════
 function setDinerMode(on) {
-  // Diner-mode: pantallas del comensal con fondo oscuro y colores de marca spliteat
+  // Fondo claro siempre (tanto verde era poco legible). La clase se conserva
+  // para posible uso futuro pero no aplica el dark mode.
   const app = document.getElementById('app');
   if (!app) return;
-  if (on) { app.setAttribute('data-diner','1'); document.body.classList.add('diner-mode'); }
-  else { app.removeAttribute('data-diner'); document.body.classList.remove('diner-mode'); }
+  app.removeAttribute('data-diner');
+  document.body.classList.remove('diner-mode');
 }
 
 // ══════════════════════════════════════════════════
@@ -5541,15 +5542,11 @@ function buildSummary() {
     const isManual = t.g._manual === true;
     let lines = '';
 
-    // Solo items (grey)
+    // Solo items (grey) — sin cruces, la edición se hace desde "Editar reparto"
     t.soloItems.forEach(d => {
       lines += `<div class="sum-line">
         <span class="lbl" style="color:var(--t2)">↳ ${escHtml(d.name)}</span>
-        <span style="display:flex;align-items:center;gap:6px">
-          <span class="val">${fmt(parseFloat(d.price))}</span>
-          ${!paymentStarted ? `<button onclick="unassignDish('${d.id}','solo')" title="Desasignar"
-            style="background:#FFF5F5;border:1px solid #FCCACA;font-size:13px;color:var(--accent);cursor:pointer;padding:2px 7px;border-radius:4px;line-height:1;font-weight:600">✕</button>` : ''}
-        </span>
+        <span class="val">${fmt(parseFloat(d.price))}</span>
       </div>`;
     });
     if (t.soloItems.length && t.sharedItems.length) lines += '<hr style="border:none;border-top:1px solid var(--bd);margin:3px 0">';
@@ -5578,11 +5575,7 @@ function buildSummary() {
         t.soloItems.forEach(d => {
           myLines += `<div class="sum-line">
             <span class="lbl" style="color:var(--t2)">↳ ${escHtml(d.name)}</span>
-            <span style="display:flex;align-items:center;gap:6px">
-              <span class="val">${fmt(parseFloat(d.price))}</span>
-              ${!paymentStarted ? `<button onclick="unassignDish('${d.id}','solo')" title="Desasignar"
-                style="background:#FFF5F5;border:1px solid #FCCACA;font-size:13px;color:var(--accent);cursor:pointer;padding:2px 7px;border-radius:4px;line-height:1;font-weight:600">✕</button>` : ''}
-            </span>
+            <span class="val">${fmt(parseFloat(d.price))}</span>
           </div>`;
         });
       }
@@ -5618,31 +5611,12 @@ function buildSummary() {
             if (d.type === 'shared') return !(state.participants[d.id]||[]).includes(t.g.id);
             return false;
           });
-          if (!notMine.length) return '';
-          const accordId = 'nm-me-' + t.g.id;
           return `<div style="margin-top:.65rem;padding-top:.65rem;border-top:1px solid var(--brand)">
-            <button onclick="const d=document.getElementById('${accordId}');d.style.display=d.style.display==='none'?'block':'none';this.querySelector('.arr').textContent=d.style.display==='none'?'▸':'▾'"
+            <button onclick="goToRevisarCuenta()"
               style="width:100%;text-align:left;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between">
-              <span style="font-size:12px;color:var(--brand);font-weight:600">✏️ Editar reparto <span style="font-weight:400;font-size:11px">${notMine.length} plato${notMine.length>1?'s':''} por asignar</span></span>
-              <span class="arr" style="font-size:11px;color:var(--brand)">▸</span>
+              <span style="font-size:12px;color:var(--brand);font-weight:600">✏️ Editar reparto${notMine.length > 0 ? ` <span style="font-weight:400;font-size:11px">· ${notMine.length} plato${notMine.length>1?'s':''} por asignar</span>` : ''}</span>
+              <span style="font-size:11px;color:var(--brand)">›</span>
             </button>
-            <div id="${accordId}" style="display:none;margin-top:.5rem;display:none">
-              <div style="font-size:11px;color:var(--brand);margin-bottom:.35rem">Asígnate a un plato de la mesa:</div>
-              <div style="display:flex;flex-direction:column;gap:4px">
-                ${notMine.map(d => {
-                  const currentOwner = d.assignee_id ? state.guests.find(g => g.id === d.assignee_id) : null;
-                  const hint = currentOwner ? ` · ${escHtml(currentOwner.name)}` : '';
-                  return `<button onclick="assignDishToGuest('${d.id}','${t.g.id}','${d.type}');document.getElementById('${accordId}').style.display='none'"
-                    style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--brand);background:var(--card);font-size:12px;cursor:pointer;font-family:inherit;text-align:left;gap:8px">
-                    <div style="flex:1;min-width:0">
-                      <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(d.name)}</div>
-                      ${hint ? `<div style="font-size:10px;color:var(--t3)">${hint}</div>` : ''}
-                    </div>
-                    <span style="color:var(--brand);font-size:11px;flex-shrink:0;font-weight:600">+ Añadir</span>
-                  </button>`;
-                }).join('')}
-              </div>
-            </div>
           </div>`;
         })()}
       </div>
@@ -6081,7 +6055,7 @@ function showAccountClosed() {
 
   const el = document.createElement('div');
   el.id = 'account-closed-screen';
-  el.style.cssText = 'position:fixed;inset:0;z-index:600;background:var(--brand-l);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;text-align:center';
+  el.style.cssText = 'position:fixed;inset:0;z-index:9500;background:#FAFAF8;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;text-align:center;overflow-y:auto';
   const total = state.dishes.reduce((s,d)=>s+parseFloat(d.price||0),0);
   const me = calcTotals().find(t => t.g.id === state.myGuestId);
   const myTotal = me ? me.total : 0;
@@ -14010,6 +13984,12 @@ let _equalPax = 2;      // número de personas para partes iguales
 // ══════════════════════════════════════════════════════
 // REVISAR CUENTA — pantalla simple de reparto antes del pago
 // ══════════════════════════════════════════════════════
+
+// Alias semántico usado desde el resumen (botón "Editar reparto")
+function goToRevisarCuenta() {
+  openRevisarCuenta();
+}
+
 function openRevisarCuenta() {
   document.getElementById('revisar-cuenta-screen')?.remove();
   const payLocked = state.payments && state.payments.filter(p => p.guest_id).length > 0;
