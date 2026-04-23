@@ -2936,6 +2936,91 @@ function notify(msg, type = 'error') {
   _updateNotifBadge();
 }
 
+// ── B2: Helper seguro para inserts críticos de pagos ──
+// Retry 1 vez en caso de error de red, notifica al usuario, retorna {ok, error}
+async function safePaymentInsert(payload, context = 'pago') {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const { error } = await sb.from('payments').insert(payload);
+      if (!error) return { ok: true };
+      // Error en DB — si es de red, reintentar una vez
+      if (attempt === 1 && (error.message?.includes('fetch') || error.message?.includes('network'))) {
+        await new Promise(r => setTimeout(r, 400));
+        continue;
+      }
+      console.error(`[${context}] Payment insert failed:`, error);
+      notify(`Error registrando ${context}. Avisa al camarero.`, 'error');
+      return { ok: false, error };
+    } catch (e) {
+      if (attempt === 1) {
+        await new Promise(r => setTimeout(r, 400));
+        continue;
+      }
+      console.error(`[${context}] Payment insert exception:`, e);
+      notify(`Sin conexión — el ${context} puede no haberse registrado. Avisa al camarero.`, 'error');
+      return { ok: false, error: e };
+    }
+  }
+  return { ok: false };
+}
+
+// ── B3: confirmModal() — drop-in async replacement de confirm() con UI custom.
+// Uso: `if (!(await confirmModal('...'))) return;` en vez de `if (!(await confirmModal('...'))) return;`
+// Soporta título + descripción, botones personalizables, variante danger/default.
+function confirmModal(message, opts = {}) {
+  return new Promise((resolve) => {
+    // Parse: primera línea = título; el resto = descripción.
+    const lines = (message || '').split('\n');
+    const title = opts.title || lines[0] || '¿Confirmar?';
+    const desc = opts.desc !== undefined ? opts.desc : lines.slice(1).join(' ').trim();
+    const confirmText = opts.confirmText || 'Confirmar';
+    const cancelText = opts.cancelText || 'Cancelar';
+    const isDanger = opts.danger !== false; // por defecto danger (casi todos son eliminar)
+
+    // Cerrar modal previo si existiera
+    document.getElementById('_confirm-modal')?.remove();
+
+    const ov = document.createElement('div');
+    ov.id = '_confirm-modal';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:1.25rem;animation:fadeIn .15s ease';
+
+    const box = document.createElement('div');
+    box.style.cssText = 'background:var(--card,#fff);border-radius:16px;max-width:380px;width:100%;padding:1.5rem 1.25rem 1.25rem;box-shadow:0 24px 48px rgba(0,0,0,.2);font-family:inherit;animation:popIn .18s cubic-bezier(.4,0,.2,1)';
+
+    const dangerColor = '#C0392B';
+    const confirmBg = isDanger ? dangerColor : 'var(--brand, #1D9E75)';
+
+    box.innerHTML = `
+      <div style="font-family:'Fraunces',serif;font-size:19px;font-weight:700;color:var(--t1,#0F1C17);margin-bottom:${desc?'.4rem':'1.25rem'};line-height:1.25">${escHtml ? escHtml(title) : title}</div>
+      ${desc ? `<div style="font-size:14px;color:var(--t2,#5A7168);line-height:1.45;margin-bottom:1.25rem">${escHtml ? escHtml(desc) : desc}</div>` : ''}
+      <div style="display:flex;gap:.65rem">
+        <button type="button" id="_cm-cancel" style="flex:1;padding:12px;border-radius:12px;border:1.5px solid var(--bd2,#D5DCDA);background:none;color:var(--t1,#0F1C17);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">${cancelText}</button>
+        <button type="button" id="_cm-confirm" style="flex:1;padding:12px;border-radius:12px;border:none;background:${confirmBg};color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">${confirmText}</button>
+      </div>
+    `;
+    ov.appendChild(box);
+    document.body.appendChild(ov);
+
+    const close = (result) => { ov.remove(); resolve(result); };
+    box.querySelector('#_cm-cancel').onclick = () => close(false);
+    box.querySelector('#_cm-confirm').onclick = () => close(true);
+    ov.onclick = (e) => { if (e.target === ov) close(false); };
+    // Escape key
+    const onKey = (e) => { if (e.key === 'Escape') { document.removeEventListener('keydown', onKey); close(false); } };
+    document.addEventListener('keydown', onKey);
+    // Focus en Cancel por defecto (menos accidente)
+    setTimeout(() => box.querySelector('#_cm-cancel')?.focus(), 50);
+  });
+}
+
+// Animaciones del modal (inyectar una sola vez)
+if (!document.getElementById('_confirm-modal-css')) {
+  const s = document.createElement('style');
+  s.id = '_confirm-modal-css';
+  s.textContent = '@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes popIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}';
+  document.head.appendChild(s);
+}
+
 let _notifUnread = 0;
 function _updateNotifBadge() {
   _notifUnread++;
@@ -3531,7 +3616,7 @@ async function addPersonS2() {
 }
 
 async function removeGuestS2(guestId, guestName) {
-  if (!confirm(`¿Eliminar a ${guestName} de la mesa?`)) return;
+  if (!(await confirmModal(`¿Eliminar a ${guestName} de la mesa?`))) return;
   if (state.payments && state.payments.length > 0) {
     notify('Ya hay pagos iniciados. No se pueden eliminar personas.', 'info');
     return;
@@ -4680,11 +4765,15 @@ async function confirmAddDish() {
   // #33: Save note/comment if provided
   const noteVal = document.getElementById('modal-dish-note')?.value?.trim();
   if (noteVal) dishPayload.notes = noteVal;
-  // #8: If bebida with postre option checked, mark it and set course to postre timing
+  // B5: Si bebida marcada "con postre", sincroniza timing con el último course
+  // del restaurante (evita hardcoding course=3 que rompe si hay más cursos).
   const withPostreChecked = document.getElementById('modal-with-postre')?.checked;
   if (withPostreChecked) {
     dishPayload.with_postre = true;
-    dishPayload.course = 3; // treated as postre timing
+    // Buscar el course del postre en menu_items (category postre/dessert); fallback 3
+    const postreItem = state.menu.find(m =>
+      m && m.category && /postre|dessert/i.test(m.category));
+    dishPayload.course = postreItem?.course ?? 3;
   }
   const { data: dish, error } = await sb.from('dishes').insert(dishPayload).select().single();
   if (error) { notify('Error al añadir: ' + error.message); return; }
@@ -4701,8 +4790,8 @@ async function confirmAddDish() {
     const parts = selectedIds.map(gid => ({ dish_id: dish.id, guest_id: gid }));
     await sb.from('dish_participants').insert(parts);
   }
-  // NO hacemos state.dishes.push(dish) — el realtime lo añade automáticamente
-  // Actualización optimista solo si el realtime tarda
+  // B4: Actualización optimista idempotente — el realtime también pushea este
+  // dish, pero ambos caminos comprueban por ID antes de añadir, así que nunca duplica.
   if (!state.dishes.find(d => d.id === dish.id)) {
     state.dishes.push(dish);
     if (modalType === 'shared') {
@@ -4718,7 +4807,7 @@ async function confirmAddDish() {
 async function removeDishFromCarta(menuItemId) {
   const dish = state.dishes.find(d => d.menu_item_id === menuItemId);
   if (!dish) return;
-  if (!confirm(`¿Quitar "${dish.name}" de la mesa?`)) return;
+  if (!(await confirmModal(`¿Quitar "${dish.name}" de la mesa?`))) return;
   await sb.from('dish_participants').delete().eq('dish_id', dish.id);
   await sb.from('dishes').delete().eq('id', dish.id);
   state.dishes = state.dishes.filter(d => d.id !== dish.id);
@@ -5211,7 +5300,7 @@ document.addEventListener('click', e => {
 async function deleteDish(dishId) {
   const dish = state.dishes.find(d => d.id === dishId);
   if (!dish) return;
-  if (!confirm(`¿Quitar "${dish.name}" de la mesa?`)) return;
+  if (!(await confirmModal(`¿Quitar "${dish.name}" de la mesa?`))) return;
   await sb.from('dish_participants').delete().eq('dish_id', dishId);
   await sb.from('dishes').delete().eq('id', dishId);
   state.dishes = state.dishes.filter(d => d.id !== dishId);
@@ -5332,15 +5421,21 @@ async function confirmSendToKitchen() {
 }
 
 async function sendToKitchen() {
+  // B1: Guard contra doble-tap / race condition (disabled del botón no basta
+  // en iOS Safari donde el event loop puede lanzar 2 taps antes de aplicar disabled)
+  if (state._sendingKitchen) return;
+  state._sendingKitchen = true;
+
   // Guard: bloquear envío si pago ya iniciado
   if (state.payments && state.payments.filter(p => p.guest_id).length > 0) {
     notify('El pago ya ha comenzado — no se pueden enviar más platos a cocina.', 'info');
+    state._sendingKitchen = false;
     return;
   }
   const unsentDishes = state.dishes.filter(d =>
     !d.kitchen_status || d.kitchen_status === 'new'
   );
-  if (!unsentDishes.length) return;
+  if (!unsentDishes.length) { state._sendingKitchen = false; return; }
 
   const btn = document.getElementById('btn-send-kitchen');
   if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
@@ -5398,6 +5493,7 @@ async function sendToKitchen() {
     }).catch(() => {});
   }
   notify(`Pedido enviado a cocina. Puedes seguir añadiendo platos.`, 'success');
+  state._sendingKitchen = false;
 }
 
 function flashCard(dishId) {
@@ -5417,9 +5513,9 @@ function selectTip(pct) {
   document.querySelectorAll('.tip-opt').forEach(btn => {
     const val = btn.dataset.tip;
     const isSelected = parseInt(val) === pct;
-    btn.style.background = isSelected ? '#F5CC6A' : 'var(--card)';
-    btn.style.color = isSelected ? '#5C4800' : 'var(--t1)';
-    btn.style.borderColor = isSelected ? '#E5A800' : 'var(--bd2)';
+    btn.style.background = isSelected ? 'var(--amber-l)' : 'var(--card)';
+    btn.style.color = isSelected ? 'var(--amber)' : 'var(--t1)';
+    btn.style.borderColor = isSelected ? 'var(--amber)' : 'var(--bd2)';
     btn.style.fontWeight = isSelected ? '600' : '400';
   });
   const inp = document.getElementById('custom-tip-input');
@@ -5430,9 +5526,9 @@ function selectTip(pct) {
 function openCustomTip() {
   document.querySelectorAll('.tip-opt').forEach(btn => {
     const isCust = btn.dataset.tip === 'custom';
-    btn.style.background = isCust ? '#F5CC6A' : 'var(--card)';
-    btn.style.color = isCust ? '#5C4800' : 'var(--t1)';
-    btn.style.borderColor = isCust ? '#E5A800' : 'var(--bd2)';
+    btn.style.background = isCust ? 'var(--amber-l)' : 'var(--card)';
+    btn.style.color = isCust ? 'var(--amber)' : 'var(--t1)';
+    btn.style.borderColor = isCust ? 'var(--amber)' : 'var(--bd2)';
     btn.style.fontWeight = isCust ? '600' : '400';
   });
   const inp = document.getElementById('custom-tip-input');
@@ -6370,14 +6466,15 @@ async function registerFullPayment(me, method, totals) {
   track('payment_full', { method, amount: grand, guests: totals.length });
 
   // Insertar pago del invitador por el total
-  await sb.from('payments').insert({
+  const result = await safePaymentInsert({
     room_id: state.roomId,
     guest_id: state.myGuestId,
     amount: grand,
     tip_amount: totals.reduce((s,t) => s + (t.tipAmt||0), 0),
     method,
     stripe_status: 'manual',
-  });
+  }, 'pago por todos');
+  if (!result.ok) return;
 
   // Insertar pago 0 para todos los demás → quedan como "pagados" (cubiertos)
   const others = totals.filter(t => t.g.id !== state.myGuestId);
@@ -6413,13 +6510,13 @@ async function registerEqualPayment(me, method) {
   const myShare = total / _equalPax;
   track('payment_equal', { method, amount: myShare, pax: _equalPax });
 
-  await sb.from('payments').insert({
+  await safePaymentInsert({
     room_id: state.roomId,
     guest_id: state.myGuestId,
     amount: myShare,
     method,
     stripe_status: 'manual',
-  });
+  }, 'pago (división igual)');
   state.payments.push({ guest_id: state.myGuestId, amount: myShare });
   // #S7-2: Keep equal split display — don't call buildPayScreen (which uses spliteat calc)
   buildEqualPayScreen(_equalPax);
@@ -6455,13 +6552,14 @@ async function registerEqualPayment(me, method) {
 
 async function registerManualPayment(me, method) {
   track('payment_started', { method, amount: me.total });
-  await sb.from('payments').insert({
+  const result = await safePaymentInsert({
     room_id: state.roomId,
     guest_id: state.myGuestId,
     amount: me.total,
     method,
     stripe_status: 'manual'
-  });
+  }, 'pago');
+  if (!result.ok) return;
   state.payments.push({ guest_id: state.myGuestId, method, amount: me.total });
 
   // Recargar comensales Y pagos desde Supabase
@@ -8865,7 +8963,7 @@ async function toggleWaiter(id, active) {
 }
 
 async function deleteWaiter(id) {
-  if (!confirm('¿Eliminar este camarero? Esta acción no se puede deshacer.')) return;
+  if (!(await confirmModal('¿Eliminar este camarero? Esta acción no se puede deshacer.'))) return;
   await _cleanAndDeleteWaiter(id);
   loadAdminWaiters();
   loadAdminWaitersInline();
@@ -9138,7 +9236,7 @@ async function toggleItemActiveMobile(itemId, active, el) {
 }
 
 async function deleteItemMobile(itemId) {
-  if (!confirm('¿Eliminar este plato?')) return;
+  if (!(await confirmModal('¿Eliminar este plato?'))) return;
   const card = document.getElementById('mitem-' + itemId);
   if (card) card.style.display = 'none';
   await sb.from('menu_items').delete().eq('id', itemId);
@@ -9800,7 +9898,7 @@ async function toggleItemActive(itemId, newActive, toggleEl) {
 }
 
 async function deleteItem(itemId) {
-  if (!confirm('¿Eliminar este plato de la carta?')) return;
+  if (!(await confirmModal('¿Eliminar este plato de la carta?'))) return;
   const card = document.getElementById('item-card-' + itemId);
   if (card) card.style.display = 'none';
   const { error } = await sb.from('menu_items').delete().eq('id', itemId);
@@ -9843,7 +9941,7 @@ function uploadDishPhoto(itemId) {
 
 async function deleteDishPhoto(itemId, event) {
   event?.stopPropagation();
-  if (!confirm('¿Eliminar la foto de este plato?')) return;
+  if (!(await confirmModal('¿Eliminar la foto de este plato?'))) return;
   await sb.from('menu_items').update({ photo_url: null }).eq('id', itemId);
   loadAdminCarta();
   loadAdminCartaMobile();
@@ -10058,7 +10156,7 @@ async function addTable() {
 }
 
 async function deleteTable(tableId) {
-  if (!confirm('¿Eliminar esta mesa?')) return;
+  if (!(await confirmModal('¿Eliminar esta mesa?'))) return;
   await sb.from('tables').delete().eq('id', tableId);
   loadAdminTablesInline();
   loadAdminTables();
@@ -10117,7 +10215,7 @@ async function promptResetWaiterPwd(waiterId, waiterName) {
 }
 
 async function deleteWaiterInline(waiterId) {
-  if (!confirm('¿Eliminar este camarero? Esta acción no se puede deshacer.')) return;
+  if (!(await confirmModal('¿Eliminar este camarero? Esta acción no se puede deshacer.'))) return;
   await _cleanAndDeleteWaiter(waiterId);
   loadAdminWaitersInline();
   loadAdminWaiters();
@@ -10328,7 +10426,7 @@ async function _originalCloseTable_unused(roomId) {
     msg = `✅ La mesa está completamente pagada (${totalMesa.toFixed(2)}€).\n¿Cerrar y limpiar la mesa?`;
   }
 
-  if (!confirm(msg)) return;
+  if (!(await confirmModal(msg))) return;
 
   await sb.from('rooms').update({
     closed: true,
@@ -11137,7 +11235,7 @@ async function updateReservaStatus(id, status) {
 }
 
 async function deleteReserva(id) {
-  if (!confirm('¿Cancelar esta reserva?')) return;
+  if (!(await confirmModal('¿Cancelar esta reserva?'))) return;
   await sb.from('reservations').update({ status: 'cancelled' }).eq('id', id);
   loadReservas();
 }
@@ -16022,7 +16120,7 @@ async function saveIngredient(ingId) {
 }
 
 async function deleteIngredient(ingId) {
-  if (!confirm('¿Eliminar este ingrediente? Solo se puede borrar si no está en ninguna receta.')) return;
+  if (!(await confirmModal('¿Eliminar este ingrediente? Solo se puede borrar si no está en ninguna receta.'))) return;
   const { error } = await sb.from('stock_ingredients').delete().eq('id', ingId);
   if (error) { notify('No se puede eliminar: está en uso en alguna receta'); return; }
   document.getElementById('ing-modal')?.remove();
@@ -16423,7 +16521,7 @@ async function saveSupplier(supId) {
 }
 
 async function deleteSupplier(supId) {
-  if (!confirm('¿Eliminar este proveedor?')) return;
+  if (!(await confirmModal('¿Eliminar este proveedor?'))) return;
   const { error } = await sb.from('stock_suppliers').delete().eq('id', supId);
   if (error) { notify('No se puede eliminar: tiene pedidos asociados'); return; }
   document.getElementById('sup-modal')?.remove();
@@ -16698,9 +16796,9 @@ async function openPurchaseDetail(purchaseId) {
 
 async function markPurchaseStatus(purchaseId, newStatus) {
   if (newStatus === 'received') {
-    if (!confirm('¿Marcar como recibido? Se sumará al stock automáticamente.')) return;
+    if (!(await confirmModal('¿Marcar como recibido? Se sumará al stock automáticamente.'))) return;
   } else if (newStatus === 'cancelled') {
-    if (!confirm('¿Cancelar este pedido?')) return;
+    if (!(await confirmModal('¿Cancelar este pedido?'))) return;
   }
   const update = { status: newStatus };
   if (newStatus === 'sent') update.sent_at = new Date().toISOString();
@@ -17079,7 +17177,7 @@ async function finalizeStockCount() {
 }
 
 async function cancelStockCount() {
-  if (!confirm('¿Descartar conteo? No se aplicarán ajustes.')) return;
+  if (!(await confirmModal('¿Descartar conteo? No se aplicarán ajustes.'))) return;
   if (_stkCount.countId) {
     // Marcar conteo como cancelado (status=closed sin movements)
     await sb.from('stock_counts').update({
