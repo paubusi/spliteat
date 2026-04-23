@@ -5647,7 +5647,7 @@ function buildSummary() {
     });
     if (t.soloItems.length && t.sharedItems.length) lines += '<hr style="border:none;border-top:1px solid var(--bd);margin:3px 0">';
 
-    // Shared items (blue) + edit reparto button
+    // Shared items (blue) — sin cruces en Los demás, solo-lectura
     t.sharedItems.forEach(({ d, share, nP }) => {
       const allParticipants = (state.participants[d.id]||[]).map(id => state.guests.find(g=>g.id===id)?.name||'?').join(', ');
       lines += `<div class="sum-line shared">
@@ -5655,10 +5655,7 @@ function buildSummary() {
           <span class="lbl" style="color:var(--blue)">↳ ${escHtml(d.name)} ÷${nP}</span>
           <span style="font-size:10px;color:var(--blue);opacity:.7;display:block;margin-top:1px">${allParticipants}</span>
         </span>
-        <span style="display:flex;align-items:center;gap:4px;flex-shrink:0">
-          <span class="val">${fmt(share)}</span>
-          ${!paymentStarted ? `<button onclick="unassignDish('${d.id}','shared','${t.g.id}')" title="Quitar" style="background:#FFF5F5;border:1px solid #FCCACA;font-size:13px;color:var(--accent);cursor:pointer;padding:2px 7px;border-radius:4px;line-height:1;font-weight:600">✕</button>` : ''}
-        </span>
+        <span class="val">${fmt(share)}</span>
       </div>`;
     });
 
@@ -5719,7 +5716,7 @@ function buildSummary() {
       ${meFirst.length > 1 ? '<div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem">Los demás</div>' : ''}`;
     }
 
-    // Other guests — compact card
+    // Other guests — compact card (modo solo-lectura: para editar reparto usar botón en TU PARTE)
     const color = GUEST_COLORS[origIdx % GUEST_COLORS.length];
     return `<div class="sum-card" style="margin-bottom:.4rem;padding:.65rem .85rem;${isManual?'border-color:var(--amber);border-style:dashed':''}">
       <div class="sum-hdr">
@@ -5731,36 +5728,6 @@ function buildSummary() {
         <div class="sum-total" style="font-size:16px">${fmt(t.total)}</div>
       </div>
       ${lines || '<div class="muted" style="font-size:12px;color:var(--t3)">Sin platos asignados</div>'}
-      ${(() => {
-        const notMine = sentDishesAll.filter(d => {
-          if (d.type === 'solo') return d.assignee_id !== t.g.id;
-          if (d.type === 'shared') return !(state.participants[d.id]||[]).includes(t.g.id);
-          return false;
-        });
-        if (!notMine.length) return '';
-        const aId = 'nm-' + t.g.id;
-        return `<div style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--bd)">
-          <button onclick="const d=document.getElementById('${aId}');d.style.display=d.style.display==='none'?'block':'none';this.querySelector('.arr').textContent=d.style.display==='none'?'▸':'▾'"
-            style="width:100%;text-align:left;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between">
-            <span style="font-size:11px;color:var(--t2)">¿Falta un plato? <span style="color:var(--t3)">${notMine.length} disp.</span></span>
-            <span class="arr" style="font-size:10px;color:var(--t3)">▸</span>
-          </button>
-          <div id="${aId}" style="display:none;margin-top:.35rem">
-            ${notMine.map(d => {
-              const currentOwner = d.assignee_id ? state.guests.find(g => g.id === d.assignee_id) : null;
-              const hint = currentOwner ? ` · ${escHtml(currentOwner.name)}` : '';
-              return `<button onclick="assignDishToGuest('${d.id}','${t.g.id}','${d.type}');document.getElementById('${aId}').style.display='none'"
-                style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-size:11px;cursor:pointer;font-family:inherit;text-align:left;gap:8px;margin-bottom:3px">
-                <div style="flex:1;min-width:0">
-                  <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(d.name)}</div>
-                  ${hint ? `<div style="font-size:10px;color:var(--t3)">${hint}</div>` : ''}
-                </div>
-                <span style="color:var(--brand);font-size:10px;flex-shrink:0;font-weight:600">+ Añadir</span>
-              </button>`;
-            }).join('')}
-          </div>
-        </div>`;
-      })()}
       ${isManual ? `
         <button onclick="removeManualGuest('${t.g.id}')"
           style="margin-top:.5rem;width:100%;padding:5px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:none;color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit">
@@ -5911,7 +5878,9 @@ function buildPayScreen() {
   list.innerHTML = totals.map((t, i) => {
     const isMe = t.g.id === state.myGuestId;
     const paid = state.payments.find(p => p.guest_id === t.g.id);
-    const isManualGuest = !isMe && t.total > 0;
+    // Solo mostrar "Pagar por X" si es un guest manual (no escaneó QR).
+    // Los guests con dispositivo propio pagan desde su propio móvil.
+    const isManualGuest = !isMe && t.total > 0 && t.g.is_manual === true;
     const paidByNote = paid?.method?.includes('por') ? paid.method : null;
 
     return `<div style="display:flex;align-items:center;gap:10px;padding:.6rem 0;border-bottom:1px solid var(--bd)">
