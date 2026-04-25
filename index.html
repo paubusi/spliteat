@@ -5905,9 +5905,10 @@ function buildPayScreen() {
     const allPayments = (state.payments || []).filter(p => p.guest_id === t.g.id);
     const paid = allPayments.find(p => p.stripe_status !== 'pending_waiter');
     const pendingWaiter = !paid && allPayments.find(p => p.stripe_status === 'pending_waiter');
-    // Solo mostrar "Pagar por X" si es un guest manual (no escaneó QR).
-    // Los guests con dispositivo propio pagan desde su propio móvil.
-    const isManualGuest = !isMe && t.total > 0 && t.g.is_manual === true;
+    // "Pagar por X" disponible para cualquier guest que no seas tú y aún no haya pagado.
+    // Si el guest ya inició cobro con camarero, aparece el estado 'pendingWaiter' y NO el botón
+    // (esa rama tiene prioridad en el render más abajo).
+    const canPayForOther = !isMe && t.total > 0 && !paid && !pendingWaiter;
     const paidByNote = paid?.method?.includes('por') ? paid.method : null;
 
     return `<div style="display:flex;align-items:center;gap:10px;padding:.6rem 0;border-bottom:1px solid var(--bd)">
@@ -5925,7 +5926,7 @@ function buildPayScreen() {
           ? `<span style="font-size:11px;font-weight:500;padding:1px 7px;border-radius:99px;background:#EAF3DE;color:#3B6D11">✓ Pagado</span>`
           : pendingWaiter
             ? `<span style="font-size:11px;font-weight:500;padding:1px 7px;border-radius:99px;background:#FAEEDA;color:#854F0B" title="El camarero vendrá a cobrar">⏱ Esperando cobro</span>`
-            : isManualGuest
+            : canPayForOther
               ? `<button onclick="showPayForManual('${t.g.id}','${escHtml(t.g.name)}',${t.total})"
                   style="font-size:10px;font-weight:500;padding:2px 7px;border-radius:99px;background:var(--brand-l);color:var(--brand-d);border:1px solid var(--brand);cursor:pointer;font-family:inherit">
                   Pagar por ${escHtml(t.g.name.split(' ')[0])}
