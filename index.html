@@ -4010,8 +4010,13 @@ function subscribeRealtime() {
       renderMesaDishes();
 
       // P2: Check if all guests have paid — auto-close on all devices
+      // #85: Excluir pagos con status 'pending_waiter' — esos aún están esperando confirmación
       if (state.guests && state.guests.length > 0 && state.payments.length > 0) {
-        const paidIds = new Set(state.payments.filter(p => p.guest_id).map(p => p.guest_id));
+        const paidIds = new Set(
+          state.payments
+            .filter(p => p.guest_id && p.stripe_status !== 'pending_waiter')
+            .map(p => p.guest_id)
+        );
         const allPaid = state.guests.every(g => paidIds.has(g.id));
         if (allPaid) {
           setTimeout(() => showAccountClosed(), 800);
@@ -5754,6 +5759,19 @@ function buildSummary() {
 // PAY SCREEN
 // ══════════════════════════════════════════════════════
 function buildPayScreen() {
+  // #85.4: Si YO ya pedí cobro con camarero (efectivo/tarjeta) y aún no se confirmó,
+  // reaparecer la pantalla de espera al volver a esta pantalla. Así no perdemos el estado.
+  const myPending = (state.payments || []).find(p =>
+    p.guest_id === state.myGuestId && p.stripe_status === 'pending_waiter'
+  );
+  const myPaid = (state.payments || []).find(p =>
+    p.guest_id === state.myGuestId && p.stripe_status && p.stripe_status !== 'pending_waiter'
+  );
+  if (myPending && !myPaid && !document.getElementById('pay-waiter-wait')) {
+    // No re-dispara notificación al camarero (ya se hizo), solo muestra la pantalla
+    _reopenPayWaiterWait(myPending.method, myPending.amount);
+  }
+
   // #11-7: Show change method banner only if nobody has paid yet
   const noPaidYet = !state.payments || state.payments.filter(p => p.guest_id).length === 0;
   const banner = document.getElementById('change-method-banner');
@@ -5877,7 +5895,10 @@ function buildPayScreen() {
   const list = document.getElementById('pay-status-list');
   list.innerHTML = totals.map((t, i) => {
     const isMe = t.g.id === state.myGuestId;
-    const paid = state.payments.find(p => p.guest_id === t.g.id);
+    // #85.2: Distinguir entre pago confirmado (manual/succeeded) y pendiente del camarero
+    const allPayments = (state.payments || []).filter(p => p.guest_id === t.g.id);
+    const paid = allPayments.find(p => p.stripe_status !== 'pending_waiter');
+    const pendingWaiter = !paid && allPayments.find(p => p.stripe_status === 'pending_waiter');
     // Solo mostrar "Pagar por X" si es un guest manual (no escaneó QR).
     // Los guests con dispositivo propio pagan desde su propio móvil.
     const isManualGuest = !isMe && t.total > 0 && t.g.is_manual === true;
@@ -5896,12 +5917,14 @@ function buildPayScreen() {
         <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:var(--brand-d)">${fmt(t.total)}</div>
         ${paid
           ? `<span style="font-size:11px;font-weight:500;padding:1px 7px;border-radius:99px;background:#EAF3DE;color:#3B6D11">✓ Pagado</span>`
-          : isManualGuest
-            ? `<button onclick="showPayForManual('${t.g.id}','${escHtml(t.g.name)}',${t.total})"
-                style="font-size:10px;font-weight:500;padding:2px 7px;border-radius:99px;background:var(--brand-l);color:var(--brand-d);border:1px solid var(--brand);cursor:pointer;font-family:inherit">
-                Pagar por ${escHtml(t.g.name.split(' ')[0])}
-              </button>`
-            : `<span style="font-size:11px;font-weight:500;padding:1px 7px;border-radius:99px;background:#FAEEDA;color:#854F0B">Pendiente</span>`
+          : pendingWaiter
+            ? `<span style="font-size:11px;font-weight:500;padding:1px 7px;border-radius:99px;background:#FAEEDA;color:#854F0B" title="El camarero vendrá a cobrar">⏱ Esperando cobro</span>`
+            : isManualGuest
+              ? `<button onclick="showPayForManual('${t.g.id}','${escHtml(t.g.name)}',${t.total})"
+                  style="font-size:10px;font-weight:500;padding:2px 7px;border-radius:99px;background:var(--brand-l);color:var(--brand-d);border:1px solid var(--brand);cursor:pointer;font-family:inherit">
+                  Pagar por ${escHtml(t.g.name.split(' ')[0])}
+                </button>`
+              : `<span style="font-size:11px;font-weight:500;padding:1px 7px;border-radius:99px;background:var(--bg2);color:var(--t3)">Sin pagar</span>`
         }
       </div>
     </div>`;
@@ -6346,6 +6369,46 @@ function submitFactura() {
 }
 
 // #8-F1: Card/cash payments require waiter — show wait message + notify
+// #85.4: Reabrir pantalla de espera sin volver a notificar al camarero
+// (usado cuando el comensal cerró la pantalla y vuelve a entrar a s5-pay)
+function _reopenPayWaiterWait(method, amount) {
+  document.getElementById('pay-waiter-wait')?.remove();
+  const isCard = (method || '').toLowerCase().includes('tarjeta') || (method || '').toLowerCase().includes('datáfono');
+  const el = document.createElement('div');
+  el.id = 'pay-waiter-wait';
+  el.style.cssText = 'position:fixed;inset:0;z-index:550;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;text-align:center';
+  el.innerHTML = `
+    <div style="font-size:40px;margin-bottom:1rem">${isCard ? '💳' : '💵'}</div>
+    <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--t1);margin-bottom:.5rem">Espera al camarero</div>
+    <div style="font-size:14px;color:var(--t2);margin-bottom:.5rem;line-height:1.5">Ya avisamos al camarero.<br>Vendrá a cobrarte en breve.</div>
+    <div style="font-size:22px;font-weight:700;color:var(--brand-d);margin-bottom:.25rem;font-family:'Fraunces',serif">${fmt(parseFloat(amount)||0)}</div>
+    <div style="font-size:13px;color:var(--t3);margin-bottom:2rem">${method || 'Camarero'}</div>
+    <div style="display:flex;flex-direction:column;gap:.5rem;width:100%;max-width:240px">
+      <button onclick="document.getElementById('pay-waiter-wait').remove()"
+        style="padding:10px 24px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:none;color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit">
+        Minimizar
+      </button>
+      <button onclick="cancelPayWaiterRequest()"
+        style="padding:8px 16px;border-radius:var(--r-sm);border:none;background:none;color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit;text-decoration:underline">
+        Cancelar solicitud
+      </button>
+    </div>`;
+  document.body.appendChild(el);
+}
+
+// #85.4: Cancelar solicitud de cobro al camarero (borrar pending_waiter)
+async function cancelPayWaiterRequest() {
+  if (!(await confirmModal('¿Cancelar la solicitud de cobro?\nTendrás que volver a elegir método de pago.', { danger: false, confirmText: 'Sí, cancelar' }))) return;
+  const { error } = await sb.from('payments')
+    .delete()
+    .eq('room_id', state.roomId)
+    .eq('guest_id', state.myGuestId)
+    .eq('stripe_status', 'pending_waiter');
+  if (error) { notify('No se pudo cancelar: ' + error.message); return; }
+  document.getElementById('pay-waiter-wait')?.remove();
+  notify('Solicitud cancelada', 'info');
+}
+
 async function confirmPayWaiter(method) {
   document.getElementById('pay-waiter-wait')?.remove();
   const totals = calcTotals();
@@ -6354,7 +6417,29 @@ async function confirmPayWaiter(method) {
   const myName = state.guests.find(g => g.id === state.myGuestId)?.name || 'Comensal';
   const isCard = method.toLowerCase().includes('tarjeta') || method.toLowerCase().includes('datáfono');
 
-  // Pantalla de espera — el pago NO se registra hasta que el camarero confirme desde serveat
+  // #85.1: Registrar payment con status 'pending_waiter' para que TODOS los
+  // dispositivos sepan que este comensal ya pidió cobro (persistido en DB +
+  // propagado por realtime). El camarero lo marca como 'manual' al confirmar.
+  // Idempotente: si ya existe un pending para este guest, no duplicamos.
+  const existingPending = state.payments?.find(
+    p => p.guest_id === state.myGuestId && p.stripe_status === 'pending_waiter'
+  );
+  if (!existingPending && state.roomId) {
+    const result = await safePaymentInsert({
+      room_id: state.roomId,
+      guest_id: state.myGuestId,
+      amount: amount,
+      method,
+      stripe_status: 'pending_waiter',
+      requested_at: new Date().toISOString()
+    }, 'solicitud de cobro');
+    if (!result.ok) {
+      // Si falla, aún así mostramos la pantalla de espera (no bloqueamos UX)
+      console.warn('pending_waiter insert failed — UI continues');
+    }
+  }
+
+  // Pantalla de espera — el pago NO se confirma hasta que el camarero confirme desde serveat
   const el = document.createElement('div');
   el.id = 'pay-waiter-wait';
   el.style.cssText = 'position:fixed;inset:0;z-index:550;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;text-align:center';
@@ -6364,10 +6449,16 @@ async function confirmPayWaiter(method) {
     <div style="font-size:14px;color:var(--t2);margin-bottom:.5rem;line-height:1.5">Hemos avisado al camarero.<br>El pago se confirmará cuando venga a cobrarte.</div>
     <div style="font-size:22px;font-weight:700;color:var(--brand-d);margin-bottom:.25rem;font-family:'Fraunces',serif">${fmt(amount)}</div>
     <div style="font-size:13px;color:var(--t3);margin-bottom:2rem">${method}</div>
-    <button onclick="document.getElementById('pay-waiter-wait').remove()"
-      style="padding:10px 24px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:none;color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit">
-      Volver
-    </button>`;
+    <div style="display:flex;flex-direction:column;gap:.5rem;width:100%;max-width:240px">
+      <button onclick="document.getElementById('pay-waiter-wait').remove()"
+        style="padding:10px 24px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:none;color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit">
+        Minimizar
+      </button>
+      <button onclick="cancelPayWaiterRequest()"
+        style="padding:8px 16px;border-radius:var(--r-sm);border:none;background:none;color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit;text-decoration:underline">
+        Cancelar solicitud
+      </button>
+    </div>`;
   document.body.appendChild(el);
 
   // Notificar al camarero — incluye roomId y guestId para que pueda confirmar
@@ -7362,20 +7453,41 @@ function subscribeWaiterNotifications() {
 }
 
 function addWaiterNotif(notif) {
+  if (!notif.tsReceived) notif.tsReceived = Date.now();
   _waiterNotifHistory.unshift(notif);
   renderWaiterNotifBanner();
   updateWaiterNotifBadge();
+  // #85.3: Refrescar banner cada minuto para que los cobros "envejecidos" pasen a
+  // rojo cuando superen los 5 min sin confirmar.
+  if (!window._waiterBannerRefreshTimer) {
+    window._waiterBannerRefreshTimer = setInterval(() => {
+      renderWaiterNotifBanner();
+    }, 60000);
+  }
 }
 
 function renderWaiterNotifBanner() {
-  // Show only the latest unseen notification as a banner
+  // Show only the latest unseen notification as a banner.
+  // #85.3: Priorizar cobros pendientes >5min (se ven con fondo naranja urgente).
   const unseen = _waiterNotifHistory.filter(n => !n.seen);
   if (!unseen.length) {
     document.getElementById('waiter-notif-banner')?.remove();
     return;
   }
 
-  const latest = unseen[0];
+  const now = Date.now();
+  const STALE_COBRO_MS = 5 * 60 * 1000; // 5 min
+  // Cobros pendientes que ya tienen >5min se ordenan primero
+  const staleCobros = unseen.filter(n =>
+    n.courseLabel === 'Cobro pendiente' && n.tsReceived && (now - n.tsReceived) > STALE_COBRO_MS
+  );
+  const sorted = staleCobros.length
+    ? [...staleCobros, ...unseen.filter(n => !staleCobros.includes(n))]
+    : unseen;
+
+  const latest = sorted[0];
+  const isStaleCobro = staleCobros.includes(latest);
+
   let banner = document.getElementById('waiter-notif-banner');
   if (!banner) {
     banner = document.createElement('div');
@@ -7384,11 +7496,15 @@ function renderWaiterNotifBanner() {
     document.getElementById('s-waiter')?.appendChild(banner);
   }
 
-  banner.innerHTML = `<div style="background:#085041;color:#fff;border-radius:var(--r);padding:.7rem 1rem;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.25);cursor:pointer"
+  const bgColor = isStaleCobro ? '#C0392B' : '#085041';
+  const ageMin = latest.tsReceived ? Math.round((now - latest.tsReceived) / 60000) : null;
+  const ageText = isStaleCobro && ageMin ? ` · hace ${ageMin} min` : '';
+
+  banner.innerHTML = `<div style="background:${bgColor};color:#fff;border-radius:var(--r);padding:.7rem 1rem;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.25);cursor:pointer${isStaleCobro?';animation:pulse 1.5s ease-in-out infinite':''}"
     onclick="openWaiterNotifDetailIdx(${_waiterNotifHistory.indexOf(latest)})">
     <div style="flex:1;min-width:0">
-      <div style="font-size:13px;font-weight:600">${latest.tableLabel} — ${latest.courseLabel} listos</div>
-      <div style="font-size:11px;opacity:.75">Toca para ver qué hay que servir · ${latest.time}</div>
+      <div style="font-size:13px;font-weight:600">${isStaleCobro?'⚠️ ':''}${latest.tableLabel} — ${latest.courseLabel}${isStaleCobro?' sin confirmar':' listos'}${ageText}</div>
+      <div style="font-size:11px;opacity:.85">Toca para ${isStaleCobro?'confirmar cobro':'ver qué hay que servir'} · ${latest.time}</div>
     </div>
     <div style="display:flex;gap:6px;flex-shrink:0">
       ${unseen.length > 1 ? `<span style="background:rgba(255,255,255,.2);border-radius:99px;padding:2px 7px;font-size:11px">+${unseen.length - 1}</span>` : ''}
@@ -7576,18 +7692,38 @@ function _renderNotifModal(modal, n) {
 async function waiterConfirmCobro(roomId, guestId, amount, method, nIdx) {
   // Registrar el pago en DB
   try {
-    await sb.from('payments').insert({
-      room_id: roomId,
-      guest_id: guestId || null,
-      amount: parseFloat(amount) || 0,
-      method,
-      waiter_id: _waiterId,
-      stripe_status: 'manual',
-    });
+    // #85.1: Si había un pending_waiter para este guest, actualizar en vez de insertar.
+    // Así realtime propaga el cambio a todos los dispositivos sin duplicados.
+    const { data: existing } = await sb.from('payments')
+      .select('id')
+      .eq('room_id', roomId)
+      .eq('guest_id', guestId || '')
+      .eq('stripe_status', 'pending_waiter')
+      .maybeSingle();
+
+    if (existing?.id) {
+      await sb.from('payments').update({
+        amount: parseFloat(amount) || 0,
+        method,
+        waiter_id: _waiterId,
+        stripe_status: 'manual',
+      }).eq('id', existing.id);
+    } else {
+      await sb.from('payments').insert({
+        room_id: roomId,
+        guest_id: guestId || null,
+        amount: parseFloat(amount) || 0,
+        method,
+        waiter_id: _waiterId,
+        stripe_status: 'manual',
+      });
+    }
     // Comprobar si todos han pagado
     const { data: guests } = await sb.from('guests').select('id').eq('room_id', roomId);
-    const { data: payments } = await sb.from('payments').select('guest_id,amount').eq('room_id', roomId);
-    const paidIds = new Set((payments||[]).filter(p=>p.guest_id).map(p=>p.guest_id));
+    const { data: payments } = await sb.from('payments').select('guest_id,amount,stripe_status').eq('room_id', roomId);
+    const paidIds = new Set((payments||[])
+      .filter(p => p.guest_id && p.stripe_status !== 'pending_waiter')
+      .map(p => p.guest_id));
     const allPaid = (guests||[]).length > 0 && (guests||[]).every(g => paidIds.has(g.id));
     if (allPaid) {
       const totalPaid = (payments||[]).reduce((s,p)=>s+parseFloat(p.amount||0),0);
