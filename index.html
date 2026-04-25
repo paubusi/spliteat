@@ -5983,8 +5983,12 @@ function buildPayScreen() {
     }
   }
 
-  const list = document.getElementById('pay-status-list');
-  list.innerHTML = totals.map((t, i) => {
+  // Bug #2: Solo renderizar el desglose por comensal si el método es 'split'.
+  // Para 'full' (Invito yo) y 'equal' (Partes iguales) los renders propios ya
+  // han poblado pay-status-list con el resumen correcto — no sobreescribirlo.
+  if (_payMethod !== 'full' && _payMethod !== 'equal') {
+    const list = document.getElementById('pay-status-list');
+    list.innerHTML = totals.map((t, i) => {
     const isMe = t.g.id === state.myGuestId;
     // #85.2: Distinguir entre pago confirmado (manual/succeeded) y pendiente del camarero
     const allPayments = (state.payments || []).filter(p => p.guest_id === t.g.id);
@@ -6021,6 +6025,7 @@ function buildPayScreen() {
       </div>
     </div>`;
   }).join('');
+  } // end if (_payMethod !== 'full' && _payMethod !== 'equal')
 }
 
 // P2: Show account closed screen on ALL devices simultaneously
@@ -9370,7 +9375,15 @@ async function loadAdminWaiters() {
       ${avatar}
       <div style="flex:1;min-width:0">
         <div style="font-size:14px;font-weight:500">${escHtml(w.name)}</div>
-        <div style="font-size:12px;color:var(--t2)">${w.email || 'Sin email'} · ${roleLabel} · ${w.active ? '✓ Activo' : '✗ Inactivo'}</div>
+        <div style="font-size:12px;color:var(--t2)">${w.email || 'Sin email'} · ${roleLabel}</div>
+        <div style="font-size:11px;margin-top:3px;display:flex;gap:8px;flex-wrap:wrap">
+          ${w.active
+            ? '<span style="color:var(--brand);font-weight:500">✓ Habilitado</span>'
+            : '<span style="color:var(--accent);font-weight:500">✗ Deshabilitado</span>'}
+          ${w.is_active
+            ? '<span style="color:var(--brand);font-weight:500">🟢 Conectado ahora</span>'
+            : '<span style="color:var(--t3)">⚪ Sin sesión activa</span>'}
+        </div>
       </div>
       <div style="display:flex;align-items:center;gap:6px">
         <button onclick="resetWaiterPassword('${w.id}','${escHtml(w.name)}')"
