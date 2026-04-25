@@ -4066,6 +4066,21 @@ function subscribeRealtime() {
         document.getElementById('pay-method-modal').style.display = 'none';
         notify(`${escHtml(locker)} ha elegido pagar con ${_payMethod === 'split' ? 'spliteat' : _payMethod === 'full' ? 'invitación' : 'partes iguales'}`, 'info');
       }
+      // Bug #2: Si alguien CANCELÓ/RESETEÓ el método de pago, propagarlo a todos
+      if (!room.pay_method_locked && state._roomPayMethod) {
+        state._roomPayMethod = null;
+        _payMethod = null;
+        // Si estaba en pantalla de pago, volver al resumen
+        const onPayScreen = document.getElementById('s5-pay')?.classList.contains('active');
+        if (onPayScreen) {
+          notify('El método de pago se ha reiniciado. Vuelve a elegir.', 'info');
+          go('s4-summary');
+          if (typeof buildResumenPanel === 'function') buildResumenPanel();
+        }
+        // Ocultar banner cambiar método
+        const banner = document.getElementById('change-method-banner');
+        if (banner) banner.style.display = 'none';
+      }
 
       // N3: Auto-navigate to carta (requires carta_active column)
       if (room.carta_active && !state._cartaAutoNavDone) {
@@ -6246,64 +6261,105 @@ function _generateTicket(mode) {
   const me = totals.find(t => t.g.id === state.myGuestId);
   const myTotal = me ? me.total : 0;
 
-  // CSS base
-  const css = `body{font-family:Arial,sans-serif;max-width:400px;margin:0 auto;padding:20px;font-size:13px}
-    h1{font-size:20px;margin-bottom:4px}.muted{color:#888;font-size:11px}table{width:100%;border-collapse:collapse}
-    th{text-align:left;padding:3px 8px;border-bottom:2px solid #333}.total{font-size:18px;font-weight:700;margin-top:12px}
-    hr{border:none;border-top:1px dashed #ccc;margin:12px 0}`;
+  // CSS base — diseño tipo ticket de caja, formato A6 amigable para impresión y descarga
+  const css = `body{font-family:'Helvetica Neue',Arial,sans-serif;max-width:380px;margin:0 auto;padding:24px 20px;font-size:13px;color:#222;line-height:1.4}
+    h1{font-size:20px;margin:0 0 4px;font-weight:700}
+    .muted{color:#888;font-size:11px}
+    table{width:100%;border-collapse:collapse;margin:8px 0}
+    .total{font-size:16px;font-weight:700;margin-top:12px}
+    .grand{font-size:22px;font-weight:800;margin-top:8px;border-top:2px solid #222;padding-top:8px}
+    hr{border:none;border-top:1px dashed #ccc;margin:14px 0}
+    .footer{text-align:center;font-size:10px;color:#888;margin-top:20px}
+    .nif{font-size:10px;color:#666;margin-top:2px}`;
 
   let body = '';
 
   if (mode === 'mesa') {
     let rows = '';
     state.dishes.forEach(d => {
-      rows += `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee">${escHtml(d.name)}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">${fmt(parseFloat(d.price))}</td></tr>`;
+      rows += `<tr><td style="padding:5px 0;border-bottom:1px solid #eee">${escHtml(d.name)}</td><td style="padding:5px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">${fmt(parseFloat(d.price))}</td></tr>`;
     });
     const tipAmt = total * ((state.tipPercent || 0) / 100);
     const grandTotal = total + tipAmt;
 
     let guestRows = '';
     totals.forEach(t => {
-      guestRows += `<tr><td style="padding:3px 8px">${escHtml(t.g.name)}</td><td style="padding:3px 8px;text-align:right">${fmt(t.total)}</td></tr>`;
+      guestRows += `<tr><td style="padding:3px 0">${escHtml(t.g.name)}</td><td style="padding:3px 0;text-align:right">${fmt(t.total)}</td></tr>`;
     });
 
     body = `<h1>${escHtml(restName)}</h1>
-      <div class="muted">${now} · spliteat.es</div>
+      <div class="muted">${now}</div>
+      <div class="muted">Ticket nº ${(state.roomId||'').slice(0,8).toUpperCase()}</div>
       <hr>
       <table><tbody>${rows}</tbody></table>
-      <hr>
       <div class="total">Subtotal: ${fmt(total)}</div>
       ${tipAmt > 0 ? `<div style="font-size:13px;color:#666">Propina (${state.tipPercent}%): ${fmt(tipAmt)}</div>` : ''}
-      <div class="total" style="font-size:20px">TOTAL: ${fmt(grandTotal)}</div>
+      <div class="grand">TOTAL: ${fmt(grandTotal)}</div>
       <hr>
       <div style="font-size:12px;font-weight:600;margin-bottom:6px">Desglose por comensal</div>
       <table><tbody>${guestRows}</tbody></table>
-      <hr><div class="muted" style="text-align:center">Ticket generado con spliteat.es</div>`;
+      <div class="footer">Ticket simplificado · Generado con spliteat.es<br>
+        Para factura completa pídela al restaurante</div>`;
   } else {
-    // Individual ticket
     if (!me) { notify('No se encontró tu información', 'error'); return; }
     let myRows = '';
     me.soloItems.forEach(d => {
-      myRows += `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee">${escHtml(d.name)}</td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">${fmt(parseFloat(d.price))}</td></tr>`;
+      myRows += `<tr><td style="padding:5px 0;border-bottom:1px solid #eee">${escHtml(d.name)}</td><td style="padding:5px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">${fmt(parseFloat(d.price))}</td></tr>`;
     });
     me.sharedItems.forEach(({ d, share, nP }) => {
-      myRows += `<tr><td style="padding:4px 8px;border-bottom:1px solid #eee">${escHtml(d.name)} <span style="color:#888;font-size:11px">(÷${nP})</span></td><td style="padding:4px 8px;border-bottom:1px solid #eee;text-align:right">${fmt(share)}</td></tr>`;
+      myRows += `<tr><td style="padding:5px 0;border-bottom:1px solid #eee">${escHtml(d.name)} <span style="color:#888;font-size:11px">(÷${nP})</span></td><td style="padding:5px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">${fmt(share)}</td></tr>`;
     });
 
     body = `<h1>${escHtml(restName)}</h1>
-      <div class="muted">${now} · spliteat.es</div>
+      <div class="muted">${now}</div>
+      <div class="muted">Ticket nº ${(state.roomId||'').slice(0,8).toUpperCase()} · ${escHtml(me.g.name)}</div>
       <hr>
-      <div style="font-size:14px;font-weight:600;margin-bottom:8px">Ticket de: ${escHtml(me.g.name)}</div>
       <table><tbody>${myRows}</tbody></table>
-      <hr>
-      <div class="total">Mi total: ${fmt(myTotal)}</div>
+      <div class="grand">Mi total: ${fmt(myTotal)}</div>
       <div style="font-size:11px;color:#888;margin-top:4px">Total mesa: ${fmt(total)}</div>
-      <hr><div class="muted" style="text-align:center">Ticket individual · spliteat.es</div>`;
+      <div class="footer">Ticket individual · spliteat.es<br>
+        Para factura completa pídela al restaurante</div>`;
   }
 
-  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ticket — ${restName}</title><style>${css}</style></head><body>${body}</body></html>`;
-  const w = window.open('', '_blank');
-  if (w) { w.document.write(html); w.document.close(); setTimeout(() => w.print(), 400); }
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ticket — ${restName}</title><style>${css}</style></head><body>${body}<script>setTimeout(()=>window.print&&window.print(),300);<\/script></body></html>`;
+
+  // Generación robusta: Blob + descarga directa (funciona en iOS Safari y Android)
+  try {
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const fileName = `ticket-${(state.roomId||'').slice(0,8)}-${mode === 'individual' ? (me?.g.name||'').toLowerCase().replace(/\s+/g,'-') : 'mesa'}.html`;
+
+    // Estrategia: <a download> en un click sintético — iOS lo respeta
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 300);
+
+    // En móvil iOS, además de descargar, ofrecer abrir en nueva pestaña por si el usuario quiere imprimir
+    setTimeout(() => {
+      const opened = window.open(url, '_blank');
+      if (opened) {
+        // Algunos navegadores móviles pueden bloquear; si pasa, el download ya se ha disparado
+        opened.focus?.();
+      }
+    }, 100);
+
+    notify('Ticket descargado', 'success');
+  } catch (e) {
+    console.error('Ticket generation failed:', e);
+    // Fallback: data URL en nueva pestaña
+    const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
+    const w = window.open(dataUrl, '_blank');
+    if (!w) {
+      notify('No se pudo abrir el ticket. Comprueba el bloqueador de popups.', 'error');
+    }
+  }
 }
 
 function showFacturaModal() {
@@ -14259,12 +14315,12 @@ function openRevisarCuenta() {
 
   const total = state.dishes.reduce((s,d) => s+parseFloat(d.price||0), 0);
 
-  // Avatares de comensales para la cabecera
+  // Avatares de comensales para la cabecera — adaptados para fondo oscuro
   const guestAvatars = state.guests.map((g, i) => {
     const c = COLORS[i % COLORS.length];
-    return `<div style="display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:99px;background:${c}15;border:1.5px solid ${c}40">
-      <div style="width:8px;height:8px;border-radius:50%;background:${c};flex-shrink:0"></div>
-      <span style="font-size:13px;font-weight:500;color:${c}">${escHtml(g.name)}</span>
+    return `<div style="display:flex;align-items:center;gap:6px;padding:5px 11px;border-radius:99px;background:${c}30;border:1.5px solid ${c}90">
+      <div style="width:8px;height:8px;border-radius:50%;background:${c};flex-shrink:0;box-shadow:0 0 6px ${c}90"></div>
+      <span style="font-size:13px;font-weight:600;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4)">${escHtml(g.name)}</span>
     </div>`;
   }).join('');
 
@@ -14272,10 +14328,10 @@ function openRevisarCuenta() {
   el.id = 'revisar-cuenta-screen';
   el.style.cssText = 'position:fixed;inset:0;z-index:450;background:var(--bg);display:flex;flex-direction:column;overflow:hidden';
   el.innerHTML = `
-    <!-- Cabecera dark -->
-    <div style="background:#0C110F;border-bottom:1px solid rgba(255,255,255,.08);padding:.85rem 1.25rem 1rem;flex-shrink:0">
+    <!-- Cabecera con verde marca (más legible) -->
+    <div style="background:#052821;border-bottom:1px solid rgba(255,255,255,.08);padding:.85rem 1.25rem 1rem;flex-shrink:0">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
-        <button onclick="document.getElementById('revisar-cuenta-screen').remove()" style="background:none;border:none;font-size:13px;color:rgba(255,255,255,.4);cursor:pointer;font-family:inherit">← Volver</button>
+        <button onclick="document.getElementById('revisar-cuenta-screen').remove()" style="background:none;border:none;font-size:13px;color:rgba(255,255,255,.7);cursor:pointer;font-family:inherit">← Volver</button>
         <div style="font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:#EEF0EC">Revisar cuenta</div>
         <div style="width:60px"></div>
       </div>
@@ -14283,8 +14339,8 @@ function openRevisarCuenta() {
       <div style="display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.65rem">${guestAvatars}</div>
       <!-- ¿Falta alguien? -->
       ${!payLocked ? `<div id="rc-add-area">
-        <button onclick="rcToggleAddForm()" style="width:100%;padding:7px;border-radius:var(--r-sm);border:1.5px dashed var(--bd2);background:none;color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">
-          ¿Falta alguien? <span style="color:var(--brand-d);font-weight:500">+ Añadir persona</span>
+        <button onclick="rcToggleAddForm()" style="width:100%;padding:8px 10px;border-radius:var(--r-sm);border:1.5px dashed rgba(255,255,255,.3);background:rgba(255,255,255,.05);color:rgba(255,255,255,.85);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">
+          ¿Falta alguien? <span style="color:#2AB589;font-weight:600">+ Añadir persona</span>
         </button>
         <div id="rc-add-form" style="display:none;margin-top:.4rem;display:none">
           <div style="display:flex;gap:.4rem">
@@ -14736,29 +14792,66 @@ function showPaymentLockedModal(existingPayments) {
 }
 
 // #8-U4: Reset payment method — only if nobody has paid
-function resetPayMethod() {
-  const noPaid = !state.payments || state.payments.filter(p => p.guest_id).length === 0;
-  if (!noPaid) {
-    notify('No se puede cambiar — alguien ya ha pagado.', 'info');
+async function resetPayMethod() {
+  // Excluir pending_waiter del check: esos pagos no están finalizados, son sólo "esperando camarero"
+  const realPayments = (state.payments || []).filter(p =>
+    p.guest_id && p.stripe_status !== 'pending_waiter'
+  );
+  if (realPayments.length > 0) {
+    notify('No se puede cambiar el método — ya hay pagos confirmados.', 'info');
     return;
   }
+
+  // Si hay solicitudes pendientes con camarero, avisar
+  const pendingWaiterCount = (state.payments || []).filter(p =>
+    p.guest_id && p.stripe_status === 'pending_waiter'
+  ).length;
+  if (pendingWaiterCount > 0) {
+    const ok = await confirmModal(
+      `Hay ${pendingWaiterCount} solicitud${pendingWaiterCount>1?'es':''} de cobro pendiente${pendingWaiterCount>1?'s':''} con el camarero.\nSi cambias el método, esas solicitudes se cancelarán.`,
+      { danger: false, confirmText: 'Cambiar método' }
+    );
+    if (!ok) return;
+    // Cancelar todas las solicitudes pending_waiter
+    await sb.from('payments').delete()
+      .eq('room_id', state.roomId)
+      .eq('stripe_status', 'pending_waiter');
+  }
+
   _payMethod = null;
-  // Hide the change-method banner
+  state._roomPayMethod = null;
+
+  // Ocultar banner localmente (el realtime también lo hará en otros dispositivos)
   const banner = document.getElementById('change-method-banner');
   if (banner) banner.style.display = 'none';
-  // Clear DB lock if set
+
+  // Limpiar lock en DB — propagado a todos los dispositivos por el room subscription
   if (state.roomId) {
-    sb.from('rooms').update({ pay_method_locked: null, pay_method_locker_name: null })
-      .eq('id', state.roomId).catch(() => {});
+    try {
+      await sb.from('rooms').update({
+        pay_method_locked: null,
+        pay_method_locker_name: null
+      }).eq('id', state.roomId);
+    } catch(e) { console.warn('reset pay_method_locked failed:', e); }
   }
-  // Show the method selection modal directly
-  document.getElementById('equal-split-panel').style.display = 'none';
+
+  // Resetear UI local
+  const eqPanel = document.getElementById('equal-split-panel');
+  if (eqPanel) eqPanel.style.display = 'none';
   document.querySelectorAll('.pay-method-btn').forEach(b => {
     b.style.borderColor = 'var(--bd2)';
     b.style.background = 'var(--card)';
   });
+
+  // Mostrar el selector de método
   const modal = document.getElementById('pay-method-modal');
-  if (modal) modal.style.display = 'flex';
+  if (modal) {
+    modal.style.display = 'flex';
+  } else {
+    // Fallback: si el modal no existe, ir al resumen
+    notify('Volviendo al resumen para cambiar método...', 'info');
+    go('s4-summary');
+  }
 }
 
 function showPayMethodModal() {
