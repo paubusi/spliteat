@@ -603,8 +603,7 @@
     font-size: 10px; font-weight: 700; font-family: 'Fraunces', serif;
     flex-shrink: 0;
   }
-  .av-pill.paid  { border-color: rgba(29,158,117,.3); background: rgba(29,158,117,.1); }
-  .av-pill.pending { border-color: rgba(216,90,48,.3); background: rgba(216,90,48,.08); }
+  /* Nota: estilos paid/pending ahora se aplican inline para usar el color del comensal */
 
   /* Dish tracker rows */
   .dish-track-row {
@@ -1676,8 +1675,8 @@
       <button class="tab on" id="ktab-btn-pedidos" onclick="showKitchenTab('pedidos')">
         KDS - Kitchen Display System <span id="k-pedidos-badge" style="display:none;background:#E24B4A;color:#fff;border-radius:99px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:3px">0</span>
       </button>
-      <button class="tab" id="ktab-btn-carta" onclick="showKitchenTab('carta')">Carta</button>
-      <button class="tab" id="ktab-btn-config" onclick="showKitchenTab('config')">Tiempos</button>
+      <button class="tab" id="ktab-btn-stockeat" onclick="showKitchenTab('stockeat')">📦 stockeat <span id="k-stockeat-badge" style="display:none;background:var(--accent);color:#fff;border-radius:99px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:3px">0</span></button>
+      <button class="tab" id="ktab-btn-ajustes" onclick="showKitchenTab('ajustes')">⚙️ Ajustes</button>
     </div>
 
     <!-- TAB KDS — vista por pases -->
@@ -1722,6 +1721,75 @@
         </div>
         <div id="k-prep-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.4rem">
           <div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px;grid-column:1/-1">Cargando...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- #3: TAB STOCKEAT en cookeat — vista simplificada para cocina (alertas + inventario lectura + mermas rápidas) -->
+    <div id="ktab-stockeat" style="display:none;height:calc(100dvh - 110px);overflow-y:auto;padding:.65rem">
+      <div style="max-width:1100px;margin:0 auto">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem">
+          <div>
+            <div style="font-size:15px;font-weight:600">📦 Stockeat — vista cocina</div>
+            <div style="font-size:12px;color:var(--t2);margin-top:2px">Alertas en vivo, registro rápido de mermas y consulta de stock</div>
+          </div>
+          <a href="javascript:void(0)" onclick="notify('La gestión completa de stockeat (recetas, proveedores, compras) está en manageat → stockeat', 'info')"
+             style="font-size:11px;color:var(--t3);text-decoration:underline">¿Gestión completa?</a>
+        </div>
+
+        <!-- Alertas críticas (reutiliza renderStockAlerts) -->
+        <div id="kstk-alerts" style="margin-bottom:1rem"></div>
+
+        <!-- KPIs rápidos -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.65rem;margin-bottom:1rem">
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.75rem 1rem">
+            <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:500">Alertas activas</div>
+            <div id="kstk-stat-alerts" style="font-size:20px;font-weight:700;color:var(--accent);margin-top:2px;font-family:'Fraunces',serif">—</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.75rem 1rem">
+            <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:500">Bajo mínimo</div>
+            <div id="kstk-stat-low" style="font-size:20px;font-weight:700;color:var(--amber);margin-top:2px;font-family:'Fraunces',serif">—</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.75rem 1rem">
+            <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:500">Ingredientes</div>
+            <div id="kstk-stat-total" style="font-size:20px;font-weight:700;color:var(--brand-d);margin-top:2px;font-family:'Fraunces',serif">—</div>
+          </div>
+        </div>
+
+        <!-- Lista de inventario solo-lectura con botón "Registrar merma" -->
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden">
+          <div style="padding:.75rem 1rem;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center">
+            <strong style="font-size:13px">Inventario actual</strong>
+            <input id="kstk-search" type="text" placeholder="🔍 Buscar..." oninput="renderKitchenStockList()"
+              style="font-size:12px;padding:5px 10px;border:1px solid var(--bd2);border-radius:99px;background:var(--bg);width:140px;font-family:inherit">
+          </div>
+          <div id="kstk-inv-list">
+            <div style="padding:2rem;text-align:center;color:var(--t3);font-size:13px">Cargando...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- #3: TAB AJUSTES — agrupa Carta y Tiempos -->
+    <div id="ktab-ajustes" style="display:none;height:calc(100dvh - 110px);overflow-y:auto;padding:.65rem">
+      <div style="max-width:860px;margin:0 auto">
+        <div style="font-size:15px;font-weight:600;margin-bottom:.5rem">⚙️ Ajustes operativos</div>
+        <div style="font-size:12px;color:var(--t2);margin-bottom:1rem;line-height:1.5">
+          Activa o desactiva platos según disponibilidad y ajusta tiempos de preparación.
+        </div>
+        <!-- Sub-tabs internos -->
+        <div style="display:flex;gap:.4rem;border-bottom:1px solid var(--bd);margin-bottom:1rem">
+          <button id="kaj-sub-carta" class="on" onclick="showKitchenAjustesSection('carta')"
+            style="background:var(--brand-l);color:var(--brand-d);font-weight:600;padding:8px 16px;border:none;border-radius:var(--r-sm) var(--r-sm) 0 0;cursor:pointer;font-family:inherit;font-size:13px;border-bottom:2px solid var(--brand)">
+            🍽 Carta — activar/desactivar platos
+          </button>
+          <button id="kaj-sub-config" onclick="showKitchenAjustesSection('config')"
+            style="background:transparent;color:var(--t2);font-weight:500;padding:8px 16px;border:none;border-radius:var(--r-sm) var(--r-sm) 0 0;cursor:pointer;font-family:inherit;font-size:13px">
+            ⏱ Tiempos de preparación
+          </button>
+        </div>
+        <div id="kaj-info" style="font-size:11px;color:var(--t3);margin-bottom:.5rem">
+          Los ajustes se sincronizan en tiempo real con manageat y serveat.
         </div>
       </div>
     </div>
@@ -3354,12 +3422,14 @@ function updateTrackerHero() {
       const c = COLORS[i % COLORS.length];
       const initial = (g.name||'?')[0].toUpperCase();
       const cls = paid ? 'paid' : 'pending';
-      const avStyle = 'background:' + c + '22;color:' + c;
-      const spanColor = paid ? c : 'var(--t2)';
-      return '<div class="av-pill ' + cls + '">'
-        + '<div class="av-dot" style="' + avStyle + '">' + initial + '</div>'
-        + '<span style="color:' + spanColor + '">' + escHtml(g.name) + '</span>'
-        + '</div>';
+      // Pills más visibles sobre fondo oscuro: fondo translúcido del color + nombre en blanco con glow
+      const pillBg = `background:${c}30;border:1.5px solid ${c}90`;
+      const dotStyle = `background:${c};color:#fff;box-shadow:0 0 6px ${c}`;
+      return `<div class="av-pill ${cls}" style="${pillBg}">`
+        + `<div class="av-dot" style="${dotStyle}">${initial}</div>`
+        + `<span style="color:#fff;font-weight:600;text-shadow:0 1px 2px rgba(0,0,0,.4)">${escHtml(g.name)}</span>`
+        + (paid ? `<span style="font-size:10px;color:#2AB589;margin-left:2px">✓</span>` : '')
+        + `</div>`;
     }).join('');
   }
 
@@ -6193,9 +6263,13 @@ function showAccountClosed() {
 
 // #BG8: Factura modal — request invoice after account closed
 function downloadTicketPDF() {
-  // Only allow when all guests have paid
+  // Only allow when all guests have paid — excluir pending_waiter (no son pagos finalizados)
   const totals = calcTotals();
-  const paidIds = new Set(state.payments.filter(p => p.guest_id).map(p => p.guest_id));
+  const paidIds = new Set(
+    state.payments
+      .filter(p => p.guest_id && p.stripe_status !== 'pending_waiter')
+      .map(p => p.guest_id)
+  );
   const allPaid = state.guests.length > 0 && state.guests.every(g => paidIds.has(g.id));
 
   if (!allPaid) {
@@ -6252,25 +6326,70 @@ function downloadTicketPDF() {
   el.addEventListener('click', e => { if (e.target === el) el.remove(); });
 }
 
-function _generateTicket(mode) {
+async function _generateTicket(mode) {
   const totals = calcTotals();
   const total = state.dishes.reduce((s,d) => s + parseFloat(d.price||0), 0);
-  const now = new Date().toLocaleString('es-ES', { dateStyle:'short', timeStyle:'short' });
+  const now = new Date();
+  const fechaStr = now.toLocaleString('es-ES', { dateStyle:'short', timeStyle:'short' });
   const restName = state.restaurantName || 'Restaurante';
 
   const me = totals.find(t => t.g.id === state.myGuestId);
   const myTotal = me ? me.total : 0;
 
-  // CSS base — diseño tipo ticket de caja, formato A6 amigable para impresión y descarga
-  const css = `body{font-family:'Helvetica Neue',Arial,sans-serif;max-width:380px;margin:0 auto;padding:24px 20px;font-size:13px;color:#222;line-height:1.4}
-    h1{font-size:20px;margin:0 0 4px;font-weight:700}
+  // Cargar datos fiscales del restaurante (one-shot al generar)
+  let fiscalData = state._restaurantFiscal;
+  if (!fiscalData && state.restaurantId) {
+    try {
+      const { data } = await sb.from('restaurants')
+        .select('name,nif,address,phone,contact_email,invoice_series,iva_rate')
+        .eq('id', state.restaurantId).maybeSingle();
+      if (data) {
+        fiscalData = data;
+        state._restaurantFiscal = data;
+      }
+    } catch(e) { console.warn('No se pudieron cargar datos fiscales:', e); }
+  }
+  fiscalData = fiscalData || {};
+
+  // Número de ticket: usar serie + room_id corto + timestamp
+  const serie = fiscalData.invoice_series || 'T-';
+  const ticketNum = serie + (state.roomId || '').slice(0,8).toUpperCase();
+  const ivaRate = parseFloat(fiscalData.iva_rate ?? 10);
+
+  // Cálculo IVA a partir del total con IVA incluido (típico en hostelería ES)
+  const calcIva = (amt) => {
+    const base = amt / (1 + ivaRate/100);
+    const ivaAmt = amt - base;
+    return { base: base, iva: ivaAmt };
+  };
+
+  // CSS — diseño tipo factura simplificada legal (RD 1619/2012)
+  const css = `body{font-family:'Helvetica Neue',Arial,sans-serif;max-width:380px;margin:0 auto;padding:24px 20px;font-size:13px;color:#222;line-height:1.45}
+    .header{text-align:center;margin-bottom:14px}
+    h1{font-size:18px;margin:0 0 4px;font-weight:700}
+    .fiscal-info{font-size:11px;color:#444;line-height:1.4;margin-top:4px}
+    .ticket-num{font-size:13px;font-weight:600;margin:14px 0 4px}
     .muted{color:#888;font-size:11px}
     table{width:100%;border-collapse:collapse;margin:8px 0}
-    .total{font-size:16px;font-weight:700;margin-top:12px}
-    .grand{font-size:22px;font-weight:800;margin-top:8px;border-top:2px solid #222;padding-top:8px}
+    .total-row{font-size:14px;font-weight:600;margin-top:8px}
+    .grand{font-size:20px;font-weight:800;margin-top:10px;border-top:2px solid #222;padding-top:8px}
+    .iva-block{font-size:11px;color:#555;margin-top:8px;border-top:1px solid #ddd;padding-top:6px}
+    .iva-block table{margin:0}
+    .iva-block td{padding:2px 0}
     hr{border:none;border-top:1px dashed #ccc;margin:14px 0}
-    .footer{text-align:center;font-size:10px;color:#888;margin-top:20px}
-    .nif{font-size:10px;color:#666;margin-top:2px}`;
+    .footer{text-align:center;font-size:10px;color:#888;margin-top:20px;line-height:1.5}`;
+
+  // Cabecera con datos fiscales
+  const header = `<div class="header">
+    <h1>${escHtml(fiscalData.name || restName)}</h1>
+    <div class="fiscal-info">
+      ${fiscalData.nif ? `NIF: ${escHtml(fiscalData.nif)}<br>` : ''}
+      ${fiscalData.address ? `${escHtml(fiscalData.address)}<br>` : ''}
+      ${fiscalData.phone ? `Tel: ${escHtml(fiscalData.phone)}` : ''}
+    </div>
+    <div class="ticket-num">Ticket: ${escHtml(ticketNum)}</div>
+    <div class="muted">${fechaStr}</div>
+  </div>`;
 
   let body = '';
 
@@ -6281,25 +6400,30 @@ function _generateTicket(mode) {
     });
     const tipAmt = total * ((state.tipPercent || 0) / 100);
     const grandTotal = total + tipAmt;
+    const { base, iva } = calcIva(total);
 
     let guestRows = '';
     totals.forEach(t => {
       guestRows += `<tr><td style="padding:3px 0">${escHtml(t.g.name)}</td><td style="padding:3px 0;text-align:right">${fmt(t.total)}</td></tr>`;
     });
 
-    body = `<h1>${escHtml(restName)}</h1>
-      <div class="muted">${now}</div>
-      <div class="muted">Ticket nº ${(state.roomId||'').slice(0,8).toUpperCase()}</div>
-      <hr>
+    body = `${header}
       <table><tbody>${rows}</tbody></table>
-      <div class="total">Subtotal: ${fmt(total)}</div>
-      ${tipAmt > 0 ? `<div style="font-size:13px;color:#666">Propina (${state.tipPercent}%): ${fmt(tipAmt)}</div>` : ''}
+      <div class="iva-block">
+        <table>
+          <tr><td>Base imponible</td><td style="text-align:right">${fmt(base)}</td></tr>
+          <tr><td>IVA (${ivaRate}%)</td><td style="text-align:right">${fmt(iva)}</td></tr>
+          ${tipAmt > 0 ? `<tr><td>Propina (${state.tipPercent}%)</td><td style="text-align:right">${fmt(tipAmt)}</td></tr>` : ''}
+        </table>
+      </div>
       <div class="grand">TOTAL: ${fmt(grandTotal)}</div>
       <hr>
       <div style="font-size:12px;font-weight:600;margin-bottom:6px">Desglose por comensal</div>
       <table><tbody>${guestRows}</tbody></table>
-      <div class="footer">Ticket simplificado · Generado con spliteat.es<br>
-        Para factura completa pídela al restaurante</div>`;
+      <div class="footer">
+        <strong>Factura simplificada</strong> — Art. 7 RD 1619/2012<br>
+        Emitida con spliteat.es
+      </div>`;
   } else {
     if (!me) { notify('No se encontró tu información', 'error'); return; }
     let myRows = '';
@@ -6310,26 +6434,33 @@ function _generateTicket(mode) {
       myRows += `<tr><td style="padding:5px 0;border-bottom:1px solid #eee">${escHtml(d.name)} <span style="color:#888;font-size:11px">(÷${nP})</span></td><td style="padding:5px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">${fmt(share)}</td></tr>`;
     });
 
-    body = `<h1>${escHtml(restName)}</h1>
-      <div class="muted">${now}</div>
-      <div class="muted">Ticket nº ${(state.roomId||'').slice(0,8).toUpperCase()} · ${escHtml(me.g.name)}</div>
-      <hr>
+    const { base, iva } = calcIva(myTotal);
+
+    body = `${header}
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">Cliente: ${escHtml(me.g.name)}</div>
       <table><tbody>${myRows}</tbody></table>
-      <div class="grand">Mi total: ${fmt(myTotal)}</div>
+      <div class="iva-block">
+        <table>
+          <tr><td>Base imponible</td><td style="text-align:right">${fmt(base)}</td></tr>
+          <tr><td>IVA (${ivaRate}%)</td><td style="text-align:right">${fmt(iva)}</td></tr>
+        </table>
+      </div>
+      <div class="grand">Total: ${fmt(myTotal)}</div>
       <div style="font-size:11px;color:#888;margin-top:4px">Total mesa: ${fmt(total)}</div>
-      <div class="footer">Ticket individual · spliteat.es<br>
-        Para factura completa pídela al restaurante</div>`;
+      <div class="footer">
+        <strong>Factura simplificada</strong> — Art. 7 RD 1619/2012<br>
+        Emitida con spliteat.es
+      </div>`;
   }
 
-  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ticket — ${restName}</title><style>${css}</style></head><body>${body}<script>setTimeout(()=>window.print&&window.print(),300);<\/script></body></html>`;
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escHtml(ticketNum)}</title><style>${css}</style></head><body>${body}<script>setTimeout(()=>window.print&&window.print(),300);<\/script></body></html>`;
 
   // Generación robusta: Blob + descarga directa (funciona en iOS Safari y Android)
   try {
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    const fileName = `ticket-${(state.roomId||'').slice(0,8)}-${mode === 'individual' ? (me?.g.name||'').toLowerCase().replace(/\s+/g,'-') : 'mesa'}.html`;
+    const fileName = `${ticketNum}-${mode === 'individual' ? (me?.g.name||'').toLowerCase().replace(/\s+/g,'-') : 'mesa'}.html`;
 
-    // Estrategia: <a download> en un click sintético — iOS lo respeta
     const a = document.createElement('a');
     a.href = url;
     a.download = fileName;
@@ -6341,19 +6472,14 @@ function _generateTicket(mode) {
       URL.revokeObjectURL(url);
     }, 300);
 
-    // En móvil iOS, además de descargar, ofrecer abrir en nueva pestaña por si el usuario quiere imprimir
     setTimeout(() => {
       const opened = window.open(url, '_blank');
-      if (opened) {
-        // Algunos navegadores móviles pueden bloquear; si pasa, el download ya se ha disparado
-        opened.focus?.();
-      }
+      if (opened) opened.focus?.();
     }, 100);
 
     notify('Ticket descargado', 'success');
   } catch (e) {
     console.error('Ticket generation failed:', e);
-    // Fallback: data URL en nueva pestaña
     const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
     const w = window.open(dataUrl, '_blank');
     if (!w) {
@@ -6888,7 +7014,7 @@ async function payWithStripe(me, method) {
 // KITCHEN SCREEN
 // ══════════════════════════════════════════════════════
 function showKitchenTab(name) {
-  ['pedidos','carta','config'].forEach(t => {
+  ['pedidos','carta','config','stockeat','ajustes'].forEach(t => {
     const el = document.getElementById('ktab-' + t);
     if (el) el.style.display = t === name ? 'block' : 'none';
     const btn = document.getElementById('ktab-btn-' + t);
@@ -6897,6 +7023,174 @@ function showKitchenTab(name) {
   if (name === 'pedidos') loadKitchenOrders();
   if (name === 'carta') loadKitchenCarta();
   if (name === 'config') loadKitchenPrepTimes();
+  if (name === 'stockeat') initKitchenStockeat();
+  if (name === 'ajustes') showKitchenAjustesSection('carta');
+}
+
+// #3: Sub-tabs dentro de Ajustes — alterna entre Carta y Tiempos
+function showKitchenAjustesSection(section) {
+  ['carta','config'].forEach(s => {
+    const el = document.getElementById('ktab-' + s);
+    if (el) el.style.display = s === section ? 'block' : 'none';
+    const btn = document.getElementById('kaj-sub-' + s);
+    if (btn) {
+      btn.classList.toggle('on', s === section);
+      btn.style.background = s === section ? 'var(--brand-l)' : 'transparent';
+      btn.style.color = s === section ? 'var(--brand-d)' : 'var(--t2)';
+      btn.style.fontWeight = s === section ? '600' : '500';
+    }
+  });
+  if (section === 'carta') loadKitchenCarta();
+  if (section === 'config') loadKitchenPrepTimes();
+}
+
+// #3: Stockeat en cookeat — vista simplificada para cocina (alertas + lectura + mermas)
+async function initKitchenStockeat() {
+  const restId = state.kitchenRestaurantId;
+  if (!restId) return;
+
+  // Cargar ingredientes + inventario + alertas
+  const [ingResp, invResp, alertsResp] = await Promise.all([
+    sb.from('stock_ingredients').select('*').eq('restaurant_id', restId).eq('is_active', true).order('name'),
+    sb.from('stock_inventory').select('*').eq('restaurant_id', restId),
+    sb.from('stock_alerts').select('*').eq('restaurant_id', restId).is('resolved_at', null).order('created_at', {ascending:false}),
+  ]);
+
+  state._kstk = {
+    ingredients: ingResp.data || [],
+    inventory: invResp.data || [],
+    alerts: alertsResp.data || [],
+  };
+
+  // KPIs
+  const lowCount = (state._kstk.ingredients || []).filter(ing => {
+    const inv = state._kstk.inventory.find(i => i.ingredient_id === ing.id);
+    return ing.par_min > 0 && (inv?.qty_on_hand || 0) < ing.par_min;
+  }).length;
+
+  document.getElementById('kstk-stat-alerts').textContent = state._kstk.alerts.length;
+  document.getElementById('kstk-stat-low').textContent = lowCount;
+  document.getElementById('kstk-stat-total').textContent = state._kstk.ingredients.length;
+
+  // Render alertas (reutilizar versión ligera)
+  renderKitchenStockAlerts();
+  renderKitchenStockList();
+}
+
+function renderKitchenStockAlerts() {
+  const el = document.getElementById('kstk-alerts');
+  if (!el) return;
+  const alerts = state._kstk?.alerts || [];
+  if (!alerts.length) { el.innerHTML = ''; return; }
+  const ingMap = new Map((state._kstk?.ingredients || []).map(i => [i.id, i]));
+  el.innerHTML = `<div style="background:#FAECE7;border:1px solid rgba(216,90,48,.25);border-radius:var(--r);padding:.85rem 1rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+      <span style="font-size:13px;font-weight:600;color:var(--accent)">⚠️ ${alerts.length} alerta${alerts.length > 1 ? 's' : ''} activa${alerts.length > 1 ? 's' : ''}</span>
+    </div>
+    ${alerts.slice(0, 4).map(a => {
+      const ing = ingMap.get(a.ingredient_id);
+      const text = a.action_suggested?.menu_item_name
+        ? `Plato sin receta: ${a.action_suggested.menu_item_name}`
+        : a.kind === 'low_stock' && ing
+          ? `Stock bajo: ${ing.name}`
+          : a.kind === 'oversold' && ing
+            ? `Sobrevendido: ${ing.name}`
+            : a.message || 'Alerta';
+      return `<div style="padding:4px 0;font-size:12px;color:var(--t1)">${escHtml(text)}</div>`;
+    }).join('')}
+    ${alerts.length > 4 ? `<div style="font-size:11px;color:var(--t2);margin-top:6px">+ ${alerts.length - 4} más en manageat</div>` : ''}
+  </div>`;
+}
+
+function renderKitchenStockList() {
+  const el = document.getElementById('kstk-inv-list');
+  if (!el) return;
+  const ings = state._kstk?.ingredients || [];
+  const inv = state._kstk?.inventory || [];
+  if (!ings.length) {
+    el.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--t3);font-size:13px">Sin ingredientes configurados.</div>`;
+    return;
+  }
+  const search = document.getElementById('kstk-search')?.value?.trim().toLowerCase() || '';
+  const filtered = search ? ings.filter(i => i.name.toLowerCase().includes(search)) : ings;
+  if (!filtered.length) {
+    el.innerHTML = `<div style="padding:1.5rem;text-align:center;color:var(--t3);font-size:13px">Sin resultados para "${escHtml(search)}".</div>`;
+    return;
+  }
+  const invMap = new Map(inv.map(i => [i.ingredient_id, i.qty_on_hand || 0]));
+  el.innerHTML = filtered.map(ing => {
+    const qty = invMap.get(ing.id) || 0;
+    const isLow = ing.par_min > 0 && qty < ing.par_min;
+    const isZero = qty <= 0;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--bd);gap:.5rem">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(ing.name)}</div>
+        ${isLow ? `<div style="font-size:10px;color:var(--accent);font-weight:500">⚠️ Bajo mínimo (${ing.par_min} ${ing.base_unit})</div>` : ''}
+      </div>
+      <div style="text-align:right;font-size:13px;font-weight:600;color:${isZero ? 'var(--accent)' : isLow ? 'var(--amber)' : 'var(--t1)'};font-family:'Fraunces',serif;min-width:70px">
+        ${qty.toLocaleString('es-ES', {maximumFractionDigits:1})} ${ing.base_unit}
+      </div>
+      <button onclick="kitchenRegisterMerma('${ing.id}','${escHtml(ing.name).replace(/'/g,"\\'")}','${ing.base_unit}')"
+        style="padding:5px 10px;border-radius:99px;border:1px solid var(--accent);background:#FFF5F0;color:var(--accent);font-size:11px;cursor:pointer;font-family:inherit;font-weight:500;flex-shrink:0">
+        Merma
+      </button>
+    </div>`;
+  }).join('');
+}
+
+// Registro rápido de merma — minimalista, mobile-first para cocina
+async function kitchenRegisterMerma(ingId, ingName, baseUnit) {
+  document.getElementById('kstk-merma-modal')?.remove();
+  const el = document.createElement('div');
+  el.id = 'kstk-merma-modal';
+  el.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;padding:1rem';
+  el.innerHTML = `
+    <div style="background:var(--card);border-radius:16px 16px 0 0;width:100%;max-width:430px;padding:1.5rem 1.25rem 2rem">
+      <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--t1);margin-bottom:.25rem">Registrar merma</div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:1rem">${escHtml(ingName)}</div>
+      <label style="font-size:12px;color:var(--t2);display:block;margin-bottom:.25rem">Cantidad mermada (en ${baseUnit})</label>
+      <input id="kstk-merma-qty" type="number" step="0.01" inputmode="decimal" placeholder="0"
+        style="width:100%;padding:14px;font-size:24px;font-family:'Fraunces',serif;border:1.5px solid var(--bd2);border-radius:var(--r-sm);background:var(--bg);text-align:center;margin-bottom:.75rem"
+        onkeydown="if(event.key==='Enter')kitchenSaveMerma('${ingId}')">
+      <label style="font-size:12px;color:var(--t2);display:block;margin-bottom:.25rem">Motivo (opcional)</label>
+      <select id="kstk-merma-reason" style="width:100%;padding:10px;font-size:14px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);background:var(--bg);margin-bottom:1rem;font-family:inherit">
+        <option value="caducado">Caducado</option>
+        <option value="quemado">Quemado / mal cocinado</option>
+        <option value="caido">Caído al suelo</option>
+        <option value="rotura">Rotura</option>
+        <option value="otro">Otro</option>
+      </select>
+      <div style="display:flex;gap:.5rem">
+        <button onclick="document.getElementById('kstk-merma-modal').remove()"
+          style="flex:1;padding:12px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:none;color:var(--t1);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">Cancelar</button>
+        <button onclick="kitchenSaveMerma('${ingId}')"
+          style="flex:1;padding:12px;border-radius:var(--r-sm);border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">Registrar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+  setTimeout(() => document.getElementById('kstk-merma-qty')?.focus(), 100);
+}
+
+async function kitchenSaveMerma(ingId) {
+  const qtyEl = document.getElementById('kstk-merma-qty');
+  const reasonEl = document.getElementById('kstk-merma-reason');
+  const qty = parseFloat(qtyEl?.value || '0');
+  if (!qty || qty <= 0) { notify('Cantidad inválida', 'error'); return; }
+  const reason = reasonEl?.value || 'otro';
+
+  // Insertar movimiento tipo 'waste' — el trigger fn_apply_movement_to_inventory descuenta el stock
+  const { error } = await sb.from('stock_movements').insert({
+    restaurant_id: state.kitchenRestaurantId,
+    ingredient_id: ingId,
+    type: 'waste',
+    delta: -Math.abs(qty),
+    notes: `Merma desde cocina: ${reason}`,
+  });
+  if (error) { notify('Error al registrar merma: ' + error.message, 'error'); return; }
+  document.getElementById('kstk-merma-modal').remove();
+  notify('Merma registrada', 'success');
+  // Refrescar lista
+  initKitchenStockeat();
 }
 
 async function openKitchen(restaurantId, restaurantName) {
