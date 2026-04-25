@@ -545,22 +545,26 @@
   body.diner-mode .logo, #app[data-diner] .logo { color: #EEF0EC; }
   body.diner-mode .back-btn, #app[data-diner] .back-btn { color: var(--t2); }
 
-  /* Tracker hero */
+  /* Tracker hero — fondo verde oscuro de marca, todos los textos en claro */
   .tracker-hero {
     background: #052821;
     padding: 1rem 1.25rem 1.25rem;
     border-bottom: 1px solid rgba(255,255,255,.07);
+    color: #EEF0EC;
+  }
+  .tracker-hero .muted, .tracker-hero .tracker-rest-name {
+    color: rgba(238,240,236,.65);
   }
   .tracker-status {
     font-family: 'Fraunces', serif;
     font-size: 21px;
     font-weight: 700;
-    color: var(--t1);
+    color: #EEF0EC;
     line-height: 1.2;
     margin-bottom: .65rem;
   }
-  .tracker-status .s-accent { color: var(--accent); font-style: italic; }
-  .tracker-status .s-green  { color: var(--brand); }
+  .tracker-status .s-accent { color: #FF7048; font-style: italic; }
+  .tracker-status .s-green  { color: #2AB589; }
 
   .progress-bar-wrap {
     height: 7px;
@@ -1151,12 +1155,12 @@
     <div class="tracker-hero" id="tracker-hero-section" style="position:sticky;top:56px;z-index:9;flex-shrink:0">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.65rem">
         <div>
-          <div id="tracker-mesa-label" style="font-size:11px;color:var(--t2);font-weight:500;margin-bottom:.15rem"></div>
+          <div id="tracker-mesa-label" style="font-size:11px;color:rgba(238,240,236,.65);font-weight:500;margin-bottom:.15rem"></div>
           <div class="tracker-status" id="tracker-status-text">Añade tu primer plato</div>
         </div>
         <div style="text-align:right;flex-shrink:0;margin-left:.75rem">
-          <div id="tracker-total" style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--t1)"></div>
-          <div id="tracker-total-lbl" style="font-size:10px;color:var(--t2)"></div>
+          <div id="tracker-total" style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:#EEF0EC"></div>
+          <div id="tracker-total-lbl" style="font-size:10px;color:rgba(238,240,236,.65)"></div>
         </div>
       </div>
       <!-- Barra de progreso del pedido -->
@@ -1164,7 +1168,7 @@
         <div class="progress-bar-wrap">
           <div class="progress-bar-fill" id="tracker-bar-fill" style="width:0%"></div>
         </div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--t3);margin-bottom:.75rem">
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:rgba(238,240,236,.55);margin-bottom:.75rem">
           <span id="tracker-bar-left">0 servidos</span>
           <span id="tracker-bar-right">0 platos</span>
         </div>
@@ -3859,22 +3863,24 @@ function showToast(title, body) {
 
   const toast = document.createElement('div');
   toast.id = 'spliteat-toast';
-  toast.innerHTML = `<div style="font-weight:500;font-size:14px;margin-bottom:${body?'2px':'0'}">${title}</div>${body?`<div style="font-size:12px;opacity:.85">${body}</div>`:''}`;
+  toast.innerHTML = `<div style="font-weight:500;font-size:13px;${body?'margin-bottom:2px':''}">${title}</div>${body?`<div style="font-size:11px;opacity:.85">${body}</div>`:''}`;
+  // Bug #2: Toast en bottom-center con safe-area, más compacto, no tapa el banner ni el contenido superior.
   toast.style.cssText = `
-    position:fixed;top:4.5rem;left:50%;transform:translateX(-50%);
-    background:#085041;color:#fff;padding:.65rem 1.25rem;border-radius:12px;
-    z-index:9999;max-width:340px;width:90%;text-align:center;
-    box-shadow:0 4px 20px rgba(0,0,0,0.25);
-    animation:slideDownToast .25s ease;
+    position:fixed;bottom:calc(1rem + env(safe-area-inset-bottom, 0px));left:50%;transform:translateX(-50%);
+    background:#085041;color:#fff;padding:.55rem 1rem;border-radius:10px;
+    z-index:9999;max-width:340px;width:fit-content;min-width:200px;text-align:center;
+    box-shadow:0 4px 16px rgba(0,0,0,0.3);
+    animation:slideUpToast .22s ease;
+    pointer-events:none;
   `;
   if (!document.getElementById('toast-style')) {
     const s = document.createElement('style');
     s.id = 'toast-style';
-    s.textContent = '@keyframes slideDownToast{from{opacity:0;transform:translateX(-50%) translateY(-16px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}';
+    s.textContent = '@keyframes slideUpToast{from{opacity:0;transform:translateX(-50%) translateY(16px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}';
     document.head.appendChild(s);
   }
   document.body.appendChild(toast);
-  setTimeout(() => { if (toast.parentNode) toast.remove(); }, 4000);
+  setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3500);
 }
 
 // ══════════════════════════════════════════════════════
@@ -4776,7 +4782,7 @@ async function confirmAddDish() {
   if (withPostreChecked) {
     dishPayload.with_postre = true;
     // Buscar el course del postre en menu_items (category postre/dessert); fallback 3
-    const postreItem = state.menu.find(m =>
+    const postreItem = state.menuItems?.find(m =>
       m && m.category && /postre|dessert/i.test(m.category));
     dishPayload.course = postreItem?.course ?? 3;
   }
@@ -16088,17 +16094,61 @@ function renderStockAlerts(alerts) {
   if (!el) return;
   if (!alerts.length) { el.innerHTML = ''; return; }
   const ingMap = new Map(_stk.ingredients.map(i => [i.id, i]));
+
+  // Helper: convierte mensaje de alerta a algo útil. Las viejas tienen UUID;
+  // las nuevas usan action_suggested con menu_item_name.
+  const friendlyMessage = (a) => {
+    const ing = ingMap.get(a.ingredient_id);
+    // Caso 1: tiene action_suggested.menu_item_name → "Plato sin receta: <Nombre>"
+    if (a.action_suggested && a.action_suggested.menu_item_name) {
+      return { text: `Plato sin receta: ${a.action_suggested.menu_item_name}`, hint: 'Configúrale una receta para que descuente stock al venderse.' };
+    }
+    // Caso 2: ingredient bajo mínimo
+    if (a.kind === 'low_stock' && ing) {
+      return { text: `Stock bajo: ${ing.name}`, hint: 'Por debajo del mínimo configurado. Considera reponer.' };
+    }
+    if (a.kind === 'oversold' && ing) {
+      return { text: `Sobrevendido: ${ing.name}`, hint: 'Has servido más de lo que había en stock. Revisa el conteo.' };
+    }
+    if (a.kind === 'high_deviation' && ing) {
+      return { text: `Desviación alta: ${ing.name}`, hint: 'Diferencia significativa entre teórico y real. Posible merma o robo.' };
+    }
+    // Caso 3: alerta vieja con UUID en el mensaje → mensaje genérico
+    if (a.kind === 'missing_recipe' && a.message?.includes('dish ')) {
+      return { text: 'Plato vendido sin receta configurada', hint: 'Esta alerta es antigua. Resuélvela: las nuevas mostrarán el nombre del plato.' };
+    }
+    return { text: a.message || (ing ? ing.name : 'Alerta'), hint: '' };
+  };
+
   el.innerHTML = `<div style="background:#FAECE7;border:1px solid rgba(216,90,48,.25);border-radius:var(--r);padding:.85rem 1rem">
-    <div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:.5rem">⚠️ ${alerts.length} alerta${alerts.length > 1 ? 's' : ''} activa${alerts.length > 1 ? 's' : ''}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+      <span style="font-size:13px;font-weight:600;color:var(--accent)">⚠️ ${alerts.length} alerta${alerts.length > 1 ? 's' : ''} activa${alerts.length > 1 ? 's' : ''}</span>
+      ${alerts.length > 1 ? `<button onclick="resolveAllStockAlerts()" style="padding:3px 10px;border-radius:99px;border:1px solid rgba(216,90,48,.3);background:#fff;color:var(--accent);font-size:11px;cursor:pointer;font-family:inherit;font-weight:500">Resolver todas</button>` : ''}
+    </div>
     ${alerts.slice(0, 5).map(a => {
-      const ing = ingMap.get(a.ingredient_id);
-      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px;color:var(--t1)">
-        <span>${escHtml(a.message || (ing ? ing.name : 'Alerta'))}</span>
-        <button onclick="resolveStockAlert('${a.id}')" style="padding:3px 9px;border-radius:99px;border:1px solid var(--bd2);background:#fff;font-size:11px;cursor:pointer;font-family:inherit">Resolver</button>
+      const fm = friendlyMessage(a);
+      return `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;font-size:12px;color:var(--t1);gap:8px">
+        <div style="flex:1;min-width:0">
+          <div>${escHtml(fm.text)}</div>
+          ${fm.hint ? `<div style="font-size:10px;color:var(--t2);margin-top:2px;line-height:1.3">${escHtml(fm.hint)}</div>` : ''}
+        </div>
+        <button onclick="resolveStockAlert('${a.id}')" style="padding:3px 9px;border-radius:99px;border:1px solid var(--bd2);background:#fff;font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0">Resolver</button>
       </div>`;
     }).join('')}
     ${alerts.length > 5 ? `<div style="font-size:11px;color:var(--t2);margin-top:6px">+ ${alerts.length - 5} más</div>` : ''}
   </div>`;
+}
+
+async function resolveAllStockAlerts() {
+  if (!(await confirmModal('¿Resolver todas las alertas activas?\nEsto las marca como vistas. Si los problemas persisten, volverán a aparecer.', { danger: false, confirmText: 'Resolver todas' }))) return;
+  const restId = state.adminRestaurantId;
+  if (!restId) return;
+  await sb.from('stock_alerts')
+    .update({ resolved_at: new Date().toISOString() })
+    .eq('restaurant_id', restId)
+    .is('resolved_at', null);
+  loadStockInventory();
+  notify('Alertas resueltas', 'success');
 }
 
 async function resolveStockAlert(alertId) {
