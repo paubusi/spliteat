@@ -12421,8 +12421,13 @@ async function loadEncurso() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'guests' }, () => {
         if (document.getElementById('atab-encurso')?.style.display !== 'none') loadFloorPlan();
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'waiters' }, () => {
-        // #4: Refresh waiter status bar on any waiter change (login/logout)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'waiters',
+        filter: 'restaurant_id=eq.' + state.adminRestaurantId
+      }, () => {
+        // Refresh waiter status bar on any waiter change (login/logout)
         if (document.getElementById('atab-encurso')?.style.display !== 'none') loadWaiterStatusBar();
       })
       .subscribe();
