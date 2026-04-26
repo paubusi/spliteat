@@ -32,8 +32,21 @@
   #s-kitchen { max-width: 100% !important; width: 100% !important; }
   #s0.active ~ * { pointer-events: none; }
 
+  /* #1: Portal s0 en desktop — contenedor cómodo (no formato móvil estrecho) */
+  @media (min-width: 600px), (pointer: fine) {
+    #s0 .body {
+      max-width: 560px !important;
+      margin: 0 auto !important;
+      padding: 2rem 1.5rem !important;
+    }
+    #s0 .hdr {
+      max-width: 560px;
+      margin: 0 auto;
+    }
+  }
+
   /* Pantallas de admin y cocina usan todo el ancho en desktop */
-  @media (min-width: 600px) {
+  @media (min-width: 600px), (pointer: fine) {
     #app { max-width: 100%; }
     /* Por defecto, todas las pantallas están centradas a 430px en desktop */
     .screen { max-width: 430px; margin: 0 auto; }
@@ -118,16 +131,15 @@
     display: none !important;
   }
   /* Aviso de solo-lectura en cabecera del módulo */
+  /* #2: Banner solo-lectura idéntico al de cookeat dentro de manageat */
   #atab-stockeat.stk-readonly::before {
-    content: '👁️ Vista solo-lectura — la gestión completa de stockeat se realiza desde cookeat';
+    content: '👁  Vista de solo lectura. La gestión del inventario se realiza desde stockeat.';
     display: block;
-    background: linear-gradient(90deg, #FAEEDA 0%, #FCEFD3 100%);
-    color: #854F0B;
+    background: var(--blue-l);
+    color: var(--blue);
     padding: 8px 16px;
     font-size: 12px;
-    font-weight: 600;
-    text-align: center;
-    border-bottom: 1px solid rgba(133,79,11,.25);
+    border-bottom: 1px solid var(--blue);
     flex-shrink: 0;
   }
 
@@ -1242,8 +1254,10 @@
         </div>
       </div>
 
-      <!-- MODAL CONFIRMACIÓN ENVÍO A COCINA -->
-      <div id="send-confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:200;align-items:flex-end;justify-content:center">
+      <!-- MODAL CONFIRMACIÓN ENVÍO A COCINA — bloqueo total de capa inferior -->
+      <div id="send-confirm-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9800;align-items:flex-end;justify-content:center;touch-action:none;overscroll-behavior:contain"
+           ontouchmove="if(!event.target.closest('#send-confirm-list'))event.preventDefault()"
+           onwheel="if(!event.target.closest('#send-confirm-list'))event.preventDefault()">
         <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:1.5rem 1.25rem;width:100%;max-width:430px;animation:slideUp .2s ease">
           <div style="font-size:16px;font-weight:500;margin-bottom:.25rem">Confirmar pedido</div>
           <div style="font-size:13px;color:var(--t2);margin-bottom:1rem">Revisa que todo está correcto antes de enviar a cocina.</div>
@@ -1255,7 +1269,7 @@
           <button class="btn btn-accent" onclick="confirmSendToKitchen()" style="margin-bottom:.5rem">
             ✓ Sí, enviar a cocina
           </button>
-          <button onclick="document.getElementById('send-confirm-modal').style.display='none';document.body.style.overflow=''"
+          <button onclick="_closeSendConfirmModal()"
             style="width:100%;padding:11px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:none;color:var(--t2);font-size:14px;cursor:pointer;font-family:inherit">
             Volver y seguir añadiendo
           </button>
@@ -2101,9 +2115,8 @@
           <button class="adm-nav" data-tab="gestion" onclick="showAdminTab('gestion')">
             <span class="adm-nav-icon">⚙️</span><span class="adm-nav-label">Ajustes</span>
           </button>
-          <button class="adm-nav" data-tab="stockeat" onclick="showAdminTab('stockeat')" title="Vista de stock — la gestión completa está en stockeat">
-            <span class="adm-nav-icon">📦</span><span class="adm-nav-label">stock<em style="color:#D85A30;font-style:normal">eat</em> <span style="font-size:10px;color:rgba(255,255,255,.35);font-weight:400">· vista</span></span>
-            <span id="stockeat-nav-badge" style="display:none;background:#D85A30;color:#fff;border-radius:99px;padding:0px 6px;font-size:10px;font-weight:700;margin-left:auto">0</span>
+          <button class="adm-nav" data-tab="stockeat" onclick="showAdminTab('stockeat')">
+            <span class="adm-nav-icon">📦</span><span class="adm-nav-label">stock<em style="color:#D85A30;font-style:normal">eat</em></span>
           </button>
         </nav>
 
@@ -5533,14 +5546,42 @@ function showSendToKitchenConfirm() {
   listEl.innerHTML = html;
   listEl.scrollTop = 0;
   document.getElementById('send-confirm-total').textContent = fmt(total);
-  document.getElementById('send-confirm-modal').style.display = 'flex';
-  // #3: Bloquear scroll del fondo mientras el modal está abierto
+  const modal = document.getElementById('send-confirm-modal');
+  modal.style.display = 'flex';
+
+  // #4: Bloqueo total — capa inferior NO recibe scroll/touch/wheel mientras está abierto
   document.body.style.overflow = 'hidden';
+  document.documentElement.style.overflow = 'hidden';
+
+  // Listener passive:false para poder hacer preventDefault en touch móvil
+  if (!modal._scrollLockHandlers) {
+    const stopIfOutsideList = (e) => {
+      if (!e.target.closest('#send-confirm-list')) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    modal._scrollLockHandlers = stopIfOutsideList;
+    modal.addEventListener('touchmove', stopIfOutsideList, { passive: false });
+    modal.addEventListener('wheel', stopIfOutsideList, { passive: false });
+  }
+}
+
+function _closeSendConfirmModal() {
+  const modal = document.getElementById('send-confirm-modal');
+  if (!modal) return;
+  modal.style.display = 'none';
+  document.body.style.overflow = '';
+  document.documentElement.style.overflow = '';
+  if (modal._scrollLockHandlers) {
+    modal.removeEventListener('touchmove', modal._scrollLockHandlers);
+    modal.removeEventListener('wheel', modal._scrollLockHandlers);
+    modal._scrollLockHandlers = null;
+  }
 }
 
 async function confirmSendToKitchen() {
-  document.getElementById('send-confirm-modal').style.display = 'none';
-  document.body.style.overflow = '';  // restaurar scroll
+  _closeSendConfirmModal();
   await sendToKitchen();
 }
 
@@ -5861,23 +5902,36 @@ function buildSummary() {
   }).join('');
 
 
-  // Show unassigned dishes section if any
-  if (unassigned.length > 0) {
-    el.innerHTML += `<div style="background:#FAEEDA;border:1px solid #E5A85A;border-radius:var(--r);padding:.75rem 1rem;margin-top:.5rem">
-      <div style="font-size:12px;font-weight:600;color:#854F0B;margin-bottom:.35rem">
-        ⚠️ ${unassigned.length} plato${unassigned.length>1?'s':''} sin asignar
-      </div>
-      <div style="font-size:11px;color:#854F0B;line-height:1.5">
-        Asígnalos desde las tarjetas de arriba, o añade una persona si alguien no escaneó el QR.
-      </div>
-    </div>`;
-  }
+  // Banner "platos sin asignar" eliminado — generaba confusión cerca del botón
+  // "Editar reparto". Si hay platos compartidos sin participantes, ya se ve en
+  // las propias tarjetas y desde el modal de edición se puede asignar.
 }
 
 // ══════════════════════════════════════════════════════
 // PAY SCREEN
 // ══════════════════════════════════════════════════════
 function buildPayScreen() {
+  // #6: Si volvemos a 'split' tras haber estado en 'full' o 'equal', restaurar
+  // el header original de "Tu parte" que pudo haber sido reemplazado.
+  if (_payMethod === 'split' || !_payMethod) {
+    const headerWrapper = document.querySelector('#s5-pay .body > div:first-child');
+    if (headerWrapper && headerWrapper.id !== 'pay-header-original') {
+      // Solo restauramos si NO está en su forma original (detectado por presencia de pay-name-label)
+      const hasOriginal = headerWrapper.querySelector('#pay-name-label');
+      if (!hasOriginal) {
+        headerWrapper.style.background = 'var(--brand-l)';
+        headerWrapper.style.border = '1px solid var(--brand)';
+        headerWrapper.innerHTML = `
+          <div style="font-size:12px;color:var(--brand);font-weight:500;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem">Tu parte</div>
+          <div style="display:flex;align-items:baseline;justify-content:space-between">
+            <div id="pay-name-label" style="font-size:16px;font-weight:500;color:var(--brand-d)">—</div>
+            <div id="pay-amount" style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:var(--brand-d)">—</div>
+          </div>
+          <div id="pay-breakdown" style="font-size:12px;color:var(--brand);margin-top:3px;display:none"></div>`;
+      }
+    }
+  }
+
   // #85.4: Si YO ya pedí cobro con camarero (efectivo/tarjeta) y aún no se confirmó,
   // reaparecer la pantalla de espera al volver a esta pantalla. Así no perdemos el estado.
   const myPending = (state.payments || []).find(p =>
@@ -9293,16 +9347,22 @@ function hideAddWaiterForm() {
   });
 }
 
-// #1: Heartbeat-based online detection
-// Un camarero está realmente online si:
-//   • is_active=true (mantenido por login + heartbeat)
-//   • last_seen_at en los últimos 3 minutos (heartbeat fresco)
-// Esto evita falsos positivos cuando el navegador cierra sin emitir beforeunload.
+// #1/#3: Heartbeat-based detection con 3 estados
+//   • 'online'  → is_active=true Y last_seen_at en últimos 3 min (heartbeat fresco)
+//   • 'recent'  → last_seen_at entre 3 y 30 min (cerró sesión recientemente / sin red)
+//   • 'offline' → más de 30 min o nunca
+function getWaiterStatus(w) {
+  if (!w) return 'offline';
+  if (!w.last_seen_at) return 'offline';
+  const ageMin = (Date.now() - new Date(w.last_seen_at).getTime()) / 60000;
+  if (w.is_active && ageMin < 3) return 'online';
+  if (ageMin < 30) return 'recent';
+  return 'offline';
+}
+
+// Compatibilidad con código previo
 function isWaiterOnline(w) {
-  if (!w || !w.is_active) return false;
-  if (!w.last_seen_at) return false;
-  const lastSeen = new Date(w.last_seen_at).getTime();
-  return (Date.now() - lastSeen) < 3 * 60 * 1000;
+  return getWaiterStatus(w) === 'online';
 }
 
 async function loadAdminWaiters() {
@@ -9326,9 +9386,12 @@ async function loadAdminWaiters() {
           ${w.active
             ? '<span style="color:var(--brand);font-weight:500">✓ Habilitado</span>'
             : '<span style="color:var(--accent);font-weight:500">✗ Deshabilitado</span>'}
-          ${isWaiterOnline(w)
-            ? '<span style="color:var(--brand);font-weight:500">🟢 Conectado ahora</span>'
-            : '<span style="color:var(--t3)">⚪ Sin sesión activa</span>'}
+          ${(() => {
+            const st = getWaiterStatus(w);
+            if (st === 'online') return '<span style="color:var(--brand);font-weight:500">🟢 Conectado ahora</span>';
+            if (st === 'recent') return '<span style="color:#B8860B;font-weight:500">🟡 Reciente</span>';
+            return '<span style="color:var(--t3)">⚪ Desconectado</span>';
+          })()}
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:6px">
@@ -9900,9 +9963,12 @@ async function loadAdminWaitersMobile() {
           ${w.active
             ? '<span style="color:var(--brand);font-weight:500">✓ Habilitado</span>'
             : '<span style="color:var(--accent);font-weight:500">✗ Deshabilitado</span>'}
-          ${isWaiterOnline(w)
-            ? '<span style="color:var(--brand);font-weight:500">🟢 Conectado</span>'
-            : '<span style="color:var(--t3)">⚪ Sin sesión</span>'}
+          ${(() => {
+            const st = getWaiterStatus(w);
+            if (st === 'online') return '<span style="color:var(--brand);font-weight:500">🟢 Conectado</span>';
+            if (st === 'recent') return '<span style="color:#B8860B;font-weight:500">🟡 Reciente</span>';
+            return '<span style="color:var(--t3)">⚪ Desconectado</span>';
+          })()}
         </div>
       </div>
       <div style="display:flex;gap:5px;align-items:center">
@@ -12187,10 +12253,24 @@ async function loadWaiterStatusBar() {
     warningEl.style.display = anyActive ? 'none' : 'flex';
   }
   el.innerHTML = waiters.map(w => {
-    const isOn = isWaiterOnline(w);
-    return `<div style="display:flex;align-items:center;gap:5px;padding:4px 8px;border-radius:99px;border:1px solid ${isOn ? 'var(--brand)' : 'var(--bd2)'};background:${isOn ? 'var(--brand-l)' : 'var(--bg2)'}">
-      <div style="width:7px;height:7px;border-radius:50%;background:${isOn ? 'var(--brand)' : 'var(--bd2)'};flex-shrink:0"></div>
-      <span style="font-size:12px;font-weight:500;color:${isOn ? 'var(--brand-d)' : 'var(--t3)'}">${escHtml(w.name)}</span>
+    const st = getWaiterStatus(w);
+    let borderColor, bgColor, dotColor, txtColor, label;
+    if (st === 'online') {
+      borderColor = 'var(--brand)'; bgColor = 'var(--brand-l)';
+      dotColor = 'var(--brand)';    txtColor = 'var(--brand-d)';
+      label = escHtml(w.name);
+    } else if (st === 'recent') {
+      borderColor = '#F5CC6A'; bgColor = '#FFF8E7';
+      dotColor = '#B8860B';    txtColor = '#8B6914';
+      label = escHtml(w.name) + ' · reciente';
+    } else {
+      borderColor = 'var(--bd2)'; bgColor = 'var(--bg2)';
+      dotColor = 'var(--bd2)';    txtColor = 'var(--t3)';
+      label = escHtml(w.name);
+    }
+    return `<div style="display:flex;align-items:center;gap:5px;padding:4px 8px;border-radius:99px;border:1px solid ${borderColor};background:${bgColor}">
+      <div style="width:7px;height:7px;border-radius:50%;background:${dotColor};flex-shrink:0"></div>
+      <span style="font-size:12px;font-weight:500;color:${txtColor}">${label}</span>
     </div>`;
   }).join('');
 }
@@ -15365,25 +15445,41 @@ function buildFullPayScreen() {
   const tipPct = (state.tipPercent || 0) / 100;
   const tipAmt = total * tipPct;
   const grandTotal = total + tipAmt;
+  const totals = calcTotals();
+  const me = totals.find(t => t.g.id === state.myGuestId);
+  const myShareOfFull = me ? me.total : 0;
 
-  // #6: Header — "Total mesa" prominente
-  const parteLbl = document.querySelector('#s5-pay .body > div:first-child > div:first-child');
-  if (parteLbl) parteLbl.textContent = 'Total mesa';
+  // #6: Reescribir el header completo con jerarquía inequívoca
+  // Buscamos el wrapper "Tu parte" y lo reemplazamos por uno específico
+  const headerWrapper = document.querySelector('#s5-pay .body > div:first-child');
+  if (headerWrapper) {
+    headerWrapper.style.background = 'linear-gradient(135deg,#FFF8E7,#FFF3D4)';
+    headerWrapper.style.border = '1.5px solid #F5CC6A';
+    headerWrapper.innerHTML = `
+      <div style="text-align:center;padding:.25rem 0">
+        <div style="font-size:11px;color:#8B6914;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem">
+          🎁 Pagas la cuenta completa
+        </div>
+        <div style="font-size:13px;color:#854F0B;margin-bottom:.15rem">TOTAL DE LA MESA</div>
+        <div style="font-family:'Fraunces',serif;font-size:42px;font-weight:800;color:#854F0B;line-height:1">${fmt(grandTotal)}</div>
+        ${tipAmt > 0 ? `<div style="font-size:11px;color:#8B6914;margin-top:.25rem">${fmt(total)} + ${fmt(tipAmt)} propina</div>` : ''}
+        <div style="margin-top:.85rem;padding-top:.65rem;border-top:1px dashed #E5C56A;font-size:12px;color:#8B6914">
+          Tu parte habría sido <strong style="font-family:'Fraunces',serif;font-weight:700">${fmt(myShareOfFull)}</strong>
+        </div>
+      </div>`;
+  }
 
+  // Limpiar elementos legacy que pudieran quedar de buildPayScreen
   const nameEl = document.getElementById('pay-name-label');
   const amtEl = document.getElementById('pay-amount');
   const breakdownEl = document.getElementById('pay-breakdown');
-  if (nameEl) nameEl.textContent = 'Invitas a toda la mesa';
-  if (amtEl) amtEl.textContent = fmt(grandTotal);
-  if (breakdownEl) {
-    if (tipAmt > 0) { breakdownEl.textContent = `${fmt(total)} + ${fmt(tipAmt)} propina`; breakdownEl.style.display = 'block'; }
-    else breakdownEl.style.display = 'none';
-  }
+  if (nameEl) nameEl.style.display = 'none';
+  if (amtEl) amtEl.style.display = 'none';
+  if (breakdownEl) breakdownEl.style.display = 'none';
 
-  // #6: Desglose detallado por persona (más pequeño, debajo del total prominente)
+  // Desglose detallado por persona en pay-status-list
   const list = document.getElementById('pay-status-list');
   if (list) {
-    const totals = calcTotals();
     const breakdownRows = totals.map(t => `
       <div style="display:flex;justify-content:space-between;align-items:center;padding:.45rem 0;border-bottom:1px dashed var(--bd)">
         <span style="font-size:13px;color:var(--t1)">${escHtml(t.g.name)}${t.g.id === state.myGuestId ? ' <span style="color:var(--brand);font-weight:600">(tú)</span>' : ''}</span>
@@ -15391,23 +15487,19 @@ function buildFullPayScreen() {
       </div>`).join('');
 
     list.innerHTML = `
-      <div style="background:var(--amber-l);border-radius:var(--r);padding:.85rem 1rem;text-align:center;margin-bottom:.85rem;border:1px solid #F5CC6A">
-        <div style="font-size:13px;color:#854F0B;font-weight:600">🎁 Pagas la cuenta completa</div>
-        <div style="font-size:11px;color:#854F0B;margin-top:3px">Tu pago cubre lo que ha consumido cada comensal</div>
-      </div>
-      <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.5rem 1rem">
+      <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.5rem 1rem;margin-bottom:.5rem">
         <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;font-weight:600;padding:.5rem 0;border-bottom:1px solid var(--bd)">
           Desglose por persona
         </div>
         ${breakdownRows}
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:.65rem 0 .25rem;font-weight:700">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:.65rem 0 .25rem;font-weight:700;border-top:2px solid var(--brand-d)">
           <span style="font-size:14px;color:var(--t1)">TOTAL MESA</span>
           <span style="font-size:18px;color:var(--brand-d);font-family:'Fraunces',serif">${fmt(grandTotal)}</span>
         </div>
       </div>`;
   }
 
-  // #11-11: Also render payment methods (same as buildPayScreen)
+  // Render payment methods (botones Apple Pay, etc.)
   buildPayScreen();
 }
 
