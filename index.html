@@ -105,6 +105,31 @@
     background: var(--brand-l); color: var(--brand-d);
     border-color: var(--brand-l);
   }
+  /* Sprint stockeat: en manageat es solo-lectura — desactivar todos los inputs interactivos */
+  #atab-stockeat.stk-readonly button:not(.stk-tab):not(.stk-allow-readonly),
+  #atab-stockeat.stk-readonly input:not([readonly]):not(.stk-allow-readonly),
+  #atab-stockeat.stk-readonly select:not(.stk-allow-readonly),
+  #atab-stockeat.stk-readonly .toggle-track:not(.stk-allow-readonly) {
+    pointer-events: none;
+    opacity: 0.5;
+    filter: grayscale(0.4);
+  }
+  #atab-stockeat.stk-readonly [data-stk-edit] {
+    display: none !important;
+  }
+  /* Aviso de solo-lectura en cabecera del módulo */
+  #atab-stockeat.stk-readonly::before {
+    content: '👁️ Vista solo-lectura — la gestión completa de stockeat se realiza desde cookeat';
+    display: block;
+    background: linear-gradient(90deg, #FAEEDA 0%, #FCEFD3 100%);
+    color: #854F0B;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    border-bottom: 1px solid rgba(133,79,11,.25);
+    flex-shrink: 0;
+  }
 
   /* En desktop, pantallas de login centradas horizontalmente — NO verticalmente para evitar huecos */
   @media (min-width: 600px) {
@@ -1725,49 +1750,10 @@
       </div>
     </div>
 
-    <!-- #3: TAB STOCKEAT en cookeat — vista simplificada para cocina (alertas + inventario lectura + mermas rápidas) -->
-    <div id="ktab-stockeat" style="display:none;height:calc(100dvh - 110px);overflow-y:auto;padding:.65rem">
-      <div style="max-width:1100px;margin:0 auto">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem">
-          <div>
-            <div style="font-size:15px;font-weight:600">📦 Stockeat — vista cocina</div>
-            <div style="font-size:12px;color:var(--t2);margin-top:2px">Alertas en vivo, registro rápido de mermas y consulta de stock</div>
-          </div>
-          <a href="javascript:void(0)" onclick="notify('La gestión completa de stockeat (recetas, proveedores, compras) está en manageat → stockeat', 'info')"
-             style="font-size:11px;color:var(--t3);text-decoration:underline">¿Gestión completa?</a>
-        </div>
-
-        <!-- Alertas críticas (reutiliza renderStockAlerts) -->
-        <div id="kstk-alerts" style="margin-bottom:1rem"></div>
-
-        <!-- KPIs rápidos -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.65rem;margin-bottom:1rem">
-          <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.75rem 1rem">
-            <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:500">Alertas activas</div>
-            <div id="kstk-stat-alerts" style="font-size:20px;font-weight:700;color:var(--accent);margin-top:2px;font-family:'Fraunces',serif">—</div>
-          </div>
-          <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.75rem 1rem">
-            <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:500">Bajo mínimo</div>
-            <div id="kstk-stat-low" style="font-size:20px;font-weight:700;color:var(--amber);margin-top:2px;font-family:'Fraunces',serif">—</div>
-          </div>
-          <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.75rem 1rem">
-            <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:500">Ingredientes</div>
-            <div id="kstk-stat-total" style="font-size:20px;font-weight:700;color:var(--brand-d);margin-top:2px;font-family:'Fraunces',serif">—</div>
-          </div>
-        </div>
-
-        <!-- Lista de inventario solo-lectura con botón "Registrar merma" -->
-        <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden">
-          <div style="padding:.75rem 1rem;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center">
-            <strong style="font-size:13px">Inventario actual</strong>
-            <input id="kstk-search" type="text" placeholder="🔍 Buscar..." oninput="renderKitchenStockList()"
-              style="font-size:12px;padding:5px 10px;border:1px solid var(--bd2);border-radius:99px;background:var(--bg);width:140px;font-family:inherit">
-          </div>
-          <div id="kstk-inv-list">
-            <div style="padding:2rem;text-align:center;color:var(--t3);font-size:13px">Cargando...</div>
-          </div>
-        </div>
-      </div>
+    <!-- TAB STOCKEAT en cookeat — alojará dinámicamente el bloque stockeat completo -->
+    <div id="ktab-stockeat" style="display:none;flex-direction:column;height:calc(100dvh - 110px);overflow:hidden">
+      <!-- Aquí se monta dinámicamente el #atab-stockeat completo desde manageat -->
+      <div id="kstk-host" style="flex:1;display:flex;flex-direction:column;overflow:hidden"></div>
     </div>
 
     <!-- #3: TAB AJUSTES — agrupa Carta y Tiempos -->
@@ -2076,8 +2062,8 @@
           <button class="adm-nav" data-tab="gestion" onclick="showAdminTab('gestion')">
             <span class="adm-nav-icon">⚙️</span><span class="adm-nav-label">Ajustes</span>
           </button>
-          <button class="adm-nav" data-tab="stockeat" onclick="showAdminTab('stockeat')">
-            <span class="adm-nav-icon">📦</span><span class="adm-nav-label">stock<em style="color:#D85A30;font-style:normal">eat</em></span>
+          <button class="adm-nav" data-tab="stockeat" onclick="showAdminTab('stockeat')" title="Vista de stock — la gestión completa está en cookeat">
+            <span class="adm-nav-icon">📦</span><span class="adm-nav-label">stock<em style="color:#D85A30;font-style:normal">eat</em> <span style="font-size:10px;color:rgba(255,255,255,.35);font-weight:400">· vista</span></span>
             <span id="stockeat-nav-badge" style="display:none;background:#D85A30;color:#fff;border-radius:99px;padding:0px 6px;font-size:10px;font-weight:700;margin-left:auto">0</span>
           </button>
         </nav>
@@ -7019,9 +7005,15 @@ async function payWithStripe(me, method) {
 // KITCHEN SCREEN
 // ══════════════════════════════════════════════════════
 function showKitchenTab(name) {
+  // Si dejamos el tab stockeat, devolvemos el nodo a su sitio original (manageat)
+  // para que cuando un admin abra manageat luego, stockeat siga existiendo allí.
+  if (name !== 'stockeat' && _stockeatNodeOriginalParent) {
+    _restoreStockeatNodeToManageat();
+  }
+
   ['pedidos','carta','config','stockeat','ajustes'].forEach(t => {
     const el = document.getElementById('ktab-' + t);
-    if (el) el.style.display = t === name ? 'block' : 'none';
+    if (el) el.style.display = t === name ? (t === 'stockeat' ? 'flex' : 'block') : 'none';
     const btn = document.getElementById('ktab-btn-' + t);
     if (btn) btn.classList.toggle('on', t === name);
   });
@@ -7049,153 +7041,63 @@ function showKitchenAjustesSection(section) {
   if (section === 'config') loadKitchenPrepTimes();
 }
 
-// #3: Stockeat en cookeat — vista simplificada para cocina (alertas + lectura + mermas)
+// Sprint stockeat: en cookeat se gestiona TODO; en manageat solo se ve.
+// Para evitar duplicar el HTML enorme de stockeat, movemos el mismo nodo
+// entre cookeat (cuando se selecciona el tab) y manageat (su sitio original).
+let _stockeatNodeOriginalParent = null;
+
+// Sprint stockeat: guard reutilizable. Devuelve true si se PUEDE editar.
+// Si estamos en manageat (contexto admin), bloquea con notif.
+function _assertStockeatEditable() {
+  if (state.stockeatContext === 'admin') {
+    notify('Stockeat es solo lectura en manageat. Para editar, abre cookeat → 📦 stockeat.', 'info');
+    return false;
+  }
+  return true;
+}
+
+function _moveStockeatNodeTo(targetEl) {
+  const stkNode = document.getElementById('atab-stockeat');
+  if (!stkNode) return;
+  if (!_stockeatNodeOriginalParent) _stockeatNodeOriginalParent = stkNode.parentElement;
+  if (targetEl && stkNode.parentElement !== targetEl) {
+    targetEl.appendChild(stkNode);
+  }
+  // Cookeat = full edit access, quitar modo solo-lectura
+  stkNode.classList.remove('stk-readonly');
+}
+
+function _restoreStockeatNodeToManageat() {
+  const stkNode = document.getElementById('atab-stockeat');
+  if (!stkNode || !_stockeatNodeOriginalParent) return;
+  if (stkNode.parentElement !== _stockeatNodeOriginalParent) {
+    _stockeatNodeOriginalParent.appendChild(stkNode);
+  }
+  // Manageat = vista, activar modo solo-lectura
+  stkNode.classList.add('stk-readonly');
+}
+
 async function initKitchenStockeat() {
   const restId = state.kitchenRestaurantId;
   if (!restId) return;
 
-  // Cargar ingredientes + inventario + alertas
-  const [ingResp, invResp, alertsResp] = await Promise.all([
-    sb.from('stock_ingredients').select('*').eq('restaurant_id', restId).eq('is_active', true).order('name'),
-    sb.from('stock_inventory').select('*').eq('restaurant_id', restId),
-    sb.from('stock_alerts').select('*').eq('restaurant_id', restId).is('resolved_at', null).order('created_at', {ascending:false}),
-  ]);
+  // Marcar contexto: cocina = full edit access
+  state.stockeatContext = 'kitchen';
+  state.adminRestaurantId = restId;  // las funciones de stockeat usan este field
 
-  state._kstk = {
-    ingredients: ingResp.data || [],
-    inventory: invResp.data || [],
-    alerts: alertsResp.data || [],
-  };
-
-  // KPIs
-  const lowCount = (state._kstk.ingredients || []).filter(ing => {
-    const inv = state._kstk.inventory.find(i => i.ingredient_id === ing.id);
-    return ing.par_min > 0 && (inv?.qty_on_hand || 0) < ing.par_min;
-  }).length;
-
-  document.getElementById('kstk-stat-alerts').textContent = state._kstk.alerts.length;
-  document.getElementById('kstk-stat-low').textContent = lowCount;
-  document.getElementById('kstk-stat-total').textContent = state._kstk.ingredients.length;
-
-  // Render alertas (reutilizar versión ligera)
-  renderKitchenStockAlerts();
-  renderKitchenStockList();
-}
-
-function renderKitchenStockAlerts() {
-  const el = document.getElementById('kstk-alerts');
-  if (!el) return;
-  const alerts = state._kstk?.alerts || [];
-  if (!alerts.length) { el.innerHTML = ''; return; }
-  const ingMap = new Map((state._kstk?.ingredients || []).map(i => [i.id, i]));
-  el.innerHTML = `<div style="background:#FAECE7;border:1px solid rgba(216,90,48,.25);border-radius:var(--r);padding:.85rem 1rem">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
-      <span style="font-size:13px;font-weight:600;color:var(--accent)">⚠️ ${alerts.length} alerta${alerts.length > 1 ? 's' : ''} activa${alerts.length > 1 ? 's' : ''}</span>
-    </div>
-    ${alerts.slice(0, 4).map(a => {
-      const ing = ingMap.get(a.ingredient_id);
-      const text = a.action_suggested?.menu_item_name
-        ? `Plato sin receta: ${a.action_suggested.menu_item_name}`
-        : a.kind === 'low_stock' && ing
-          ? `Stock bajo: ${ing.name}`
-          : a.kind === 'oversold' && ing
-            ? `Sobrevendido: ${ing.name}`
-            : a.message || 'Alerta';
-      return `<div style="padding:4px 0;font-size:12px;color:var(--t1)">${escHtml(text)}</div>`;
-    }).join('')}
-    ${alerts.length > 4 ? `<div style="font-size:11px;color:var(--t2);margin-top:6px">+ ${alerts.length - 4} más en manageat</div>` : ''}
-  </div>`;
-}
-
-function renderKitchenStockList() {
-  const el = document.getElementById('kstk-inv-list');
-  if (!el) return;
-  const ings = state._kstk?.ingredients || [];
-  const inv = state._kstk?.inventory || [];
-  if (!ings.length) {
-    el.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--t3);font-size:13px">Sin ingredientes configurados.</div>`;
-    return;
+  // Mover el nodo completo de stockeat al host de cookeat
+  const host = document.getElementById('kstk-host');
+  if (host) {
+    _moveStockeatNodeTo(host);
+    const stkNode = document.getElementById('atab-stockeat');
+    if (stkNode) {
+      stkNode.style.display = 'flex';
+      stkNode.style.height = '100%';
+    }
   }
-  const search = document.getElementById('kstk-search')?.value?.trim().toLowerCase() || '';
-  const filtered = search ? ings.filter(i => i.name.toLowerCase().includes(search)) : ings;
-  if (!filtered.length) {
-    el.innerHTML = `<div style="padding:1.5rem;text-align:center;color:var(--t3);font-size:13px">Sin resultados para "${escHtml(search)}".</div>`;
-    return;
-  }
-  const invMap = new Map(inv.map(i => [i.ingredient_id, i.qty_on_hand || 0]));
-  el.innerHTML = filtered.map(ing => {
-    const qty = invMap.get(ing.id) || 0;
-    const isLow = ing.par_min > 0 && qty < ing.par_min;
-    const isZero = qty <= 0;
-    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:.65rem 1rem;border-bottom:1px solid var(--bd);gap:.5rem">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:500;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(ing.name)}</div>
-        ${isLow ? `<div style="font-size:10px;color:var(--accent);font-weight:500">⚠️ Bajo mínimo (${ing.par_min} ${ing.base_unit})</div>` : ''}
-      </div>
-      <div style="text-align:right;font-size:13px;font-weight:600;color:${isZero ? 'var(--accent)' : isLow ? 'var(--amber)' : 'var(--t1)'};font-family:'Fraunces',serif;min-width:70px">
-        ${qty.toLocaleString('es-ES', {maximumFractionDigits:1})} ${ing.base_unit}
-      </div>
-      <button onclick="kitchenRegisterMerma('${ing.id}','${escHtml(ing.name).replace(/'/g,"\\'")}','${ing.base_unit}')"
-        style="padding:5px 10px;border-radius:99px;border:1px solid var(--accent);background:#FFF5F0;color:var(--accent);font-size:11px;cursor:pointer;font-family:inherit;font-weight:500;flex-shrink:0">
-        Merma
-      </button>
-    </div>`;
-  }).join('');
-}
 
-// Registro rápido de merma — minimalista, mobile-first para cocina
-async function kitchenRegisterMerma(ingId, ingName, baseUnit) {
-  document.getElementById('kstk-merma-modal')?.remove();
-  const el = document.createElement('div');
-  el.id = 'kstk-merma-modal';
-  el.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;padding:1rem';
-  el.innerHTML = `
-    <div style="background:var(--card);border-radius:16px 16px 0 0;width:100%;max-width:430px;padding:1.5rem 1.25rem 2rem">
-      <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--t1);margin-bottom:.25rem">Registrar merma</div>
-      <div style="font-size:13px;color:var(--t2);margin-bottom:1rem">${escHtml(ingName)}</div>
-      <label style="font-size:12px;color:var(--t2);display:block;margin-bottom:.25rem">Cantidad mermada (en ${baseUnit})</label>
-      <input id="kstk-merma-qty" type="number" step="0.01" inputmode="decimal" placeholder="0"
-        style="width:100%;padding:14px;font-size:24px;font-family:'Fraunces',serif;border:1.5px solid var(--bd2);border-radius:var(--r-sm);background:var(--bg);text-align:center;margin-bottom:.75rem"
-        onkeydown="if(event.key==='Enter')kitchenSaveMerma('${ingId}')">
-      <label style="font-size:12px;color:var(--t2);display:block;margin-bottom:.25rem">Motivo (opcional)</label>
-      <select id="kstk-merma-reason" style="width:100%;padding:10px;font-size:14px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);background:var(--bg);margin-bottom:1rem;font-family:inherit">
-        <option value="caducado">Caducado</option>
-        <option value="quemado">Quemado / mal cocinado</option>
-        <option value="caido">Caído al suelo</option>
-        <option value="rotura">Rotura</option>
-        <option value="otro">Otro</option>
-      </select>
-      <div style="display:flex;gap:.5rem">
-        <button onclick="document.getElementById('kstk-merma-modal').remove()"
-          style="flex:1;padding:12px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:none;color:var(--t1);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">Cancelar</button>
-        <button onclick="kitchenSaveMerma('${ingId}')"
-          style="flex:1;padding:12px;border-radius:var(--r-sm);border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">Registrar</button>
-      </div>
-    </div>`;
-  document.body.appendChild(el);
-  setTimeout(() => document.getElementById('kstk-merma-qty')?.focus(), 100);
-}
-
-async function kitchenSaveMerma(ingId) {
-  const qtyEl = document.getElementById('kstk-merma-qty');
-  const reasonEl = document.getElementById('kstk-merma-reason');
-  const qty = parseFloat(qtyEl?.value || '0');
-  if (!qty || qty <= 0) { notify('Cantidad inválida', 'error'); return; }
-  const reason = reasonEl?.value || 'otro';
-
-  // Insertar movimiento tipo 'waste' — el trigger fn_apply_movement_to_inventory descuenta el stock
-  const { error } = await sb.from('stock_movements').insert({
-    restaurant_id: state.kitchenRestaurantId,
-    ingredient_id: ingId,
-    type: 'waste',
-    delta: -Math.abs(qty),
-    notes: `Merma desde cocina: ${reason}`,
-  });
-  if (error) { notify('Error al registrar merma: ' + error.message, 'error'); return; }
-  document.getElementById('kstk-merma-modal').remove();
-  notify('Merma registrada', 'success');
-  // Refrescar lista
-  initKitchenStockeat();
+  // Cargar datos
+  if (typeof initStockeat === 'function') await initStockeat();
 }
 
 async function openKitchen(restaurantId, restaurantName) {
@@ -9397,6 +9299,22 @@ async function loadAdminWaiters() {
       </div>
     </div>`;
   }).join('');
+
+  // Realtime: cuando un camarero hace login/logout en serveat, is_active cambia
+  // en DB. Suscribirse y refrescar lista para mostrar el estado correcto.
+  if (!state._waitersRealtimeSub && state.adminRestaurantId) {
+    state._waitersRealtimeSub = sb.channel('admin-waiters-' + state.adminRestaurantId)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'waiters',
+        filter: 'restaurant_id=eq.' + state.adminRestaurantId
+      }, () => {
+        // Recargar lista (sin re-suscribir — el flag _waitersRealtimeSub lo evita)
+        loadAdminWaiters();
+      })
+      .subscribe();
+  }
 }
 
 async function saveWaiter() {
@@ -9560,7 +9478,16 @@ function showAdminTab(name) {
   if (name === 'cocina') loadAdminOrders();
   if (name === 'reservas') initReservasTab();
   if (name === 'reportes') { loadKPIs(); showReportesTab('kpis'); }
-  if (name === 'stockeat') { initStockeat(); }
+  if (name === 'stockeat') {
+    // Sprint stockeat: el nodo puede haber sido movido a cookeat. Restauramos.
+    _restoreStockeatNodeToManageat();
+    // Marcar contexto admin (lectura — botones de edición se ocultan en render)
+    state.stockeatContext = 'admin';
+    // Asegurar visibilidad
+    const stkNode = document.getElementById('atab-stockeat');
+    if (stkNode) stkNode.style.display = 'flex';
+    initStockeat();
+  }
   // Populate sidebar restaurant name if available
   const restLabel = document.getElementById('admin-restaurant-label');
   const userInfo = document.getElementById('admin-user-info');
@@ -9820,13 +9747,31 @@ async function loadAdminWaitersMobile() {
     <div class="card row" style="margin-bottom:.5rem;justify-content:space-between">
       <div>
         <div style="font-size:14px;font-weight:500">${escHtml(w.name)}</div>
-        <div style="font-size:12px;color:var(--t2)">${w.email||'Sin email'} · ${w.active?'Activo':'Inactivo'}</div>
+        <div style="font-size:12px;color:var(--t2)">${w.email||'Sin email'}</div>
+        <div style="font-size:11px;margin-top:3px;display:flex;gap:8px;flex-wrap:wrap">
+          ${w.active
+            ? '<span style="color:var(--brand);font-weight:500">✓ Habilitado</span>'
+            : '<span style="color:var(--accent);font-weight:500">✗ Deshabilitado</span>'}
+          ${w.is_active
+            ? '<span style="color:var(--brand);font-weight:500">🟢 Conectado</span>'
+            : '<span style="color:var(--t3)">⚪ Sin sesión</span>'}
+        </div>
       </div>
       <div style="display:flex;gap:5px;align-items:center">
         <div class="toggle-track ${w.active?'on':''}" onclick="toggleWaiter('${w.id}',${!w.active})"><div class="toggle-thumb"></div></div>
         <button onclick="deleteWaiterInline('${w.id}')" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:14px;cursor:pointer">✕</button>
       </div>
     </div>`).join('');
+
+  // Realtime: refrescar cuando cambia is_active de algún camarero
+  if (!state._waitersRealtimeSubMobile && state.adminRestaurantId) {
+    state._waitersRealtimeSubMobile = sb.channel('admin-waiters-mobile-' + state.adminRestaurantId)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'waiters',
+        filter: 'restaurant_id=eq.' + state.adminRestaurantId
+      }, () => loadAdminWaitersMobile())
+      .subscribe();
+  }
 }
 
 function showReportesTab(name) {
@@ -16553,6 +16498,7 @@ async function resolveAllStockAlerts() {
 }
 
 async function resolveStockAlert(alertId) {
+  if (!_assertStockeatEditable()) return;
   await sb.from('stock_alerts').update({ resolved_at: new Date().toISOString() }).eq('id', alertId);
   loadStockInventory();
 }
@@ -16622,6 +16568,7 @@ function renderIngredientsList() {
 }
 
 function openIngredientModal(ingId) {
+  if (!_assertStockeatEditable()) return;
   const ing = ingId ? _stk.ingredients.find(i => i.id === ingId) : null;
   const unitOpts = _stk.units.map(u => `<option value="${u.code}" ${ing && ing.base_unit === u.code ? 'selected' : ''}>${u.label} (${u.code})</option>`).join('');
   const modal = document.createElement('div');
@@ -16651,6 +16598,7 @@ function openIngredientModal(ingId) {
 }
 
 async function saveIngredient(ingId) {
+  if (!_assertStockeatEditable()) return;
   const name = document.getElementById('ing-f-name').value.trim();
   const base_unit = document.getElementById('ing-f-unit').value;
   const avg_cost = parseFloat(document.getElementById('ing-f-cost').value) || 0;
@@ -16676,6 +16624,7 @@ async function saveIngredient(ingId) {
 }
 
 async function deleteIngredient(ingId) {
+  if (!_assertStockeatEditable()) return;
   if (!(await confirmModal('¿Eliminar este ingrediente? Solo se puede borrar si no está en ninguna receta.'))) return;
   const { error } = await sb.from('stock_ingredients').delete().eq('id', ingId);
   if (error) { notify('No se puede eliminar: está en uso en alguna receta'); return; }
@@ -16685,6 +16634,7 @@ async function deleteIngredient(ingId) {
 
 // ── STOCK ADJUST ────────────────────────────────────────────────
 function openStockAdjustModal(ingId) {
+  if (!_assertStockeatEditable()) return;
   if (!_stk.ingredients.length) { notify('Crea primero un ingrediente'); return; }
   const opts = _stk.ingredients.map(i => `<option value="${i.id}" ${ingId === i.id ? 'selected' : ''}>${escHtml(i.name)} (${i.base_unit})</option>`).join('');
   const modal = document.createElement('div');
@@ -16717,6 +16667,7 @@ function openStockAdjustModal(ingId) {
 }
 
 async function saveStockAdjust() {
+  if (!_assertStockeatEditable()) return;
   const ingredient_id = document.getElementById('adj-f-ing').value;
   const type = document.getElementById('adj-f-type').value;
   const delta = parseFloat(document.getElementById('adj-f-qty').value);
@@ -16935,6 +16886,7 @@ function addRecipeLine(recipeId) {
 }
 
 async function saveRecipeLine(recipeId) {
+  if (!_assertStockeatEditable()) return;
   const ingredient_id = document.getElementById('rl-ing').value;
   const qty = parseFloat(document.getElementById('rl-qty').value);
   const unit = document.getElementById('rl-unit').value;
@@ -16964,6 +16916,7 @@ async function saveRecipeLine(recipeId) {
 }
 
 async function deleteRecipeLine(lineId) {
+  if (!_assertStockeatEditable()) return;
   const modal = document.getElementById('rec-modal');
   const recipeId = modal?._recipeId;
   await sb.from('stock_recipe_items').delete().eq('id', lineId);
@@ -17027,6 +16980,7 @@ function renderSuppliersList() {
 }
 
 function openSupplierModal(supId) {
+  if (!_assertStockeatEditable()) return;
   const s = supId ? _stkSup.suppliers.find(x => x.id === supId) : null;
   const modal = document.createElement('div');
   modal.id = 'sup-modal';
@@ -17054,6 +17008,7 @@ function openSupplierModal(supId) {
 }
 
 async function saveSupplier(supId) {
+  if (!_assertStockeatEditable()) return;
   const name = document.getElementById('sup-f-name').value.trim();
   if (!name) { notify('Introduce un nombre'); return; }
   const payload = {
@@ -17077,6 +17032,7 @@ async function saveSupplier(supId) {
 }
 
 async function deleteSupplier(supId) {
+  if (!_assertStockeatEditable()) return;
   if (!(await confirmModal('¿Eliminar este proveedor?'))) return;
   const { error } = await sb.from('stock_suppliers').delete().eq('id', supId);
   if (error) { notify('No se puede eliminar: tiene pedidos asociados'); return; }
@@ -17135,6 +17091,7 @@ function renderPurchasesList() {
 }
 
 function openPurchaseModal(prefill) {
+  if (!_assertStockeatEditable()) return;
   if (!_stkSup.suppliers.length) {
     notify('Crea primero un proveedor');
     showStockeatTab('suppliers');
@@ -17271,6 +17228,7 @@ function removePurchaseLine(idx) {
 }
 
 async function savePurchase() {
+  if (!_assertStockeatEditable()) return;
   const supplier_id = document.getElementById('pur-f-supplier').value;
   const lines = _stkSup.currentPurchaseLines;
   if (!supplier_id) { notify('Selecciona un proveedor'); return; }
@@ -17367,6 +17325,7 @@ async function markPurchaseStatus(purchaseId, newStatus) {
 
 // ── SMART PURCHASE SUGGESTION ───────────────────────────────────
 async function suggestPurchases() {
+  if (!_assertStockeatEditable()) return;
   const restId = state.adminRestaurantId;
   if (!restId) return;
 
@@ -17478,6 +17437,7 @@ const _stkCount = {
 };
 
 async function startStockCount() {
+  if (!_assertStockeatEditable()) return;
   if (!_stk.ingredients.length) {
     notify('Crea primero ingredientes antes de hacer un conteo');
     return;
@@ -17676,6 +17636,7 @@ function backToCountStep() {
 }
 
 async function finalizeStockCount() {
+  if (!_assertStockeatEditable()) return;
   const countId = _stkCount.countId;
   if (!countId) return;
 
