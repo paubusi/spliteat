@@ -153,6 +153,7 @@
     #s-admin-login .body,
     #s-admin-login-form .body,
     #s-kitchen-login .body,
+    #s-stockeat-login .body,
     #s-waiter .body,
     #s-waiter-select .body {
       max-width: 380px; margin: 0 auto; width: 100%;
@@ -184,6 +185,17 @@
   .field input, .field select { width: 100%; padding: 12px 14px; border: 1px solid var(--bd2); border-radius: var(--r-sm); font-size: 15px; font-family: inherit; background: var(--card); color: var(--t1); transition: border-color .15s; outline: none; }
   .field input:focus, .field select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(29,158,117,.12); }
   .field input::placeholder { color: var(--t3); }
+  /* #1: Override del autocompletado azul claro de Chrome — los inputs deben verse
+     idénticos haya o no credenciales guardadas, para que cookeat y stockeat se
+     vean exactamente igual. */
+  .field input:-webkit-autofill,
+  .field input:-webkit-autofill:hover,
+  .field input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px var(--card) inset !important;
+    box-shadow: 0 0 0 1000px var(--card) inset !important;
+    -webkit-text-fill-color: var(--t1) !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
 
   /* ── CARDS ── */
   .card { background: var(--card); border: 1px solid var(--bd); border-radius: var(--r); padding: 1rem 1.1rem; box-shadow: var(--shadow); }
