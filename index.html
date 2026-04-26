@@ -1247,7 +1247,7 @@
         <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:1.5rem 1.25rem;width:100%;max-width:430px;animation:slideUp .2s ease">
           <div style="font-size:16px;font-weight:500;margin-bottom:.25rem">Confirmar pedido</div>
           <div style="font-size:13px;color:var(--t2);margin-bottom:1rem">Revisa que todo está correcto antes de enviar a cocina.</div>
-          <div id="send-confirm-list" style="margin-bottom:1rem;max-height:40vh;overflow-y:auto"></div>
+          <div id="send-confirm-list" style="margin-bottom:1rem;max-height:40vh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch"></div>
           <div style="border-top:1px solid var(--bd);padding-top:.75rem;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center">
             <span style="font-size:13px;color:var(--t2)">Total del pedido</span>
             <span id="send-confirm-total" style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--brand-d)">—</span>
@@ -1255,7 +1255,7 @@
           <button class="btn btn-accent" onclick="confirmSendToKitchen()" style="margin-bottom:.5rem">
             ✓ Sí, enviar a cocina
           </button>
-          <button onclick="document.getElementById('send-confirm-modal').style.display='none'"
+          <button onclick="document.getElementById('send-confirm-modal').style.display='none';document.body.style.overflow=''"
             style="width:100%;padding:11px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:none;color:var(--t2);font-size:14px;cursor:pointer;font-family:inherit">
             Volver y seguir añadiendo
           </button>
@@ -2101,7 +2101,10 @@
           <button class="adm-nav" data-tab="gestion" onclick="showAdminTab('gestion')">
             <span class="adm-nav-icon">⚙️</span><span class="adm-nav-label">Ajustes</span>
           </button>
-          <!-- Sprint B: stockeat ahora es módulo independiente (s-stockeat) -->
+          <button class="adm-nav" data-tab="stockeat" onclick="showAdminTab('stockeat')" title="Vista de stock — la gestión completa está en stockeat">
+            <span class="adm-nav-icon">📦</span><span class="adm-nav-label">stock<em style="color:#D85A30;font-style:normal">eat</em> <span style="font-size:10px;color:rgba(255,255,255,.35);font-weight:400">· vista</span></span>
+            <span id="stockeat-nav-badge" style="display:none;background:#D85A30;color:#fff;border-radius:99px;padding:0px 6px;font-size:10px;font-weight:700;margin-left:auto">0</span>
+          </button>
         </nav>
 
         <div style="padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,.08)">
@@ -5531,10 +5534,13 @@ function showSendToKitchenConfirm() {
   listEl.scrollTop = 0;
   document.getElementById('send-confirm-total').textContent = fmt(total);
   document.getElementById('send-confirm-modal').style.display = 'flex';
+  // #3: Bloquear scroll del fondo mientras el modal está abierto
+  document.body.style.overflow = 'hidden';
 }
 
 async function confirmSendToKitchen() {
   document.getElementById('send-confirm-modal').style.display = 'none';
+  document.body.style.overflow = '';  // restaurar scroll
   await sendToKitchen();
 }
 
@@ -5825,7 +5831,7 @@ function buildSummary() {
           return `<div style="margin-top:.65rem;padding-top:.65rem;border-top:1px solid var(--brand)">
             <button onclick="goToRevisarCuenta()"
               style="width:100%;text-align:left;background:none;border:none;padding:0;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between">
-              <span style="font-size:12px;color:var(--brand);font-weight:600">✏️ Editar reparto${notMine.length > 0 ? ` <span style="font-weight:400;font-size:11px">· ${notMine.length} plato${notMine.length>1?'s':''} por asignar</span>` : ''}</span>
+              <span style="font-size:12px;color:var(--brand);font-weight:600">✏️ Editar reparto</span>
               <span style="font-size:11px;color:var(--brand)">›</span>
             </button>
           </div>`;
@@ -5971,7 +5977,10 @@ function buildPayScreen() {
   }
   const totals = calcTotals();
   const me = totals.find(t => t.g.id === state.myGuestId);
-  if (me) {
+  // Bug #6/#7: Solo actualizar el header (Tu parte / pay-amount) si el método es 'split'.
+  // Para 'full' (Invito yo) y 'equal' (Partes iguales) los renders propios ya
+  // ponen los valores correctos (total mesa o parte equitativa) — no sobreescribir.
+  if (me && _payMethod !== 'full' && _payMethod !== 'equal') {
     document.getElementById('pay-name-label').textContent = me.g.name + ' (tú)';
     document.getElementById('pay-amount').textContent = fmt(me.total);
     const breakdown = document.getElementById('pay-breakdown');
@@ -6305,7 +6314,7 @@ function downloadTicketPDF() {
     const pending = totals.filter(t => !paidIds.has(t.g.id));
     const el = document.createElement('div');
     el.id = 'ticket-blocked-modal';
-    el.style.cssText = 'position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:1.5rem';
+    el.style.cssText = 'position:fixed;inset:0;z-index:9700;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:1.5rem';
     el.innerHTML = `
       <div style="background:var(--card);border-radius:var(--r-lg);width:100%;max-width:360px;padding:1.5rem 1.25rem;text-align:center">
         <div style="font-size:32px;margin-bottom:.75rem">⏳</div>
@@ -6329,7 +6338,7 @@ function downloadTicketPDF() {
   document.getElementById('ticket-choice-modal')?.remove();
   const el = document.createElement('div');
   el.id = 'ticket-choice-modal';
-  el.style.cssText = 'position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center';
+  el.style.cssText = 'position:fixed;inset:0;z-index:9700;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center';
   el.innerHTML = `
     <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;padding:1.5rem 1.25rem 2rem;animation:slideUp .22s ease">
       <div style="font-size:17px;font-weight:700;color:var(--t1);margin-bottom:.25rem">Descargar ticket</div>
@@ -8396,6 +8405,20 @@ async function waiterLogin() {
     window._waiterAutoLogoutTimer = setTimeout(() => {
       waiterLogout(); showToast('Sesión caducada', 'Inicia sesión de nuevo');
     }, 43200000);
+    // #1: Heartbeat cada 60s — actualiza last_seen_at para que manageat sepa
+    // si el camarero sigue conectado, incluso si cierran navegador sin gracia.
+    if (window._waiterHeartbeat) clearInterval(window._waiterHeartbeat);
+    const _doHeartbeat = async () => {
+      if (!_waiterId || document.hidden) return;
+      try {
+        await sb.from('waiters').update({
+          last_seen_at: new Date().toISOString(),
+          is_active: true
+        }).eq('id', _waiterId);
+      } catch(e) {}
+    };
+    _doHeartbeat();  // primer pulso inmediato
+    window._waiterHeartbeat = setInterval(_doHeartbeat, 60000);
     const { data: rest } = await sb.from('restaurants')
       .select('name').eq('id', w.restaurant_id).maybeSingle();
     _waiterRestaurantName = rest?.name || '';
@@ -8555,9 +8578,10 @@ async function waiterForgotPassword() {
 async function waiterLogout() {
   // Mark waiter as inactive
   if (_waiterId) {
-    await sb.from('waiters').update({ is_active: false }).eq('id', _waiterId);
+    await sb.from('waiters').update({ is_active: false, last_seen_at: null }).eq('id', _waiterId);
   }
   if (window._waiterAutoLogoutTimer) clearTimeout(window._waiterAutoLogoutTimer);
+  if (window._waiterHeartbeat) { clearInterval(window._waiterHeartbeat); window._waiterHeartbeat = null; }
   if (_waiterNotifPollTimer) { clearInterval(_waiterNotifPollTimer); _waiterNotifPollTimer = null; }
   _waiterId = null; _waiterName = null;
   _waiterRestaurantId = null; _waiterCart = [];
@@ -9269,6 +9293,18 @@ function hideAddWaiterForm() {
   });
 }
 
+// #1: Heartbeat-based online detection
+// Un camarero está realmente online si:
+//   • is_active=true (mantenido por login + heartbeat)
+//   • last_seen_at en los últimos 3 minutos (heartbeat fresco)
+// Esto evita falsos positivos cuando el navegador cierra sin emitir beforeunload.
+function isWaiterOnline(w) {
+  if (!w || !w.is_active) return false;
+  if (!w.last_seen_at) return false;
+  const lastSeen = new Date(w.last_seen_at).getTime();
+  return (Date.now() - lastSeen) < 3 * 60 * 1000;
+}
+
 async function loadAdminWaiters() {
   const { data } = await sb.from('waiters').select('*')
     .eq('restaurant_id', state.adminRestaurantId).order('name');
@@ -9290,7 +9326,7 @@ async function loadAdminWaiters() {
           ${w.active
             ? '<span style="color:var(--brand);font-weight:500">✓ Habilitado</span>'
             : '<span style="color:var(--accent);font-weight:500">✗ Deshabilitado</span>'}
-          ${w.is_active
+          ${isWaiterOnline(w)
             ? '<span style="color:var(--brand);font-weight:500">🟢 Conectado ahora</span>'
             : '<span style="color:var(--t3)">⚪ Sin sesión activa</span>'}
         </div>
@@ -9567,8 +9603,8 @@ function adminLogout() {
 // ══════════════════════════════════════════════════════
 function showAdminTab(name) {
   closeMobileSidebar();
-  // Sprint B: 'stockeat' eliminado de manageat (ahora es módulo independiente)
-  ['encurso','gestion','cocina','reservas','reportes','facturas','calleat','notificaciones'].forEach(t => {
+  // Sprint B: 'stockeat' ahora vuelve como tab de vista lectura en manageat.
+  ['encurso','gestion','cocina','reservas','reportes','facturas','calleat','notificaciones','stockeat'].forEach(t => {
     const el = document.getElementById('atab-' + t);
     if (el) el.style.display = t === name ? 'flex' : 'none';
   });
@@ -9588,6 +9624,18 @@ function showAdminTab(name) {
   if (name === 'cocina') loadAdminOrders();
   if (name === 'reservas') initReservasTab();
   if (name === 'reportes') { loadKPIs(); showReportesTab('kpis'); }
+  if (name === 'stockeat') {
+    // El nodo #atab-stockeat puede haber sido movido al módulo independiente.
+    // Lo restauramos a su sitio original y activamos modo solo-lectura.
+    if (typeof _restoreStockeatNodeToManageat === 'function') {
+      _restoreStockeatNodeToManageat();
+    }
+    state.stockeatContext = 'admin';
+    state.adminRestaurantId = state.adminRestaurantId; // no-op, claridad
+    const stkNode = document.getElementById('atab-stockeat');
+    if (stkNode) stkNode.style.display = 'flex';
+    if (typeof initStockeat === 'function') initStockeat();
+  }
   // Populate sidebar restaurant name if available
   const restLabel = document.getElementById('admin-restaurant-label');
   const userInfo = document.getElementById('admin-user-info');
@@ -9852,7 +9900,7 @@ async function loadAdminWaitersMobile() {
           ${w.active
             ? '<span style="color:var(--brand);font-weight:500">✓ Habilitado</span>'
             : '<span style="color:var(--accent);font-weight:500">✗ Deshabilitado</span>'}
-          ${w.is_active
+          ${isWaiterOnline(w)
             ? '<span style="color:var(--brand);font-weight:500">🟢 Conectado</span>'
             : '<span style="color:var(--t3)">⚪ Sin sesión</span>'}
         </div>
@@ -12122,7 +12170,7 @@ async function loadWaiterStatusBar() {
   const el = document.getElementById('waiter-status-list');
   if (!el || !state.adminRestaurantId) return;
   const { data: waiters } = await sb.from('waiters')
-    .select('id,name,is_active,active')
+    .select('id,name,is_active,active,last_seen_at')
     .eq('restaurant_id', state.adminRestaurantId)
     .eq('active', true)
     .order('name');
@@ -12132,14 +12180,14 @@ async function loadWaiterStatusBar() {
     if (warningEl) warningEl.style.display = 'flex';
     return;
   }
-  const anyActive = waiters.some(w => w.is_active === true);
+  const anyActive = waiters.some(w => isWaiterOnline(w));
   // #BG7: Show prominent warning if no active waiter sessions
   const warningEl = document.getElementById('no-waiter-warning');
   if (warningEl) {
     warningEl.style.display = anyActive ? 'none' : 'flex';
   }
   el.innerHTML = waiters.map(w => {
-    const isOn = w.is_active === true;
+    const isOn = isWaiterOnline(w);
     return `<div style="display:flex;align-items:center;gap:5px;padding:4px 8px;border-radius:99px;border:1px solid ${isOn ? 'var(--brand)' : 'var(--bd2)'};background:${isOn ? 'var(--brand-l)' : 'var(--bg2)'}">
       <div style="width:7px;height:7px;border-radius:50%;background:${isOn ? 'var(--brand)' : 'var(--bd2)'};flex-shrink:0"></div>
       <span style="font-size:12px;font-weight:500;color:${isOn ? 'var(--brand-d)' : 'var(--t3)'}">${escHtml(w.name)}</span>
@@ -12509,6 +12557,15 @@ async function loadEncurso() {
   // loadEncurso ahora llama al floor plan
   await loadFloorPlan();
   loadWaiterStatusBar(); // #4: refresh waiter active/inactive status
+  // #1: Polling cada 60s para detectar transiciones online→offline cuando un
+  // camarero deja de mandar heartbeat (cierra navegador sin logout).
+  if (!window._waiterStatusPollTimer) {
+    window._waiterStatusPollTimer = setInterval(() => {
+      if (document.getElementById('atab-encurso')?.style.display !== 'none') {
+        loadWaiterStatusBar();
+      }
+    }, 60000);
+  }
   // También suscribir realtime si no está ya
   if (!_encursoSub) {
     _encursoSub = sb.channel('encurso-' + state.adminRestaurantId)
@@ -15130,13 +15187,13 @@ function showPaymentLockedModal(existingPayments) {
       <!-- Otras opciones — menos visuales -->
       <div style="font-size:11px;color:var(--t3);text-align:center;margin-bottom:.5rem;font-weight:500">OTRAS OPCIONES</div>
       <div style="display:flex;gap:.5rem;margin-bottom:1rem">
-        <button onclick="document.getElementById('pay-locked-modal').remove();_payMethod='full';buildFullPayScreen();go('s5-pay')"
+        <button onclick="document.getElementById('pay-locked-modal').remove();selectPayMethod('full')"
           style="flex:1;padding:9px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:12px;cursor:pointer;font-family:inherit;text-align:center">
-          🤑 Invito yo<br><span style="font-size:10px;color:var(--t3)">${fmt(remainingTotal)} restante</span>
+          🤑 Invito yo<br><span style="font-size:10px;color:var(--t3)">${fmt(remainingTotal)} en total</span>
         </button>
-        <button onclick="document.getElementById('pay-locked-modal').remove();buildEqualPayScreen(${remaining.length});go('s5-pay')"
+        <button onclick="document.getElementById('pay-locked-modal').remove();selectPayMethod('equal')"
           style="flex:1;padding:9px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:12px;cursor:pointer;font-family:inherit;text-align:center">
-          ➗ A partes iguales<br><span style="font-size:10px;color:var(--t3)">${fmt(remainingTotal / Math.max(1, remaining.length))} c/u</span>
+          ➗ A partes iguales<br><span style="font-size:10px;color:var(--t3)">elegir personas</span>
         </button>
       </div>
       <button onclick="document.getElementById('pay-locked-modal').remove()"
@@ -15309,7 +15366,7 @@ function buildFullPayScreen() {
   const tipAmt = total * tipPct;
   const grandTotal = total + tipAmt;
 
-  // #9: Change "Tu parte" label to "Total mesa"
+  // #6: Header — "Total mesa" prominente
   const parteLbl = document.querySelector('#s5-pay .body > div:first-child > div:first-child');
   if (parteLbl) parteLbl.textContent = 'Total mesa';
 
@@ -15323,19 +15380,31 @@ function buildFullPayScreen() {
     else breakdownEl.style.display = 'none';
   }
 
-  // Show full table breakdown
+  // #6: Desglose detallado por persona (más pequeño, debajo del total prominente)
   const list = document.getElementById('pay-status-list');
   if (list) {
-    const guests = state.guests || [];
-    const guestStr = guests.length > 0 ? guests.map(g => escHtml(g.name)).join(', ') : 'toda la mesa';
-    list.innerHTML = `<div style="background:var(--amber-l);border-radius:var(--r);padding:.85rem 1rem;text-align:center;margin-bottom:.5rem">
-      <div style="font-size:13px;color:#854F0B;font-weight:500">Pagando la cuenta completa</div>
-      <div style="font-size:12px;color:#854F0B;margin-top:3px">Invitas a: ${guestStr}</div>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:.6rem 0;border-bottom:1px solid var(--bd)">
-      <div style="font-size:13px;color:var(--t2)">Total mesa</div>
-      <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--brand-d)">${fmt(grandTotal)}</div>
-    </div>`;
+    const totals = calcTotals();
+    const breakdownRows = totals.map(t => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:.45rem 0;border-bottom:1px dashed var(--bd)">
+        <span style="font-size:13px;color:var(--t1)">${escHtml(t.g.name)}${t.g.id === state.myGuestId ? ' <span style="color:var(--brand);font-weight:600">(tú)</span>' : ''}</span>
+        <span style="font-size:13px;color:var(--t2);font-family:'Fraunces',serif">${fmt(t.total)}</span>
+      </div>`).join('');
+
+    list.innerHTML = `
+      <div style="background:var(--amber-l);border-radius:var(--r);padding:.85rem 1rem;text-align:center;margin-bottom:.85rem;border:1px solid #F5CC6A">
+        <div style="font-size:13px;color:#854F0B;font-weight:600">🎁 Pagas la cuenta completa</div>
+        <div style="font-size:11px;color:#854F0B;margin-top:3px">Tu pago cubre lo que ha consumido cada comensal</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.5rem 1rem">
+        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;font-weight:600;padding:.5rem 0;border-bottom:1px solid var(--bd)">
+          Desglose por persona
+        </div>
+        ${breakdownRows}
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:.65rem 0 .25rem;font-weight:700">
+          <span style="font-size:14px;color:var(--t1)">TOTAL MESA</span>
+          <span style="font-size:18px;color:var(--brand-d);font-family:'Fraunces',serif">${fmt(grandTotal)}</span>
+        </div>
+      </div>`;
   }
 
   // #11-11: Also render payment methods (same as buildPayScreen)
