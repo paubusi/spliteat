@@ -148,6 +148,14 @@
     flex-shrink: 0;
   }
 
+  /* Cookeat — botón Ajustes hover */
+  #k-ajustes-btn:hover { background: var(--brand-l); border-color: var(--brand); color: var(--brand-d); }
+  /* Drawer ajustes — slide desde la derecha */
+  @keyframes slideRight {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+
   /* En desktop, pantallas de login centradas horizontalmente — NO verticalmente para evitar huecos */
   @media (min-width: 600px) {
     #s-admin-login .body,
@@ -1720,22 +1728,19 @@
   <div class="screen" id="s-kitchen" style="height:100dvh;overflow:hidden">
     <div class="hdr">
       <div class="logo">cook<em style="color:var(--accent);font-style:normal">eat</em></div>
-      <div style="display:flex;align-items:center;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px">
         <div class="live-badge"><div class="live-dot"></div><span id="k-rest-name">—</span></div>
-        <!-- botón dark mode desactivado -->
-        <button style="display:none" title="Modo oscuro">🌙</button>
+        <!-- Botón Ajustes en cabecera (engranaje, no tab) -->
+        <button onclick="openKitchenAjustes()" id="k-ajustes-btn" title="Ajustes — Carta y tiempos"
+          style="display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:99px;border:1px solid var(--bd2);background:var(--bg);color:var(--t1);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s">
+          <span style="font-size:14px">⚙️</span><span>Ajustes</span>
+        </button>
         <button class="back-btn" onclick="kitchenLogout()" style="color:var(--accent)">Salir</button>
       </div>
     </div>
-    <div class="tab-bar">
-      <button class="tab on" id="ktab-btn-pedidos" onclick="showKitchenTab('pedidos')">
-        KDS - Kitchen Display System <span id="k-pedidos-badge" style="display:none;background:#E24B4A;color:#fff;border-radius:99px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:3px">0</span>
-      </button>
-      <button class="tab" id="ktab-btn-ajustes" onclick="showKitchenTab('ajustes')">⚙️ Ajustes</button>
-    </div>
 
-    <!-- TAB KDS — vista por pases -->
-    <div id="ktab-pedidos" style="height:calc(100dvh - 110px);overflow-y:auto;padding:.65rem">
+    <!-- KDS — única vista principal, ocupa toda la pantalla -->
+    <div id="ktab-pedidos" style="height:calc(100dvh - 57px);overflow-y:auto;padding:.65rem">
       <!-- Disabled dishes warning -->
       <div id="k-disabled-warning" style="display:none;background:#FAEEDA;border:1px solid #E5A85A;border-radius:var(--r-sm);padding:.6rem .85rem;margin-bottom:.65rem;font-size:12px;color:#854F0B;display:flex;align-items:center;justify-content:space-between">
         <span id="k-disabled-warning-text"></span>
@@ -1751,57 +1756,60 @@
         </button>
         <div id="k-history-list" style="display:none;margin-top:.5rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.5rem;align-items:start"></div>
       </div>
-    </div>
+    </div><!-- /ktab-pedidos -->
 
-    <!-- TAB CARTA — activar/desactivar platos -->
-    <div id="ktab-carta" style="display:none;height:calc(100dvh - 110px);overflow-y:auto;padding:.65rem">
-      <div style="max-width:860px;margin:0 auto">
-        <div style="font-size:12px;color:var(--t2);margin-bottom:.75rem;line-height:1.5;background:var(--bg2);padding:.65rem .85rem;border-radius:var(--r-sm)">
-          Activa o desactiva platos según disponibilidad. <strong>Los desactivados no aparecen en la carta del comensal.</strong><br>
-          Para añadir platos nuevos o cambiar precios, hazlo desde manageat.<br>
-          <span style="color:#854F0B;font-weight:500">⚠️ Reactiva los platos tan pronto vuelvan a estar disponibles.</span>
+  </div><!-- /s-kitchen -->
+
+  <!-- ════════════════════════════════════════
+       AJUSTES DRAWER — Modal lateral con Carta y Tiempos
+       Se abre desde el botón ⚙️ Ajustes del header de cookeat
+  ════════════════════════════════════════ -->
+  <div id="k-ajustes-drawer" style="display:none;position:fixed;inset:0;z-index:9700;background:rgba(0,0,0,.45);align-items:stretch;justify-content:flex-end"
+       onclick="if(event.target===this)closeKitchenAjustes()">
+    <div style="background:var(--card);width:100%;max-width:780px;height:100%;display:flex;flex-direction:column;animation:slideRight .25s cubic-bezier(.4,0,.2,1)">
+      <!-- Header del drawer -->
+      <div style="padding:1rem 1.5rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+        <div>
+          <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--t1)">⚙️ Ajustes operativos</div>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">Carta y tiempos de preparación · sincronizados en tiempo real</div>
         </div>
-        <div id="k-carta-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.4rem">
-          <div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px;grid-column:1/-1">Cargando carta...</div>
-        </div>
+        <button onclick="closeKitchenAjustes()"
+          style="width:36px;height:36px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit">✕</button>
       </div>
-    </div>
 
-    <!-- TAB CONFIG — tiempos de preparación -->
-    <div id="ktab-config" style="display:none;height:calc(100dvh - 110px);overflow-y:auto;padding:.65rem">
-      <div style="max-width:860px;margin:0 auto">
-        <div style="font-size:15px;font-weight:500;margin-bottom:.25rem">Tiempos de preparación</div>
-        <div style="font-size:12px;color:var(--t2);margin-bottom:.75rem;line-height:1.5">
-          Define cuántos minutos tarda cada plato. Se muestra en el KDS para coordinar los pases.
-        </div>
-        <div id="k-prep-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.4rem">
-          <div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px;grid-column:1/-1">Cargando...</div>
-        </div>
+      <!-- Sub-tabs internos -->
+      <div style="display:flex;border-bottom:1px solid var(--bd);background:var(--card);flex-shrink:0">
+        <button id="kaj-sub-carta" onclick="showKitchenAjustesSection('carta')"
+          style="flex:1;padding:14px;border:none;border-bottom:2px solid var(--brand);background:var(--brand-l);color:var(--brand-d);font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">
+          🍽 Carta — activar/desactivar
+        </button>
+        <button id="kaj-sub-config" onclick="showKitchenAjustesSection('config')"
+          style="flex:1;padding:14px;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--t2);font-weight:500;font-size:13px;cursor:pointer;font-family:inherit">
+          ⏱ Tiempos de preparación
+        </button>
       </div>
-    </div>
 
-    <!-- Sprint B: stockeat ya no vive en cookeat — ahora es módulo independiente (s-stockeat) -->
+      <!-- Contenido scrolleable: aquí dentro aparece carta o config -->
+      <div style="flex:1;overflow-y:auto">
+        <!-- SUBSECCIÓN CARTA -->
+        <div id="ktab-carta" style="padding:1.25rem 1.5rem">
+          <div style="font-size:12px;color:#854F0B;background:#FAEEDA;padding:.65rem .85rem;border-radius:var(--r-sm);border-left:3px solid #E5A85A;margin-bottom:1rem;line-height:1.5">
+            ⚠️ <strong>Reactiva los platos</strong> en cuanto vuelvan a estar disponibles. Los desactivados no aparecen en la carta del comensal.<br>
+            <span style="color:var(--t2);font-weight:400">Para añadir platos o cambiar precios, hazlo desde manageat.</span>
+          </div>
+          <div id="k-carta-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.4rem">
+            <div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px;grid-column:1/-1">Cargando carta...</div>
+          </div>
+        </div>
 
-    <!-- #3: TAB AJUSTES — agrupa Carta y Tiempos -->
-    <div id="ktab-ajustes" style="display:none;height:calc(100dvh - 110px);overflow-y:auto;padding:.65rem">
-      <div style="max-width:860px;margin:0 auto">
-        <div style="font-size:15px;font-weight:600;margin-bottom:.5rem">⚙️ Ajustes operativos</div>
-        <div style="font-size:12px;color:var(--t2);margin-bottom:1rem;line-height:1.5">
-          Activa o desactiva platos según disponibilidad y ajusta tiempos de preparación.
-        </div>
-        <!-- Sub-tabs internos -->
-        <div style="display:flex;gap:.4rem;border-bottom:1px solid var(--bd);margin-bottom:1rem">
-          <button id="kaj-sub-carta" class="on" onclick="showKitchenAjustesSection('carta')"
-            style="background:var(--brand-l);color:var(--brand-d);font-weight:600;padding:8px 16px;border:none;border-radius:var(--r-sm) var(--r-sm) 0 0;cursor:pointer;font-family:inherit;font-size:13px;border-bottom:2px solid var(--brand)">
-            🍽 Carta — activar/desactivar platos
-          </button>
-          <button id="kaj-sub-config" onclick="showKitchenAjustesSection('config')"
-            style="background:transparent;color:var(--t2);font-weight:500;padding:8px 16px;border:none;border-radius:var(--r-sm) var(--r-sm) 0 0;cursor:pointer;font-family:inherit;font-size:13px">
-            ⏱ Tiempos de preparación
-          </button>
-        </div>
-        <div id="kaj-info" style="font-size:11px;color:var(--t3);margin-bottom:.5rem">
-          Los ajustes se sincronizan en tiempo real con manageat y serveat.
+        <!-- SUBSECCIÓN CONFIG -->
+        <div id="ktab-config" style="display:none;padding:1.25rem 1.5rem">
+          <div style="font-size:12px;color:var(--t2);margin-bottom:1rem;line-height:1.5">
+            Define cuántos minutos tarda cada plato. Se muestra en el KDS para coordinar los pases.
+          </div>
+          <div id="k-prep-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.4rem">
+            <div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px;grid-column:1/-1">Cargando tiempos...</div>
+          </div>
         </div>
       </div>
     </div>
@@ -7120,20 +7128,35 @@ async function payWithStripe(me, method) {
 // ══════════════════════════════════════════════════════
 // KITCHEN SCREEN
 // ══════════════════════════════════════════════════════
+// Cookeat redesign: ya no hay tabs, solo KDS principal. Esta función queda
+// por compatibilidad y para que openKitchen() la siga llamando con 'pedidos'.
 function showKitchenTab(name) {
-  ['pedidos','carta','config','ajustes'].forEach(t => {
-    const el = document.getElementById('ktab-' + t);
-    if (el) el.style.display = t === name ? 'block' : 'none';
-    const btn = document.getElementById('ktab-btn-' + t);
-    if (btn) btn.classList.toggle('on', t === name);
-  });
-  if (name === 'pedidos') loadKitchenOrders();
-  if (name === 'carta') loadKitchenCarta();
-  if (name === 'config') loadKitchenPrepTimes();
-  if (name === 'ajustes') showKitchenAjustesSection('carta');
+  // Único contenedor visible en la pantalla principal: ktab-pedidos
+  if (name === 'pedidos') {
+    const el = document.getElementById('ktab-pedidos');
+    if (el) el.style.display = 'block';
+    loadKitchenOrders();
+  }
 }
 
-// #3: Sub-tabs dentro de Ajustes — alterna entre Carta y Tiempos
+// Drawer Ajustes — abre el modal lateral con Carta + Tiempos como sub-tabs
+function openKitchenAjustes() {
+  const drawer = document.getElementById('k-ajustes-drawer');
+  if (!drawer) return;
+  drawer.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  // Por defecto abrir en sub-tab Carta
+  showKitchenAjustesSection('carta');
+}
+
+function closeKitchenAjustes() {
+  const drawer = document.getElementById('k-ajustes-drawer');
+  if (!drawer) return;
+  drawer.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+// Sub-tabs dentro del drawer Ajustes — alterna entre Carta y Tiempos
 function showKitchenAjustesSection(section) {
   ['carta','config'].forEach(s => {
     const el = document.getElementById('ktab-' + s);
@@ -7144,6 +7167,7 @@ function showKitchenAjustesSection(section) {
       btn.style.background = s === section ? 'var(--brand-l)' : 'transparent';
       btn.style.color = s === section ? 'var(--brand-d)' : 'var(--t2)';
       btn.style.fontWeight = s === section ? '600' : '500';
+      btn.style.borderBottomColor = s === section ? 'var(--brand)' : 'transparent';
     }
   });
   if (section === 'carta') loadKitchenCarta();
