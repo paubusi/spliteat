@@ -4021,6 +4021,15 @@ function showToast(title, body) {
 // REALTIME SUBSCRIPTIONS
 // ══════════════════════════════════════════════════════
 function subscribeRealtime() {
+  // Issue #2: Defensa contra doble-suscripción (típico tras refresh de la página).
+  // Supabase cachea channels por nombre → si llamamos sb.channel('guests-' + roomId)
+  // dos veces, devuelve el mismo objeto. Llamar .on() después de .subscribe()
+  // falla con "cannot add postgres_changes callbacks after subscribe()".
+  // Solución: limpiar SIEMPRE las subs anteriores antes de crear nuevas.
+  if (state.realtimeSubs && state.realtimeSubs.length) {
+    state.realtimeSubs.forEach(s => { try { sb.removeChannel(s); } catch(e){} });
+    state.realtimeSubs = [];
+  }
   // Registrar SW y suscribirse a push al entrar en la sala
   registerServiceWorker().then(() => {
     subscribeToPush(state.myGuestId, state.roomId);
@@ -4384,21 +4393,45 @@ function renderCarta() {
       const count = dishes.length;
       const onTable = count > 0;
 
-      // Build initials row — one bubble per dish instance
+      // Build initials row — agrupar por persona con contador para evitar saturación
+      // (con 10 aguas mostrar "P×3 J×2" en vez de 10 bolitas que tapan el botón +)
       let initialsHtml = '';
       if (onTable) {
-        const bubbles = dishes.map(d => {
+        // Contar cuántas veces aparece cada guest entre los items de este menu_item
+        const countByGuest = {}; // guestId → count
+        dishes.forEach(d => {
           if (d.type === 'shared') {
-            // #1: Always show initials, never emoji — seed all guests if participants not loaded yet
             const parts = state.participants[d.id] || [];
-            const toShow = parts.length > 0 ? parts : state.guests.map(g => g.id);
-            return toShow.slice(0, 4).map(gid => getInitial(gid)).join('');
-          } else {
-            // Individual: inicial del asignado
-            return getInitial(d.assignee_id);
+            const toCount = parts.length > 0 ? parts : state.guests.map(g => g.id);
+            toCount.forEach(gid => { countByGuest[gid] = (countByGuest[gid] || 0) + 1; });
+          } else if (d.assignee_id) {
+            countByGuest[d.assignee_id] = (countByGuest[d.assignee_id] || 0) + 1;
           }
-        }).flat().join('');
-        initialsHtml = `<div style="display:flex;align-items:center;gap:2px;margin-right:6px">${bubbles}</div>`;
+        });
+        const entries = Object.entries(countByGuest);
+        // Mostrar máx 4 personas; resto agrupado en "+N"
+        const MAX_VISIBLE = 4;
+        const visible = entries.slice(0, MAX_VISIBLE);
+        const overflow = entries.length - MAX_VISIBLE;
+        const pills = visible.map(([gid, n]) => {
+          const gIdx = state.guests.findIndex(g => g.id === gid);
+          const guest = state.guests.find(g => g.id === gid);
+          if (!guest) return '';
+          const [bg, tc] = VIVID_COLORS[gIdx % VIVID_COLORS.length];
+          const initial = guest.name.trim()[0]?.toUpperCase() || '?';
+          // Si solo 1 → bolita simple; si N>1 → bolita con contador a la derecha
+          if (n === 1) {
+            return `<div style="width:20px;height:20px;border-radius:50%;background:${bg};color:${tc};font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.2)">${initial}</div>`;
+          }
+          return `<div style="display:flex;align-items:center;gap:2px;background:${bg};border-radius:99px;padding:1px 6px 1px 1px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.2)">
+            <div style="width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,0.25);color:${tc};font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center">${initial}</div>
+            <span style="color:${tc};font-size:10px;font-weight:700;line-height:1">×${n}</span>
+          </div>`;
+        }).join('');
+        const overflowPill = overflow > 0
+          ? `<div style="font-size:10px;color:var(--t3);font-weight:600;padding:2px 5px;background:var(--bg2);border-radius:99px;flex-shrink:0">+${overflow}</div>`
+          : '';
+        initialsHtml = `<div style="display:flex;align-items:center;gap:3px;margin-right:6px;flex-wrap:wrap;max-width:140px;justify-content:flex-end">${pills}${overflowPill}</div>`;
       }
 
       html += `<div onclick="${onTable ? `openCartaItemEdit('${item.id}')` : `openModal('${item.id}')`}"
@@ -4498,39 +4531,116 @@ function showCartaItemChoiceModal(itemId, item, myDishes) {
   el.id = 'carta-item-choice-modal';
   el.style.cssText = 'position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center';
 
-  const dishRows = myDishes.map(d => {
+  // Issue: con muchas unidades (ej. 10 aguas), la lista plana ocultaba el botón
+  // "+ Añadir otra unidad". Ahora agrupamos por reparto + sticky al fondo.
+  // Agrupar instancias por reparto (igual que en revisar cuenta)
+  const repartoKey = d => {
     const isShared = d.type === 'shared';
-    const parts = state.participants[d.id] || [];
-    const who = isShared
-      ? parts.map(id => state.guests.find(g => g.id === id)?.name || '?').join(', ')
-      : state.guests.find(g => g.id === d.assignee_id)?.name || '?';
-    return `<button onclick="document.getElementById('carta-item-choice-modal').remove();openCartaDishEditModal(state.dishes.find(x=>x.id==='${d.id}'),null)"
+    if (isShared) return 'S|' + ((state.participants[d.id] || []).slice().sort().join(','));
+    return 'I|' + (d.assignee_id || '');
+  };
+  const groups = [];
+  const seenG = {};
+  myDishes.forEach(d => {
+    const k = repartoKey(d);
+    if (seenG[k] === undefined) {
+      seenG[k] = groups.length;
+      groups.push({ sample: d, isShared: d.type === 'shared', dishes: [] });
+    }
+    groups[seenG[k]].dishes.push(d);
+  });
+
+  const groupRows = groups.map(g => {
+    const parts = state.participants[g.sample.id] || [];
+    const who = g.isShared
+      ? (parts.length ? parts.map(id => state.guests.find(x => x.id === id)?.name || '?').join(', ') : 'Toda la mesa')
+      : (state.guests.find(x => x.id === g.sample.assignee_id)?.name || '?');
+    const qty = g.dishes.length;
+    const qtyBadge = qty > 1
+      ? `<span style="font-size:11px;font-weight:700;color:var(--brand-d);background:var(--brand-l);border-radius:99px;padding:2px 8px;margin-left:6px">${qty}×</span>`
+      : '';
+    // Si hay >1 unidad idéntica, abrir un picker de cuál editar; si es 1 sola, editar directo
+    const onclickAction = qty === 1
+      ? `document.getElementById('carta-item-choice-modal').remove();openCartaDishEditModal(state.dishes.find(x=>x.id==='${g.sample.id}'),null)`
+      : `expandCartaGroup('${g.sample.id}','${escHtml(item?.name || '').replace(/'/g, "\\'")}')`;
+    return `<button onclick="${onclickAction}"
       style="width:100%;text-align:left;padding:10px 14px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);cursor:pointer;font-family:inherit;margin-bottom:.4rem;display:flex;align-items:center;justify-content:space-between;gap:8px">
-      <div>
-        <div style="font-size:13px;font-weight:500">${isShared ? 'Compartido' : 'Solo'} — ${escHtml(who)}</div>
-        <div style="font-size:11px;color:var(--t3)">${fmt(parseFloat(d.price))}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500;display:flex;align-items:center;flex-wrap:wrap">
+          <span>${g.isShared ? 'Compartido' : 'Solo'} — ${escHtml(who)}</span>${qtyBadge}
+        </div>
+        <div style="font-size:11px;color:var(--t3);margin-top:1px">${fmt(parseFloat(g.sample.price) * qty)}${qty > 1 ? ` · ${qty} unidades` : ''}</div>
       </div>
-      <span style="font-size:12px;color:var(--brand);font-weight:500">Editar ✏️</span>
+      <span style="font-size:12px;color:var(--brand);font-weight:500;flex-shrink:0">${qty > 1 ? 'Ver' : 'Editar ✏️'}</span>
     </button>`;
   }).join('');
 
   el.innerHTML = `
-    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;padding:1.25rem 1.25rem 2rem;animation:slideUp .2s ease">
-      <div style="font-size:16px;font-weight:600;color:var(--t1);margin-bottom:.25rem">${escHtml(item?.name || 'Plato')}</div>
-      <div style="font-size:13px;color:var(--t2);margin-bottom:1rem">${myDishes.length} unidad${myDishes.length > 1 ? 'es' : ''} en tu mesa</div>
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;max-height:80vh;display:flex;flex-direction:column;animation:slideUp .2s ease">
+      <!-- Header sticky -->
+      <div style="padding:1.25rem 1.25rem .85rem;border-bottom:1px solid var(--bd);flex-shrink:0">
+        <div style="font-size:16px;font-weight:600;color:var(--t1);margin-bottom:.25rem">${escHtml(item?.name || 'Plato')}</div>
+        <div style="font-size:13px;color:var(--t2)">${myDishes.length} unidad${myDishes.length > 1 ? 'es' : ''} en tu mesa · ${fmt(parseFloat(item?.price || 0) * myDishes.length)}</div>
+      </div>
 
-      <button onclick="document.getElementById('carta-item-choice-modal').remove();openModal('${itemId}')"
-        class="btn btn-primary" style="width:100%;margin-bottom:.75rem">
-        + Añadir otra unidad
-      </button>
+      <!-- Lista scrolleable -->
+      <div style="flex:1;overflow-y:auto;padding:.85rem 1.25rem .5rem;-webkit-overflow-scrolling:touch">
+        <div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Unidades en la mesa</div>
+        ${groupRows}
+      </div>
 
-      <div style="font-size:12px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Editar unidad existente:</div>
-      ${dishRows}
+      <!-- Footer sticky con acción primaria + cancelar -->
+      <div style="padding:.75rem 1.25rem 1.25rem;border-top:1px solid var(--bd);flex-shrink:0;background:var(--card);box-shadow:0 -4px 8px rgba(0,0,0,0.04)">
+        <button onclick="document.getElementById('carta-item-choice-modal').remove();openModal('${itemId}')"
+          class="btn btn-primary" style="width:100%;margin-bottom:.5rem">
+          + Añadir otra unidad
+        </button>
+        <button onclick="document.getElementById('carta-item-choice-modal').remove()"
+          style="width:100%;padding:9px;border:none;background:none;color:var(--t3);font-size:13px;cursor:pointer;font-family:inherit">
+          Cancelar
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+  el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+}
 
-      <button onclick="document.getElementById('carta-item-choice-modal').remove()"
-        style="width:100%;padding:9px;border:none;background:none;color:var(--t3);font-size:13px;cursor:pointer;font-family:inherit;margin-top:.25rem">
-        Cancelar
-      </button>
+// Helper: cuando hay varias unidades idénticas, mostrar un picker para elegir
+// CUÁL editar individualmente (ej: si Pau tiene 3 aguas, elegir cuál de las 3).
+function expandCartaGroup(sampleDishId, itemName) {
+  const sample = state.dishes.find(d => d.id === sampleDishId);
+  if (!sample) return;
+  const repartoKey = d => {
+    const isShared = d.type === 'shared';
+    if (isShared) return 'S|' + ((state.participants[d.id] || []).slice().sort().join(','));
+    return 'I|' + (d.assignee_id || '');
+  };
+  const targetKey = repartoKey(sample);
+  const sameGroup = state.dishes.filter(d => d.menu_item_id === sample.menu_item_id && repartoKey(d) === targetKey);
+
+  document.getElementById('carta-item-choice-modal')?.remove();
+  const el = document.createElement('div');
+  el.id = 'carta-item-choice-modal';
+  el.style.cssText = 'position:fixed;inset:0;z-index:201;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center';
+  const rows = sameGroup.map((d, i) => `
+    <button onclick="document.getElementById('carta-item-choice-modal').remove();openCartaDishEditModal(state.dishes.find(x=>x.id==='${d.id}'),null)"
+      style="width:100%;text-align:left;padding:10px 14px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);cursor:pointer;font-family:inherit;margin-bottom:.4rem;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:13px">Unidad ${i + 1}${d.notes ? ' · ' + escHtml(d.notes) : ''}</span>
+      <span style="font-size:12px;color:var(--brand);font-weight:500">Editar ✏️</span>
+    </button>`).join('');
+  el.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;max-height:80vh;display:flex;flex-direction:column;animation:slideUp .2s ease">
+      <div style="padding:1.25rem 1.25rem .85rem;border-bottom:1px solid var(--bd);flex-shrink:0">
+        <div style="font-size:16px;font-weight:600;color:var(--t1);margin-bottom:.25rem">${escHtml(itemName)} — ${sameGroup.length} unidades</div>
+        <div style="font-size:12px;color:var(--t2)">Selecciona la unidad que quieres editar</div>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:.85rem 1.25rem .5rem">${rows}</div>
+      <div style="padding:.75rem 1.25rem 1.25rem;border-top:1px solid var(--bd);flex-shrink:0">
+        <button onclick="document.getElementById('carta-item-choice-modal').remove()"
+          style="width:100%;padding:9px;border:1px solid var(--bd2);background:none;color:var(--t3);font-size:13px;cursor:pointer;font-family:inherit;border-radius:var(--r-sm)">
+          Cerrar
+        </button>
+      </div>
     </div>`;
   document.body.appendChild(el);
   el.addEventListener('click', e => { if (e.target === el) el.remove(); });
@@ -14014,6 +14124,9 @@ function qrSelectReturning() {
   document.getElementById('qr-returning-panel').style.display = 'none';
   document.getElementById('qr-returning-pick').style.display = 'block';
   document.getElementById('qr-newuser-panel').style.display = 'none';
+  // Issue #2: limpiar errores residuales (típicos tras refresh con realtime fallida)
+  const errEl = document.getElementById('qr-err-pick');
+  if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
   if (!_qrActiveRoomId) return;
   sb.from('guests').select('*').eq('room_id', _qrActiveRoomId).then(({ data: guests }) => {
     const list = document.getElementById('qr-guest-list');
