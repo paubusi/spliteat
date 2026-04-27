@@ -4195,9 +4195,15 @@ function subscribeRealtime() {
       if (room.pay_method_locked && room.pay_method_locked !== state._roomPayMethod) {
         state._roomPayMethod = room.pay_method_locked;
         const locker = room.pay_method_locker_name || 'Alguien';
-        _payMethod = room.pay_method_locked;
-        document.getElementById('pay-method-modal').style.display = 'none';
-        notify(`${escHtml(locker)} ha elegido pagar con ${_payMethod === 'split' ? 'spliteat' : _payMethod === 'full' ? 'invitación' : 'partes iguales'}`, 'info');
+        // Issue #3: Si el cambio lo hizo ESTE cliente, NO cerrar el modal —
+        // selectPayMethod ya lo está gestionando. Sólo reaccionamos a cambios
+        // hechos por otros comensales.
+        const isMyOwnChange = locker === state.myName;
+        if (!isMyOwnChange) {
+          _payMethod = room.pay_method_locked;
+          document.getElementById('pay-method-modal').style.display = 'none';
+          notify(`${escHtml(locker)} ha elegido pagar con ${_payMethod === 'split' ? 'spliteat' : _payMethod === 'full' ? 'invitación' : 'partes iguales'}`, 'info');
+        }
       }
       // Bug #2: Si alguien CANCELÓ/RESETEÓ el método de pago, propagarlo a todos
       if (!room.pay_method_locked && state._roomPayMethod) {
@@ -5060,7 +5066,16 @@ function renderMesaDishes() {
 
     const sorted = [...state.dishes].sort((a,b) => courseOrder(a) - courseOrder(b));
 
-    const pending  = sorted.filter(d => !d.kitchen_status || d.kitchen_status !== 'delivered');
+    // Issue #1: "Por venir" debe mostrar solo platos REALMENTE enviados a cocina.
+    // Antes incluía platos con kitchen_status null/'new' (todavía en revisión),
+    // generando confusión al usuario que pensaba que ya estaban pedidos.
+    // Un plato cuenta como "enviado" cuando tiene sent_at o kitchen_status >= 'sent'.
+    const isSentToKitchen = d => {
+      if (d.sent_at) return true;
+      const ks = d.kitchen_status;
+      return ks && ks !== 'new';  // sent | making | ready | delivered
+    };
+    const pending  = sorted.filter(d => isSentToKitchen(d) && d.kitchen_status !== 'delivered');
     const served   = sorted.filter(d => d.kitchen_status === 'delivered');
 
     // ── Helpers ──────────────────────────────────────────────
@@ -5855,10 +5870,22 @@ function buildSummary() {
       let myLines = '';
       if (t.soloItems.length) {
         myLines += `<div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin:6px 0 4px">Platos míos</div>`;
+        // Issue #2: Agrupar items idénticos (mismo nombre + precio) → "2× X"
+        const soloGrouped = [];
+        const soloSeen = {};
         t.soloItems.forEach(d => {
+          const k = `${d.name}|${parseFloat(d.price||0).toFixed(2)}`;
+          if (soloSeen[k] === undefined) {
+            soloSeen[k] = soloGrouped.length;
+            soloGrouped.push({ name: d.name, price: parseFloat(d.price||0), qty: 0 });
+          }
+          soloGrouped[soloSeen[k]].qty++;
+        });
+        soloGrouped.forEach(g => {
+          const qtyPrefix = g.qty > 1 ? `<span style="color:var(--t3);font-weight:500">${g.qty}×</span> ` : '';
           myLines += `<div class="sum-line">
-            <span class="lbl" style="color:var(--t2)">↳ ${escHtml(d.name)}</span>
-            <span class="val">${fmt(parseFloat(d.price))}</span>
+            <span class="lbl" style="color:var(--t2)">↳ ${qtyPrefix}${escHtml(g.name)}</span>
+            <span class="val">${fmt(g.price * g.qty)}</span>
           </div>`;
         });
       }
@@ -14819,12 +14846,21 @@ function openRevisarCuenta() {
     }).filter(Boolean).join('<span style="color:var(--t3)"> · </span>');
   };
 
-  // Agrupar platos por nombre
+  // Issue #2: Agrupar por firma completa (nombre + precio + reparto).
+  // Items idénticos en TODO se agrupan como "2× X". Items con reparto distinto
+  // (uno individual, otro shared) quedan en cards separadas.
+  const dishSignature = d => {
+    const isShared = d.type === 'shared';
+    const parts = isShared
+      ? (state.participants[d.id] || []).slice().sort().join(',')
+      : (d.assignee_id || '');
+    return `${d.name}|${parseFloat(d.price||0).toFixed(2)}|${isShared ? 'S' : 'I'}|${parts}`;
+  };
   const grouped = [];
   const seen = {};
   state.dishes.forEach(d => {
-    const k = d.name;
-    if (!seen[k]) { seen[k] = grouped.length; grouped.push({ name: k, price: parseFloat(d.price||0), items: [] }); }
+    const k = dishSignature(d);
+    if (!seen[k]) { seen[k] = grouped.length; grouped.push({ name: d.name, price: parseFloat(d.price||0), items: [] }); }
     grouped[seen[k]].items.push(d);
   });
 
@@ -14839,14 +14875,29 @@ function openRevisarCuenta() {
     </div>`;
   };
 
-  const dishCards = grouped.map(g => `
-    <div style="padding:.65rem 0;border-bottom:1px solid var(--bd)">
+  const dishCards = grouped.map(g => {
+    const qty = g.items.length;
+    const totalPrice = g.price * qty;
+    // Issue #2: Si hay N items idénticos (misma firma), mostrar "N× plato" UNA vez
+    // en lugar de N filas separadas. Como la firma agrupa por reparto, todos los
+    // items aquí tienen la MISMA asignación → una sola línea de "quién".
+    const sample = g.items[0];
+    const isShared = sample.type === 'shared';
+    const editBtn = payLocked ? '' :
+      `<button onclick="rcOpenPicker('${sample.id}')" style="background:none;border:1px solid var(--bd);padding:2px 8px;border-radius:99px;font-size:11px;color:var(--t3);cursor:pointer;white-space:nowrap;flex-shrink:0">✎</button>`;
+    const qtyLabel = `<span style="font-size:11px;color:var(--t3);flex-shrink:0;min-width:16px">${qty}×</span>`;
+    return `<div style="padding:.65rem 0;border-bottom:1px solid var(--bd)">
       <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:.25rem">
         <div style="font-size:14px;font-weight:500;color:var(--t1)">${escHtml(g.name)}</div>
-        <div style="font-size:13px;color:var(--t2);flex-shrink:0;margin-left:.5rem">${fmt(g.price * g.items.length)}</div>
+        <div style="font-size:13px;color:var(--t2);flex-shrink:0;margin-left:.5rem">${fmt(totalPrice)}</div>
       </div>
-      ${g.items.map(unitRow).join('')}
-    </div>`).join('');
+      <div style="display:flex;align-items:center;gap:.5rem;padding:3px 0">
+        ${qtyLabel}
+        <span style="font-size:13px;flex:1">${whoHTML(sample.id, isShared, sample.assignee_id)}</span>
+        ${editBtn}
+      </div>
+    </div>`;
+  }).join('');
 
   const total = state.dishes.reduce((s,d) => s+parseFloat(d.price||0), 0);
 
@@ -15435,8 +15486,10 @@ async function selectPayMethod(method) {
     document.getElementById('equal-split-panel').style.display = 'none';
     document.getElementById('pay-method-modal').style.display = 'none';
 
-    // N2: Fire-and-forget lock (non-blocking, best effort)
-    if (state.roomId) {
+    // Issue #3: Para 'equal' NO bloqueamos aún en BD — debe primero confirmar
+    // cuántas personas son. Si cancela, no queremos un lock fantasma.
+    // Para 'split' y 'full', sí bloqueamos inmediatamente.
+    if (state.roomId && method !== 'equal') {
       try { await sb.from('rooms').update({
         pay_method_locked: method,
         pay_method_locker_name: state.myName
@@ -15474,7 +15527,14 @@ function updateEqualPerPerson() {
   el.textContent = `${fmt(total)} ÷ ${_equalPax} = ${fmt(perPerson)} por persona`;
 }
 
-function confirmEqualSplit() {
+async function confirmEqualSplit() {
+  // Issue #3: AHORA sí lockeamos el método (después de confirmar pax)
+  if (state.roomId) {
+    try { await sb.from('rooms').update({
+      pay_method_locked: 'equal',
+      pay_method_locker_name: state.myName
+    }).eq('id', state.roomId); } catch(e) {}
+  }
   document.getElementById('pay-method-modal').style.display = 'none';
   buildEqualPayScreen(_equalPax);
   go('s5-pay');
