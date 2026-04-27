@@ -3012,7 +3012,8 @@
           <button onclick="changeEqualPax(1)"
             style="width:40px;height:40px;border-radius:50%;border:1.5px solid var(--bd2);background:var(--card);font-size:22px;font-weight:300;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">+</button>
         </div>
-        <div id="equal-per-person" style="text-align:center;font-size:13px;color:var(--t2);margin-bottom:.75rem"></div>
+        <div id="equal-per-person" style="text-align:center;font-size:13px;color:var(--t2);margin-bottom:.5rem"></div>
+        <div id="equal-pax-hint" style="text-align:center;font-size:11px;color:var(--t3);margin-bottom:.75rem;line-height:1.4"></div>
         <button onclick="confirmEqualSplit()" class="btn btn-primary" style="background:var(--blue)">
           Confirmar — pagar mi parte →
         </button>
@@ -5843,24 +5844,48 @@ function buildSummary() {
     const isManual = t.g._manual === true;
     let lines = '';
 
-    // Solo items (grey) — sin cruces, la edición se hace desde "Editar reparto"
+    // Issue #2: Agrupar solo items por nombre+precio idéntico para evitar duplicados
+    // ("Café solo 1.80€" + "Café solo 1.80€" → "2× Café solo 3.60€")
+    const soloAgg = [];
+    const soloIdx = {};
     t.soloItems.forEach(d => {
+      const k = `${d.name}|${parseFloat(d.price||0).toFixed(2)}`;
+      if (soloIdx[k] === undefined) {
+        soloIdx[k] = soloAgg.length;
+        soloAgg.push({ name: d.name, price: parseFloat(d.price||0), qty: 0 });
+      }
+      soloAgg[soloIdx[k]].qty++;
+    });
+    soloAgg.forEach(g => {
+      const qtyPrefix = g.qty > 1 ? `<span style="color:var(--t3)">${g.qty}×</span> ` : '';
       lines += `<div class="sum-line">
-        <span class="lbl" style="color:var(--t2)">↳ ${escHtml(d.name)}</span>
-        <span class="val">${fmt(parseFloat(d.price))}</span>
+        <span class="lbl" style="color:var(--t2)">↳ ${qtyPrefix}${escHtml(g.name)}</span>
+        <span class="val">${fmt(g.price * g.qty)}</span>
       </div>`;
     });
-    if (t.soloItems.length && t.sharedItems.length) lines += '<hr style="border:none;border-top:1px solid var(--bd);margin:3px 0">';
+    if (soloAgg.length && t.sharedItems.length) lines += '<hr style="border:none;border-top:1px solid var(--bd);margin:3px 0">';
 
-    // Shared items (blue) — sin cruces en Los demás, solo-lectura
+    // Shared items: agrupar por nombre+precio+participantes para que duplicados se vean como 2×
+    const sharedAgg = [];
+    const sharedIdx = {};
     t.sharedItems.forEach(({ d, share, nP }) => {
+      const partsKey = (state.participants[d.id]||[]).slice().sort().join(',');
+      const k = `${d.name}|${parseFloat(d.price||0).toFixed(2)}|${partsKey}`;
+      if (sharedIdx[k] === undefined) {
+        sharedIdx[k] = sharedAgg.length;
+        sharedAgg.push({ d, share, nP, qty: 0 });
+      }
+      sharedAgg[sharedIdx[k]].qty++;
+    });
+    sharedAgg.forEach(({ d, share, nP, qty }) => {
       const allParticipants = (state.participants[d.id]||[]).map(id => state.guests.find(g=>g.id===id)?.name||'?').join(', ');
+      const qtyPrefix = qty > 1 ? `<span style="color:var(--blue);opacity:.7">${qty}×</span> ` : '';
       lines += `<div class="sum-line shared">
         <span style="flex:1;min-width:0">
-          <span class="lbl" style="color:var(--blue)">↳ ${escHtml(d.name)} ÷${nP}</span>
+          <span class="lbl" style="color:var(--blue)">↳ ${qtyPrefix}${escHtml(d.name)} ÷${nP}</span>
           <span style="font-size:10px;color:var(--blue);opacity:.7;display:block;margin-top:1px">${allParticipants}</span>
         </span>
-        <span class="val">${fmt(share)}</span>
+        <span class="val">${fmt(share * qty)}</span>
       </div>`;
     });
 
@@ -5891,19 +5916,32 @@ function buildSummary() {
       }
       if (t.sharedItems.length) {
         myLines += `<div style="font-size:10px;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:.05em;margin:${t.soloItems.length?'10px':'6px'} 0 4px">Platos compartidos conmigo</div>`;
+        // Agrupar shared idénticos (mismo plato + precio + participantes)
+        const sharedAggMy = [];
+        const sharedIdxMy = {};
         t.sharedItems.forEach(({ d, share, nP }) => {
+          const partsKey = (state.participants[d.id]||[]).slice().sort().join(',');
+          const k = `${d.name}|${parseFloat(d.price||0).toFixed(2)}|${partsKey}`;
+          if (sharedIdxMy[k] === undefined) {
+            sharedIdxMy[k] = sharedAggMy.length;
+            sharedAggMy.push({ d, share, nP, qty: 0 });
+          }
+          sharedAggMy[sharedIdxMy[k]].qty++;
+        });
+        sharedAggMy.forEach(({ d, share, nP, qty }) => {
           const others = (state.participants[d.id]||[])
             .filter(id => id !== t.g.id)
             .map(id => state.guests.find(g=>g.id===id)?.name||'?');
           const fullPrice = parseFloat(d.price) || 0;
-          const divisionText = `${fmt(fullPrice)} ÷ ${nP} ${nP === 1 ? 'persona' : 'personas'}`;
+          const divisionText = `${fmt(fullPrice * qty)}${qty>1?' ('+qty+'×)':''} ÷ ${nP} ${nP === 1 ? 'persona' : 'personas'}`;
           const withStr = others.length ? `con ${others.join(', ')}` : '';
+          const qtyPrefix = qty > 1 ? `<span style="color:var(--blue);opacity:.7;font-weight:500">${qty}×</span> ` : '';
           myLines += `<div class="sum-line shared" style="padding:6px 0">
             <span style="flex:1;min-width:0">
-              <span class="lbl" style="color:var(--blue);font-weight:500">↳ ${escHtml(d.name)}</span>
+              <span class="lbl" style="color:var(--blue);font-weight:500">↳ ${qtyPrefix}${escHtml(d.name)}</span>
               <span style="font-size:10px;color:var(--blue);opacity:.75;display:block;margin-top:1px">${divisionText}${withStr ? ' · ' + withStr : ''}</span>
             </span>
-            <span style="font-family:'Fraunces',serif;font-weight:700;color:var(--blue);flex-shrink:0">${fmt(share)}</span>
+            <span style="font-family:'Fraunces',serif;font-weight:700;color:var(--blue);flex-shrink:0">${fmt(share * qty)}</span>
           </div>`;
         });
       }
@@ -14846,56 +14884,53 @@ function openRevisarCuenta() {
     }).filter(Boolean).join('<span style="color:var(--t3)"> · </span>');
   };
 
-  // Issue #2: Agrupar por firma completa (nombre + precio + reparto).
-  // Items idénticos en TODO se agrupan como "2× X". Items con reparto distinto
-  // (uno individual, otro shared) quedan en cards separadas.
-  const dishSignature = d => {
+  // Agrupación 2 niveles para Revisar cuenta:
+  //  Nivel 1 → por NOMBRE de plato (una sola card "Agua mineral")
+  //  Nivel 2 → dentro de cada card, sub-grupos por reparto: "2× Pau", "1× Lucas", "1× Todos"
+  const repartoKey = d => {
     const isShared = d.type === 'shared';
-    const parts = isShared
-      ? (state.participants[d.id] || []).slice().sort().join(',')
-      : (d.assignee_id || '');
-    return `${d.name}|${parseFloat(d.price||0).toFixed(2)}|${isShared ? 'S' : 'I'}|${parts}`;
+    if (isShared) return 'S|' + ((state.participants[d.id] || []).slice().sort().join(','));
+    return 'I|' + (d.assignee_id || '');
   };
   const grouped = [];
-  const seen = {};
+  const seenName = {};
   state.dishes.forEach(d => {
-    const k = dishSignature(d);
-    if (!seen[k]) { seen[k] = grouped.length; grouped.push({ name: d.name, price: parseFloat(d.price||0), items: [] }); }
-    grouped[seen[k]].items.push(d);
+    const name = d.name;
+    if (seenName[name] === undefined) {
+      seenName[name] = grouped.length;
+      grouped.push({ name, totalQty: 0, totalPrice: 0, repartos: [], _seenReparto: {} });
+    }
+    const g = grouped[seenName[name]];
+    g.totalQty++;
+    g.totalPrice += parseFloat(d.price || 0);
+    const rk = repartoKey(d);
+    if (g._seenReparto[rk] === undefined) {
+      g._seenReparto[rk] = g.repartos.length;
+      g.repartos.push({ sample: d, qty: 0 });
+    }
+    g.repartos[g._seenReparto[rk]].qty++;
   });
 
-  const unitRow = (d) => {
-    const isShared = d.type === 'shared';
-    const editBtn = payLocked ? '' :
-      `<button onclick="rcOpenPicker('${d.id}')" style="background:none;border:1px solid var(--bd);padding:2px 8px;border-radius:99px;font-size:11px;color:var(--t3);cursor:pointer;white-space:nowrap;flex-shrink:0">✎</button>`;
-    return `<div style="display:flex;align-items:center;gap:.5rem;padding:3px 0">
-      <span style="font-size:11px;color:var(--t3);flex-shrink:0;min-width:16px">1×</span>
-      <span style="font-size:13px;flex:1">${whoHTML(d.id, isShared, d.assignee_id)}</span>
-      ${editBtn}
-    </div>`;
-  };
-
   const dishCards = grouped.map(g => {
-    const qty = g.items.length;
-    const totalPrice = g.price * qty;
-    // Issue #2: Si hay N items idénticos (misma firma), mostrar "N× plato" UNA vez
-    // en lugar de N filas separadas. Como la firma agrupa por reparto, todos los
-    // items aquí tienen la MISMA asignación → una sola línea de "quién".
-    const sample = g.items[0];
-    const isShared = sample.type === 'shared';
-    const editBtn = payLocked ? '' :
-      `<button onclick="rcOpenPicker('${sample.id}')" style="background:none;border:1px solid var(--bd);padding:2px 8px;border-radius:99px;font-size:11px;color:var(--t3);cursor:pointer;white-space:nowrap;flex-shrink:0">✎</button>`;
-    const qtyLabel = `<span style="font-size:11px;color:var(--t3);flex-shrink:0;min-width:16px">${qty}×</span>`;
+    const headerRight = g.totalQty > 1
+      ? `${fmt(g.totalPrice)} <span style="font-size:11px;color:var(--t3);font-weight:400">(${g.totalQty}×)</span>`
+      : fmt(g.totalPrice);
+    const repartoRows = g.repartos.map(r => {
+      const isShared = r.sample.type === 'shared';
+      const editBtn = payLocked ? '' :
+        `<button onclick="rcOpenPicker('${r.sample.id}')" style="background:none;border:1px solid var(--bd);padding:2px 8px;border-radius:99px;font-size:11px;color:var(--t3);cursor:pointer;white-space:nowrap;flex-shrink:0">✎</button>`;
+      return `<div style="display:flex;align-items:center;gap:.5rem;padding:3px 0">
+        <span style="font-size:11px;color:var(--t3);flex-shrink:0;min-width:16px">${r.qty}×</span>
+        <span style="font-size:13px;flex:1">${whoHTML(r.sample.id, isShared, r.sample.assignee_id)}</span>
+        ${editBtn}
+      </div>`;
+    }).join('');
     return `<div style="padding:.65rem 0;border-bottom:1px solid var(--bd)">
       <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:.25rem">
         <div style="font-size:14px;font-weight:500;color:var(--t1)">${escHtml(g.name)}</div>
-        <div style="font-size:13px;color:var(--t2);flex-shrink:0;margin-left:.5rem">${fmt(totalPrice)}</div>
+        <div style="font-size:13px;color:var(--t2);flex-shrink:0;margin-left:.5rem">${headerRight}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:.5rem;padding:3px 0">
-        ${qtyLabel}
-        <span style="font-size:13px;flex:1">${whoHTML(sample.id, isShared, sample.assignee_id)}</span>
-        ${editBtn}
-      </div>
+      ${repartoRows}
     </div>`;
   }).join('');
 
@@ -15514,9 +15549,20 @@ async function selectPayMethod(method) {
 }
 
 function changeEqualPax(delta) {
-  _equalPax = Math.max(1, Math.min(20, _equalPax + delta));
+  // Issue #3: el mínimo NO puede ser menor que el nº de comensales presentes
+  // (si lo fuera, el coste por persona dejaría a algún comensal sin parte → eliminado).
+  // Sí permitimos AÑADIR partes (gente que no escaneó QR pero come).
+  const minPax = Math.max(2, state.guests?.length || 2);
+  _equalPax = Math.max(minPax, Math.min(20, _equalPax + delta));
   document.getElementById('equal-pax-num').textContent = _equalPax;
   updateEqualPerPerson();
+  // Feedback visual sobre el botón "−" cuando está al mínimo
+  const minusBtn = document.querySelector('button[onclick="changeEqualPax(-1)"]');
+  if (minusBtn) {
+    const atMin = _equalPax <= minPax;
+    minusBtn.style.opacity = atMin ? '0.35' : '1';
+    minusBtn.style.cursor = atMin ? 'not-allowed' : 'pointer';
+  }
 }
 
 function updateEqualPerPerson() {
@@ -15525,6 +15571,16 @@ function updateEqualPerPerson() {
   const total = state.dishes.reduce((s, d) => s + parseFloat(d.price || 0), 0);
   const perPerson = total / _equalPax;
   el.textContent = `${fmt(total)} ÷ ${_equalPax} = ${fmt(perPerson)} por persona`;
+  // Issue #3: aclaración sobre el mínimo (= comensales presentes en la mesa)
+  const hint = document.getElementById('equal-pax-hint');
+  if (hint) {
+    const guestsCount = state.guests?.length || 0;
+    if (guestsCount >= 2) {
+      hint.textContent = `Mínimo: ${guestsCount} (comensales en la mesa). Puedes añadir partes si alguien no escaneó el QR.`;
+    } else {
+      hint.textContent = '';
+    }
+  }
 }
 
 async function confirmEqualSplit() {
