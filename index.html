@@ -1215,27 +1215,39 @@
     <!-- TRACKER HERO — estado del pedido en vivo -->
     <div class="tracker-hero" id="tracker-hero-section" style="position:sticky;top:56px;z-index:9;flex-shrink:0">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.65rem">
-        <div>
+        <div style="flex:1;min-width:0">
           <div id="tracker-mesa-label" style="font-size:11px;color:rgba(238,240,236,.65);font-weight:500;margin-bottom:.15rem"></div>
           <div class="tracker-status" id="tracker-status-text">Añade tu primer plato</div>
         </div>
-        <div style="text-align:right;flex-shrink:0;margin-left:.75rem">
-          <div id="tracker-total" style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:#EEF0EC"></div>
-          <div id="tracker-total-lbl" style="font-size:10px;color:rgba(238,240,236,.65)"></div>
+        <div style="display:flex;align-items:flex-start;gap:.5rem;flex-shrink:0;margin-left:.75rem">
+          <div style="text-align:right">
+            <div id="tracker-total" style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:#EEF0EC"></div>
+            <div id="tracker-total-lbl" style="font-size:10px;color:rgba(238,240,236,.65)"></div>
+          </div>
+          <!-- Botón toggle: minimiza/expande la sección de avatares + progreso -->
+          <button id="tracker-toggle-btn" onclick="toggleTrackerHero()" title="Plegar/desplegar"
+            style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:8px;width:30px;height:30px;cursor:pointer;color:rgba(238,240,236,.85);font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .2s">
+            <span id="tracker-toggle-icon">⌃</span>
+          </button>
         </div>
       </div>
-      <!-- Barra de progreso del pedido -->
-      <div id="tracker-bar-wrap" style="display:none">
-        <div class="progress-bar-wrap">
-          <div class="progress-bar-fill" id="tracker-bar-fill" style="width:0%"></div>
+      <!-- Sección colapsable: barra de progreso + avatares -->
+      <div id="tracker-collapsible" style="overflow:hidden;transition:max-height .25s ease,opacity .2s ease;max-height:500px;opacity:1">
+        <!-- Barra de progreso del pedido -->
+        <div id="tracker-bar-wrap" style="display:none">
+          <div class="progress-bar-wrap">
+            <div class="progress-bar-fill" id="tracker-bar-fill" style="width:0%"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:rgba(238,240,236,.55);margin-bottom:.75rem">
+            <span id="tracker-bar-left">0 servidos</span>
+            <span id="tracker-bar-right">0 platos</span>
+          </div>
         </div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:rgba(238,240,236,.55);margin-bottom:.75rem">
-          <span id="tracker-bar-left">0 servidos</span>
-          <span id="tracker-bar-right">0 platos</span>
-        </div>
+        <!-- Avatares de comensales -->
+        <div id="tracker-avatars" style="display:flex;flex-wrap:wrap;gap:.4rem"></div>
       </div>
-      <!-- Avatares de comensales -->
-      <div id="tracker-avatars" style="display:flex;flex-wrap:wrap;gap:.4rem"></div>
+      <!-- Resumen compacto cuando está colapsado: "·· 11 comensales" -->
+      <div id="tracker-collapsed-summary" style="display:none;font-size:11px;color:rgba(238,240,236,.65);padding-top:.25rem"></div>
     </div>
 
     <!-- Single scrollable view — Carta + Mesa unified (#15) -->
@@ -3497,8 +3509,54 @@ function updateTrackerHero() {
     }).join('');
   }
 
+  // Issue #2: Resumen compacto cuando el hero está colapsado
+  // Aplicar auto-colapso si hay >=5 comensales y el usuario no ha tocado el toggle aún
+  const summaryEl = document.getElementById('tracker-collapsed-summary');
+  if (summaryEl) {
+    const paidCount = payments.filter(p=>p.guest_id).length;
+    const paidPart = paidCount > 0 ? ` · ${paidCount} ya pagaron` : '';
+    summaryEl.textContent = `${guests.length} comensales en la mesa${paidPart}`;
+  }
+  // Auto-colapsar primera vez que hay >=5 comensales (luego respeta preferencia)
+  const stored = localStorage.getItem('spliteat.trackerCollapsed');
+  if (stored === null && guests.length >= 5) {
+    setTrackerCollapsed(true, false);  // colapsar pero no persistir aún (auto)
+  } else if (stored === '1') {
+    setTrackerCollapsed(true, false);
+  } else if (stored === '0') {
+    setTrackerCollapsed(false, false);
+  }
+
   // CTA bar sticky
   updateS3CtaBar();
+}
+
+// Issue #2: Toggle del hero (avatares + barra). Persiste en localStorage.
+function toggleTrackerHero() {
+  const collapsed = document.getElementById('tracker-collapsible')?.style.maxHeight === '0px';
+  setTrackerCollapsed(!collapsed, true);
+}
+
+function setTrackerCollapsed(collapsed, persist) {
+  const wrap = document.getElementById('tracker-collapsible');
+  const summary = document.getElementById('tracker-collapsed-summary');
+  const icon = document.getElementById('tracker-toggle-icon');
+  const btn = document.getElementById('tracker-toggle-btn');
+  if (!wrap) return;
+  if (collapsed) {
+    wrap.style.maxHeight = '0px';
+    wrap.style.opacity = '0';
+    if (summary) summary.style.display = 'block';
+    if (icon) icon.textContent = '⌄';
+    if (btn) btn.title = 'Mostrar comensales';
+  } else {
+    wrap.style.maxHeight = '500px';
+    wrap.style.opacity = '1';
+    if (summary) summary.style.display = 'none';
+    if (icon) icon.textContent = '⌃';
+    if (btn) btn.title = 'Ocultar comensales';
+  }
+  if (persist) localStorage.setItem('spliteat.trackerCollapsed', collapsed ? '1' : '0');
 }
 
 function updateS3CtaBar() {
@@ -4397,9 +4455,24 @@ function renderCarta() {
       // (con 10 aguas mostrar "P×3 J×2" en vez de 10 bolitas que tapan el botón +)
       let initialsHtml = '';
       if (onTable) {
-        // Contar cuántas veces aparece cada guest entre los items de este menu_item
-        const countByGuest = {}; // guestId → count
+        // Detectar instancias "compartido entre TODOS" para mostrarlas como pill "Todos"
+        // en lugar de N círculos individuales que saturan visualmente.
+        const totalGuests = state.guests.length;
+        const allSharedDishes = []; // dishes shared con TODOS los comensales
+        const otherDishes = [];     // resto: solo o shared parcial
         dishes.forEach(d => {
+          if (d.type === 'shared' && totalGuests >= 2) {
+            const parts = state.participants[d.id] || [];
+            const isAll = parts.length >= totalGuests &&
+              state.guests.every(g => parts.includes(g.id));
+            if (isAll) { allSharedDishes.push(d); return; }
+          }
+          otherDishes.push(d);
+        });
+
+        // Contar cuántas veces aparece cada guest en otherDishes (no en "todos")
+        const countByGuest = {};
+        otherDishes.forEach(d => {
           if (d.type === 'shared') {
             const parts = state.participants[d.id] || [];
             const toCount = parts.length > 0 ? parts : state.guests.map(g => g.id);
@@ -4409,8 +4482,15 @@ function renderCarta() {
           }
         });
         const entries = Object.entries(countByGuest);
+        // Pill "Todos" si hay shared completos
+        const allCount = allSharedDishes.length;
+        const allPill = allCount > 0
+          ? `<div style="display:flex;align-items:center;gap:3px;background:var(--brand);color:#fff;border-radius:99px;padding:2px 8px;font-size:10px;font-weight:700;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.2)">
+              <span>👥</span><span>Todos${allCount > 1 ? ' ×' + allCount : ''}</span>
+            </div>`
+          : '';
         // Mostrar máx 4 personas; resto agrupado en "+N"
-        const MAX_VISIBLE = 4;
+        const MAX_VISIBLE = allPill ? 3 : 4;  // si ya hay "Todos", deja 1 hueco menos
         const visible = entries.slice(0, MAX_VISIBLE);
         const overflow = entries.length - MAX_VISIBLE;
         const pills = visible.map(([gid, n]) => {
@@ -4431,7 +4511,7 @@ function renderCarta() {
         const overflowPill = overflow > 0
           ? `<div style="font-size:10px;color:var(--t3);font-weight:600;padding:2px 5px;background:var(--bg2);border-radius:99px;flex-shrink:0">+${overflow}</div>`
           : '';
-        initialsHtml = `<div style="display:flex;align-items:center;gap:3px;margin-right:6px;flex-wrap:wrap;max-width:140px;justify-content:flex-end">${pills}${overflowPill}</div>`;
+        initialsHtml = `<div style="display:flex;align-items:center;gap:3px;margin-right:6px;flex-wrap:wrap;max-width:160px;justify-content:flex-end">${allPill}${pills}${overflowPill}</div>`;
       }
 
       html += `<div onclick="${onTable ? `openCartaItemEdit('${item.id}')` : `openModal('${item.id}')`}"
@@ -5655,36 +5735,65 @@ function showSendToKitchenConfirm() {
   let html = '';
   sections.forEach(({ label, dishes }) => {
     html += `<div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;padding:6px 0 2px">${label}</div>`;
+
+    // Agrupar por firma (nombre + precio + reparto). N items idénticos → "N×".
+    const sigKey = d => {
+      const isShared = d.type === 'shared';
+      const parts = isShared
+        ? (state.participants[d.id] || []).slice().sort().join(',')
+        : (d.assignee_id || '');
+      return `${d.name}|${parseFloat(d.price||0).toFixed(2)}|${isShared?'S':'I'}|${parts}`;
+    };
+    const groups = [];
+    const seen = {};
     dishes.forEach(d => {
+      const k = sigKey(d);
+      if (seen[k] === undefined) { seen[k] = groups.length; groups.push({ sample: d, qty: 0 }); }
+      groups[seen[k]].qty++;
+    });
+
+    groups.forEach(({ sample: d, qty }) => {
       const isShared = d.type === 'shared';
       const parts = state.participants[d.id] || [];
       const nParts = Math.max(1, parts.length);
-      const perPerson = parseFloat(d.price) / nParts;
+      const unitPrice = parseFloat(d.price);
+      const totalGroupPrice = unitPrice * qty;
 
-      // Avatar(s)
+      // Avatar(s) — pill "Todos" si incluye a todos los comensales
       let avatars = '';
       if (isShared && parts.length > 0) {
-        avatars = parts.slice(0, 4).map(gid => {
-          const gIdx = state.guests.findIndex(g => g.id === gid);
-          const g = state.guests.find(g => g.id === gid);
-          if (!g) return '';
-          return `<div style="width:16px;height:16px;border-radius:50%;background:${GUEST_COLORS[gIdx % GUEST_COLORS.length]};color:#fff;font-size:7px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-right:-3px;border:1px solid var(--card)">${g.name[0].toUpperCase()}</div>`;
-        }).join('');
+        const totalGuests = state.guests.length;
+        const isAll = totalGuests >= 2 && parts.length >= totalGuests &&
+          state.guests.every(g => parts.includes(g.id));
+        if (isAll) {
+          avatars = `<div style="display:flex;align-items:center;gap:3px;background:var(--brand);color:#fff;border-radius:99px;padding:2px 7px;font-size:10px;font-weight:700">👥 Todos</div>`;
+        } else {
+          avatars = parts.slice(0, 4).map(gid => {
+            const gIdx = state.guests.findIndex(g => g.id === gid);
+            const g = state.guests.find(g => g.id === gid);
+            if (!g) return '';
+            return `<div style="width:16px;height:16px;border-radius:50%;background:${GUEST_COLORS[gIdx % GUEST_COLORS.length]};color:#fff;font-size:7px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-right:-3px;border:1px solid var(--card)">${g.name[0].toUpperCase()}</div>`;
+          }).join('');
+          if (parts.length > 4) {
+            avatars += `<div style="font-size:9px;color:var(--t3);font-weight:600;margin-left:4px">+${parts.length - 4}</div>`;
+          }
+        }
       } else if (!isShared && d.assignee_id) {
         const gIdx = state.guests.findIndex(g => g.id === d.assignee_id);
         const g = state.guests.find(g => g.id === d.assignee_id);
         if (g) avatars = `<div style="width:16px;height:16px;border-radius:50%;background:${GUEST_COLORS[gIdx % GUEST_COLORS.length]};color:#fff;font-size:7px;font-weight:700;display:flex;align-items:center;justify-content:center">${g.name[0].toUpperCase()}</div>`;
       }
 
+      const qtyPrefix = qty > 1 ? `<span style="color:var(--t3);font-weight:600">${qty}×</span> ` : '';
       html += `<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--bd)">
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(d.name)}</div>
+          <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${qtyPrefix}${escHtml(d.name)}</div>
           ${d.notes ? `<div style="font-size:11px;color:var(--t2);font-style:italic">📝 ${escHtml(d.notes)}</div>` : ''}
         </div>
         <div style="display:flex;align-items:center;gap:3px;flex-shrink:0">
           ${avatars ? `<div style="display:flex">${avatars}</div>` : ''}
           ${isShared ? `<span style="font-size:10px;color:var(--t3)">÷${nParts}</span>` : ''}
-          <span style="font-size:13px;font-weight:600;color:var(--brand-d);margin-left:4px">${fmt(parseFloat(d.price))}</span>
+          <span style="font-size:13px;font-weight:600;color:var(--brand-d);margin-left:4px">${fmt(totalGroupPrice)}</span>
         </div>
       </div>`;
     });
