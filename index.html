@@ -9878,8 +9878,26 @@ async function loadWaiterMesas() {
   if (!myRooms.length) {
     el.innerHTML = '';
     if (emptyEl) emptyEl.style.display = 'block';
-    // Aún así renderizar plano: todas las mesas en estado "libre"
-    await loadWaiterPlano({}, [], tablesById, {}, {}, {});
+    // Aún así renderizar plano: las openRooms (de cualquier camarero) si existen
+    const allOpenByTable = {};
+    (openRooms || []).forEach(r => { if (r.table_id) allOpenByTable[r.table_id] = r; });
+    (dirtyRooms || []).forEach(r => {
+      if (r.table_id && !allOpenByTable[r.table_id]) allOpenByTable[r.table_id] = r;
+    });
+    // Cargar dishes/pays/guests también de las rooms abiertas (no solo myRooms)
+    const allRoomIds = (openRooms || []).map(r => r.id).concat((dirtyRooms || []).map(r => r.id));
+    let dishesByRoom = {}, paysByRoom = {}, guestsByRoom = {};
+    if (allRoomIds.length) {
+      const [{ data: allGuests }, { data: allPayments }, { data: allDishes }] = await Promise.all([
+        sb.from('guests').select('id,room_id').in('room_id', allRoomIds),
+        sb.from('payments').select('amount,room_id').in('room_id', allRoomIds),
+        sb.from('dishes').select('id,price,kitchen_status,room_id').in('room_id', allRoomIds)
+      ]);
+      (allGuests || []).forEach(g => { if (!guestsByRoom[g.room_id]) guestsByRoom[g.room_id] = []; guestsByRoom[g.room_id].push(g); });
+      (allPayments || []).forEach(p => { if (!paysByRoom[p.room_id]) paysByRoom[p.room_id] = []; paysByRoom[p.room_id].push(p); });
+      (allDishes || []).forEach(d => { if (!dishesByRoom[d.room_id]) dishesByRoom[d.room_id] = []; dishesByRoom[d.room_id].push(d); });
+    }
+    await loadWaiterPlano(allOpenByTable, [], tablesById, dishesByRoom, paysByRoom, guestsByRoom);
     const savedView = (() => { try { return localStorage.getItem('spliteat.waiterSection'); } catch(e) { return null; }})() || 'plano';
     switchWaiterView(savedView);
     return;
@@ -9904,10 +9922,16 @@ async function loadWaiterMesas() {
   const COURSE_EMOJI = { 0:'', 1:'🥗', 2:'🍽', 3:'🍰' };
 
   // ── Render vista PLANO ──
-  // Mapa table_id → room para acceso rápido en el plano
-  const myRoomsByTable = {};
-  myRooms.forEach(r => { if (r.table_id) myRoomsByTable[r.table_id] = r; });
-  await loadWaiterPlano(myRoomsByTable, myRooms, tablesById, dishesByRoom, paysByRoom, guestsByRoom);
+  // Mapa table_id → room para acceso rápido en el plano. IMPORTANTE: incluye TODAS
+  // las rooms abiertas (no solo las del camarero) para que cualquier mesa abierta
+  // en el plano abra el drawer y no el modal "Abrir mesa nueva" por error.
+  const allOpenByTable = {};
+  (openRooms || []).forEach(r => { if (r.table_id) allOpenByTable[r.table_id] = r; });
+  // Las dirtyRooms (cerradas con limpieza) también, para mostrarlas con estado "limpiar"
+  (dirtyRooms || []).forEach(r => {
+    if (r.table_id && !allOpenByTable[r.table_id]) allOpenByTable[r.table_id] = r;
+  });
+  await loadWaiterPlano(allOpenByTable, myRooms, tablesById, dishesByRoom, paysByRoom, guestsByRoom);
 
   // Restaurar última vista
   const savedView = (() => { try { return localStorage.getItem('spliteat.waiterSection'); } catch(e) { return null; }})() || 'plano';
@@ -12213,6 +12237,166 @@ async function loadAdminTablesInline() {
   }).join('');
 }
 
+// ══════════════════════════════════════════════════════════════════
+// Mesa: Ajustes simples (forma, capacidad, número, etiqueta) sin doble click
+// ══════════════════════════════════════════════════════════════════
+async function openTableSettingsModal(tableId) {
+  const { data: t } = await sb.from('tables').select('*').eq('id', tableId).maybeSingle();
+  if (!t) { notify('Mesa no encontrada', 'error'); return; }
+
+  // Cerrar el panel detalle si está abierto detrás
+  const detailPanel = document.getElementById('mesa-detail-panel');
+  if (detailPanel) detailPanel.style.display = 'none';
+
+  // Inyectar modal
+  let modal = document.getElementById('table-settings-modal');
+  if (modal) modal.remove();
+  modal = document.createElement('div');
+  modal.id = 'table-settings-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:flex;align-items:center;justify-content:center;padding:1rem;font-family:inherit';
+
+  const seats = parseInt(t.seats || t.capacity || 4);
+  const currentShape = t.shape === 'round' ? 'round' : 'rect';
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:18px;width:100%;max-width:440px;max-height:90vh;overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.25)">
+      <div style="padding:1.1rem 1.25rem .9rem;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--t1);line-height:1.1">Ajustes de mesa</div>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">Mesa ${t.number}${t.label ? ' — ' + t.label : ''}</div>
+        </div>
+        <button onclick="document.getElementById('table-settings-modal').remove()"
+          style="background:var(--bg);border:none;width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer;color:var(--t2);font-family:inherit">✕</button>
+      </div>
+
+      <div style="padding:1.1rem 1.25rem">
+        <!-- Número + Etiqueta -->
+        <div style="display:flex;gap:.65rem;margin-bottom:1rem">
+          <div style="flex:0 0 90px">
+            <label style="display:block;font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;font-weight:600;margin-bottom:5px">Número</label>
+            <input id="ts-number" type="number" min="1" value="${t.number}"
+              style="width:100%;padding:9px 10px;border:1px solid var(--bd);border-radius:10px;font-size:15px;font-weight:600;font-family:inherit;text-align:center">
+          </div>
+          <div style="flex:1">
+            <label style="display:block;font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;font-weight:600;margin-bottom:5px">Zona / Etiqueta</label>
+            <input id="ts-label" type="text" value="${escHtml(t.label||'').replace(/"/g,'&quot;')}" placeholder="ej. Terraza, Ventana"
+              style="width:100%;padding:9px 12px;border:1px solid var(--bd);border-radius:10px;font-size:14px;font-family:inherit">
+          </div>
+        </div>
+
+        <!-- Forma -->
+        <div style="margin-bottom:1rem">
+          <label style="display:block;font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;font-weight:600;margin-bottom:8px">Forma</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <button onclick="_pickShape('rect')" id="ts-shape-rect"
+              style="padding:14px;border:2px solid ${currentShape==='rect'?'var(--brand)':'var(--bd)'};background:${currentShape==='rect'?'var(--brand-l)':'var(--bg)'};border-radius:12px;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:6px">
+              <div style="width:36px;height:36px;background:var(--brand-d);border-radius:6px"></div>
+              <span style="font-size:12px;font-weight:600;color:${currentShape==='rect'?'var(--brand-d)':'var(--t2)'}">Rectangular</span>
+            </button>
+            <button onclick="_pickShape('round')" id="ts-shape-round"
+              style="padding:14px;border:2px solid ${currentShape==='round'?'var(--brand)':'var(--bd)'};background:${currentShape==='round'?'var(--brand-l)':'var(--bg)'};border-radius:12px;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:6px">
+              <div style="width:36px;height:36px;background:var(--brand-d);border-radius:50%"></div>
+              <span style="font-size:12px;font-weight:600;color:${currentShape==='round'?'var(--brand-d)':'var(--t2)'}">Redonda</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Capacidad / asientos -->
+        <div style="margin-bottom:1.25rem">
+          <label style="display:block;font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;font-weight:600;margin-bottom:8px">Capacidad <span style="text-transform:none;letter-spacing:0;font-weight:400">(comensales)</span></label>
+          <div style="display:flex;align-items:center;gap:14px;background:var(--bg);border-radius:12px;padding:10px 14px">
+            <button onclick="_adjustSeats(-1)" style="width:38px;height:38px;border-radius:50%;border:1px solid var(--bd);background:var(--card);font-size:20px;cursor:pointer;font-family:inherit;color:var(--t1)">−</button>
+            <div style="flex:1;text-align:center">
+              <div id="ts-seats-num" style="font-family:'Fraunces',serif;font-size:32px;font-weight:700;color:var(--brand-d);line-height:1">${seats}</div>
+              <div id="ts-seats-label" style="font-size:11px;color:var(--t3);margin-top:1px">${seats <= 2 ? 'Mesa pequeña' : seats <= 4 ? 'Mesa estándar' : 'Mesa grande'}</div>
+            </div>
+            <button onclick="_adjustSeats(+1)" style="width:38px;height:38px;border-radius:50%;border:none;background:var(--brand);color:#fff;font-size:20px;cursor:pointer;font-family:inherit">+</button>
+          </div>
+          <div style="font-size:11px;color:var(--t3);margin-top:8px;text-align:center">Esto también determina el tamaño visual en el plano (≤2 pequeña · 3-4 mediana · 5+ grande).</div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="padding:.85rem 1.25rem 1.1rem;border-top:1px solid var(--bd);display:flex;flex-direction:column;gap:8px;background:var(--bg)">
+        <button onclick="_saveTableSettings('${tableId}')" id="ts-save-btn"
+          class="btn btn-primary" style="width:100%">Guardar cambios</button>
+        <button onclick="_deleteTableConfirm('${tableId}')"
+          style="background:transparent;border:none;color:#A32D2D;font-size:12px;cursor:pointer;font-family:inherit;padding:6px">Eliminar mesa</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  // State temp para edición
+  window._tsState = { shape: currentShape, seats };
+
+  // Click fuera cierra
+  modal.addEventListener('click', e => {
+    if (e.target === modal) modal.remove();
+  });
+}
+
+function _pickShape(shape) {
+  if (!window._tsState) return;
+  window._tsState.shape = shape;
+  // Actualizar botones visualmente
+  ['rect','round'].forEach(s => {
+    const b = document.getElementById('ts-shape-' + s);
+    if (!b) return;
+    const active = s === shape;
+    b.style.borderColor = active ? 'var(--brand)' : 'var(--bd)';
+    b.style.background  = active ? 'var(--brand-l)' : 'var(--bg)';
+    const lbl = b.querySelector('span');
+    if (lbl) lbl.style.color = active ? 'var(--brand-d)' : 'var(--t2)';
+  });
+}
+
+function _adjustSeats(delta) {
+  if (!window._tsState) return;
+  let n = window._tsState.seats + delta;
+  n = Math.max(1, Math.min(20, n));
+  window._tsState.seats = n;
+  const numEl = document.getElementById('ts-seats-num');
+  const lblEl = document.getElementById('ts-seats-label');
+  if (numEl) numEl.textContent = n;
+  if (lblEl) lblEl.textContent = n <= 2 ? 'Mesa pequeña' : n <= 4 ? 'Mesa estándar' : 'Mesa grande';
+}
+
+async function _saveTableSettings(tableId) {
+  const number = parseInt(document.getElementById('ts-number')?.value);
+  const label  = document.getElementById('ts-label')?.value?.trim() || null;
+  const shape  = window._tsState?.shape || 'rect';
+  const seats  = window._tsState?.seats || 4;
+  if (!number || isNaN(number) || number < 1) { notify('Número de mesa no válido', 'error'); return; }
+
+  const btn = document.getElementById('ts-save-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+
+  // Guardar (capacity por compatibilidad legacy y seats por el nuevo plano)
+  const { error } = await sb.from('tables').update({
+    number, label, shape, seats, capacity: seats
+  }).eq('id', tableId);
+  if (error) {
+    notify('Error: ' + error.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar cambios'; }
+    return;
+  }
+
+  notify('Mesa actualizada', 'success');
+  document.getElementById('table-settings-modal')?.remove();
+  // Refrescar plano y lista
+  if (typeof loadFloorPlan === 'function') loadFloorPlan();
+  if (typeof loadAdminTablesInline === 'function') loadAdminTablesInline();
+  if (typeof loadAdminTables === 'function') loadAdminTables();
+}
+
+async function _deleteTableConfirm(tableId) {
+  if (!(await confirmModal('¿Eliminar esta mesa? No se puede deshacer.'))) return;
+  await sb.from('tables').delete().eq('id', tableId);
+  document.getElementById('table-settings-modal')?.remove();
+  if (typeof loadFloorPlan === 'function') loadFloorPlan();
+  if (typeof loadAdminTablesInline === 'function') loadAdminTablesInline();
+}
+
 async function addTable() {
   const number = prompt('Número de mesa:');
   if (!number) return;
@@ -13853,34 +14037,10 @@ async function loadFloorPlan() {
       ${room?.needs_cleaning ? `<div style="font-size:13px;margin-top:1px">🧹</div>` : allPaid ? `<div style="font-size:14px">✅</div>` : ''}
     `;
 
-    // Click sencillo: panel detalle. Doble-click: alternar forma rect↔round
-    let _lastClickTs = 0;
+    // Click sencillo → abre el panel detalle (con botón "Ajustes" para forma/capacidad)
     el.onclick = (e) => {
       if (e._wasDragged) return;
-      const now = Date.now();
-      if (now - _lastClickTs < 350) {
-        // Doble click → alternar forma
-        const newShape = isRound ? 'rect' : 'round';
-        sb.from('tables').update({ shape: newShape }).eq('id', table.id).then(() => {
-          el.style.borderRadius = newShape === 'round' ? '50%' : '12px';
-          // Notificación visual sutil (snippet en la barra superior)
-          const liveBadge = document.querySelector('#atab-encurso .live-badge');
-          if (liveBadge) {
-            const orig = liveBadge.innerHTML;
-            liveBadge.innerHTML = `<span style="color:var(--brand-d)">✓ Forma: ${newShape === 'round' ? 'redonda' : 'rectangular'}</span>`;
-            setTimeout(() => { if (liveBadge) liveBadge.innerHTML = orig; }, 1500);
-          }
-        });
-        _lastClickTs = 0;  // reset para no triple-click
-        return;
-      }
-      _lastClickTs = now;
-      // Single-click espera 350ms a ver si es doble; si no, abre detalle
-      setTimeout(() => {
-        if (Date.now() - _lastClickTs >= 340) {
-          showTableDetail(table, room, paidCount, guestCount);
-        }
-      }, 360);
+      showTableDetail(table, room, paidCount, guestCount);
     };
 
     // Drag to reposition — usa addEventListener para que cada mesa tenga sus propios handlers
@@ -13963,7 +14123,9 @@ function showTableDetail(table, room, paidCount, guestCount) {
       <button onclick="adminOpenTable('${table.id}', '${table.number}', '${table.label||''}');document.getElementById('mesa-detail-panel').style.display='none'"
         class="btn btn-primary" style="width:100%;margin-bottom:.5rem">+ Abrir mesa</button>
       <button onclick="showQR('${table.id}','${state.adminRestaurantId}',${table.number},'${table.label||''}')"
-        class="btn btn-secondary" style="width:100%">Ver QR</button>`;
+        class="btn btn-secondary" style="width:100%;margin-bottom:.5rem">Ver QR</button>
+      <button onclick="openTableSettingsModal('${table.id}')"
+        class="btn btn-secondary" style="width:100%">⚙ Ajustes de mesa</button>`;
   } else {
     const allPaid = guestCount > 0 && paidCount >= guestCount;
     const paying = paidCount > 0 && !allPaid;
@@ -13992,6 +14154,8 @@ function showTableDetail(table, room, paidCount, guestCount) {
       <button onclick="showAdminTab('cocina')" class="btn btn-secondary" style="width:100%;margin-bottom:.5rem">Ver en cocina</button>
       <button onclick="loadMesaDishDetail('${room.id}', '${table.number}${table.label ? ' — ' + table.label : ''}')"
         class="btn btn-secondary" style="width:100%;margin-bottom:.5rem">🍽 Ver pedido completo</button>
+      <button onclick="openTableSettingsModal('${table.id}')"
+        class="btn btn-secondary" style="width:100%;margin-bottom:.5rem">⚙ Ajustes de mesa</button>
       <button onclick="adminCloseTable('${room.id}');document.getElementById('mesa-detail-panel').style.display='none'"
         style="width:100%;padding:8px;border-radius:var(--r-sm);border:1px solid #FCCACA;background:#FFF5F5;color:#A32D2D;font-size:13px;cursor:pointer;font-family:inherit">
         Cerrar mesa
