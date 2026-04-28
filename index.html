@@ -10269,20 +10269,20 @@ async function waiterSendOrder() {
   // Get guests for shared dishes
   const { data: guests } = await sb.from('guests').select('id').eq('room_id', _waiterActiveRoomId);
 
-  // Cargar course/category de los menu_items en bloque (evita que cookeat agrupe todo en "Entrantes")
+  // Cargar course de los menu_items en bloque (cookeat agrupa por course)
   const itemIds = [...new Set(_waiterCart.map(i => i.id).filter(Boolean))];
   const itemsMeta = {};
   if (itemIds.length) {
     const { data: items } = await sb.from('menu_items')
-      .select('id,course,category')
+      .select('id,course')
       .in('id', itemIds);
     (items || []).forEach(it => {
-      itemsMeta[it.id] = { course: it.course || 0, category: it.category || null };
+      itemsMeta[it.id] = { course: it.course || 0 };
     });
   }
 
   for (const item of _waiterCart) {
-    const meta = itemsMeta[item.id] || { course: 0, category: null };
+    const meta = itemsMeta[item.id] || { course: 0 };
     for (let q = 0; q < item.qty; q++) {
       const wDishPayload = {
         restaurant_id: _waiterRestaurantId,
@@ -10294,11 +10294,16 @@ async function waiterSendOrder() {
         kitchen_status: 'sent',
         sent_at: new Date().toISOString(),
         course: meta.course,
-        category: meta.category,
         assignee_id: null
       };
       if (item.cookingPoint) wDishPayload.cooking_point = item.cookingPoint;
-      const { data: dish } = await sb.from('dishes').insert(wDishPayload).select().single();
+      const { data: dish, error: insertErr } = await sb.from('dishes').insert(wDishPayload).select().single();
+      if (insertErr) {
+        console.error('Error insert dish:', insertErr);
+        notify('Error al enviar: ' + insertErr.message, 'error');
+        if (btn) { btn.disabled = false; btn.textContent = 'Revisar y enviar a cocina'; }
+        return;
+      }
 
       if (dish && item.isShared && guests?.length) {
         await sb.from('dish_participants').insert(
@@ -10536,17 +10541,38 @@ async function waiterOpenTable() {
 
   const { data: table } = await sb.from('tables').select('*').eq('id', tableId).single();
   const code = Date.now().toString(36).slice(-4).toUpperCase() + Math.random().toString(36).slice(2,4).toUpperCase();
-  const { data: room } = await sb.from('rooms').insert({
+  const payload = {
     code,
     restaurant_id: _waiterRestaurantId,
     restaurant_name: _waiterRestaurantName,
     table_id: tableId,
-    waiter_id: _waiterId,
-    assigned_waiter_id: _waiterId,
     closed: false,
     tip_percent: 0,
     opened_at: new Date().toISOString().split('T')[0]
-  }).select().single();
+  };
+  // Asignar al camarero si tenemos su id (los campos pueden no existir en BD legacy)
+  if (_waiterId) {
+    payload.waiter_id = _waiterId;
+    payload.assigned_waiter_id = _waiterId;
+  }
+
+  const { data: room, error } = await sb.from('rooms').insert(payload).select().single();
+  if (error) {
+    console.error('Error abriendo mesa:', error);
+    // Reintentar sin los campos de waiter por si la BD no los tiene
+    if (error.message && /waiter_id|assigned_waiter_id/.test(error.message)) {
+      delete payload.waiter_id;
+      delete payload.assigned_waiter_id;
+      const retry = await sb.from('rooms').insert(payload).select().single();
+      if (retry.error) {
+        notify('Error al abrir mesa: ' + retry.error.message, 'error');
+        return;
+      }
+    } else {
+      notify('Error al abrir mesa: ' + error.message, 'error');
+      return;
+    }
+  }
 
   document.getElementById('waiter-new-table-modal').style.display = 'none';
   showToast('✓ Mesa abierta', `${table ? 'Mesa ' + table.number : 'Nueva mesa'} lista.`);
