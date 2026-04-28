@@ -10262,13 +10262,27 @@ function updateWaiterCart() {
 
 async function waiterSendOrder() {
   if (!_waiterActiveRoomId || !_waiterCart.length) return;
-  const btn = document.querySelector('#wtab-pedido .btn-primary');
+  const btn = document.querySelector('#wtab-pedido .btn-primary')
+           || document.querySelector('#drawer-cart .btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
 
   // Get guests for shared dishes
   const { data: guests } = await sb.from('guests').select('id').eq('room_id', _waiterActiveRoomId);
 
+  // Cargar course/category de los menu_items en bloque (evita que cookeat agrupe todo en "Entrantes")
+  const itemIds = [...new Set(_waiterCart.map(i => i.id).filter(Boolean))];
+  const itemsMeta = {};
+  if (itemIds.length) {
+    const { data: items } = await sb.from('menu_items')
+      .select('id,course,category')
+      .in('id', itemIds);
+    (items || []).forEach(it => {
+      itemsMeta[it.id] = { course: it.course || 0, category: it.category || null };
+    });
+  }
+
   for (const item of _waiterCart) {
+    const meta = itemsMeta[item.id] || { course: 0, category: null };
     for (let q = 0; q < item.qty; q++) {
       const wDishPayload = {
         restaurant_id: _waiterRestaurantId,
@@ -10278,6 +10292,9 @@ async function waiterSendOrder() {
         type: item.isShared ? 'shared' : 'solo',
         menu_item_id: item.id,
         kitchen_status: 'sent',
+        sent_at: new Date().toISOString(),
+        course: meta.course,
+        category: meta.category,
         assignee_id: null
       };
       if (item.cookingPoint) wDishPayload.cooking_point = item.cookingPoint;
@@ -10293,9 +10310,15 @@ async function waiterSendOrder() {
 
   _waiterCart = [];
   updateWaiterCart();
-  if (btn) { btn.disabled = false; btn.textContent = 'Enviar a cocina'; }
+  if (btn) { btn.disabled = false; btn.textContent = 'Revisar y enviar a cocina'; }
   showToast('✓ Pedido enviado', 'Los platos están en camino a cocina.');
-  showWaiterTab('mesas');
+  // Si el drawer está abierto refresca pedido; si no, vuelve al plano
+  if (document.getElementById('waiter-table-drawer')?.style.display === 'block') {
+    if (typeof refreshDrawerCart === 'function') refreshDrawerCart();
+    if (typeof showDrawerTab === 'function') showDrawerTab('pedido');
+  } else {
+    showWaiterTab('mesas');
+  }
 }
 
 // ── COBRAR ──
