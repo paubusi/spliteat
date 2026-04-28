@@ -2103,26 +2103,60 @@
         <button class="back-btn" onclick="waiterLogout()" style="color:var(--accent)">Salir</button>
       </div>
     </div>
-    <div class="tab-bar">
-      <button class="tab on" onclick="showWaiterTab('mesas')">Mesas</button>
-      <button class="tab" onclick="showWaiterTab('pedido')">Tomar pedido</button>
-      <button class="tab" onclick="showWaiterTab('cobrar')">Cobrar</button>
+
+    <!-- Sub-header con toggle vista + nueva mesa + propinas -->
+    <div style="padding:.65rem .85rem;display:flex;align-items:center;gap:.5rem;background:var(--bg);border-bottom:1px solid var(--bd)">
+      <div class="live-badge"><div class="live-dot"></div><span>En tiempo real</span></div>
+      <div style="flex:1"></div>
+      <!-- Toggle plano/lista -->
+      <div style="display:inline-flex;border:1px solid var(--bd);border-radius:99px;padding:2px;background:var(--card)">
+        <button id="waiter-view-plano" class="waiter-view-btn active" onclick="switchWaiterView('plano')"
+          style="padding:5px 12px;border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:600;border-radius:99px;cursor:pointer;font-family:inherit">🗺 Plano</button>
+        <button id="waiter-view-lista" class="waiter-view-btn" onclick="switchWaiterView('lista')"
+          style="padding:5px 12px;border:none;background:transparent;color:var(--t2);font-size:12px;font-weight:500;border-radius:99px;cursor:pointer;font-family:inherit">📋 Lista</button>
+      </div>
+      <button onclick="openWaiterPropinas()" title="Mis propinas"
+        style="background:none;border:1px solid var(--bd);border-radius:99px;padding:5px 10px;font-size:12px;color:var(--t2);cursor:pointer;font-family:inherit">🌟</button>
+      <button onclick="loadWaiterMesas()" title="Refrescar"
+        style="background:none;border:1px solid var(--bd);border-radius:99px;width:28px;height:28px;font-size:13px;color:var(--t2);cursor:pointer">↻</button>
     </div>
 
-    <!-- TAB: MESAS ACTIVAS -->
+    <!-- VISTA UNIFICADA: plano O lista -->
     <div id="wtab-mesas" class="body">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
-        <div class="live-badge"><div class="live-dot"></div><span>En tiempo real</span></div>
-        <button onclick="loadWaiterMesas()" style="font-size:12px;color:var(--t2);background:none;border:none;cursor:pointer;font-family:inherit">↻</button>
+      <!-- Vista Plano (grid de mesas como tarjetas tipo "fichas") -->
+      <div id="waiter-plano-view" style="display:block">
+        <div id="waiter-plano-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.65rem;margin-bottom:1rem"></div>
+        <div id="waiter-plano-empty" class="empty" style="display:none">
+          <div class="empty-icon">🗺</div>
+          <div class="empty-text">Aún no hay mesas configuradas en este restaurante.</div>
+        </div>
+        <!-- Leyenda de estados -->
+        <div style="margin-top:1rem;padding:.85rem;background:var(--card);border:1px solid var(--bd);border-radius:var(--r);font-size:11px;color:var(--t2)">
+          <div style="font-weight:600;color:var(--t1);margin-bottom:.5rem">Leyenda</div>
+          <div style="display:flex;flex-wrap:wrap;gap:.65rem .9rem">
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#e8e8e3;margin-right:5px;vertical-align:middle"></span>Libre</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#FFE4B5;margin-right:5px;vertical-align:middle"></span>Esperando pedido</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#85D1B5;margin-right:5px;vertical-align:middle"></span>En cocina</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#7CC5E2;margin-right:5px;vertical-align:middle"></span>Servido — comiendo</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#F2A07B;margin-right:5px;vertical-align:middle"></span>Listo para cobrar</span>
+            <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:#D1BDFF;margin-right:5px;vertical-align:middle"></span>Limpiar</span>
+          </div>
+        </div>
       </div>
-      <div id="waiter-mesas-list"></div>
-      <div id="waiter-mesas-empty" class="empty" style="display:none">
-        <div class="empty-icon">🍽</div>
-        <div class="empty-text">No hay mesas abiertas.</div>
+
+      <!-- Vista Lista (la antigua, la mantenemos como alternativa) -->
+      <div id="waiter-lista-view" style="display:none">
+        <div id="waiter-mesas-list"></div>
+        <div id="waiter-mesas-empty" class="empty" style="display:none">
+          <div class="empty-icon">🍽</div>
+          <div class="empty-text">No hay mesas abiertas.</div>
+        </div>
       </div>
+
       <button class="btn btn-primary mt" onclick="openNewTableModal()">+ Abrir mesa nueva</button>
     </div>
 
+    <!-- TABS LEGACY (pedido + cobrar) — se siguen usando internamente -->
     <!-- TAB: TOMAR PEDIDO -->
     <div id="wtab-pedido" class="body" style="display:none">
       <div class="field">
@@ -2175,6 +2209,37 @@
         <div style="font-size:12px;color:#854F0B;margin-top:2px">Total propinas recibidas</div>
       </div>
       <div id="waiter-propinas-list"></div>
+    </div>
+
+    <!-- ═══════════ DRAWER: GESTIONAR MESA ═══════════ -->
+    <div id="waiter-table-drawer" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200">
+      <div id="waiter-drawer-panel" style="position:absolute;top:0;right:0;bottom:0;width:100%;max-width:480px;background:var(--card);box-shadow:-12px 0 40px rgba(0,0,0,.18);display:flex;flex-direction:column;animation:slideRight .25s ease">
+        <!-- Drawer header -->
+        <div style="padding:.85rem 1rem;background:var(--brand-d);color:#fff;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+          <div>
+            <div id="waiter-drawer-title" style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;line-height:1.1"></div>
+            <div id="waiter-drawer-subtitle" style="font-size:11px;color:rgba(255,255,255,.7);margin-top:2px"></div>
+          </div>
+          <button onclick="closeWaiterDrawer()" aria-label="Cerrar"
+            style="background:rgba(255,255,255,.12);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>
+        </div>
+
+        <!-- Resumen estado mesa -->
+        <div id="waiter-drawer-summary" style="padding:.65rem 1rem;background:var(--bg);border-bottom:1px solid var(--bd);font-size:12px;color:var(--t2);display:flex;gap:.85rem;flex-wrap:wrap;flex-shrink:0"></div>
+
+        <!-- Sub-tabs internos del drawer -->
+        <div style="display:flex;border-bottom:1px solid var(--bd);background:var(--card);flex-shrink:0">
+          <button id="wd-tab-pedido" class="wd-tab active" onclick="showDrawerTab('pedido')"
+            style="flex:1;padding:.85rem .5rem;border:none;background:none;font-family:inherit;font-size:13px;font-weight:600;color:var(--brand-d);border-bottom:2px solid var(--brand-d);cursor:pointer">🍽 Pedido</button>
+          <button id="wd-tab-cobrar" class="wd-tab" onclick="showDrawerTab('cobrar')"
+            style="flex:1;padding:.85rem .5rem;border:none;background:none;font-family:inherit;font-size:13px;font-weight:500;color:var(--t2);border-bottom:2px solid transparent;cursor:pointer">💳 Cobrar</button>
+          <button id="wd-tab-info" class="wd-tab" onclick="showDrawerTab('info')"
+            style="flex:1;padding:.85rem .5rem;border:none;background:none;font-family:inherit;font-size:13px;font-weight:500;color:var(--t2);border-bottom:2px solid transparent;cursor:pointer">ℹ️ Info</button>
+        </div>
+
+        <!-- Contenido scrollable -->
+        <div id="waiter-drawer-body" style="flex:1;overflow-y:auto;padding:1rem;background:var(--bg)"></div>
+      </div>
     </div>
 
     <!-- Modal: abrir mesa nueva -->
@@ -9159,18 +9224,445 @@ document.addEventListener('visibilitychange', () => {
 
 // ── TABS CAMARERO ──
 function showWaiterTab(name) {
-  ['mesas','pedido','cobrar','propinas'].forEach(t => {
-    document.getElementById('wtab-' + t).style.display = t === name ? 'block' : 'none';
+  // Compatibilidad: ahora solo "mesas" + "propinas" son vistas top-level.
+  // 'pedido' y 'cobrar' son sub-tabs DENTRO del drawer de cada mesa.
+  // Si código legacy llama showWaiterTab('pedido'/'cobrar') redirigimos a abrir mesa.
+  if (name === 'pedido' || name === 'cobrar') {
+    // Llegada por código legacy — mostramos vista mesas y dejamos que el user clique
+    showWaiterTab('mesas');
+    return;
+  }
+  ['mesas','propinas'].forEach(t => {
+    const el = document.getElementById('wtab-' + t);
+    if (el) el.style.display = t === name ? 'block' : 'none';
   });
-  document.querySelectorAll('#s-waiter .tab').forEach((tab, i) => {
-    tab.classList.toggle('on', ['mesas','pedido','cobrar','propinas'][i] === name);
+  // Ocultar las tabs legacy ocultas (pedido/cobrar) por si quedaron visibles
+  ['pedido','cobrar'].forEach(t => {
+    const el = document.getElementById('wtab-' + t);
+    if (el) el.style.display = 'none';
   });
   if (name === 'mesas') loadWaiterMesas();
-  if (name === 'cobrar') {
-    loadWaiterTableSelects().then(() => loadWaiterCobrar());
+  if (name === 'propinas') loadWaiterPropinas();
+}
+
+// Atajo desde sub-header
+function openWaiterPropinas() { showWaiterTab('propinas'); }
+
+// ── Toggle plano/lista ──────────────────────────────────────────
+function switchWaiterView(mode) {
+  const planoBtn = document.getElementById('waiter-view-plano');
+  const listaBtn = document.getElementById('waiter-view-lista');
+  const planoView = document.getElementById('waiter-plano-view');
+  const listaView = document.getElementById('waiter-lista-view');
+  if (mode === 'plano') {
+    planoBtn.style.background = 'var(--brand)';
+    planoBtn.style.color = '#fff';
+    listaBtn.style.background = 'transparent';
+    listaBtn.style.color = 'var(--t2)';
+    planoView.style.display = 'block';
+    listaView.style.display = 'none';
+  } else {
+    listaBtn.style.background = 'var(--brand)';
+    listaBtn.style.color = '#fff';
+    planoBtn.style.background = 'transparent';
+    planoBtn.style.color = 'var(--t2)';
+    listaView.style.display = 'block';
+    planoView.style.display = 'none';
   }
-  if (name === 'propinas') loadWaiterPropinas();
-  if (name === 'propinas') loadWaiterPropinas();
+  try { localStorage.setItem('spliteat.waiterView', mode); } catch(e) {}
+}
+
+// ── Cargar vista plano ──────────────────────────────────────────
+// Renderiza TODAS las mesas físicas del restaurante con su estado actual.
+// Si las mesas tienen position_x/y → render como canvas posicional (igual que admin)
+// Si no → fallback a grid auto.
+async function loadWaiterPlano(myRoomsByTable, myRooms, tablesById, dishesByRoom, paysByRoom, guestsByRoom) {
+  const grid = document.getElementById('waiter-plano-grid');
+  const emptyEl = document.getElementById('waiter-plano-empty');
+  if (!grid) return;
+  const tables = Object.values(tablesById).sort((a, b) => (a.number||0) - (b.number||0));
+  if (!tables.length) {
+    grid.innerHTML = '';
+    if (emptyEl) emptyEl.style.display = 'block';
+    return;
+  }
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  // Estado por mesa: derivado de los rooms abiertos
+  function deriveStatus(room) {
+    if (!room) return { code: 'libre', bg: '#e8e8e3', txt: '#5A7168', label: 'Libre', icon: '·' };
+    if (room.closed && room.needs_cleaning) return { code: 'cleaning', bg: '#D1BDFF', txt: '#3a1d7a', label: 'Limpiar', icon: '🧹' };
+    const dishes = dishesByRoom[room.id] || [];
+    const pays = paysByRoom[room.id] || [];
+    const totalPaid = pays.reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+    const pendingAmount = Math.max(0, parseFloat(room.total_amount || 0) - totalPaid);
+    if (!dishes.length) {
+      return { code: 'waiting', bg: '#FFE4B5', txt: '#7a5715', label: 'Esperando pedido', icon: '⏱' };
+    }
+    const inKitchen = dishes.some(d => ['sent','making','ready'].includes(d.kitchen_status));
+    const allDelivered = dishes.every(d => d.kitchen_status === 'delivered' || d.kitchen_status === 'served');
+    if (inKitchen) return { code: 'kitchen', bg: '#85D1B5', txt: '#0e4a30', label: 'En cocina', icon: '👨‍🍳' };
+    if (allDelivered && pendingAmount > 0.5) {
+      return { code: 'billing', bg: '#F2A07B', txt: '#732d10', label: 'Cobrar', icon: '💳' };
+    }
+    return { code: 'eating', bg: '#7CC5E2', txt: '#0e3e57', label: 'Comiendo', icon: '🍴' };
+  }
+
+  // ¿Hay coordenadas físicas? → modo canvas. Si no → modo grid auto.
+  const hasLayout = tables.some(t => t.position_x != null && t.position_y != null);
+
+  if (hasLayout) {
+    // Canvas con aspecto fijo y mesas posicionadas en %
+    grid.style.cssText = 'position:relative;width:100%;aspect-ratio:4/3;background:repeating-linear-gradient(0deg,transparent,transparent 19px,rgba(0,0,0,.04) 19px,rgba(0,0,0,.04) 20px),repeating-linear-gradient(90deg,transparent,transparent 19px,rgba(0,0,0,.04) 19px,rgba(0,0,0,.04) 20px),var(--card);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:1rem';
+    grid.innerHTML = tables.map(t => {
+      const room = myRoomsByTable[t.id];
+      const st = deriveStatus(room);
+      const guests = room ? (guestsByRoom[room.id] || []) : [];
+      const total = room ? parseFloat(room.total_amount || 0).toFixed(2) : null;
+      const x = parseFloat(t.position_x ?? 50);
+      const y = parseFloat(t.position_y ?? 50);
+      const seats = parseInt(t.seats || 4);
+      const size = seats <= 2 ? 60 : seats <= 4 ? 76 : 92;
+      const isRound = t.shape === 'round';
+      const radius = isRound ? '50%' : '12px';
+      const onClick = room
+        ? `openWaiterDrawer('${room.id}')`
+        : `openNewTableModal(${t.number})`;
+      return `<div onclick="${onClick}"
+        style="position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);
+        width:${size}px;height:${size}px;background:${st.bg};border:1.5px solid rgba(0,0,0,.08);
+        border-radius:${radius};cursor:pointer;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        box-shadow:0 2px 6px rgba(0,0,0,.08);transition:transform .15s ease,box-shadow .15s ease"
+        onmouseover="this.style.transform='translate(-50%,-50%) scale(1.05)';this.style.boxShadow='0 6px 16px rgba(0,0,0,.18)'"
+        onmouseout="this.style.transform='translate(-50%,-50%)';this.style.boxShadow='0 2px 6px rgba(0,0,0,.08)'">
+        <div style="display:flex;align-items:baseline;gap:4px">
+          <div style="font-family:'Fraunces',serif;font-size:${size>=80?20:17}px;font-weight:700;color:${st.txt};line-height:1">${t.number}</div>
+          <div style="font-size:11px;line-height:1">${st.icon}</div>
+        </div>
+        ${room ? `<div style="display:flex;align-items:center;gap:6px;margin-top:2px;font-size:9px;color:${st.txt};font-weight:600;opacity:.85">
+          ${guests.length ? `<span>👥${guests.length}</span>` : ''}
+          ${total && parseFloat(total) > 0 ? `<span>${total}€</span>` : ''}
+        </div>` : `<div style="font-size:9px;color:${st.txt};opacity:.5;margin-top:2px">libre</div>`}
+      </div>`;
+    }).join('');
+    return;
+  }
+
+  // FALLBACK: grid auto (versión inicial)
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.65rem;margin-bottom:1rem';
+  grid.innerHTML = tables.map(t => {
+    const room = myRoomsByTable[t.id];
+    const st = deriveStatus(room);
+    const guests = room ? (guestsByRoom[room.id] || []) : [];
+    const total = room ? parseFloat(room.total_amount || 0).toFixed(2) : null;
+    const onClick = room
+      ? `openWaiterDrawer('${room.id}')`
+      : `openNewTableModal(${t.number})`;
+    return `
+      <div onclick="${onClick}"
+        style="background:${st.bg};border-radius:14px;padding:.75rem;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;min-height:110px;transition:transform .15s ease,box-shadow .15s ease;border:1.5px solid rgba(0,0,0,.04)"
+        onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 16px rgba(0,0,0,.1)'"
+        onmouseout="this.style.transform='';this.style.boxShadow=''">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:${st.txt};line-height:1">${t.number}</div>
+          <div style="font-size:18px;line-height:1">${st.icon}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:600;color:${st.txt};text-transform:uppercase;letter-spacing:.04em;opacity:.85">${st.label}</div>
+          ${room ? `<div style="display:flex;align-items:center;justify-content:space-between;margin-top:3px">
+            ${guests.length ? `<span style="font-size:11px;color:${st.txt};opacity:.75">👥 ${guests.length}</span>` : '<span></span>'}
+            ${total && parseFloat(total) > 0 ? `<span style="font-size:12px;font-weight:600;color:${st.txt}">${total}€</span>` : ''}
+          </div>` : `<div style="font-size:10px;color:${st.txt};opacity:.55;margin-top:3px">Toca para abrir</div>`}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DRAWER: Gestionar mesa (sustituye tabs "Tomar pedido" + "Cobrar")
+// ══════════════════════════════════════════════════════════════════
+let _drawerRoomId = null;
+let _drawerRoom = null;
+
+async function openWaiterDrawer(roomId) {
+  _drawerRoomId = roomId;
+  // Cargar info básica de la mesa
+  const { data: room } = await sb.from('rooms').select('*').eq('id', roomId).maybeSingle();
+  _drawerRoom = room;
+  if (!room) { notify('No se encontró la mesa', 'error'); return; }
+
+  const { data: table } = room.table_id
+    ? await sb.from('tables').select('*').eq('id', room.table_id).maybeSingle()
+    : { data: null };
+
+  const titleEl = document.getElementById('waiter-drawer-title');
+  const subEl   = document.getElementById('waiter-drawer-subtitle');
+  if (titleEl) titleEl.textContent = table ? `Mesa ${table.number}${table.label ? ' — ' + table.label : ''}` : 'Mesa sin asignar';
+  if (subEl) {
+    const since = new Date(room.created_at);
+    const mins = Math.floor((Date.now() - since.getTime()) / 60000);
+    const t = mins < 60 ? `${mins} min` : `${Math.floor(mins/60)}h ${mins%60}min`;
+    subEl.textContent = `Abierta hace ${t}`;
+  }
+
+  // Resumen
+  await renderDrawerSummary(roomId);
+
+  // Mostrar drawer
+  document.getElementById('waiter-table-drawer').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+
+  // Cargar pestaña por defecto: pedido
+  showDrawerTab('pedido');
+
+  // Suscribirse a cambios para actualizar en tiempo real
+  subscribeDrawerRealtime(roomId);
+}
+
+function closeWaiterDrawer() {
+  document.getElementById('waiter-table-drawer').style.display = 'none';
+  document.body.style.overflow = '';
+  if (_drawerSub) { try { sb.removeChannel(_drawerSub); } catch(e) {} _drawerSub = null; }
+  _drawerRoomId = null;
+  _drawerRoom = null;
+  // Refrescar lista al cerrar para reflejar cambios
+  loadWaiterMesas();
+}
+
+let _drawerSub = null;
+function subscribeDrawerRealtime(roomId) {
+  if (_drawerSub) { try { sb.removeChannel(_drawerSub); } catch(e) {} }
+  _drawerSub = sb.channel('drawer-' + roomId)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'dishes', filter: `room_id=eq.${roomId}` },
+        () => refreshDrawerCurrentTab())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `room_id=eq.${roomId}` },
+        () => refreshDrawerCurrentTab())
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` },
+        () => { renderDrawerSummary(roomId); refreshDrawerCurrentTab(); })
+    .subscribe();
+}
+
+function refreshDrawerCurrentTab() {
+  const tab = document.querySelector('.wd-tab.active')?.id?.replace('wd-tab-', '');
+  if (tab) showDrawerTab(tab);
+}
+
+async function renderDrawerSummary(roomId) {
+  const sumEl = document.getElementById('waiter-drawer-summary');
+  if (!sumEl) return;
+  const [{ data: dishes }, { data: payments }, { data: guests }] = await Promise.all([
+    sb.from('dishes').select('id,price,kitchen_status').eq('room_id', roomId),
+    sb.from('payments').select('amount').eq('room_id', roomId),
+    sb.from('guests').select('id').eq('room_id', roomId)
+  ]);
+  const totalDishes = (dishes||[]).reduce((s,d) => s + parseFloat(d.price||0), 0);
+  const totalPaid = (payments||[]).reduce((s,p) => s + parseFloat(p.amount||0), 0);
+  const pending = Math.max(0, totalDishes - totalPaid);
+  const pendingDishes = (dishes||[]).filter(d => ['new','sent','making','ready'].includes(d.kitchen_status)).length;
+  sumEl.innerHTML = `
+    <span>👥 <strong style="color:var(--t1)">${(guests||[]).length}</strong> comensales</span>
+    <span>🍽 <strong style="color:var(--t1)">${(dishes||[]).length}</strong> platos${pendingDishes ? ` <span style="color:var(--accent)">(${pendingDishes} en curso)</span>` : ''}</span>
+    <span>💰 <strong style="color:var(--t1)">${totalDishes.toFixed(2)}€</strong></span>
+    ${pending > 0.5 ? `<span style="color:var(--accent);font-weight:600">Pendiente: ${pending.toFixed(2)}€</span>` : '<span style="color:var(--brand-d);font-weight:600">✓ Cobrado</span>'}
+  `;
+}
+
+function showDrawerTab(name) {
+  ['pedido','cobrar','info'].forEach(t => {
+    const tabBtn = document.getElementById('wd-tab-' + t);
+    if (!tabBtn) return;
+    const active = t === name;
+    tabBtn.classList.toggle('active', active);
+    tabBtn.style.color = active ? 'var(--brand-d)' : 'var(--t2)';
+    tabBtn.style.fontWeight = active ? '600' : '500';
+    tabBtn.style.borderBottomColor = active ? 'var(--brand-d)' : 'transparent';
+  });
+  if (name === 'pedido') renderDrawerPedido();
+  if (name === 'cobrar') renderDrawerCobrar();
+  if (name === 'info') renderDrawerInfo();
+}
+
+// ── PEDIDO en el drawer (carta + carrito + enviar) ──────────────
+async function renderDrawerPedido() {
+  const body = document.getElementById('waiter-drawer-body');
+  if (!body || !_drawerRoomId) return;
+  body.innerHTML = `
+    <div id="drawer-pedido-current" style="margin-bottom:1rem"></div>
+    <div class="sec-label" style="margin-bottom:.5rem">Añadir platos</div>
+    <div id="drawer-carta-list"></div>
+    <div id="drawer-cart" style="display:none;position:sticky;bottom:-1rem;background:var(--card);border-top:1px solid var(--bd);margin:1rem -1rem -1rem;padding:.85rem 1rem;box-shadow:0 -4px 12px rgba(0,0,0,.06)">
+      <div class="sec-label" style="margin-bottom:.5rem">A enviar</div>
+      <div id="drawer-cart-items" style="margin-bottom:.65rem"></div>
+      <button class="btn btn-primary" onclick="drawerSendOrder()" style="width:100%">Enviar a cocina</button>
+    </div>
+  `;
+  // Reusar el flujo legacy: setear el select de pedido y cargar la carta
+  const sel = document.getElementById('waiter-mesa-sel');
+  if (sel) {
+    sel.value = _drawerRoomId;
+    // Asegurar que la opción existe
+    if (!sel.querySelector(`option[value="${_drawerRoomId}"]`)) {
+      const opt = document.createElement('option');
+      opt.value = _drawerRoomId; opt.textContent = 'Mesa actual';
+      sel.appendChild(opt);
+    }
+  }
+  // Cargar pedido actual
+  const { data: dishes } = await sb.from('dishes')
+    .select('id,name,price,kitchen_status,course')
+    .eq('room_id', _drawerRoomId).order('course');
+  const cur = document.getElementById('drawer-pedido-current');
+  if (cur) {
+    if (!dishes?.length) {
+      cur.innerHTML = `<div class="empty" style="padding:1rem;background:var(--card);border:1px dashed var(--bd);border-radius:var(--r)"><div style="font-size:32px;margin-bottom:6px">📋</div><div style="font-size:13px;color:var(--t2)">Aún no hay platos pedidos</div></div>`;
+    } else {
+      const ICON = { new:'⏱', sent:'→', making:'◎', ready:'✓', delivered:'🍽', served:'🍽' };
+      const LBL  = { new:'Pendiente', sent:'En cocina', making:'Preparando', ready:'Listo', delivered:'Servido', served:'Servido' };
+      // Agrupar duplicados
+      const groups = [];
+      const seen = {};
+      dishes.forEach(d => {
+        const k = `${d.name}|${d.price}|${d.kitchen_status}`;
+        if (seen[k] === undefined) { seen[k] = groups.length; groups.push({d, qty:0}); }
+        groups[seen[k]].qty++;
+      });
+      cur.innerHTML = `<div class="sec-label" style="margin-bottom:.5rem">Pedido actual</div>` +
+        groups.map(({d, qty}) => {
+          const icon = ICON[d.kitchen_status] || '·';
+          const label = LBL[d.kitchen_status] || d.kitchen_status;
+          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--card);border:1px solid var(--bd);border-radius:8px;margin-bottom:5px;font-size:13px">
+            <div style="flex:1;min-width:0">
+              ${qty > 1 ? `<span style="color:var(--t3);font-weight:600">${qty}× </span>` : ''}<span style="font-weight:500">${escHtml(d.name)}</span>
+              <div style="font-size:11px;color:var(--t3);margin-top:1px">${icon} ${label}</div>
+            </div>
+            <div style="font-weight:600;color:var(--brand-d)">${(parseFloat(d.price)*qty).toFixed(2)}€</div>
+          </div>`;
+        }).join('');
+    }
+  }
+  // Cargar carta usando función existente, redirigiendo el render al drawer
+  await loadWaiterCarta();
+  // Migrar carta del DOM antiguo al drawer
+  const oldCarta = document.getElementById('waiter-carta-list');
+  const newCarta = document.getElementById('drawer-carta-list');
+  if (oldCarta && newCarta) newCarta.innerHTML = oldCarta.innerHTML;
+  // Renderizar el carrito si tiene items
+  refreshDrawerCart();
+}
+
+function refreshDrawerCart() {
+  const cart = (typeof _waiterCart !== 'undefined' && _waiterCart) ? _waiterCart : [];
+  const cartEl = document.getElementById('drawer-cart');
+  const itemsEl = document.getElementById('drawer-cart-items');
+  if (!cartEl || !itemsEl) return;
+  if (!cart.length) { cartEl.style.display = 'none'; return; }
+  cartEl.style.display = 'block';
+  // Agrupar items idénticos
+  const groups = [];
+  const seen = {};
+  cart.forEach((it, idx) => {
+    const k = `${it.id}`;
+    if (seen[k] === undefined) { seen[k] = groups.length; groups.push({it, qty:0, indices:[]}); }
+    groups[seen[k]].qty++;
+    groups[seen[k]].indices.push(idx);
+  });
+  itemsEl.innerHTML = groups.map(({it, qty}) =>
+    `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px">
+      <span>${qty > 1 ? `<strong>${qty}× </strong>` : ''}${escHtml(it.name)}</span>
+      <span style="color:var(--brand-d);font-weight:600">${(parseFloat(it.price)*qty).toFixed(2)}€</span>
+    </div>`
+  ).join('');
+}
+
+async function drawerSendOrder() {
+  // Reusar la función existente
+  await waiterSendOrder();
+  refreshDrawerCart();
+  // Volver a renderizar el pedido actual
+  setTimeout(() => renderDrawerPedido(), 350);
+}
+
+// ── COBRAR en el drawer ────────────────────────────────────────
+async function renderDrawerCobrar() {
+  const body = document.getElementById('waiter-drawer-body');
+  if (!body || !_drawerRoomId) return;
+  body.innerHTML = `<div id="drawer-cobrar-mount"></div>`;
+  // Setear selectores legacy y cargar
+  const sel = document.getElementById('waiter-cobrar-sel');
+  if (sel) {
+    sel.value = _drawerRoomId;
+    if (!sel.querySelector(`option[value="${_drawerRoomId}"]`)) {
+      const opt = document.createElement('option');
+      opt.value = _drawerRoomId; opt.textContent = 'Mesa actual';
+      sel.appendChild(opt);
+    }
+  }
+  await loadWaiterCobrar();
+  // Migrar contenido legacy al drawer
+  const oldArea = document.getElementById('waiter-cobrar-area');
+  const mount = document.getElementById('drawer-cobrar-mount');
+  if (oldArea && mount) {
+    // Clonar para mantener estado en el original; en su lugar movemos visualmente
+    const clone = oldArea.cloneNode(true);
+    clone.style.display = 'block';
+    clone.id = 'drawer-cobrar-area-clone';
+    mount.innerHTML = '';
+    mount.appendChild(clone);
+  }
+}
+
+// ── INFO en el drawer ──────────────────────────────────────────
+async function renderDrawerInfo() {
+  const body = document.getElementById('waiter-drawer-body');
+  if (!body || !_drawerRoomId) return;
+  const room = _drawerRoom;
+  if (!room) return;
+  const { data: guests } = await sb.from('guests').select('*').eq('room_id', _drawerRoomId);
+  const since = new Date(room.created_at);
+  const mins = Math.floor((Date.now() - since.getTime()) / 60000);
+  const timeOpen = mins < 60 ? `${mins} min` : `${Math.floor(mins/60)}h ${mins%60}min`;
+  body.innerHTML = `
+    <div class="sec-label" style="margin-bottom:.5rem">Información</div>
+    <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.85rem;margin-bottom:1rem;font-size:13px">
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--bd)">
+        <span style="color:var(--t2)">Abierta</span>
+        <span style="color:var(--t1);font-weight:500">hace ${timeOpen}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--bd)">
+        <span style="color:var(--t2)">Comensales</span>
+        <span style="color:var(--t1);font-weight:500">${(guests||[]).length}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:5px 0">
+        <span style="color:var(--t2)">Total mesa</span>
+        <span style="color:var(--brand-d);font-weight:600">${parseFloat(room.total_amount||0).toFixed(2)}€</span>
+      </div>
+    </div>
+
+    ${(guests||[]).length ? `
+      <div class="sec-label" style="margin-bottom:.5rem">Comensales</div>
+      <div style="margin-bottom:1rem">${(guests||[]).map((g, i) => {
+        const c = (typeof GUEST_COLORS !== 'undefined' ? GUEST_COLORS : ['#6366f1'])[i % (typeof GUEST_COLORS !== 'undefined' ? GUEST_COLORS.length : 1)];
+        return `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--bd);border-radius:99px;padding:4px 10px 4px 4px;margin:0 4px 4px 0;font-size:13px">
+          <span style="width:22px;height:22px;border-radius:50%;background:${c};color:#fff;font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center">${(g.name||'?')[0].toUpperCase()}</span>
+          <span>${escHtml(g.name||'')}</span>
+        </div>`;
+      }).join('')}</div>
+    ` : ''}
+
+    <div class="sec-label" style="margin-bottom:.5rem">Acciones</div>
+    <button class="btn" onclick="callBillForDrawer()" style="width:100%;margin-bottom:8px;background:var(--brand-l);color:var(--brand-d);border:1px solid var(--brand)">📃 Cerrar cuenta</button>
+    <button class="btn" onclick="closeWaiterDrawer()" style="width:100%;background:var(--card);color:var(--t2);border:1px solid var(--bd)">Volver al plano</button>
+  `;
+}
+
+async function callBillForDrawer() {
+  if (!_drawerRoomId) return;
+  if (!confirm('¿Marcar la cuenta como solicitada y notificar a la mesa?')) return;
+  await sb.from('rooms').update({ bill_requested_at: new Date().toISOString() }).eq('id', _drawerRoomId);
+  notify('Cuenta cerrada', 'success');
+  showDrawerTab('cobrar');
 }
 
 // ── MESAS ──
@@ -9204,9 +9696,15 @@ async function loadWaiterMesas() {
   );
 
   if (!myRooms.length) {
-    el.innerHTML = ''; emptyEl.style.display = 'block'; return;
+    el.innerHTML = '';
+    if (emptyEl) emptyEl.style.display = 'block';
+    // Aún así renderizar plano: todas las mesas en estado "libre"
+    await loadWaiterPlano({}, [], tablesById, {}, {}, {});
+    const savedView = (() => { try { return localStorage.getItem('spliteat.waiterView'); } catch(e) { return null; }})() || 'plano';
+    switchWaiterView(savedView);
+    return;
   }
-  emptyEl.style.display = 'none';
+  if (emptyEl) emptyEl.style.display = 'none';
 
   const roomIds = myRooms.map(r => r.id);
   const [{ data: allGuests }, { data: allPayments }, { data: allDishes }] = await Promise.all([
@@ -9224,6 +9722,16 @@ async function loadWaiterMesas() {
   const STATUS_ICON = { new:'○', sent:'→', making:'◎', ready:'●', delivered:'✓' };
   const STATUS_LABEL = { new:'Pendiente', sent:'Enviado', making:'Preparando', ready:'Listo', delivered:'Servido' };
   const COURSE_EMOJI = { 0:'', 1:'🥗', 2:'🍽', 3:'🍰' };
+
+  // ── Render vista PLANO ──
+  // Mapa table_id → room para acceso rápido en el plano
+  const myRoomsByTable = {};
+  myRooms.forEach(r => { if (r.table_id) myRoomsByTable[r.table_id] = r; });
+  await loadWaiterPlano(myRoomsByTable, myRooms, tablesById, dishesByRoom, paysByRoom, guestsByRoom);
+
+  // Restaurar última vista
+  const savedView = (() => { try { return localStorage.getItem('spliteat.waiterView'); } catch(e) { return null; }})() || 'plano';
+  switchWaiterView(savedView);
 
   el.innerHTML = myRooms.map(room => {
     const table = room.table_id ? tablesById[room.table_id] : null;
@@ -9766,8 +10274,20 @@ async function waiterMarkPaid(guestId, amount, roomId) {
 }
 
 // ── ABRIR MESA NUEVA (camarero) ──
-function openNewTableModal() {
-  loadWaiterTableSelects();
+function openNewTableModal(tableNumber) {
+  loadWaiterTableSelects().then(() => {
+    // Preseleccionar mesa si se pasó número (clic en mesa libre del plano)
+    if (tableNumber != null) {
+      const sel = document.getElementById('new-table-sel');
+      if (sel) {
+        const opt = Array.from(sel.options).find(o => {
+          const txt = (o.textContent || '').trim();
+          return txt.startsWith(`Mesa ${tableNumber}`) || txt === `${tableNumber}`;
+        });
+        if (opt) sel.value = opt.value;
+      }
+    }
+  });
   document.getElementById('waiter-new-table-modal').style.display = 'flex';
 }
 
@@ -10322,12 +10842,290 @@ function renderMobileMesasTab() {
   const tab = document.getElementById('gtab-mesas');
   if (!tab) return;
   tab.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;gap:8px;flex-wrap:wrap">
       <div class="sec-label" style="margin:0">Mesas</div>
+      <!-- Toggle Lista / Plano -->
+      <div style="display:inline-flex;border:1px solid var(--bd);border-radius:99px;padding:2px;background:var(--card)">
+        <button id="adm-mesas-view-lista" onclick="switchAdmMesasView('lista')"
+          style="padding:5px 12px;border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:600;border-radius:99px;cursor:pointer;font-family:inherit">📋 Lista</button>
+        <button id="adm-mesas-view-plano" onclick="switchAdmMesasView('plano')"
+          style="padding:5px 12px;border:none;background:transparent;color:var(--t2);font-size:12px;font-weight:500;border-radius:99px;cursor:pointer;font-family:inherit">🗺 Plano</button>
+      </div>
       <button class="btn btn-primary btn-sm" onclick="addTable()">+ Añadir mesa</button>
     </div>
-    <div id="admin-tables-list-mobile"><div style="text-align:center;padding:1.5rem;color:var(--t3);font-size:13px">Cargando...</div></div>`;
-  loadAdminTablesMobile();
+    <!-- Vista Lista -->
+    <div id="adm-mesas-lista-view">
+      <div id="admin-tables-list-mobile"><div style="text-align:center;padding:1.5rem;color:var(--t3);font-size:13px">Cargando...</div></div>
+    </div>
+    <!-- Vista Plano (editor) -->
+    <div id="adm-mesas-plano-view" style="display:none">
+      <div style="background:#FFF8E5;border:1px solid #F0E0A0;border-radius:10px;padding:.75rem .9rem;margin-bottom:.75rem;font-size:12px;color:#7A5715;line-height:1.5">
+        <strong>Editor del plano</strong> — arrastra cada mesa a su posición real en el restaurante. Toca una mesa para cambiar su forma o eliminar. Los cambios se guardan automáticamente.
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;font-size:12px;color:var(--t2)">
+        <span id="adm-plano-status">Cargando...</span>
+        <button onclick="autoArrangePlano()" style="background:none;border:1px solid var(--bd);border-radius:99px;padding:4px 12px;font-size:12px;color:var(--t2);cursor:pointer;font-family:inherit">↺ Auto-organizar</button>
+      </div>
+      <!-- Canvas del editor -->
+      <div id="adm-plano-canvas"
+        style="position:relative;width:100%;aspect-ratio:4/3;background:repeating-linear-gradient(0deg,transparent,transparent 19px,rgba(0,0,0,.04) 19px,rgba(0,0,0,.04) 20px),repeating-linear-gradient(90deg,transparent,transparent 19px,rgba(0,0,0,.04) 19px,rgba(0,0,0,.04) 20px),var(--card);border:2px dashed var(--bd);border-radius:var(--r);overflow:hidden;touch-action:none;user-select:none"></div>
+      <div style="display:flex;gap:.5rem;margin-top:.75rem;font-size:11px;color:var(--t3);align-items:center;flex-wrap:wrap">
+        <span>💡 Tip:</span>
+        <span>Arrastra para mover · Toca para opciones · Doble-toque para cambiar forma</span>
+      </div>
+    </div>`;
+  // Restaurar última vista
+  const saved = (() => { try { return localStorage.getItem('spliteat.admMesasView'); } catch(e) { return null; }})() || 'lista';
+  switchAdmMesasView(saved);
+}
+
+function switchAdmMesasView(mode) {
+  const listaBtn  = document.getElementById('adm-mesas-view-lista');
+  const planoBtn  = document.getElementById('adm-mesas-view-plano');
+  const listaView = document.getElementById('adm-mesas-lista-view');
+  const planoView = document.getElementById('adm-mesas-plano-view');
+  if (!listaBtn || !planoBtn) return;
+  if (mode === 'plano') {
+    planoBtn.style.background = 'var(--brand)'; planoBtn.style.color = '#fff';
+    listaBtn.style.background = 'transparent'; listaBtn.style.color = 'var(--t2)';
+    planoView.style.display = 'block'; listaView.style.display = 'none';
+    loadAdminPlanoEditor();
+  } else {
+    listaBtn.style.background = 'var(--brand)'; listaBtn.style.color = '#fff';
+    planoBtn.style.background = 'transparent'; planoBtn.style.color = 'var(--t2)';
+    listaView.style.display = 'block'; planoView.style.display = 'none';
+    loadAdminTablesMobile();
+  }
+  try { localStorage.setItem('spliteat.admMesasView', mode); } catch(e) {}
+}
+
+// ══════════════════════════════════════════════════════════════════
+// EDITOR DE PLANO (manageat)
+// ══════════════════════════════════════════════════════════════════
+let _planoTables = [];
+
+async function loadAdminPlanoEditor() {
+  const canvas = document.getElementById('adm-plano-canvas');
+  const status = document.getElementById('adm-plano-status');
+  if (!canvas) return;
+  if (status) status.textContent = 'Cargando...';
+
+  const { data: tables } = await sb.from('tables')
+    .select('*').eq('restaurant_id', state.adminRestaurantId).order('number');
+  _planoTables = tables || [];
+  if (!_planoTables.length) {
+    canvas.innerHTML = `<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:13px">No hay mesas. Pulsa "+ Añadir mesa".</div>`;
+    if (status) status.textContent = '';
+    return;
+  }
+  // Asignar posiciones por defecto a las que no las tengan (auto-grid)
+  const sinPos = _planoTables.filter(t => t.position_x == null || t.position_y == null);
+  if (sinPos.length) {
+    autoLayoutMissing(sinPos);
+  }
+  if (status) status.textContent = `${_planoTables.length} mesa${_planoTables.length !== 1 ? 's' : ''}`;
+  renderPlanoCanvas();
+}
+
+function autoLayoutMissing(sinPos) {
+  // Distribuir en grid 5 columnas, empezando por arriba-izquierda
+  const cols = 5;
+  // Detectar siguiente índice libre evitando solapar las que ya tienen pos
+  const occupied = _planoTables
+    .filter(t => t.position_x != null && t.position_y != null)
+    .map(t => `${Math.round(t.position_x/20)}:${Math.round(t.position_y/20)}`);
+  let idx = 0;
+  for (const t of sinPos) {
+    let col, row, key;
+    do {
+      col = idx % cols;
+      row = Math.floor(idx / cols);
+      key = `${col}:${row}`;
+      idx++;
+    } while (occupied.includes(key));
+    occupied.push(key);
+    t.position_x = 10 + col * 20;
+    t.position_y = 12 + row * 22;
+    // Persistir en BD inmediatamente
+    sb.from('tables').update({ position_x: t.position_x, position_y: t.position_y }).eq('id', t.id);
+  }
+}
+
+function renderPlanoCanvas() {
+  const canvas = document.getElementById('adm-plano-canvas');
+  if (!canvas) return;
+  canvas.innerHTML = _planoTables.map(t => {
+    const x = parseFloat(t.position_x ?? 50);
+    const y = parseFloat(t.position_y ?? 50);
+    const seats = parseInt(t.seats || 4);
+    // Tamaño según seats
+    const size = seats <= 2 ? 56 : seats <= 4 ? 68 : 84;
+    const isRound = t.shape === 'round';
+    const radius = isRound ? '50%' : '12px';
+    return `<div data-tid="${t.id}" class="plano-table"
+      style="position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);
+        width:${size}px;height:${size}px;background:#fff;border:2px solid var(--brand);border-radius:${radius};
+        display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:grab;
+        box-shadow:0 2px 8px rgba(0,0,0,.1);font-family:'Fraunces',serif;
+        transition:box-shadow .15s ease;touch-action:none">
+        <div style="font-size:${seats<=2?16:18}px;font-weight:700;color:var(--brand-d);line-height:1">${t.number}</div>
+        <div style="font-size:9px;color:var(--t3);margin-top:1px">${seats}p</div>
+    </div>`;
+  }).join('');
+  // Bind drag handlers
+  canvas.querySelectorAll('.plano-table').forEach(el => bindPlanoDrag(el));
+}
+
+function bindPlanoDrag(el) {
+  let startX, startY, origLeft, origTop, dragging = false, moved = false, longPressTimer;
+  const tid = el.dataset.tid;
+  const canvas = document.getElementById('adm-plano-canvas');
+
+  function getPoint(e) {
+    if (e.touches?.[0]) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    return { x: e.clientX, y: e.clientY };
+  }
+
+  function onStart(e) {
+    e.preventDefault();
+    const p = getPoint(e);
+    startX = p.x; startY = p.y;
+    const rect = canvas.getBoundingClientRect();
+    origLeft = parseFloat(el.style.left); origTop = parseFloat(el.style.top);
+    dragging = true; moved = false;
+    el.style.cursor = 'grabbing';
+    el.style.boxShadow = '0 8px 24px rgba(0,0,0,.18)';
+    el.style.zIndex = '10';
+    // Detectar long press para abrir menú (mobile)
+    longPressTimer = setTimeout(() => {
+      if (!moved) { dragging = false; openPlanoTableMenu(tid); }
+    }, 600);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onEnd);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onEnd);
+  }
+  function onMove(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    const p = getPoint(e);
+    const dx = p.x - startX, dy = p.y - startY;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+      moved = true;
+      clearTimeout(longPressTimer);
+    }
+    const rect = canvas.getBoundingClientRect();
+    let newLeft = origLeft + (dx / rect.width) * 100;
+    let newTop  = origTop  + (dy / rect.height) * 100;
+    // Snap a grid del 1%
+    newLeft = Math.round(newLeft);
+    newTop  = Math.round(newTop);
+    // Limitar dentro del canvas (5% margen)
+    newLeft = Math.max(5, Math.min(95, newLeft));
+    newTop  = Math.max(5, Math.min(95, newTop));
+    el.style.left = newLeft + '%';
+    el.style.top  = newTop + '%';
+  }
+  async function onEnd(e) {
+    if (!dragging) return;
+    dragging = false;
+    clearTimeout(longPressTimer);
+    el.style.cursor = 'grab';
+    el.style.boxShadow = '0 2px 8px rgba(0,0,0,.1)';
+    el.style.zIndex = '';
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onEnd);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onEnd);
+    if (moved) {
+      // Persistir nueva posición
+      const px = parseFloat(el.style.left);
+      const py = parseFloat(el.style.top);
+      const t = _planoTables.find(x => x.id === tid);
+      if (t) { t.position_x = px; t.position_y = py; }
+      await sb.from('tables').update({ position_x: px, position_y: py }).eq('id', tid);
+      const status = document.getElementById('adm-plano-status');
+      if (status) {
+        status.textContent = '✓ Guardado';
+        setTimeout(() => { if (status) status.textContent = `${_planoTables.length} mesa${_planoTables.length !== 1 ? 's' : ''}`; }, 1200);
+      }
+    } else {
+      // Click sin mover → abrir menú
+      openPlanoTableMenu(tid);
+    }
+  }
+
+  // Doble clic para alternar forma rápidamente
+  let lastClick = 0;
+  el.addEventListener('click', () => {
+    const now = Date.now();
+    if (now - lastClick < 350) togglePlanoShape(tid);
+    lastClick = now;
+  });
+
+  el.addEventListener('mousedown', onStart);
+  el.addEventListener('touchstart', onStart, { passive: false });
+}
+
+async function togglePlanoShape(tid) {
+  const t = _planoTables.find(x => x.id === tid);
+  if (!t) return;
+  const newShape = t.shape === 'round' ? 'rect' : 'round';
+  t.shape = newShape;
+  await sb.from('tables').update({ shape: newShape }).eq('id', tid);
+  renderPlanoCanvas();
+}
+
+async function openPlanoTableMenu(tid) {
+  const t = _planoTables.find(x => x.id === tid);
+  if (!t) return;
+  const action = await pickFromList([
+    { value: 'shape', label: t.shape === 'round' ? '⬛ Hacer rectangular' : '⚪ Hacer redonda' },
+    { value: 'edit',  label: '✏️ Editar mesa (nº, asientos, alias)' },
+    { value: 'reset', label: '↺ Resetear posición' },
+    { value: 'cancel',label: 'Cancelar' }
+  ], `Mesa ${t.number}${t.label?' — '+t.label:''}`);
+  if (action === 'shape') return togglePlanoShape(tid);
+  if (action === 'edit')  return editTable(tid);
+  if (action === 'reset') {
+    await sb.from('tables').update({ position_x: null, position_y: null }).eq('id', tid);
+    loadAdminPlanoEditor();
+  }
+}
+
+// Helper: lista pickable (modal simple). Reusa confirmModal style.
+function pickFromList(options, title) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:300;display:flex;align-items:flex-end;justify-content:center';
+    overlay.innerHTML = `
+      <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:1rem 1rem 1.25rem;width:100%;max-width:430px;animation:slideUp .2s ease">
+        ${title ? `<div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;margin-bottom:.75rem;color:var(--t1)">${title}</div>` : ''}
+        ${options.map(o => `<button data-v="${o.value}" style="display:block;width:100%;text-align:left;padding:.85rem 1rem;background:var(--bg);border:1px solid var(--bd);border-radius:10px;margin-bottom:6px;font-family:inherit;font-size:14px;color:var(--t1);cursor:pointer">${o.label}</button>`).join('')}
+      </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e => {
+      const v = e.target.dataset?.v;
+      if (v || e.target === overlay) {
+        document.body.removeChild(overlay);
+        resolve(v || 'cancel');
+      }
+    });
+  });
+}
+
+async function autoArrangePlano() {
+  if (!await confirmModal('¿Auto-organizar todas las mesas en una cuadrícula? Perderás las posiciones manuales actuales.')) return;
+  const updates = _planoTables.map((t, idx) => {
+    const cols = 5;
+    const col = idx % cols;
+    const row = Math.floor(idx / cols);
+    return { id: t.id, position_x: 10 + col * 20, position_y: 12 + row * 22 };
+  });
+  for (const u of updates) {
+    await sb.from('tables').update({ position_x: u.position_x, position_y: u.position_y }).eq('id', u.id);
+  }
+  loadAdminPlanoEditor();
 }
 
 async function loadAdminTablesMobile() {
