@@ -13591,7 +13591,7 @@ async function loadFloorPlan() {
     (guests || []).forEach(g => { if (!guestsByRoom[g.room_id]) guestsByRoom[g.room_id] = 0; guestsByRoom[g.room_id]++; });
   }
 
-  // Load saved positions from localStorage
+  // Cargar posiciones: BD primero (position_x/y en %), luego localStorage como fallback
   const posKey = 'spliteat_positions_' + state.adminRestaurantId;
   try { _tablePositions = JSON.parse(localStorage.getItem(posKey) || '{}'); } catch(e) { _tablePositions = {}; }
 
@@ -13638,13 +13638,22 @@ async function loadFloorPlan() {
     else if (paying) { color = '#EF9F27'; textColor = '#fff'; borderColor = '#EF9F27'; }
     else if (room && !room.closed) { color = '#E24B4A'; textColor = '#fff'; borderColor = '#E24B4A'; }
 
-    // Position
+    // Position — orden de prioridad: 1) BD (position_x/y en %), 2) localStorage (px), 3) auto
     const isTerraza = (table.label||'').toLowerCase().includes('terraza');
     const defaultX = ((idx % cols) / cols) * (planW - 120) + 20;
     const defaultY = isTerraza
       ? (planH * 0.5) + (Math.floor(idx / cols) / cols) * (planH * 0.45) + 20
       : (Math.floor(idx / cols) / cols) * (planH * 0.4) + 20;
-    const pos = _tablePositions[table.id] || { x: defaultX, y: defaultY };
+    let pos;
+    if (table.position_x != null && table.position_y != null) {
+      // BD: porcentaje 0-100 → píxeles (con margen para que no se corte)
+      pos = {
+        x: (parseFloat(table.position_x) / 100) * (planW - 84),
+        y: (parseFloat(table.position_y) / 100) * (planH - 84)
+      };
+    } else {
+      pos = _tablePositions[table.id] || { x: defaultX, y: defaultY };
+    }
 
     const el = document.createElement('div');
     el.id = 'ftable-' + table.id;
@@ -13696,11 +13705,14 @@ async function loadFloorPlan() {
       el.style.zIndex = '';
       el.style.boxShadow = '0 2px 8px rgba(0,0,0,.1)';
       // Save position
-      _tablePositions[table.id] = {
-        x: parseInt(el.style.left),
-        y: parseInt(el.style.top)
-      };
+      const px = parseInt(el.style.left);
+      const py = parseInt(el.style.top);
+      _tablePositions[table.id] = { x: px, y: py };
       try { localStorage.setItem(posKey, JSON.stringify(_tablePositions)); } catch(e) {}
+      // ALSO save to BD as % (so serveat sees the same layout)
+      const xPct = +((px / Math.max(1, planW - 84)) * 100).toFixed(2);
+      const yPct = +((py / Math.max(1, planH - 84)) * 100).toFixed(2);
+      sb.from('tables').update({ position_x: xPct, position_y: yPct }).eq('id', table.id);
       if (e._wasDragged) el._ignoreClick = true;
     };
 
@@ -15635,7 +15647,10 @@ async function loadCalleatQueueMain() {
           <div style="font-size:12px;color:var(--t2)">${entry.pax} persona${entry.pax!==1?'s':''} · ${isReady ? `Mesa: <strong>${escHtml(entry.table_label||'—')}</strong>` : `esperando ${waitMins} min`}</div>
         </div>
         ${!isReady
-          ? `<button onclick="callCalleatEntry('${entry.id}')" style="padding:8px 14px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">Llamar</button>`
+          ? `<div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+              <button onclick="callCalleatEntry('${entry.id}')" style="padding:8px 14px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">Llamar</button>
+              <button onclick="cancelCalleatEntry('${entry.id}')" title="Cancelar y eliminar de la cola" style="padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:13px;cursor:pointer;font-family:inherit">✕</button>
+            </div>`
           : `<button onclick="cancelCalleatEntry('${entry.id}')" style="padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit" title="Cancelar">✕</button>`}
       </div>
       ${isReady ? `
@@ -15682,17 +15697,16 @@ async function loadCalleatQueue() {
     const isReady = entry.status === 'called';
     return `<div class="calleat-entry ${isReady ? 'ready' : ''}">
       <div class="calleat-pos">${idx + 1}</div>
-      <div style="flex:1">
-        <div style="font-size:14px;font-weight:600">${escHtml(entry.name)} · ${entry.pax} pers.</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(entry.name)} · ${entry.pax} pers.</div>
         <div style="font-size:12px;color:var(--t2)">${isReady ? '🔔 Llamado — esperando confirmación' : `Esperando ${mins} min`}</div>
       </div>
-      ${!isReady ? `<button onclick="callCalleatEntry('${entry.id}')"
-        style="padding:7px 14px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
-        Llamar 🔔
-      </button>` : `<button onclick="cancelCalleatEntry('${entry.id}')"
-        style="padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit">
-        ✕
-      </button>`}
+      <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+        ${!isReady ? `<button onclick="callCalleatEntry('${entry.id}')"
+          style="padding:7px 14px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">Llamar 🔔</button>` : ''}
+        <button onclick="cancelCalleatEntry('${entry.id}')" title="Cancelar y eliminar de la cola"
+          style="padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:13px;cursor:pointer;font-family:inherit">✕</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -15813,15 +15827,22 @@ window._calleatAssignTable = async function(entryId, tableId, tableLabel, guestN
 };
 
 async function cancelCalleatEntry(entryId) {
-  const { data: entry } = await sb.from('calleat_queue').select('name,pax,table_label').eq('id', entryId).maybeSingle();
+  const { data: entry } = await sb.from('calleat_queue').select('name,pax,table_label,status').eq('id', entryId).maybeSingle();
+  if (!entry) { notify('Entrada no encontrada', 'error'); return; }
+  const wasWaiting = entry.status === 'waiting';
+  const msg = wasWaiting
+    ? `¿Eliminar a ${entry.name} (${entry.pax} pers.) de la lista de espera?`
+    : `¿Cancelar la llamada de ${entry.name} (${entry.pax} pers.)?`;
+  if (typeof confirmModal === 'function' ? !(await confirmModal(msg)) : !confirm(msg)) return;
   await sb.from('calleat_queue').update({ status: 'cancelled', cancelled_at: new Date().toISOString() }).eq('id', entryId);
-  if (entry) {
-    _addAdminNotif({
-      type: 'calleat_cancel',
-      title: `Grupo canceló — ${escHtml(entry.name||'')}`,
-      body: `${entry.pax} personas${entry.table_label ? ' · Mesa asignada: ' + entry.table_label : ''} — Mesa queda libre`,
-    });
-  }
+  _addAdminNotif({
+    type: 'calleat_cancel',
+    title: wasWaiting
+      ? `Eliminado de la cola — ${escHtml(entry.name||'')}`
+      : `Llamada cancelada — ${escHtml(entry.name||'')}`,
+    body: `${entry.pax} personas${entry.table_label ? ' · Mesa: ' + entry.table_label : ''}${wasWaiting ? '' : ' — Mesa queda libre'}`,
+  });
+  notify(wasWaiting ? 'Eliminado de la lista' : 'Cancelado', 'success');
   loadCalleatQueue();
   loadCalleatQueueMain();
 }
