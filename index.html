@@ -9710,10 +9710,10 @@ async function renderDrawerCarta() {
           <div style="font-size:12px;color:var(--t3)">${fmt(parseFloat(item.price))}</div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-          <button onclick="waiterCartRemove('${item.id}');setTimeout(refreshDrawerCart,30)"
+          <button onclick="waiterCartRemove('${item.id}');refreshDrawerCart()"
             style="width:30px;height:30px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit">−</button>
           <span id="wcart-qty-${item.id}" style="font-size:14px;font-weight:500;min-width:18px;text-align:center">0</span>
-          <button onclick="waiterCartAdd('${item.id}','${escName}',${item.price},${item.is_shared},${!!item.requires_cooking_point});setTimeout(refreshDrawerCart,30)"
+          <button onclick="waiterCartAdd('${item.id}','${escName}',${item.price},${item.is_shared},${!!item.requires_cooking_point});refreshDrawerCart()"
             style="width:30px;height:30px;border-radius:50%;border:none;background:var(--brand);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit">+</button>
         </div>
       </div>`;
@@ -9736,24 +9736,31 @@ function refreshDrawerCart() {
   const cart = (typeof _waiterCart !== 'undefined' && _waiterCart) ? _waiterCart : [];
   const cartEl = document.getElementById('drawer-cart');
   const itemsEl = document.getElementById('drawer-cart-items');
+
+  // Sincronizar TODOS los badges visibles en la carta del drawer (cuenta + cookingPoint)
+  // _waiterCart puede tener varias entradas con mismo id si tienen cookingPoint distinto
+  const totalById = {};
+  cart.forEach(it => { totalById[it.id] = (totalById[it.id] || 0) + (it.qty || 1); });
+  document.querySelectorAll('#drawer-carta-list [id^="wcart-qty-"]').forEach(el => {
+    const itemId = el.id.replace('wcart-qty-', '');
+    el.textContent = totalById[itemId] || 0;
+  });
+
   if (!cartEl || !itemsEl) return;
   if (!cart.length) { cartEl.style.display = 'none'; return; }
   cartEl.style.display = 'block';
-  // Agrupar items idénticos
-  const groups = [];
-  const seen = {};
-  cart.forEach((it, idx) => {
-    const k = `${it.id}`;
-    if (seen[k] === undefined) { seen[k] = groups.length; groups.push({it, qty:0, indices:[]}); }
-    groups[seen[k]].qty++;
-    groups[seen[k]].indices.push(idx);
-  });
-  itemsEl.innerHTML = groups.map(({it, qty}) =>
-    `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px">
-      <span>${qty > 1 ? `<strong>${qty}× </strong>` : ''}${escHtml(it.name)}</span>
-      <span style="color:var(--brand-d);font-weight:600">${(parseFloat(it.price)*qty).toFixed(2)}€</span>
-    </div>`
-  ).join('');
+
+  // Mostrar línea por entrada de _waiterCart (no agrupar por id porque el cookingPoint puede diferir)
+  itemsEl.innerHTML = cart.map(it => {
+    const q = it.qty || 1;
+    const cp = it.cookingPoint
+      ? `<span style="font-size:10px;color:#8B5E3C;background:#FFF3E0;border-radius:99px;padding:1px 6px;margin-left:4px">${it.cookingPoint}</span>`
+      : '';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px">
+      <span>${q > 1 ? `<strong>${q}× </strong>` : ''}${escHtml(it.name)}${cp}</span>
+      <span style="color:var(--brand-d);font-weight:600">${(parseFloat(it.price)*q).toFixed(2)}€</span>
+    </div>`;
+  }).join('');
 }
 
 async function drawerSendOrder() {
@@ -10019,7 +10026,7 @@ async function loadWaiterMesas() {
         ${room.needs_cleaning ? `<button onclick="confirmTableClean('${room.id}')"
           style="flex:1;padding:9px 10px;border-radius:var(--r-sm);border:none;background:#854F0B;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">
           Mesa limpia
-        </button>` : !room.closed ? `<button onclick="adminCloseTable('${room.id}')"
+        </button>` : !room.closed ? `<button onclick="waiterCloseTableQuick('${room.id}')"
           style="padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit">
           ✕
         </button>` : ''}
@@ -10059,17 +10066,22 @@ async function markBebidasReady(dishId) {
 }
 
 function waiterGoToPedido(roomId) {
-  _waiterActiveRoomId = roomId;
-  showWaiterTab('pedido');
-  const sel = document.getElementById('waiter-mesa-sel');
-  if (sel) { sel.value = roomId; loadWaiterCarta(); }
+  // Antes había una tab top-level "Tomar pedido"; ahora es una sub-tab del drawer
+  openWaiterDrawer(roomId).then(() => showDrawerTab('carta'));
 }
 
 function waiterGoToCobrar(roomId) {
-  _waiterActiveRoomId = roomId;
-  showWaiterTab('cobrar');
-  const sel = document.getElementById('waiter-cobrar-sel');
-  if (sel) { sel.value = roomId; loadWaiterCobrar(); }
+  openWaiterDrawer(roomId).then(() => showDrawerTab('cobrar'));
+}
+
+// Cerrar mesa desde lista de serveat (la versión que antes llamaba a adminCloseTable que no existe en serveat)
+async function waiterCloseTableQuick(roomId) {
+  if (!(await confirmModal('¿Cerrar esta mesa?'))) return;
+  await sb.from('rooms').update({
+    closed: true, closed_at: new Date().toISOString(), needs_cleaning: true
+  }).eq('id', roomId);
+  notify('Mesa cerrada — pendiente de limpieza', 'success');
+  loadWaiterMesas();
 }
 
 async function loadWaiterTableSelects() {
