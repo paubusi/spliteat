@@ -2116,7 +2116,7 @@
           style="padding:5px 12px;border:none;background:transparent;color:var(--t2);font-size:12px;font-weight:500;border-radius:99px;cursor:pointer;font-family:inherit">📋 Lista</button>
       </div>
       <button onclick="openWaiterPropinas()" title="Mis propinas"
-        style="background:none;border:1px solid var(--bd);border-radius:99px;padding:5px 10px;font-size:12px;color:var(--t2);cursor:pointer;font-family:inherit">🌟</button>
+        style="background:var(--card);border:1px solid var(--bd);border-radius:99px;padding:5px 12px;font-size:12px;font-weight:500;color:var(--t1);cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px">🌟 Propinas</button>
       <button onclick="loadWaiterMesas()" title="Refrescar"
         style="background:none;border:1px solid var(--bd);border-radius:99px;width:28px;height:28px;font-size:13px;color:var(--t2);cursor:pointer">↻</button>
     </div>
@@ -2197,6 +2197,8 @@
 
     <!-- TAB PROPINAS -->
     <div id="wtab-propinas" class="body" style="display:none;overflow-y:auto">
+      <button onclick="showWaiterTab('mesas')"
+        style="display:inline-flex;align-items:center;gap:5px;background:var(--card);border:1px solid var(--bd);border-radius:99px;padding:6px 14px;font-size:12px;font-weight:500;color:var(--t1);cursor:pointer;font-family:inherit;margin-bottom:1rem">← Volver a mesas</button>
       <div style="font-size:15px;font-weight:600;margin-bottom:.25rem">🌟 Mis propinas</div>
       <div style="font-size:12px;color:var(--t2);margin-bottom:1rem;line-height:1.5">Propinas de las mesas atendidas por ti.</div>
       <select id="waiter-propinas-filter" onchange="loadWaiterPropinas()" style="font-size:13px;padding:8px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-family:inherit;width:100%;margin-bottom:1rem">
@@ -2227,14 +2229,16 @@
         <!-- Resumen estado mesa -->
         <div id="waiter-drawer-summary" style="padding:.65rem 1rem;background:var(--bg);border-bottom:1px solid var(--bd);font-size:12px;color:var(--t2);display:flex;gap:.85rem;flex-wrap:wrap;flex-shrink:0"></div>
 
-        <!-- Sub-tabs internos del drawer -->
+        <!-- Sub-tabs internos del drawer (4) -->
         <div style="display:flex;border-bottom:1px solid var(--bd);background:var(--card);flex-shrink:0">
           <button id="wd-tab-pedido" class="wd-tab active" onclick="showDrawerTab('pedido')"
-            style="flex:1;padding:.85rem .5rem;border:none;background:none;font-family:inherit;font-size:13px;font-weight:600;color:var(--brand-d);border-bottom:2px solid var(--brand-d);cursor:pointer">🍽 Pedido</button>
+            style="flex:1;padding:.75rem .35rem;border:none;background:none;font-family:inherit;font-size:12px;font-weight:600;color:var(--brand-d);border-bottom:2px solid var(--brand-d);cursor:pointer">🍽 Pedido</button>
+          <button id="wd-tab-carta" class="wd-tab" onclick="showDrawerTab('carta')"
+            style="flex:1;padding:.75rem .35rem;border:none;background:none;font-family:inherit;font-size:12px;font-weight:500;color:var(--t2);border-bottom:2px solid transparent;cursor:pointer">＋ Carta</button>
           <button id="wd-tab-cobrar" class="wd-tab" onclick="showDrawerTab('cobrar')"
-            style="flex:1;padding:.85rem .5rem;border:none;background:none;font-family:inherit;font-size:13px;font-weight:500;color:var(--t2);border-bottom:2px solid transparent;cursor:pointer">💳 Cobrar</button>
+            style="flex:1;padding:.75rem .35rem;border:none;background:none;font-family:inherit;font-size:12px;font-weight:500;color:var(--t2);border-bottom:2px solid transparent;cursor:pointer">💳 Cobrar</button>
           <button id="wd-tab-info" class="wd-tab" onclick="showDrawerTab('info')"
-            style="flex:1;padding:.85rem .5rem;border:none;background:none;font-family:inherit;font-size:13px;font-weight:500;color:var(--t2);border-bottom:2px solid transparent;cursor:pointer">ℹ️ Info</button>
+            style="flex:1;padding:.75rem .35rem;border:none;background:none;font-family:inherit;font-size:12px;font-weight:500;color:var(--t2);border-bottom:2px solid transparent;cursor:pointer">ℹ️ Info</button>
         </div>
 
         <!-- Contenido scrollable -->
@@ -9470,7 +9474,7 @@ async function renderDrawerSummary(roomId) {
 }
 
 function showDrawerTab(name) {
-  ['pedido','cobrar','info'].forEach(t => {
+  ['pedido','carta','cobrar','info'].forEach(t => {
     const tabBtn = document.getElementById('wd-tab-' + t);
     if (!tabBtn) return;
     const active = t === name;
@@ -9480,17 +9484,149 @@ function showDrawerTab(name) {
     tabBtn.style.borderBottomColor = active ? 'var(--brand-d)' : 'transparent';
   });
   if (name === 'pedido') renderDrawerPedido();
+  if (name === 'carta')  renderDrawerCarta();
   if (name === 'cobrar') renderDrawerCobrar();
-  if (name === 'info') renderDrawerInfo();
+  if (name === 'info')   renderDrawerInfo();
 }
 
-// ── PEDIDO en el drawer (carta + carrito + enviar) ──────────────
+// ── PEDIDO en el drawer (vista lista del pedido actual) ──────────
 async function renderDrawerPedido() {
   const body = document.getElementById('waiter-drawer-body');
   if (!body || !_drawerRoomId) return;
+
+  // Cargar pedido actual con categoría
+  const { data: dishes } = await sb.from('dishes')
+    .select('id,name,price,kitchen_status,course,menu_item_id')
+    .eq('room_id', _drawerRoomId).order('course');
+
+  if (!dishes?.length) {
+    body.innerHTML = `
+      <div class="empty" style="padding:2rem 1rem;background:var(--card);border:1px dashed var(--bd);border-radius:var(--r);text-align:center">
+        <div style="font-size:36px;margin-bottom:8px">📋</div>
+        <div style="font-size:14px;color:var(--t2);margin-bottom:1rem">Aún no hay platos pedidos</div>
+        <button class="btn btn-primary" onclick="showDrawerTab('carta')" style="font-size:13px">＋ Añadir platos</button>
+      </div>`;
+    return;
+  }
+
+  // Necesitamos la categoría → cargar menu_items en bloque
+  const itemIds = [...new Set(dishes.map(d => d.menu_item_id).filter(Boolean))];
+  const { data: items } = itemIds.length
+    ? await sb.from('menu_items').select('id,course').in('id', itemIds)
+    : { data: [] };
+  const itemCourse = {};
+  (items||[]).forEach(it => { itemCourse[it.id] = it.course || 0; });
+
+  // Course → label
+  const COURSE_LABEL = {
+    0: 'Sin categoría',
+    1: '🥗 Entrantes',
+    2: '🍽 Principales',
+    3: '🍰 Postres',
+    4: '🍷 Bebidas',
+    5: '☕️ Cafés'
+  };
+  const STATUS = {
+    new:       { icon: '⏱', label: 'Pendiente',  color: '#7a5715', bg: '#FFF4D9' },
+    sent:      { icon: '→', label: 'En cocina',  color: '#0e4a30', bg: '#D7F0E2' },
+    making:    { icon: '◎', label: 'Preparando', color: '#0e4a30', bg: '#D7F0E2' },
+    ready:     { icon: '✓', label: 'Listo',      color: '#fff',    bg: '#1D9E75' },
+    delivered: { icon: '🍽', label: 'Servido',   color: '#5A7168', bg: '#E8E8E3' },
+    served:    { icon: '🍽', label: 'Servido',   color: '#5A7168', bg: '#E8E8E3' }
+  };
+
+  // Agrupar por course (categoría)
+  const groups = {};  // course → [agrupaciones]
+  dishes.forEach(d => {
+    // Course efectivo: el de menu_items o el del dish
+    const c = d.menu_item_id ? (itemCourse[d.menu_item_id] ?? d.course) : (d.course ?? 0);
+    if (!groups[c]) groups[c] = [];
+    // Sub-agrupar idénticos (mismo nombre + precio + estado)
+    const k = `${d.name}|${parseFloat(d.price||0).toFixed(2)}|${d.kitchen_status}`;
+    let g = groups[c].find(x => x.key === k);
+    if (!g) {
+      g = { key: k, name: d.name, price: parseFloat(d.price||0), status: d.kitchen_status, ids: [] };
+      groups[c].push(g);
+    }
+    g.ids.push(d.id);
+  });
+
+  const courseOrder = [0, 1, 2, 4, 5, 3];  // bebidas con principales para evitar dispersar
+  let html = '';
+  courseOrder.forEach(c => {
+    if (!groups[c]) return;
+    html += `<div class="sec-label" style="margin:1rem 0 .5rem;display:flex;align-items:center;justify-content:space-between">
+      <span>${COURSE_LABEL[c] || 'Otros'}</span>
+      <span style="font-size:11px;color:var(--t3);font-weight:500;text-transform:none;letter-spacing:0">${groups[c].length} ${groups[c].length === 1 ? 'plato' : 'platos'}</span>
+    </div>`;
+    groups[c].forEach(g => {
+      const st = STATUS[g.status] || STATUS.new;
+      const isServed = g.status === 'delivered' || g.status === 'served';
+      const isReady  = g.status === 'ready';
+      const qty = g.ids.length;
+      const totalPrice = (g.price * qty).toFixed(2);
+      // Si hay >1 unidad: separadores ; sino una sola línea simplificada
+      // Acción tap: si está 'ready' → marcar servido (entrega visible). Si está new/sent/making → flujo cocina.
+      const idsAttr = g.ids.join(',');
+      html += `
+        <div data-row="${g.key}"
+          style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--bd);border-radius:10px;margin-bottom:6px;${isServed ? 'opacity:.55;' : ''}cursor:${isReady ? 'pointer' : 'default'}"
+          ${isReady ? `onclick="markGroupServed('${idsAttr}')" title="Marcar como servido"` : ''}>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;${isServed ? 'text-decoration:line-through;color:var(--t3);' : 'color:var(--t1);'}">
+              ${qty > 1 ? `<strong style="color:var(--t3)">${qty}× </strong>` : ''}${escHtml(g.name)}
+            </div>
+            <div style="display:flex;align-items:center;gap:5px;margin-top:3px">
+              <span style="font-size:10px;font-weight:600;background:${st.bg};color:${st.color};border-radius:99px;padding:2px 7px;display:inline-flex;align-items:center;gap:3px">${st.icon} ${st.label}</span>
+              ${isReady ? `<span style="font-size:10px;color:var(--brand-d);font-weight:500">— toca para servir</span>` : ''}
+            </div>
+          </div>
+          <div style="font-weight:600;color:var(--brand-d);font-size:14px">${totalPrice}€</div>
+        </div>`;
+    });
+  });
+
+  // CTAs
+  html += `
+    <div style="position:sticky;bottom:-1rem;background:var(--card);border-top:1px solid var(--bd);margin:1rem -1rem -1rem;padding:.85rem 1rem;display:flex;gap:8px">
+      <button class="btn btn-primary" onclick="showDrawerTab('carta')" style="flex:2">＋ Añadir platos</button>
+      <button class="btn" onclick="markAllReadyServed()" style="flex:1;background:var(--bg);border:1px solid var(--bd);color:var(--t1);font-size:13px">Servir todos</button>
+    </div>
+  `;
+  body.innerHTML = html;
+}
+
+// Marcar grupo de dishes como servido
+async function markGroupServed(idsCsv) {
+  const ids = idsCsv.split(',').filter(Boolean);
+  if (!ids.length) return;
+  await sb.from('dishes')
+    .update({ kitchen_status: 'delivered', delivered_at: new Date().toISOString() })
+    .in('id', ids);
+  notify(`✓ ${ids.length} ${ids.length === 1 ? 'plato servido' : 'platos servidos'}`, 'success');
+  renderDrawerPedido();
+  renderDrawerSummary(_drawerRoomId);
+}
+
+// Marcar TODO lo que esté 'ready' como servido (botón rápido)
+async function markAllReadyServed() {
+  if (!_drawerRoomId) return;
+  const { data: ready } = await sb.from('dishes')
+    .select('id').eq('room_id', _drawerRoomId).eq('kitchen_status', 'ready');
+  if (!ready?.length) { notify('No hay platos listos para servir', 'info'); return; }
+  await sb.from('dishes')
+    .update({ kitchen_status: 'delivered', delivered_at: new Date().toISOString() })
+    .in('id', ready.map(d => d.id));
+  notify(`✓ ${ready.length} ${ready.length === 1 ? 'plato servido' : 'platos servidos'}`, 'success');
+  renderDrawerPedido();
+  renderDrawerSummary(_drawerRoomId);
+}
+
+// ── CARTA en el drawer (añadir platos) ──────────────────────────
+async function renderDrawerCarta() {
+  const body = document.getElementById('waiter-drawer-body');
+  if (!body || !_drawerRoomId) return;
   body.innerHTML = `
-    <div id="drawer-pedido-current" style="margin-bottom:1rem"></div>
-    <div class="sec-label" style="margin-bottom:.5rem">Añadir platos</div>
     <div id="drawer-carta-list"></div>
     <div id="drawer-cart" style="display:none;position:sticky;bottom:-1rem;background:var(--card);border-top:1px solid var(--bd);margin:1rem -1rem -1rem;padding:.85rem 1rem;box-shadow:0 -4px 12px rgba(0,0,0,.06)">
       <div class="sec-label" style="margin-bottom:.5rem">A enviar</div>
@@ -9498,57 +9634,22 @@ async function renderDrawerPedido() {
       <button class="btn btn-primary" onclick="drawerSendOrder()" style="width:100%">Enviar a cocina</button>
     </div>
   `;
-  // Reusar el flujo legacy: setear el select de pedido y cargar la carta
+  // Setear el select de pedido (legacy compat)
   const sel = document.getElementById('waiter-mesa-sel');
   if (sel) {
     sel.value = _drawerRoomId;
-    // Asegurar que la opción existe
     if (!sel.querySelector(`option[value="${_drawerRoomId}"]`)) {
       const opt = document.createElement('option');
       opt.value = _drawerRoomId; opt.textContent = 'Mesa actual';
       sel.appendChild(opt);
     }
   }
-  // Cargar pedido actual
-  const { data: dishes } = await sb.from('dishes')
-    .select('id,name,price,kitchen_status,course')
-    .eq('room_id', _drawerRoomId).order('course');
-  const cur = document.getElementById('drawer-pedido-current');
-  if (cur) {
-    if (!dishes?.length) {
-      cur.innerHTML = `<div class="empty" style="padding:1rem;background:var(--card);border:1px dashed var(--bd);border-radius:var(--r)"><div style="font-size:32px;margin-bottom:6px">📋</div><div style="font-size:13px;color:var(--t2)">Aún no hay platos pedidos</div></div>`;
-    } else {
-      const ICON = { new:'⏱', sent:'→', making:'◎', ready:'✓', delivered:'🍽', served:'🍽' };
-      const LBL  = { new:'Pendiente', sent:'En cocina', making:'Preparando', ready:'Listo', delivered:'Servido', served:'Servido' };
-      // Agrupar duplicados
-      const groups = [];
-      const seen = {};
-      dishes.forEach(d => {
-        const k = `${d.name}|${d.price}|${d.kitchen_status}`;
-        if (seen[k] === undefined) { seen[k] = groups.length; groups.push({d, qty:0}); }
-        groups[seen[k]].qty++;
-      });
-      cur.innerHTML = `<div class="sec-label" style="margin-bottom:.5rem">Pedido actual</div>` +
-        groups.map(({d, qty}) => {
-          const icon = ICON[d.kitchen_status] || '·';
-          const label = LBL[d.kitchen_status] || d.kitchen_status;
-          return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--card);border:1px solid var(--bd);border-radius:8px;margin-bottom:5px;font-size:13px">
-            <div style="flex:1;min-width:0">
-              ${qty > 1 ? `<span style="color:var(--t3);font-weight:600">${qty}× </span>` : ''}<span style="font-weight:500">${escHtml(d.name)}</span>
-              <div style="font-size:11px;color:var(--t3);margin-top:1px">${icon} ${label}</div>
-            </div>
-            <div style="font-weight:600;color:var(--brand-d)">${(parseFloat(d.price)*qty).toFixed(2)}€</div>
-          </div>`;
-        }).join('');
-    }
-  }
-  // Cargar carta usando función existente, redirigiendo el render al drawer
+  // Cargar carta usando la función existente, redirigiendo el render al drawer
   await loadWaiterCarta();
   // Migrar carta del DOM antiguo al drawer
   const oldCarta = document.getElementById('waiter-carta-list');
   const newCarta = document.getElementById('drawer-carta-list');
   if (oldCarta && newCarta) newCarta.innerHTML = oldCarta.innerHTML;
-  // Renderizar el carrito si tiene items
   refreshDrawerCart();
 }
 
@@ -13657,20 +13758,50 @@ async function loadFloorPlan() {
 
     const el = document.createElement('div');
     el.id = 'ftable-' + table.id;
-    el.style.cssText = `position:absolute;left:${pos.x}px;top:${pos.y}px;width:80px;height:80px;border-radius:12px;background:${color};border:2px solid ${borderColor};display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;user-select:none;transition:box-shadow .15s;box-shadow:0 2px 8px rgba(0,0,0,.1)`;
+    // Tamaño según asientos: pequeña (≤2pax), mediana (3-4), grande (5+)
+    const seats = parseInt(table.seats || 4);
+    const size = seats <= 2 ? 64 : seats <= 4 ? 80 : 96;
+    // Forma: 'round' (50%) o 'rect' (12px). Default 'rect'.
+    const isRound = table.shape === 'round';
+    const radius = isRound ? '50%' : '12px';
+    el.style.cssText = `position:absolute;left:${pos.x}px;top:${pos.y}px;width:${size}px;height:${size}px;border-radius:${radius};background:${color};border:2px solid ${borderColor};display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;user-select:none;transition:box-shadow .15s,border-radius .2s;box-shadow:0 2px 8px rgba(0,0,0,.1)`;
 
     el.innerHTML = `
-      <div style="font-size:18px;font-weight:700;color:${textColor}">${table.number}</div>
-      <div style="font-size:10px;color:${textColor};opacity:.85;text-align:center;line-height:1.2">${table.label || ''}</div>
+      <div style="font-size:${size>=92?20:size>=78?18:16}px;font-weight:700;color:${textColor}">${table.number}</div>
+      <div style="font-size:${size>=80?10:9}px;color:${textColor};opacity:.85;text-align:center;line-height:1.2;max-width:${size-12}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 4px">${table.label || ''}</div>
       ${room ? `<div style="font-size:10px;color:${textColor};opacity:.7;margin-top:2px">${guestCount > 0 ? guestCount + ' per.' : '•'}</div>` : ''}
-      ${room?.assigned_waiter_id && waiterById[room.assigned_waiter_id] ? `<div style="font-size:9px;color:${textColor};opacity:.8;background:rgba(0,0,0,.15);border-radius:4px;padding:1px 4px;margin-top:2px;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${waiterById[room.assigned_waiter_id].name}</div>` : ''}
+      ${room?.assigned_waiter_id && waiterById[room.assigned_waiter_id] ? `<div style="font-size:9px;color:${textColor};opacity:.8;background:rgba(0,0,0,.15);border-radius:4px;padding:1px 4px;margin-top:2px;max-width:${size-12}px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${waiterById[room.assigned_waiter_id].name}</div>` : ''}
       ${room?.needs_cleaning ? `<div style="font-size:13px;margin-top:1px">🧹</div>` : allPaid ? `<div style="font-size:14px">✅</div>` : ''}
     `;
 
-    // Click to show detail panel
+    // Click sencillo: panel detalle. Doble-click: alternar forma rect↔round
+    let _lastClickTs = 0;
     el.onclick = (e) => {
       if (e._wasDragged) return;
-      showTableDetail(table, room, paidCount, guestCount);
+      const now = Date.now();
+      if (now - _lastClickTs < 350) {
+        // Doble click → alternar forma
+        const newShape = isRound ? 'rect' : 'round';
+        sb.from('tables').update({ shape: newShape }).eq('id', table.id).then(() => {
+          el.style.borderRadius = newShape === 'round' ? '50%' : '12px';
+          // Notificación visual sutil (snippet en la barra superior)
+          const liveBadge = document.querySelector('#atab-encurso .live-badge');
+          if (liveBadge) {
+            const orig = liveBadge.innerHTML;
+            liveBadge.innerHTML = `<span style="color:var(--brand-d)">✓ Forma: ${newShape === 'round' ? 'redonda' : 'rectangular'}</span>`;
+            setTimeout(() => { if (liveBadge) liveBadge.innerHTML = orig; }, 1500);
+          }
+        });
+        _lastClickTs = 0;  // reset para no triple-click
+        return;
+      }
+      _lastClickTs = now;
+      // Single-click espera 350ms a ver si es doble; si no, abre detalle
+      setTimeout(() => {
+        if (Date.now() - _lastClickTs >= 340) {
+          showTableDetail(table, room, paidCount, guestCount);
+        }
+      }, 360);
     };
 
     // Drag to reposition — usa addEventListener para que cada mesa tenga sus propios handlers
