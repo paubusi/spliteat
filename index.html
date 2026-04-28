@@ -859,7 +859,7 @@
   <div style="max-width:760px;margin:0 auto">
     <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem">La suite completa</div>
     <h2 style="font-family:'Fraunces',serif;font-size:clamp(1.6rem,5vw,2.4rem);font-weight:700;color:#fff;line-height:1.15;margin-bottom:.75rem;letter-spacing:-.5px">
-      Una plataforma.<br>Cinco herramientas.
+      Una plataforma.<br>Seis herramientas.
     </h2>
     <p style="font-size:14px;color:rgba(255,255,255,.55);line-height:1.65;margin-bottom:2.5rem;max-width:480px">
       Cada app del ecosistema <strong style="color:rgba(255,255,255,.8)">eat</strong>lab cubre un rol del restaurante. Todas conectadas, en tiempo real.
@@ -904,7 +904,15 @@
           <div style="font-family:'Fraunces',serif;font-size:18px;color:#fff">call<em style="color:#D85A30;font-style:normal">eat</em></div>
           <div style="font-size:10px;font-weight:600;color:#FFD0B3;background:rgba(255,208,179,.1);border-radius:99px;padding:2px 8px;letter-spacing:.06em">LISTA DE ESPERA</div>
         </div>
-        <p style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.6;margin:0">La cola virtual. Cuando no hay mesa libre, el cliente se apunta con su nombre y número de personas. El restaurante llama cuando hay hueco y el cliente recibe una notificación push aunque tenga la pantalla bloqueada.</p>
+        <p style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.6;margin:0">La cola virtual. Cuando no hay mesa libre, el cliente se apunta con su nombre, número de personas y teléfono. Puede seguir su posición en directo desde la web y, en cuanto la mesa esté lista, recibe un <strong style="color:rgba(255,255,255,.85)">WhatsApp o SMS</strong> aunque haya cerrado el navegador.</p>
+      </div>
+      <!-- stockeat -->
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem 1.25rem">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:.5rem">
+          <div style="font-family:'Fraunces',serif;font-size:18px;color:#fff">stock<em style="color:#D85A30;font-style:normal">eat</em></div>
+          <div style="font-size:10px;font-weight:600;color:#C7E5FF;background:rgba(199,229,255,.1);border-radius:99px;padding:2px 8px;letter-spacing:.06em">INVENTARIO</div>
+        </div>
+        <p style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.6;margin:0">El inventario inteligente. Define recetas, ingredientes y proveedores: el stock se descuenta automáticamente con cada pedido. Alertas de mínimos, food cost real, mermas, valor del inventario y márgenes por plato — sin contar a mano.</p>
       </div>
     </div>
   </div>
@@ -999,6 +1007,7 @@
         <div style="display:flex;flex-direction:column;gap:6px">
           <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Todo lo de Starter</div>
           <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> cook<em style="color:#D85A30;font-style:normal">eat</em> KDS · call<em style="color:#D85A30;font-style:normal">eat</em> lista de espera</div>
+          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> stock<em style="color:#D85A30;font-style:normal">eat</em> inventario + food cost</div>
           <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Reservas + alérgenos + márgenes</div>
           <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Soporte prioritario</div>
         </div>
@@ -1034,7 +1043,7 @@
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:2rem;flex-wrap:wrap;margin-bottom:2rem">
       <div>
         <div style="font-family:'Fraunces',serif;font-size:20px;color:#fff;margin-bottom:.35rem">split<em style="color:#D85A30;font-style:normal">eat</em></div>
-        <div style="font-size:12px;color:rgba(255,255,255,.35);line-height:1.6">Una marca de <strong style="color:rgba(255,255,255,.5)">eat</strong>lab<br>Madrid, España</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.35);line-height:1.6">Software para restaurantes<br>Hecho en España 🇪🇸</div>
       </div>
       <div style="display:flex;gap:2.5rem;flex-wrap:wrap">
         <div>
@@ -1048,43 +1057,104 @@
         <div>
           <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem">Legal</div>
           <div style="display:flex;flex-direction:column;gap:5px">
-            <a onclick="showLegalModal('privacidad')" style="font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;text-decoration:none">Privacidad</a>
-            <a onclick="showLegalModal('cookies')" style="font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;text-decoration:none">Cookies</a>
-            <a onclick="showLegalModal('terminos')" style="font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;text-decoration:none">Términos</a>
-            <a onclick="showLegalModal('aviso')" style="font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;text-decoration:none">Aviso legal</a>
+            <a href="/privacidad" style="font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;text-decoration:none">Privacidad</a>
+            <a href="/cookies" style="font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;text-decoration:none">Cookies</a>
+            <a href="/condiciones" style="font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;text-decoration:none">Condiciones</a>
+            <a href="/aviso-legal" style="font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;text-decoration:none">Aviso legal</a>
           </div>
         </div>
       </div>
     </div>
     <div style="border-top:1px solid rgba(255,255,255,.06);padding-top:1.25rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem">
-      <div style="font-size:11px;color:rgba(255,255,255,.25)">© 2025 eatlab · spliteat.es</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.25)">© 2026 spliteat · Marca en proceso de registro · spliteat.es</div>
       <button onclick="showCookiesBanner()" style="font-size:11px;color:rgba(255,255,255,.25);background:none;border:none;cursor:pointer;font-family:inherit;text-decoration:underline">Gestionar cookies</button>
     </div>
   </div>
 </footer>
 
 <!-- ═══════════ COOKIES BANNER ═══════════ -->
-<div id="cookies-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#0F1C17;border-top:1px solid rgba(255,255,255,.1);padding:1.1rem 1.25rem">
+<!-- ═══════════ COOKIES BANNER (AEPD-compliant: aceptar/rechazar igualados) ═══════════ -->
+<div id="cookies-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#0F1C17;border-top:1px solid rgba(255,255,255,.1);padding:1.1rem 1.25rem;box-shadow:0 -8px 24px rgba(0,0,0,.25)">
   <div style="max-width:760px;margin:0 auto;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
-    <div style="flex:1;min-width:200px">
+    <div style="flex:1;min-width:240px">
       <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:3px">🍪 Usamos cookies</div>
-      <div style="font-size:12px;color:rgba(255,255,255,.55);line-height:1.5">Cookies técnicas necesarias para el funcionamiento. No usamos cookies de seguimiento ni publicidad.</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.5">Usamos cookies técnicas para que el servicio funcione, y cookies analíticas (opcionales) para entender cómo se usa. <a href="/cookies" style="color:rgba(255,255,255,.85);text-decoration:underline">Más info</a>.</div>
     </div>
-    <div style="display:flex;gap:.5rem;flex-shrink:0">
-      <button onclick="acceptCookies()" style="background:#085041;border:none;color:#fff;font-size:13px;font-weight:500;padding:8px 18px;border-radius:99px;cursor:pointer;font-family:inherit">Aceptar</button>
-      <button onclick="showLegalModal('cookies')" style="background:rgba(255,255,255,.08);border:none;color:rgba(255,255,255,.7);font-size:13px;padding:8px 14px;border-radius:99px;cursor:pointer;font-family:inherit">Más info</button>
+    <div style="display:flex;gap:.45rem;flex-shrink:0;flex-wrap:wrap">
+      <button onclick="rejectAllCookies()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:13px;font-weight:500;padding:8px 16px;border-radius:99px;cursor:pointer;font-family:inherit">Rechazar</button>
+      <button onclick="openCookiesSettings()" style="background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.85);font-size:13px;font-weight:500;padding:8px 14px;border-radius:99px;cursor:pointer;font-family:inherit">Configurar</button>
+      <button onclick="acceptAllCookies()" style="background:#1D9E75;border:none;color:#fff;font-size:13px;font-weight:600;padding:8px 18px;border-radius:99px;cursor:pointer;font-family:inherit">Aceptar todas</button>
     </div>
   </div>
 </div>
 
-<!-- ═══════════ LEGAL MODAL ═══════════ -->
-<div id="legal-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;align-items:flex-end;justify-content:center">
-  <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:600px;max-height:85vh;overflow-y:auto">
-    <div style="position:sticky;top:0;background:#fff;padding:1.25rem 1.25rem .75rem;border-bottom:1px solid #f0f0ea;display:flex;align-items:center;justify-content:space-between">
-      <div id="legal-modal-title" style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:#0F1C17"></div>
-      <button onclick="document.getElementById('legal-modal').style.display='none'" style="background:none;border:none;font-size:22px;cursor:pointer;color:#5A7168;line-height:1">✕</button>
+<!-- ═══════════ COOKIES SETTINGS MODAL ═══════════ -->
+<div id="cookies-settings-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:10000;align-items:flex-end;justify-content:center;padding:0">
+  <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;font-family:'DM Sans',sans-serif">
+    <div style="position:sticky;top:0;background:#fff;padding:1.25rem 1.25rem .75rem;border-bottom:1px solid #f0f0ea;display:flex;align-items:center;justify-content:space-between;z-index:1">
+      <div>
+        <div style="font-family:'Fraunces',serif;font-size:19px;font-weight:700;color:#0F1C17;line-height:1.2">Configurar cookies</div>
+        <div style="font-size:11px;color:#5A7168;margin-top:2px">Elige qué cookies aceptas en spliteat.es</div>
+      </div>
+      <button onclick="closeCookiesSettings()" aria-label="Cerrar" style="background:#F3F7F5;border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;color:#5A7168;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>
     </div>
-    <div id="legal-modal-body" style="padding:1.25rem;font-size:13px;color:#5A7168;line-height:1.75"></div>
+
+    <div style="padding:1rem 1.25rem 0">
+      <!-- Necesarias (siempre activas) -->
+      <div style="background:#F3F7F5;border-radius:12px;padding:14px 16px;margin-bottom:10px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+              <span style="font-size:14px;font-weight:600;color:#0F1C17">Necesarias</span>
+              <span style="font-size:10px;font-weight:600;color:#085041;background:#E1F5EE;padding:2px 7px;border-radius:99px;letter-spacing:.04em">SIEMPRE ACTIVAS</span>
+            </div>
+            <div style="font-size:12px;color:#5A7168;line-height:1.5">Imprescindibles para que el servicio funcione: sesión, autenticación, identificador de mesa, recuerdo de tu elección de cookies.</div>
+          </div>
+          <!-- Switch deshabilitado -->
+          <div style="width:38px;height:22px;border-radius:99px;background:#085041;position:relative;flex-shrink:0;opacity:.7">
+            <div style="position:absolute;right:2px;top:2px;width:18px;height:18px;border-radius:50%;background:#fff"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Funcionales -->
+      <div style="background:#fff;border:1px solid #e0e0da;border-radius:12px;padding:14px 16px;margin-bottom:10px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:600;color:#0F1C17;margin-bottom:4px">Funcionales</div>
+            <div style="font-size:12px;color:#5A7168;line-height:1.5">Recuerdan tus preferencias para mejorar la experiencia (panel plegado, idioma).</div>
+          </div>
+          <button id="cookies-toggle-functional" onclick="toggleCookieSwitch('functional')" role="switch" aria-checked="false"
+            style="width:38px;height:22px;border-radius:99px;background:#d0d0c8;border:none;position:relative;flex-shrink:0;cursor:pointer;transition:background .18s;padding:0">
+            <span style="position:absolute;left:2px;top:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .18s;display:block"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Analíticas -->
+      <div style="background:#fff;border:1px solid #e0e0da;border-radius:12px;padding:14px 16px;margin-bottom:10px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:600;color:#0F1C17;margin-bottom:4px">Analíticas</div>
+            <div style="font-size:12px;color:#5A7168;line-height:1.5">Estadísticas anónimas de uso (Google Analytics 4, IP anonimizada). Nos ayudan a mejorar el servicio.</div>
+          </div>
+          <button id="cookies-toggle-analytics" onclick="toggleCookieSwitch('analytics')" role="switch" aria-checked="false"
+            style="width:38px;height:22px;border-radius:99px;background:#d0d0c8;border:none;position:relative;flex-shrink:0;cursor:pointer;transition:background .18s;padding:0">
+            <span style="position:absolute;left:2px;top:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .18s;display:block"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer modal -->
+    <div style="position:sticky;bottom:0;background:#fff;padding:.75rem 1.25rem 1.25rem;border-top:1px solid #f0f0ea;display:flex;flex-direction:column;gap:8px">
+      <button onclick="saveCookiesSettings()" style="width:100%;background:#085041;border:none;color:#fff;font-size:14px;font-weight:600;padding:11px;border-radius:99px;cursor:pointer;font-family:inherit">Guardar elección</button>
+      <div style="display:flex;gap:8px">
+        <button onclick="rejectAllFromSettings()" style="flex:1;background:#fff;border:1px solid #e0e0da;color:#5A7168;font-size:13px;padding:9px;border-radius:99px;cursor:pointer;font-family:inherit">Rechazar todas</button>
+        <button onclick="acceptAllFromSettings()" style="flex:1;background:#fff;border:1px solid #e0e0da;color:#085041;font-size:13px;font-weight:500;padding:9px;border-radius:99px;cursor:pointer;font-family:inherit">Aceptar todas</button>
+      </div>
+      <a href="/cookies" style="font-size:11px;color:#9A9990;text-align:center;text-decoration:underline;margin-top:2px">Ver política de cookies completa</a>
+    </div>
   </div>
 </div>
 
@@ -1670,7 +1740,7 @@
       <!-- FORM: Apuntarse -->
       <div id="calleat-form-area">
         <div style="font-size:15px;font-weight:600;margin-bottom:.5rem">Únete a la lista de espera</div>
-        <div style="font-size:13px;color:var(--t2);margin-bottom:1rem;line-height:1.5">Te avisamos cuando haya una mesa disponible para tu grupo. Puedes cerrar la app — te llegará igualmente.</div>
+        <div style="font-size:13px;color:var(--t2);margin-bottom:1rem;line-height:1.5">Te avisamos por WhatsApp o SMS cuando haya una mesa lista. Mientras tanto, puedes seguir tu posición aquí en directo.</div>
         <div class="field">
           <label>Tu nombre</label>
           <input id="calleat-name" type="text" placeholder="ej. María" autocomplete="given-name">
@@ -1687,9 +1757,40 @@
           </div>
           <div id="calleat-pax-info" style="font-size:12px;color:var(--t2);min-height:1.2em"></div>
         </div>
-        <div style="background:var(--brand-l);border-radius:var(--r-sm);padding:.65rem .85rem;font-size:12px;color:var(--brand-d);line-height:1.5;margin:.75rem 0">
-          Activa las notificaciones para recibir el aviso aunque tengas la pantalla bloqueada. Se te asignará la primera mesa libre con capacidad para tu grupo.
+        <!-- Teléfono (obligatorio) -->
+        <div class="field">
+          <label>Teléfono <span style="color:var(--brand);font-weight:500">· Para avisarte</span></label>
+          <div style="display:flex;gap:6px">
+            <select id="calleat-phone-country" style="flex:0 0 90px;padding:11px 8px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--t1);font-size:14px;font-family:inherit">
+              <option value="+34" selected>🇪🇸 +34</option>
+              <option value="+33">🇫🇷 +33</option>
+              <option value="+351">🇵🇹 +351</option>
+              <option value="+44">🇬🇧 +44</option>
+              <option value="+49">🇩🇪 +49</option>
+              <option value="+39">🇮🇹 +39</option>
+              <option value="+1">🇺🇸 +1</option>
+            </select>
+            <input id="calleat-phone" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="612345678" style="flex:1" maxlength="15">
+          </div>
+          <div id="calleat-phone-info" style="font-size:11px;color:var(--t3);margin-top:5px;line-height:1.4"></div>
         </div>
+        <!-- Método de aviso -->
+        <div class="field">
+          <label>Cómo prefieres que te avisemos</label>
+          <div style="display:flex;gap:8px">
+            <button id="calleat-notify-whatsapp" class="notify-method-btn active" onclick="selectCalleatMethod('whatsapp')" style="flex:1;padding:11px 10px;border:1.5px solid var(--brand);background:var(--brand-l);color:var(--brand-d);font-weight:600;font-size:13px;border-radius:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px">
+              <span>💬</span> WhatsApp
+            </button>
+            <button id="calleat-notify-sms" class="notify-method-btn" onclick="selectCalleatMethod('sms')" style="flex:1;padding:11px 10px;border:1.5px solid var(--bd);background:var(--card);color:var(--t1);font-weight:500;font-size:13px;border-radius:10px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px">
+              <span>✉️</span> SMS
+            </button>
+          </div>
+        </div>
+        <!-- Consentimiento RGPD (obligatorio) -->
+        <label style="display:flex;align-items:flex-start;gap:8px;margin:.85rem 0;cursor:pointer">
+          <input id="calleat-consent" type="checkbox" style="margin-top:3px;width:16px;height:16px;flex-shrink:0;accent-color:var(--brand-d)">
+          <span style="font-size:11.5px;color:var(--t2);line-height:1.5">Acepto recibir un único mensaje cuando mi mesa esté lista. Mi número se borra al completar la espera. <a href="/privacidad" target="_blank" style="color:var(--brand-d);text-decoration:underline">Política de privacidad</a>.</span>
+        </label>
         <button class="btn btn-primary" onclick="joinCalleatQueue()">Apuntarme</button>
       </div>
 
@@ -1697,7 +1798,7 @@
       <div id="calleat-waiting-area" style="display:none;text-align:center">
         <div style="width:72px;height:72px;border-radius:50%;background:var(--brand-l);display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:32px">⏳</div>
         <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;margin-bottom:.35rem">Estás en la lista</div>
-        <div style="font-size:13px;color:var(--t2);margin-bottom:1.5rem;line-height:1.5">Te llamamos en cuanto tu mesa esté lista.<br>Puedes cerrar la app — te llegará de todas formas.</div>
+        <div id="calleat-waiting-method-text" style="font-size:13px;color:var(--t2);margin-bottom:1.5rem;line-height:1.5">Te enviaremos un WhatsApp en cuanto tu mesa esté lista.<br>Puedes cerrar esta web — el aviso te llegará igualmente.</div>
         <div style="background:var(--brand-l);border:1.5px solid var(--brand);border-radius:var(--r);padding:1.25rem;margin-bottom:1rem">
           <div style="font-size:11px;color:var(--brand);font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.25rem">Tu posición</div>
           <div id="calleat-position" style="font-family:'Fraunces',serif;font-size:52px;font-weight:900;color:var(--brand-d);line-height:1">1</div>
@@ -6793,9 +6894,21 @@ async function _generateTicket(mode) {
   let body = '';
 
   if (mode === 'mesa') {
-    let rows = '';
+    // Agrupar líneas idénticas (mismo nombre + precio) → "N× plato"
+    const groups = [];
+    const seenG = {};
     state.dishes.forEach(d => {
-      rows += `<tr><td style="padding:5px 0;border-bottom:1px solid #eee">${escHtml(d.name)}</td><td style="padding:5px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">${fmt(parseFloat(d.price))}</td></tr>`;
+      const k = `${d.name}|${parseFloat(d.price||0).toFixed(2)}`;
+      if (seenG[k] === undefined) {
+        seenG[k] = groups.length;
+        groups.push({ name: d.name, price: parseFloat(d.price||0), qty: 0 });
+      }
+      groups[seenG[k]].qty++;
+    });
+    let rows = '';
+    groups.forEach(g => {
+      const qtyPrefix = g.qty > 1 ? `<span style="color:#666;font-weight:500">${g.qty}× </span>` : '';
+      rows += `<tr><td style="padding:5px 0;border-bottom:1px solid #eee">${qtyPrefix}${escHtml(g.name)}${g.qty > 1 ? ` <span style="color:#888;font-size:11px">(${fmt(g.price)} c/u)</span>` : ''}</td><td style="padding:5px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">${fmt(g.price * g.qty)}</td></tr>`;
     });
     const tipAmt = total * ((state.tipPercent || 0) / 100);
     const grandTotal = total + tipAmt;
@@ -6825,12 +6938,37 @@ async function _generateTicket(mode) {
       </div>`;
   } else {
     if (!me) { notify('No se encontró tu información', 'error'); return; }
-    let myRows = '';
+    // Agrupar solo items idénticos
+    const soloGroups = [];
+    const soloIdx = {};
     me.soloItems.forEach(d => {
-      myRows += `<tr><td style="padding:5px 0;border-bottom:1px solid #eee">${escHtml(d.name)}</td><td style="padding:5px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">${fmt(parseFloat(d.price))}</td></tr>`;
+      const k = `${d.name}|${parseFloat(d.price||0).toFixed(2)}`;
+      if (soloIdx[k] === undefined) {
+        soloIdx[k] = soloGroups.length;
+        soloGroups.push({ name: d.name, price: parseFloat(d.price||0), qty: 0 });
+      }
+      soloGroups[soloIdx[k]].qty++;
     });
+    let myRows = '';
+    soloGroups.forEach(g => {
+      const qtyPrefix = g.qty > 1 ? `<span style="color:#666;font-weight:500">${g.qty}× </span>` : '';
+      myRows += `<tr><td style="padding:5px 0;border-bottom:1px solid #eee">${qtyPrefix}${escHtml(g.name)}${g.qty > 1 ? ` <span style="color:#888;font-size:11px">(${fmt(g.price)} c/u)</span>` : ''}</td><td style="padding:5px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">${fmt(g.price * g.qty)}</td></tr>`;
+    });
+    // Agrupar shared idénticos (mismo plato + precio + reparto)
+    const sharedGroups = [];
+    const sharedIdx = {};
     me.sharedItems.forEach(({ d, share, nP }) => {
-      myRows += `<tr><td style="padding:5px 0;border-bottom:1px solid #eee">${escHtml(d.name)} <span style="color:#888;font-size:11px">(÷${nP})</span></td><td style="padding:5px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">${fmt(share)}</td></tr>`;
+      const partsKey = (state.participants[d.id]||[]).slice().sort().join(',');
+      const k = `${d.name}|${parseFloat(d.price||0).toFixed(2)}|${partsKey}`;
+      if (sharedIdx[k] === undefined) {
+        sharedIdx[k] = sharedGroups.length;
+        sharedGroups.push({ d, share, nP, qty: 0 });
+      }
+      sharedGroups[sharedIdx[k]].qty++;
+    });
+    sharedGroups.forEach(({ d, share, nP, qty }) => {
+      const qtyPrefix = qty > 1 ? `<span style="color:#666;font-weight:500">${qty}× </span>` : '';
+      myRows += `<tr><td style="padding:5px 0;border-bottom:1px solid #eee">${qtyPrefix}${escHtml(d.name)} <span style="color:#888;font-size:11px">(÷${nP})</span></td><td style="padding:5px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">${fmt(share * qty)}</td></tr>`;
     });
 
     const { base, iva } = calcIva(myTotal);
@@ -14469,33 +14607,92 @@ async function joinCalleatQueue() {
   if (!name) { notify('Introduce tu nombre', 'error'); return; }
   if (!_calleatState.pax) { notify('Selecciona el número de personas', 'error'); return; }
 
+  // ── Validar teléfono ──
+  const country = document.getElementById('calleat-phone-country')?.value || '+34';
+  let phoneRaw = document.getElementById('calleat-phone')?.value?.trim() || '';
+  // Limpiar: solo dígitos
+  phoneRaw = phoneRaw.replace(/\D/g, '');
+  if (!phoneRaw || phoneRaw.length < 6) {
+    notify('Introduce un teléfono válido para avisarte', 'error');
+    document.getElementById('calleat-phone')?.focus();
+    return;
+  }
+  // Validación específica para España: 9 dígitos, empezando por 6, 7, 8 o 9
+  if (country === '+34' && (phoneRaw.length !== 9 || !/^[6789]/.test(phoneRaw))) {
+    notify('Teléfono español no válido (9 dígitos, ej: 612345678)', 'error');
+    document.getElementById('calleat-phone')?.focus();
+    return;
+  }
+  const phoneE164 = country + phoneRaw;  // formato E.164 para Twilio
+
+  // ── Método notificación ──
+  const method = _calleatState.notifyMethod || 'whatsapp';
+
+  // ── Consentimiento RGPD obligatorio ──
+  const consent = document.getElementById('calleat-consent')?.checked;
+  if (!consent) {
+    notify('Marca la casilla de consentimiento para recibir el aviso', 'error');
+    return;
+  }
+
   const btn = document.getElementById('calleat-join-btn') || document.querySelector('#calleat-form-area .btn-primary');
   if (btn) { btn.disabled = true; btn.textContent = 'Apuntando...'; }
-
-  // Get push subscription for notifications
-  let pushSub = null;
-  try { pushSub = await getPushSubscriptionJson(); } catch(e) {}
 
   const { data: entry, error } = await sb.from('calleat_queue').insert({
     restaurant_id: _calleatState.restaurantId,
     name,
     pax: _calleatState.pax,
     status: 'waiting',
-    push_subscription: pushSub,
+    phone: phoneE164,
+    phone_country: country,
+    notify_method: method,
+    consent_at: new Date().toISOString(),
     joined_at: new Date().toISOString()
   }).select().single();
 
   if (error || !entry) {
     notify('Error al apuntarte. Inténtalo de nuevo.');
-    if (btn) { btn.disabled = false; btn.textContent = 'Apuntarme →'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Apuntarme'; }
     return;
   }
 
   _calleatState.entryId = entry.id;
-  track('calleat_joined', { restaurant_id: _calleatState.restaurantId, pax: _calleatState.pax });
+  _calleatState.notifyMethod = method;
+  // Persistir entryId localmente para poder reanudar si vuelve a entrar
+  try { localStorage.setItem('spliteat.calleatEntry', JSON.stringify({
+    id: entry.id, restaurantId: _calleatState.restaurantId, ts: Date.now()
+  })); } catch(e) {}
+
+  track('calleat_joined', { restaurant_id: _calleatState.restaurantId, pax: _calleatState.pax, method });
   subscribeCalleatPosition();
   showCalleatArea('waiting');
-  requestNotificationPermission();
+  // Adaptar texto en zona "esperando" según método elegido
+  const waitTxt = document.getElementById('calleat-waiting-method-text');
+  if (waitTxt) {
+    const channel = method === 'sms' ? 'SMS' : 'WhatsApp';
+    waitTxt.innerHTML = `Te enviaremos un ${channel} en cuanto tu mesa esté lista.<br>Puedes cerrar esta web — el aviso te llegará igualmente.`;
+  }
+}
+
+// ── Helpers nuevos ──────────────────────────────────────────────
+function selectCalleatMethod(method) {
+  _calleatState.notifyMethod = method;
+  const wa = document.getElementById('calleat-notify-whatsapp');
+  const sms = document.getElementById('calleat-notify-sms');
+  [wa, sms].forEach(b => {
+    if (!b) return;
+    b.style.borderColor = 'var(--bd)';
+    b.style.background = 'var(--card)';
+    b.style.color = 'var(--t1)';
+    b.style.fontWeight = '500';
+  });
+  const active = method === 'sms' ? sms : wa;
+  if (active) {
+    active.style.borderColor = 'var(--brand)';
+    active.style.background = 'var(--brand-l)';
+    active.style.color = 'var(--brand-d)';
+    active.style.fontWeight = '600';
+  }
 }
 
 function subscribeCalleatPosition() {
@@ -14769,21 +14966,36 @@ window._calleatAssignTable = async function(entryId, tableId, tableLabel, guestN
     table_id: tableId,
   }).eq('id', entryId);
 
-  // Enviar notificación push al grupo
+  // Enviar WhatsApp o SMS vía Twilio (función Edge en Supabase)
+  // La cola en pantalla sigue actualizándose en tiempo real vía Realtime — el mensaje
+  // es solo para usuarios que han cerrado la web.
   try {
-    const { data: entry } = await sb.from('calleat_queue').select('push_subscription').eq('id', entryId).maybeSingle();
-    if (entry?.push_subscription) {
-      // Push se envía vía edge function si está disponible
-      fetch(`${SUPA_URL}/functions/v1/send-push`, {
+    const { data: entry } = await sb.from('calleat_queue')
+      .select('phone, notify_method, name')
+      .eq('id', entryId).maybeSingle();
+    if (entry?.phone) {
+      const restaurantName = (state.restaurant?.name || 'el restaurante');
+      fetch(`${SUPA_URL}/functions/v1/calleat-notify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'apikey': SUPA_KEY },
         body: JSON.stringify({
-          subscription: entry.push_subscription,
-          title: '¡Tu mesa está lista!',
-          body: `${tableLabel} — Tienes 10 minutos para llegar`,
-          data: { entryId, tableLabel }
+          entryId,
+          phone: entry.phone,
+          method: entry.notify_method || 'whatsapp',
+          name: entry.name,
+          tableLabel,
+          restaurantName,
+          minutes: 10
         })
-      }).catch(() => {});
+      }).then(r => r.json()).then(res => {
+        // Marcar enviado en BD para tener trazabilidad
+        sb.from('calleat_queue').update({
+          notify_sent_at: new Date().toISOString(),
+          notify_status: res?.error ? 'failed' : 'sent'
+        }).eq('id', entryId);
+      }).catch(() => {
+        sb.from('calleat_queue').update({ notify_status: 'failed' }).eq('id', entryId);
+      });
     }
   } catch(e) {}
 
@@ -16328,8 +16540,10 @@ function handleQRLanding() {
 }
 
 function initLanding() {
-  // Show cookies banner if not accepted yet
-  if (!localStorage.getItem('cookies_accepted')) {
+  // Issue #156: AEPD compliance — mostrar banner si NO hay consentimiento explícito
+  // (ni aceptado ni rechazado). El banner permanece hasta elección del usuario.
+  const c = window.spliteatCookies?.get();
+  if (!c || !c.ts) {
     setTimeout(() => {
       const banner = document.getElementById('cookies-banner');
       if (banner) banner.style.display = 'block';
@@ -16342,97 +16556,155 @@ function initLanding() {
   }
 }
 
-function acceptCookies() {
-  localStorage.setItem('cookies_accepted', '1');
-  const banner = document.getElementById('cookies-banner');
-  if (banner) banner.style.display = 'none';
-}
+// ══════════════════════════════════════════════════════════════════
+// COOKIE CONSENT — AEPD compliant (granular + Aceptar/Rechazar igualados)
+// Storage: localStorage 'spliteat.cookieConsent' = {functional, analytics, ts}
+// API global: window.spliteatCookies.{get, set, has, ask}
+// ══════════════════════════════════════════════════════════════════
+(function(){
+  const KEY = 'spliteat.cookieConsent';
+  const _state = { functional: false, analytics: false, ts: null };
 
-function showCookiesBanner() {
-  const banner = document.getElementById('cookies-banner');
-  if (banner) banner.style.display = 'block';
-}
-
-const LEGAL_CONTENT = {
-  privacidad: {
-    title: 'Política de Privacidad',
-    body: `<p><strong>Responsable:</strong> eatlab (spliteat.es) · hola@spliteat.es</p>
-    <p style="margin-top:.75rem"><strong>¿Qué datos recogemos?</strong><br>
-    Únicamente los datos que el usuario introduce voluntariamente: nombre (seudónimo libre), email opcional para recibo, y datos de pago procesados por Stripe (nunca almacenamos datos de tarjeta).</p>
-    <p style="margin-top:.75rem"><strong>¿Para qué los usamos?</strong><br>
-    Exclusivamente para gestionar la experiencia de pedido y pago en el restaurante. No cedemos datos a terceros con fines comerciales.</p>
-    <p style="margin-top:.75rem"><strong>¿Cuánto tiempo los guardamos?</strong><br>
-    Los datos de sesión se eliminan automáticamente al cerrar la mesa. Los registros de pago se conservan según la legislación fiscal aplicable.</p>
-    <p style="margin-top:.75rem"><strong>Tus derechos:</strong><br>
-    Acceso, rectificación, supresión, portabilidad y oposición. Escríbenos a hola@spliteat.es.</p>
-    <p style="margin-top:.75rem"><strong>Transferencias internacionales:</strong><br>
-    Los datos se almacenan en servidores de Supabase (UE) y están sujetos al RGPD.</p>`
-  },
-  cookies: {
-    title: 'Política de Cookies',
-    body: `<p>spliteat.es usa exclusivamente cookies técnicas necesarias para el funcionamiento de la aplicación. <strong>No usamos cookies de seguimiento, analítica ni publicidad.</strong></p>
-    <p style="margin-top:.75rem"><strong>Cookies que usamos:</strong></p>
-    <table style="width:100%;border-collapse:collapse;margin-top:.5rem;font-size:12px">
-      <tr style="background:#f5f5f3">
-        <td style="padding:6px 8px;font-weight:600;border-radius:4px 0 0 4px">Nombre</td>
-        <td style="padding:6px 8px;font-weight:600">Finalidad</td>
-        <td style="padding:6px 8px;font-weight:600;border-radius:0 4px 4px 0">Duración</td>
-      </tr>
-      <tr style="border-bottom:1px solid #eee">
-        <td style="padding:6px 8px;font-family:monospace">spliteat_session</td>
-        <td style="padding:6px 8px">Mantener la sesión activa en la mesa</td>
-        <td style="padding:6px 8px">8 horas</td>
-      </tr>
-      <tr style="border-bottom:1px solid #eee">
-        <td style="padding:6px 8px;font-family:monospace">cookies_accepted</td>
-        <td style="padding:6px 8px">Recordar tu consentimiento</td>
-        <td style="padding:6px 8px">1 año</td>
-      </tr>
-      <tr>
-        <td style="padding:6px 8px;font-family:monospace">sidebar_collapsed</td>
-        <td style="padding:6px 8px">Preferencia visual del panel admin</td>
-        <td style="padding:6px 8px">Indefinida</td>
-      </tr>
-    </table>
-    <p style="margin-top:1rem">Puedes eliminar las cookies en cualquier momento desde la configuración de tu navegador.</p>`
-  },
-  terminos: {
-    title: 'Términos de Servicio',
-    body: `<p><strong>1. Aceptación</strong><br>Al usar spliteat, aceptas estos términos. El servicio es gratuito para comensales. Los restaurantes contratan el servicio mediante suscripción mensual.</p>
-    <p style="margin-top:.75rem"><strong>2. Servicio</strong><br>spliteat facilita la gestión de pedidos y pagos en restaurantes. No somos parte de la relación contractual entre el restaurante y el comensal.</p>
-    <p style="margin-top:.75rem"><strong>3. Pagos</strong><br>Los pagos online se procesan mediante Stripe. spliteat no almacena datos de tarjeta. El restaurante es responsable del servicio prestado.</p>
-    <p style="margin-top:.75rem"><strong>4. Disponibilidad</strong><br>Nos comprometemos a mantener el servicio disponible con el mayor nivel posible, pero no garantizamos disponibilidad ininterrumpida.</p>
-    <p style="margin-top:.75rem"><strong>5. Propiedad intelectual</strong><br>spliteat, manageat, cookeat, serveat y calleat son marcas de eatlab. Queda prohibida su reproducción sin autorización.</p>
-    <p style="margin-top:.75rem"><strong>6. Ley aplicable</strong><br>Estos términos se rigen por la legislación española. Para cualquier disputa, las partes se someten a los juzgados de Madrid.</p>`
-  },
-  aviso: {
-    title: 'Aviso Legal',
-    body: `<p><strong>Titular del sitio web:</strong> eatlab<br>
-    <strong>Sitio web:</strong> spliteat.es<br>
-    <strong>Email de contacto:</strong> hola@spliteat.es<br>
-    <strong>País de registro:</strong> España</p>
-    <p style="margin-top:.75rem">spliteat.es es una marca registrada en la Oficina Española de Patentes y Marcas (OEPM) en las clases 36 y 42.</p>
-    <p style="margin-top:.75rem">El presente aviso legal regula el uso del sitio web spliteat.es. Al acceder y navegar por este sitio, el usuario acepta las condiciones aquí establecidas.</p>
-    <p style="margin-top:.75rem"><strong>Propiedad intelectual:</strong> Todos los contenidos del sitio web (textos, imágenes, logotipos, código fuente) son propiedad de eatlab y están protegidos por la legislación española e internacional de propiedad intelectual.</p>`
+  function get() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch { return null; }
   }
-};
+  function set(prefs) {
+    const data = { functional: !!prefs.functional, analytics: !!prefs.analytics, ts: Date.now() };
+    localStorage.setItem(KEY, JSON.stringify(data));
+    Object.assign(_state, data);
+    applyConsent(data);
+    document.dispatchEvent(new CustomEvent('cookieConsentChange', { detail: data }));
+  }
+  function has(category) {
+    const c = get(); if (!c) return false;
+    if (category === 'necessary') return true;
+    return !!c[category];
+  }
+  function ask() {
+    const banner = document.getElementById('cookies-banner');
+    if (banner) banner.style.display = 'block';
+  }
 
-function showLegalModal(type) {
-  const modal = document.getElementById('legal-modal');
-  const titleEl = document.getElementById('legal-modal-title');
-  const bodyEl = document.getElementById('legal-modal-body');
-  const content = LEGAL_CONTENT[type];
-  if (!modal || !content) return;
-  titleEl.textContent = content.title;
-  bodyEl.innerHTML = content.body;
-  modal.style.display = 'flex';
+  // Aplica el consentimiento: carga GA4 si analytics=true, etc.
+  function applyConsent(data) {
+    if (data.analytics) loadGA();
+    // Si más adelante hay otras cookies (Hotjar, FB Pixel...) cargarlas aquí condicionalmente
+  }
+  function loadGA() {
+    if (window._gaLoaded) return;
+    window._gaLoaded = true;
+    // Placeholder: descomenta y pon tu ID GA4 real cuando esté listo
+    // const id = 'G-XXXXXXX';
+    // const s = document.createElement('script');
+    // s.async = true; s.src = 'https://www.googletagmanager.com/gtag/js?id=' + id;
+    // document.head.appendChild(s);
+    // window.dataLayer = window.dataLayer || [];
+    // function gtag(){ dataLayer.push(arguments); }
+    // window.gtag = gtag;
+    // gtag('js', new Date());
+    // gtag('config', id, { anonymize_ip: true });
+  }
+
+  // Auto-aplicar consentimiento existente al cargar
+  const existing = get();
+  if (existing) applyConsent(existing);
+
+  window.spliteatCookies = { get, set, has, ask };
+})();
+
+// ── Acciones del banner ─────────────────────────────────────────
+function acceptAllCookies() {
+  window.spliteatCookies.set({ functional: true, analytics: true });
+  hideCookiesBanner();
+  closeCookiesSettings();
+}
+function rejectAllCookies() {
+  window.spliteatCookies.set({ functional: false, analytics: false });
+  hideCookiesBanner();
+  closeCookiesSettings();
+}
+function hideCookiesBanner() {
+  const b = document.getElementById('cookies-banner');
+  if (b) b.style.display = 'none';
 }
 
-// Close legal modal on background click
+// ── Modal "Configurar" ──────────────────────────────────────────
+function openCookiesSettings() {
+  const m = document.getElementById('cookies-settings-modal');
+  if (!m) return;
+  // Pre-rellenar switches con la elección actual (o false si nunca aceptó)
+  const c = window.spliteatCookies.get() || { functional: false, analytics: false };
+  applySwitchUI('functional', c.functional);
+  applySwitchUI('analytics', c.analytics);
+  m.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+function closeCookiesSettings() {
+  const m = document.getElementById('cookies-settings-modal');
+  if (m) m.style.display = 'none';
+  document.body.style.overflow = '';
+}
+function toggleCookieSwitch(category) {
+  const btn = document.getElementById('cookies-toggle-' + category);
+  if (!btn) return;
+  const on = btn.getAttribute('aria-checked') !== 'true';
+  applySwitchUI(category, on);
+}
+function applySwitchUI(category, on) {
+  const btn = document.getElementById('cookies-toggle-' + category);
+  if (!btn) return;
+  btn.setAttribute('aria-checked', on ? 'true' : 'false');
+  btn.style.background = on ? '#085041' : '#d0d0c8';
+  const knob = btn.querySelector('span');
+  if (knob) knob.style.transform = on ? 'translateX(16px)' : 'translateX(0)';
+}
+function readSwitch(category) {
+  const btn = document.getElementById('cookies-toggle-' + category);
+  return btn?.getAttribute('aria-checked') === 'true';
+}
+function saveCookiesSettings() {
+  window.spliteatCookies.set({
+    functional: readSwitch('functional'),
+    analytics: readSwitch('analytics')
+  });
+  hideCookiesBanner();
+  closeCookiesSettings();
+}
+function acceptAllFromSettings() {
+  applySwitchUI('functional', true);
+  applySwitchUI('analytics', true);
+  saveCookiesSettings();
+}
+function rejectAllFromSettings() {
+  applySwitchUI('functional', false);
+  applySwitchUI('analytics', false);
+  saveCookiesSettings();
+}
+
+// Cerrar modal al hacer click fuera
 document.addEventListener('click', e => {
-  const modal = document.getElementById('legal-modal');
-  if (modal && e.target === modal) modal.style.display = 'none';
+  const m = document.getElementById('cookies-settings-modal');
+  if (m && e.target === m) closeCookiesSettings();
 });
+// Cerrar con tecla Escape
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    const m = document.getElementById('cookies-settings-modal');
+    if (m && m.style.display === 'flex') closeCookiesSettings();
+  }
+});
+
+// "Gestionar cookies" del footer reabre el banner para revisar/cambiar
+function showCookiesBanner() {
+  openCookiesSettings();  // mejor: abre el modal directamente para ver lo elegido
+}
+
+// (showLegalModal + LEGAL_CONTENT eliminados — ahora cada texto legal es una página real:
+//  /aviso-legal · /privacidad · /cookies · /condiciones)
 
 
 // ── Cache de datos de facturas para export ──
