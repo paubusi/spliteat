@@ -13673,9 +13673,12 @@ async function loadFloorPlan() {
       showTableDetail(table, room, paidCount, guestCount);
     };
 
-    // Drag to reposition
+    // Drag to reposition — usa addEventListener para que cada mesa tenga sus propios handlers
+    // (antes con document.onmousemove se sobrescribía y solo la última mesa era arrastrable)
     let dragging = false, ox = 0, oy = 0, startX = 0, startY = 0;
-    el.onmousedown = el.ontouchstart = (e) => {
+    let activeMove = null, activeUp = null;
+
+    const onStart = (e) => {
       dragging = true;
       e._wasDragged = false;
       const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -13687,34 +13690,47 @@ async function loadFloorPlan() {
       el.style.zIndex = '100';
       el.style.boxShadow = '0 8px 24px rgba(0,0,0,.2)';
       e.preventDefault();
+
+      activeMove = (ev) => {
+        if (!dragging) return;
+        const cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+        const cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
+        if (Math.abs(cx - startX) > 5 || Math.abs(cy - startY) > 5) ev._wasDragged = true;
+        const planRect = plan.getBoundingClientRect();
+        const nx = Math.max(0, Math.min(planW - 84, cx - planRect.left - ox));
+        const ny = Math.max(0, Math.min(planH - 84, cy - planRect.top - oy));
+        el.style.left = nx + 'px';
+        el.style.top = ny + 'px';
+      };
+      activeUp = (ev) => {
+        if (!dragging) return;
+        dragging = false;
+        el.style.zIndex = '';
+        el.style.boxShadow = '0 2px 8px rgba(0,0,0,.1)';
+        // Save position
+        const px = parseInt(el.style.left);
+        const py = parseInt(el.style.top);
+        _tablePositions[table.id] = { x: px, y: py };
+        try { localStorage.setItem(posKey, JSON.stringify(_tablePositions)); } catch(_) {}
+        // ALSO save to BD as % (so serveat sees the same layout)
+        const xPct = +((px / Math.max(1, planW - 84)) * 100).toFixed(2);
+        const yPct = +((py / Math.max(1, planH - 84)) * 100).toFixed(2);
+        sb.from('tables').update({ position_x: xPct, position_y: yPct }).eq('id', table.id);
+        if (ev._wasDragged) el._ignoreClick = true;
+        // Detach
+        document.removeEventListener('mousemove', activeMove);
+        document.removeEventListener('touchmove', activeMove);
+        document.removeEventListener('mouseup', activeUp);
+        document.removeEventListener('touchend', activeUp);
+      };
+      document.addEventListener('mousemove', activeMove);
+      document.addEventListener('touchmove', activeMove, { passive: false });
+      document.addEventListener('mouseup', activeUp);
+      document.addEventListener('touchend', activeUp);
     };
-    document.onmousemove = document.ontouchmove = (e) => {
-      if (!dragging) return;
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      if (Math.abs(clientX - startX) > 5 || Math.abs(clientY - startY) > 5) e._wasDragged = true;
-      const planRect = plan.getBoundingClientRect();
-      const nx = Math.max(0, Math.min(planW - 84, clientX - planRect.left - ox));
-      const ny = Math.max(0, Math.min(planH - 84, clientY - planRect.top - oy));
-      el.style.left = nx + 'px';
-      el.style.top = ny + 'px';
-    };
-    document.onmouseup = document.ontouchend = (e) => {
-      if (!dragging) return;
-      dragging = false;
-      el.style.zIndex = '';
-      el.style.boxShadow = '0 2px 8px rgba(0,0,0,.1)';
-      // Save position
-      const px = parseInt(el.style.left);
-      const py = parseInt(el.style.top);
-      _tablePositions[table.id] = { x: px, y: py };
-      try { localStorage.setItem(posKey, JSON.stringify(_tablePositions)); } catch(e) {}
-      // ALSO save to BD as % (so serveat sees the same layout)
-      const xPct = +((px / Math.max(1, planW - 84)) * 100).toFixed(2);
-      const yPct = +((py / Math.max(1, planH - 84)) * 100).toFixed(2);
-      sb.from('tables').update({ position_x: xPct, position_y: yPct }).eq('id', table.id);
-      if (e._wasDragged) el._ignoreClick = true;
-    };
+    el.addEventListener('mousedown', onStart);
+    el.addEventListener('touchstart', onStart, { passive: false });
+
 
     plan.appendChild(el);
   });
