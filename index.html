@@ -11861,13 +11861,26 @@ async function loadWaiterPropinas() {
   if (!rooms?.length) { el.innerHTML = '<div class="empty"><div class="empty-text">Sin propinas en este período</div></div>'; if (amtEl) amtEl.textContent = '0,00€'; return; }
 
   const roomIds = rooms.map(r => r.id);
-  const { data: tips } = await sb.from('payments').select('tip_amount,guest_id,room_id').in('room_id', roomIds);
-  const total = (tips||[]).reduce((s,p) => s + parseFloat(p.tip_amount||0), 0);
+  // Fetch tips. La columna tip_amount puede no existir en BD legacy → manejar error gracefully
+  let tips = [];
+  try {
+    const { data, error } = await sb.from('payments')
+      .select('tip_amount,guest_id,room_id').in('room_id', roomIds);
+    if (error) {
+      // Probablemente tip_amount no existe — degradar a sin propinas
+      console.warn('payments.tip_amount no disponible:', error.message);
+    } else {
+      tips = data || [];
+    }
+  } catch(e) {
+    console.warn('Error cargando propinas:', e);
+  }
+  const total = tips.reduce((s,p) => s + parseFloat(p.tip_amount||0), 0);
   if (amtEl) amtEl.textContent = fmt(total);
 
   // Group by room
   const tipsByRoom = {};
-  (tips||[]).forEach(p => { if (!tipsByRoom[p.room_id]) tipsByRoom[p.room_id]=0; tipsByRoom[p.room_id]+=parseFloat(p.tip_amount||0); });
+  tips.forEach(p => { if (!tipsByRoom[p.room_id]) tipsByRoom[p.room_id]=0; tipsByRoom[p.room_id]+=parseFloat(p.tip_amount||0); });
 
   el.innerHTML = rooms.filter(r => tipsByRoom[r.id] > 0).map(r => {
     const d = new Date(r.created_at).toLocaleDateString('es-ES',{day:'numeric',month:'short'});
