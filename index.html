@@ -1630,7 +1630,12 @@
         </div>
       </div>
 
-      <button class="btn btn-primary" style="width:100%" onclick="showPayMethodModal()">
+      <!-- spacer for floating bar -->
+      <div style="height:68px"></div>
+    </div>
+    <!-- FLOATING PAY BAR — siempre visible en s4 -->
+    <div id="s4-float-pay" style="position:sticky;bottom:0;left:0;right:0;background:var(--bg);border-top:1px solid var(--bd);padding:.75rem 1.25rem calc(.75rem + env(safe-area-inset-bottom));z-index:10;flex-shrink:0">
+      <button class="btn btn-primary" style="width:100%;padding:15px;font-size:15px" onclick="showPayMethodModal()">
         ✓ Confirmar y pagar →
       </button>
     </div>
@@ -2171,7 +2176,7 @@
         <div id="waiter-cart" style="display:none;margin-top:1rem">
           <div class="sec-label">Pedido actual</div>
           <div id="waiter-cart-items"></div>
-          <button class="btn btn-primary mt" onclick="waiterSendOrder()">Enviar a cocina</button>
+          <button class="btn btn-primary mt" onclick="waiterSendOrder()">Revisar y enviar a cocina</button>
         </div>
       </div>
     </div>
@@ -6113,7 +6118,7 @@ function selectTip(pct) {
   });
   const inp = document.getElementById('custom-tip-input');
   if (inp) inp.style.display = 'none';
-  buildPayScreen();
+  _rebuildPayForMethod();
 }
 
 function openCustomTip() {
@@ -6133,7 +6138,18 @@ function applyCustomTip(value) {
   if (isNaN(amount) || amount < 0) return;
   state.tipPercent = 0;
   state.tipFixed = amount; // fixed euro amount
-  buildPayScreen();
+  _rebuildPayForMethod();
+}
+
+// Rebuild correct pay screen based on active method
+function _rebuildPayForMethod() {
+  if (_payMethod === 'full') {
+    buildFullPayScreen();
+  } else if (_payMethod === 'equal' && typeof _equalPax === 'number') {
+    buildEqualPayScreen(_equalPax);
+  } else {
+    buildPayScreen();
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -6355,21 +6371,20 @@ function buildSummary() {
           </div>`;
         })()}
       </div>
-      ${meFirst.length > 1 ? `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.4rem">
-        <div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em">Los demás</div>
-        <button id="others-toggle" onclick="toggleOthersSection()" style="font-size:11px;color:var(--brand-d);background:var(--brand-l);border:none;border-radius:99px;padding:2px 10px;cursor:pointer;font-family:inherit;font-weight:500">
-          <span id="others-toggle-label">Ocultar</span>
-        </button>
+      ${meFirst.length > 1 ? `<div id="others-header" style="display:flex;align-items:center;justify-content:space-between;margin:.25rem 0 .4rem">
+        <div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em">Los demás (${meFirst.length-1})</div>
+        <button id="others-toggle-btn" onclick="(function(){var s=document.getElementById('others-section');var b=document.getElementById('others-toggle-btn');if(!s)return;var h=s.style.display==='none';s.style.display=h?'':'none';b.textContent=h?'Ocultar ▲':'Ver todos ▼';})()"
+          style="font-size:11px;color:var(--brand-d);background:var(--brand-l);border:none;border-radius:99px;padding:3px 11px;cursor:pointer;font-family:inherit;font-weight:500">Ocultar ▲</button>
       </div>` : ''}`;
     }
 
-    // Other guests — compact card (modo solo-lectura: para editar reparto usar botón en TU PARTE)
+    // Other guests — compact card
     const color = GUEST_COLORS[origIdx % GUEST_COLORS.length];
-    const isFirst = i === 1; // first non-me card
-    const isLast = i === meFirst.length - 1;
-    const wrapOpen = isFirst && meFirst.length > 1 ? `<div id="others-section">` : '';
-    const wrapClose = isLast && meFirst.length > 1 ? `</div>` : '';
-    return `${wrapOpen}<div class="sum-card" style="margin-bottom:.4rem;padding:.65rem .85rem;${isManual?'border-color:var(--amber);border-style:dashed':''}">
+    const _othersOnly = meFirst.filter(x => x.g.id !== state.myGuestId);
+    const _oIdx = _othersOnly.findIndex(x => x.g.id === t.g.id);
+    const _openDiv = (_oIdx === 0 && _othersOnly.length > 0) ? '<div id="others-section">' : '';
+    const _closeDiv = (_oIdx === _othersOnly.length - 1 && _othersOnly.length > 0) ? '</div>' : '';
+    return _openDiv + `<div class="sum-card" style="margin-bottom:.4rem;padding:.65rem .85rem;${isManual?'border-color:var(--amber);border-style:dashed':''}">
       <div class="sum-hdr">
         ${avEl(t.g.name, origIdx, 28)}
         <div class="sum-name" style="font-size:13px">
@@ -6384,23 +6399,13 @@ function buildSummary() {
           style="margin-top:.5rem;width:100%;padding:5px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:none;color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit">
           Quitar persona
         </button>` : ''}
-    </div>${wrapClose}`;
+    </div>` + _closeDiv;
   }).join('');
 
 
   // Banner "platos sin asignar" eliminado — generaba confusión cerca del botón
   // "Editar reparto". Si hay platos compartidos sin participantes, ya se ve en
   // las propias tarjetas y desde el modal de edición se puede asignar.
-}
-
-// Toggle "Los demás" section in summary
-function toggleOthersSection() {
-  const section = document.getElementById('others-section');
-  const label = document.getElementById('others-toggle-label');
-  if (!section || !label) return;
-  const hidden = section.style.display === 'none';
-  section.style.display = hidden ? '' : 'none';
-  label.textContent = hidden ? 'Ocultar' : 'Ver todos';
 }
 
 // ══════════════════════════════════════════════════════
@@ -7310,9 +7315,9 @@ async function confirmPay(method) {
   const receiptEmail = emailInput?.value?.trim() || null;
   if (receiptEmail) state.receiptEmail = receiptEmail;
 
-  // ── INVITO YO — confirmar antes de pagar por todos ──
+  // ── INVITO YO — paga el total y cierra para todos ──
   if (_payMethod === 'full') {
-    showFullPayConfirm(me, method, totals);
+    await registerFullPayment(me, method, totals);
     return;
   }
 
@@ -7330,52 +7335,6 @@ async function confirmPay(method) {
 
   // ── MODO MANUAL split (sin Stripe o efectivo) ────────
   await registerManualPayment(me, method);
-}
-
-// Confirmation step before paying for everyone ("Invito yo")
-function showFullPayConfirm(me, method, totals) {
-  document.getElementById('full-pay-confirm-modal')?.remove();
-  const grand = totals.reduce((s,t) => s + t.total, 0);
-  const tipAmt = grand * ((state.tipPercent||0)/100);
-  const grandWithTip = grand + tipAmt;
-  const others = totals.filter(t => t.g.id !== state.myGuestId);
-  const othersHtml = others.map(t =>
-    `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px">
-      <span style="color:var(--t2)">${escHtml(t.g.name)}</span>
-      <span style="color:var(--t3)">${fmt(t.total)}</span>
-    </div>`
-  ).join('');
-
-  const el = document.createElement('div');
-  el.id = 'full-pay-confirm-modal';
-  el.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center';
-  el.innerHTML = `
-    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;padding:1.5rem 1.25rem 2rem;animation:slideUp .2s ease">
-      <div style="width:36px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto .85rem"></div>
-      <div style="font-size:14px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.3rem;text-align:center">🎁 Invitar a todos</div>
-      <div style="font-family:'Fraunces',serif;font-size:36px;font-weight:800;color:var(--brand-d);text-align:center;margin-bottom:.1rem">${fmt(grandWithTip)}</div>
-      ${tipAmt > 0 ? `<div style="font-size:12px;color:var(--t3);text-align:center;margin-bottom:.75rem">${fmt(grand)} + ${fmt(tipAmt)} propina</div>` : '<div style="margin-bottom:.75rem"></div>'}
-      <div style="background:var(--bg2);border-radius:var(--r-sm);padding:.65rem .85rem;margin-bottom:1.25rem">
-        <div style="font-size:11px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.4rem">Pagas por</div>
-        ${othersHtml || '<div style="font-size:12px;color:var(--t3)">Solo tú en la mesa</div>'}
-      </div>
-      <div style="font-size:12px;color:var(--t2);margin-bottom:1rem;text-align:center">Método: <strong>${escHtml(method)}</strong></div>
-      <button onclick="_doFullPay()" style="width:100%;padding:14px;border:none;border-radius:14px;background:linear-gradient(135deg,#D85A30,#A8401E);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;margin-bottom:.5rem">
-        ✓ Confirmar — pago por todos
-      </button>
-      <button onclick="document.getElementById('full-pay-confirm-modal').remove()" style="width:100%;padding:11px;border:1px solid var(--bd2);border-radius:var(--r-sm);background:none;color:var(--t2);font-size:14px;cursor:pointer;font-family:inherit">
-        Cancelar
-      </button>
-    </div>`;
-  document.body.appendChild(el);
-  window._fullPayPending = { me, method, totals };
-}
-
-async function _doFullPay() {
-  document.getElementById('full-pay-confirm-modal')?.remove();
-  const { me, method, totals } = window._fullPayPending || {};
-  if (!me) return;
-  await registerFullPayment(me, method, totals);
 }
 
 // Paga la cuenta completa — marca a todos como pagados
@@ -7419,38 +7378,7 @@ async function registerFullPayment(me, method, totals) {
   state.payments.push({ guest_id: state.myGuestId, amount: grand, method });
   others.forEach(t => state.payments.push({ guest_id: t.g.id, amount: 0, method: 'Invitado' }));
   clearSession();
-  setTimeout(() => showInvitedEveryoneScreen(grand, method, totals), 400);
-}
-
-// Post-pago "Invito yo" — pantalla de éxito con ticket prominente
-function showInvitedEveryoneScreen(grand, method, totals) {
-  if (document.getElementById('invited-everyone-screen')) return;
-  const el = document.createElement('div');
-  el.id = 'invited-everyone-screen';
-  el.style.cssText = 'position:fixed;inset:0;z-index:9500;background:#FAFAF8;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;text-align:center;overflow-y:auto';
-  const names = (totals||[]).filter(t=>t.g.id!==state.myGuestId).map(t=>t.g.name);
-  const namesStr = names.length ? names.join(', ') : '';
-  el.innerHTML = `
-    <div style="font-size:60px;margin-bottom:.75rem">🎁</div>
-    <div style="font-family:'Fraunces',serif;font-size:26px;font-weight:800;color:var(--brand-d);margin-bottom:.35rem">¡Invitaste a todos!</div>
-    ${namesStr ? `<div style="font-size:14px;color:var(--t2);margin-bottom:.25rem">${escHtml(namesStr)}</div>` : ''}
-    <div style="font-family:'Fraunces',serif;font-size:38px;font-weight:800;color:var(--brand-d);margin:.75rem 0">${fmt(grand)}</div>
-    <div style="font-size:13px;color:var(--t3);margin-bottom:2rem">Pagado con ${escHtml(method)}</div>
-    <div style="display:flex;flex-direction:column;gap:.65rem;width:100%;max-width:260px">
-      <button onclick="document.getElementById('invited-everyone-screen').remove();downloadTicketPDF()"
-        style="padding:14px 24px;border-radius:var(--r-sm);border:none;background:var(--brand-d);color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">
-        📄 Descargar ticket
-      </button>
-      <button onclick="document.getElementById('invited-everyone-screen').remove();showFacturaModal()"
-        style="padding:12px 24px;border-radius:var(--r-sm);border:2px solid var(--brand-d);background:none;color:var(--brand-d);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">
-        🧾 Solicitar factura
-      </button>
-      <button onclick="document.getElementById('invited-everyone-screen').remove();showAccountClosed()"
-        style="padding:10px 24px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:none;color:var(--t3);font-size:13px;cursor:pointer;font-family:inherit">
-        Cerrar →
-      </button>
-    </div>`;
-  document.body.appendChild(el);
+  setTimeout(() => showAccountClosed(), 400);
 }
 
 // Paga su parte en división equitativa
@@ -16734,7 +16662,7 @@ let _payMethod = null;  // 'split' | 'full' | 'equal'
 let _equalPax = 2;      // número de personas para partes iguales
 
 // ══════════════════════════════════════════════════════
-// REVISAR CUENTA — rediseño: por persona, compacto, claro qué paga cada uno
+// REVISAR CUENTA — pantalla simple de reparto antes del pago
 // ══════════════════════════════════════════════════════
 
 // Alias semántico usado desde el resumen (botón "Editar reparto")
@@ -16748,6 +16676,7 @@ function openRevisarCuenta() {
   const COLORS = ['#D85A30','#185FA5','#7B3FA0','#C0392B','#117A65','#B7770D','#1A5276','#6E2C00'];
   const totals = calcTotals();
   const grand = totals.reduce((s,t) => s + t.total, 0);
+  const myTotal = totals.find(t => t.g.id === state.myGuestId)?.total || 0;
 
   // Sort: me first
   const sorted = [...totals].sort((a,b) => {
@@ -16756,42 +16685,43 @@ function openRevisarCuenta() {
     return 0;
   });
 
-  // Per-person card: compact — name + amount + collapsible item list
-  const personCards = sorted.map((t, i) => {
+  const personCards = sorted.map((t, cardIdx) => {
     const origIdx = totals.findIndex(x => x.g.id === t.g.id);
     const isMe = t.g.id === state.myGuestId;
     const c = COLORS[origIdx % COLORS.length];
-    const cardId = `rc-person-${t.g.id.replace(/-/g,'')}`;
 
-    // Compact item lines
+    // Item breakdown lines
     const soloLines = t.soloItems.map(d =>
       `<div style="display:flex;justify-content:space-between;padding:2px 0">
-        <span style="font-size:12px;color:var(--t2)">↳ ${escHtml(d.name)}</span>
-        <span style="font-size:12px;color:var(--t2)">${fmt(parseFloat(d.price||0))}</span>
+         <span style="font-size:12px;color:var(--t2)">↳ ${escHtml(d.name)}</span>
+         <span style="font-size:12px;color:var(--t2)">${fmt(parseFloat(d.price||0))}</span>
        </div>`
     ).join('');
     const sharedLines = t.sharedItems.map(({d,share,nP}) =>
       `<div style="display:flex;justify-content:space-between;padding:2px 0">
-        <span style="font-size:12px;color:var(--blue)">↳ ${escHtml(d.name)} ÷${nP}</span>
-        <span style="font-size:12px;color:var(--blue)">${fmt(share)}</span>
+         <span style="font-size:12px;color:var(--blue)">↳ ${escHtml(d.name)} ÷${nP}</span>
+         <span style="font-size:12px;color:var(--blue)">${fmt(share)}</span>
        </div>`
     ).join('');
     const itemLines = soloLines + sharedLines || `<div style="font-size:12px;color:var(--t3);padding:2px 0">Sin platos asignados</div>`;
 
-    const editBtn = (!payLocked && isMe) ? `<button onclick="rcOpenPicker_me()" style="font-size:11px;color:var(--brand-d);background:var(--brand-l);border:none;border-radius:99px;padding:2px 10px;cursor:pointer;font-family:inherit">✎ Editar</button>` : '';
+    // Edit link — only for my card when payment not locked
+    const editLink = (isMe && !payLocked)
+      ? `<button onclick="document.getElementById('revisar-cuenta-screen').remove();goToRevisarCuenta()"
+           style="font-size:11px;color:var(--brand-d);background:none;border:1px solid var(--brand);border-radius:99px;padding:2px 9px;cursor:pointer;font-family:inherit;margin-left:auto;flex-shrink:0">✎ Editar</button>`
+      : '';
 
-    return `<div style="background:var(--card);border-radius:var(--r);margin-bottom:.5rem;overflow:hidden;border:${isMe?'2px solid var(--brand)':'1px solid var(--bd2)'}">
-      <button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.querySelector('.rc-arr').textContent=this.nextElementSibling.style.display==='none'?'›':'⌄'"
-        style="width:100%;display:flex;align-items:center;gap:10px;padding:.7rem .9rem;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left">
-        <div style="width:32px;height:32px;border-radius:50%;background:${c}22;border:2px solid ${c};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;font-weight:700;color:${c}">${escHtml(t.g.name[0])}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:600;color:var(--t1)">${escHtml(t.g.name)}${isMe?' <span style="font-size:11px;color:var(--brand);font-weight:500">(tú)</span>':''}</div>
-        </div>
-        ${editBtn}
-        <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:${isMe?'var(--brand-d)':'var(--t1)'};flex-shrink:0;margin-left:.25rem">${fmt(t.total)}</div>
-        <span class="rc-arr" style="font-size:14px;color:var(--t3);margin-left:.25rem;flex-shrink:0">›</span>
+    return `<div style="border-radius:var(--r);margin-bottom:.5rem;overflow:hidden;border:${isMe?'2px solid var(--brand)':'1px solid var(--bd2)'}">
+      <!-- Clickable header: tap to expand/collapse -->
+      <button onclick="var c=this.nextElementSibling;var arr=this.querySelector('.rc-arr');var h=c.style.display==='none';c.style.display=h?'block':'none';arr.textContent=h?'⌄':'›';"
+        style="width:100%;display:flex;align-items:center;gap:10px;padding:.65rem .9rem;background:${isMe?'var(--brand-l)':'var(--card)'};border:none;cursor:pointer;font-family:inherit;text-align:left">
+        <div style="width:30px;height:30px;border-radius:50%;background:${c}22;border:2px solid ${c};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:700;color:${c}">${escHtml(t.g.name[0].toUpperCase())}</div>
+        <div style="font-size:14px;font-weight:${isMe?'700':'500'};color:var(--t1);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(t.g.name)}${isMe?' <span style="font-size:11px;color:var(--brand);font-weight:500">(tú)</span>':''}</div>
+        ${editLink}
+        <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:${isMe?'var(--brand-d)':'var(--t1)'};flex-shrink:0">${fmt(t.total)}</div>
+        <span class="rc-arr" style="font-size:14px;color:var(--t3);flex-shrink:0">›</span>
       </button>
-      <div style="display:none;padding:.25rem .9rem .65rem;border-top:1px solid var(--bd2)">${itemLines}</div>
+      <div style="display:none;padding:.35rem .9rem .6rem;background:${isMe?'var(--brand-l)':'var(--bg2)'};border-top:1px solid var(--bd2)">${itemLines}</div>
     </div>`;
   }).join('');
 
@@ -16799,32 +16729,32 @@ function openRevisarCuenta() {
   el.id = 'revisar-cuenta-screen';
   el.style.cssText = 'position:fixed;inset:0;z-index:450;background:var(--bg);display:flex;flex-direction:column;overflow:hidden';
   el.innerHTML = `
-    <!-- Header -->
-    <div style="background:var(--brand-d);padding:.85rem 1.25rem .9rem;flex-shrink:0">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
-        <button onclick="document.getElementById('revisar-cuenta-screen').remove()" style="background:rgba(255,255,255,.12);border:none;border-radius:99px;padding:5px 12px;font-size:12px;color:#fff;cursor:pointer;font-family:inherit">← Volver</button>
-        <div style="font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:#EEF0EC">Revisar cuenta</div>
-        <div style="width:72px"></div>
+    <!-- Header verde oscuro -->
+    <div style="background:var(--brand-d);padding:.8rem 1.1rem .85rem;flex-shrink:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
+        <button onclick="document.getElementById('revisar-cuenta-screen').remove()"
+          style="background:rgba(255,255,255,.12);border:none;border-radius:99px;padding:5px 13px;font-size:12px;color:#fff;cursor:pointer;font-family:inherit">← Volver</button>
+        <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#EEF0EC">Revisar cuenta</div>
+        <div style="width:70px"></div>
       </div>
-      <!-- Total + resumen rápido -->
-      <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.08);border-radius:var(--r-sm);padding:.6rem .85rem">
-        <div>
-          <div style="font-size:11px;color:rgba(255,255,255,.55);font-weight:500;margin-bottom:1px">Total mesa</div>
-          <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:#fff">${fmt(grand)}</div>
+      <!-- Tu parte + Total mesa siempre visibles -->
+      <div style="display:flex;gap:.5rem">
+        <div style="flex:1;background:rgba(255,255,255,.1);border-radius:var(--r-sm);padding:.5rem .75rem;text-align:center">
+          <div style="font-size:10px;color:rgba(255,255,255,.55);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Tu parte</div>
+          <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:800;color:#6FE8B0">${fmt(myTotal)}</div>
         </div>
-        <div style="text-align:right">
-          <div style="font-size:11px;color:rgba(255,255,255,.55);font-weight:500;margin-bottom:1px">Tu parte</div>
-          <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:#6FE8B0">${fmt(totals.find(t=>t.g.id===state.myGuestId)?.total||0)}</div>
+        <div style="flex:1;background:rgba(255,255,255,.08);border-radius:var(--r-sm);padding:.5rem .75rem;text-align:center">
+          <div style="font-size:10px;color:rgba(255,255,255,.45);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Total mesa</div>
+          <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:800;color:rgba(255,255,255,.85)">${fmt(grand)}</div>
         </div>
       </div>
     </div>
 
-    <!-- Lista por persona -->
-    <div style="flex:1;overflow-y:auto;padding:.85rem 1rem 1.5rem">
-      ${payLocked ? `<div style="font-size:12px;color:#854F0B;background:var(--amber-l);padding:6px 10px;border-radius:var(--r-sm);margin-bottom:.75rem">🔒 Pago iniciado — no se puede cambiar el reparto</div>` : ''}
-      ${!payLocked ? `<div style="font-size:11px;color:var(--t3);margin-bottom:.5rem">Toca cada persona para ver su desglose · Toca ✎ para editar tu reparto.</div>` : ''}
+    <!-- Lista de personas -->
+    <div style="flex:1;overflow-y:auto;padding:.75rem .9rem 1.5rem">
+      ${payLocked ? `<div style="font-size:12px;color:#854F0B;background:var(--amber-l);padding:6px 10px;border-radius:var(--r-sm);margin-bottom:.6rem">🔒 Pago iniciado — no se puede cambiar el reparto</div>` : ''}
+      ${!payLocked ? `<div style="font-size:11px;color:var(--t3);margin-bottom:.5rem">Toca cada persona para ver su desglose · ✎ para reasignar tus platos.</div>` : ''}
       ${personCards}
-
       <!-- Añadir persona -->
       ${!payLocked ? `<div id="rc-add-area" style="margin-top:.25rem">
         <button onclick="rcToggleAddForm()" style="width:100%;padding:9px 12px;border-radius:var(--r-sm);border:1.5px dashed var(--bd2);background:none;color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">
@@ -16846,25 +16776,14 @@ function openRevisarCuenta() {
     <div id="rc-picker-area" style="flex-shrink:0"></div>
 
     <!-- CTA flotante -->
-    <div style="padding:.85rem 1rem;background:var(--bg);border-top:1px solid var(--bd);flex-shrink:0">
+    <div style="padding:.75rem .9rem calc(.75rem + env(safe-area-inset-bottom));background:var(--bg);border-top:1px solid var(--bd);flex-shrink:0">
       <button onclick="document.getElementById('revisar-cuenta-screen').remove();_doGoToSummary()"
-        style="width:100%;padding:15px;border:none;border-radius:14px;background:linear-gradient(135deg,#1D9E75,#085041);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer">
+        style="width:100%;padding:14px;border:none;border-radius:14px;background:linear-gradient(135deg,#1D9E75,#085041);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer">
         Confirmar y elegir cómo pagar →
       </button>
     </div>`;
   document.body.appendChild(el);
 }
-
-// Shortcut: open picker for a dish of mine (called from revisar cuenta)
-function rcOpenPicker_me() {
-  document.getElementById('revisar-cuenta-screen')?.remove();
-  goToRevisarCuenta(); // refresh after edits via existing picker
-  // Fall through to main edit button
-  openRevisarCuenta();
-  // Actually: just open the revisar-cuenta with the first of my dishes pre-picked
-  // The user can then tap the specific dish arrow; this is sufficient UX
-}
-
 // Picker inline — aparece encima del footer
 function rcOpenPicker(dishId) {
   const area = document.getElementById('rc-picker-area');
