@@ -9529,13 +9529,8 @@ async function renderDrawerPedido() {
     return;
   }
 
-  // Necesitamos la categoría → cargar menu_items en bloque
-  const itemIds = [...new Set(dishes.map(d => d.menu_item_id).filter(Boolean))];
-  const { data: items } = itemIds.length
-    ? await sb.from('menu_items').select('id,course').in('id', itemIds)
-    : { data: [] };
-  const itemCourse = {};
-  (items||[]).forEach(it => { itemCourse[it.id] = it.course || 0; });
+  // Cookeat agrupa por dishes.course (entero) — usamos ese campo directo.
+  // No hace falta consultar menu_items porque al insertar ya guardamos course.
 
   // Course → label
   const COURSE_LABEL = {
@@ -9559,7 +9554,7 @@ async function renderDrawerPedido() {
   const groups = {};  // course → [agrupaciones]
   dishes.forEach(d => {
     // Course efectivo: el de menu_items o el del dish
-    const c = d.menu_item_id ? (itemCourse[d.menu_item_id] ?? d.course) : (d.course ?? 0);
+    const c = d.course ?? 0;
     if (!groups[c]) groups[c] = [];
     // Sub-agrupar idénticos (mismo nombre + precio + estado)
     const k = `${d.name}|${parseFloat(d.price||0).toFixed(2)}|${d.kitchen_status}`;
@@ -9915,7 +9910,7 @@ async function loadWaiterMesas() {
   const [{ data: allGuests }, { data: allPayments }, { data: allDishes }] = await Promise.all([
     sb.from('guests').select('*').in('room_id', roomIds),
     sb.from('payments').select('*').in('room_id', roomIds),
-    sb.from('dishes').select('id,name,course,category,kitchen_status,room_id')
+    sb.from('dishes').select('id,name,course,kitchen_status,room_id')
       .in('room_id', roomIds).order('course')
   ]);
 
@@ -10269,15 +10264,25 @@ async function waiterSendOrder() {
   // Get guests for shared dishes
   const { data: guests } = await sb.from('guests').select('id').eq('room_id', _waiterActiveRoomId);
 
-  // Cargar course de los menu_items en bloque (cookeat agrupa por course)
+  // Cargar category de los menu_items en bloque y mapear a course numérico.
+  // En menu_items NO existe course → existe category (texto: entrantes/principales/postres/bebidas).
+  // Cookeat agrupa por dishes.course (entero), así que lo mapeamos aquí.
+  const CATEGORY_TO_COURSE = {
+    'entrantes': 1, 'entrante': 1, 'starter': 1, 'starters': 1,
+    'principales': 2, 'principal': 2, 'main': 2, 'mains': 2,
+    'postres': 3, 'postre': 3, 'dessert': 3, 'desserts': 3,
+    'bebidas': 4, 'bebida': 4, 'drink': 4, 'drinks': 4,
+    'cafes': 5, 'cafés': 5, 'cafe': 5, 'café': 5
+  };
   const itemIds = [...new Set(_waiterCart.map(i => i.id).filter(Boolean))];
   const itemsMeta = {};
   if (itemIds.length) {
     const { data: items } = await sb.from('menu_items')
-      .select('id,course')
+      .select('id,category')
       .in('id', itemIds);
     (items || []).forEach(it => {
-      itemsMeta[it.id] = { course: it.course || 0 };
+      const cat = (it.category || '').toLowerCase().trim();
+      itemsMeta[it.id] = { course: CATEGORY_TO_COURSE[cat] || 0 };
     });
   }
 
