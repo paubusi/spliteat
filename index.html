@@ -7057,7 +7057,7 @@ async function _generateTicket(mode) {
       </div>`;
   }
 
-  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escHtml(ticketNum)}</title><style>${css}</style></head><body>${body}<script>setTimeout(()=>window.print&&window.print(),300);<\/script></body></html>`;
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escHtml(ticketNum)}</title><style>${css}</style></head><body>${body}<` + `script>setTimeout(()=>window.print&&window.print(),300);<\/script></body></html>`;
 
   // Generación robusta: Blob + descarga directa (funciona en iOS Safari y Android)
   try {
@@ -18081,7 +18081,7 @@ async function downloadFacturaPDF(roomId) {
     <title>Factura spliteat — ${tableNum} ${datePDF}</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
     <style>body{font-family:'DM Sans',sans-serif;max-width:400px;margin:2rem auto;padding:1rem;color:#1a1a18}*{box-sizing:border-box}@media print{@page{margin:1cm}}</style>
-    </head><body>${printHtml}<script>window.onload=()=>{setTimeout(()=>{window.print();},500);}<\/script></body></html>`);
+    </head><body>${printHtml}<` + `script>window.onload=()=>{setTimeout(()=>{window.print();},500);}<\/script></body></html>`);
   printWindow.document.close();
 }
 
