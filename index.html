@@ -9338,7 +9338,7 @@ async function loadWaiterPlano(myRoomsByTable, myRooms, tablesById, dishesByRoom
   if (hasLayout) {
     // Canvas con aspecto fijo y mesas posicionadas en %
     grid.style.cssText = 'position:relative;width:100%;aspect-ratio:4/3;background:repeating-linear-gradient(0deg,transparent,transparent 19px,rgba(0,0,0,.04) 19px,rgba(0,0,0,.04) 20px),repeating-linear-gradient(90deg,transparent,transparent 19px,rgba(0,0,0,.04) 19px,rgba(0,0,0,.04) 20px),var(--card);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:1rem';
-    grid.innerHTML = tables.map(t => {
+    const newHtml = tables.map(t => {
       const room = myRoomsByTable[t.id];
       const st = deriveStatus(room);
       const guests = room ? (guestsByRoom[room.id] || []) : [];
@@ -9370,6 +9370,8 @@ async function loadWaiterPlano(myRoomsByTable, myRooms, tablesById, dishesByRoom
         </div>` : `<div style="font-size:9px;color:${st.txt};opacity:.5;margin-top:2px">libre</div>`}
       </div>`;
     }).join('');
+    // IDEMPOTENTE: solo actualizar si el HTML cambió (evita vibración por re-renders)
+    if (grid.innerHTML !== newHtml) grid.innerHTML = newHtml;
     return;
   }
 
@@ -9411,15 +9413,37 @@ let _drawerRoomId = null;
 let _drawerRoom = null;
 
 async function openWaiterDrawer(roomId) {
+  console.log('[openWaiterDrawer] start', roomId);
   _drawerRoomId = roomId;
-  // Cargar info básica de la mesa
-  const { data: room } = await sb.from('rooms').select('*').eq('id', roomId).maybeSingle();
-  _drawerRoom = room;
-  if (!room) { notify('No se encontró la mesa', 'error'); return; }
 
-  const { data: table } = room.table_id
-    ? await sb.from('tables').select('*').eq('id', room.table_id).maybeSingle()
-    : { data: null };
+  // Verificar que el elemento del drawer existe
+  const drawerEl = document.getElementById('waiter-table-drawer');
+  if (!drawerEl) {
+    console.error('[openWaiterDrawer] FATAL: waiter-table-drawer no existe en el DOM');
+    notify('Error: drawer no encontrado en DOM', 'error');
+    return;
+  }
+
+  // Cargar info básica de la mesa
+  const { data: room, error: roomErr } = await sb.from('rooms').select('*').eq('id', roomId).maybeSingle();
+  if (roomErr) {
+    console.error('[openWaiterDrawer] error cargando room:', roomErr);
+    notify('Error: ' + roomErr.message, 'error');
+    return;
+  }
+  _drawerRoom = room;
+  if (!room) {
+    console.warn('[openWaiterDrawer] room no encontrado:', roomId);
+    notify('No se encontró la mesa', 'error');
+    return;
+  }
+  console.log('[openWaiterDrawer] room cargado:', room.id);
+
+  let table = null;
+  if (room.table_id) {
+    const { data } = await sb.from('tables').select('*').eq('id', room.table_id).maybeSingle();
+    table = data;
+  }
 
   const titleEl = document.getElementById('waiter-drawer-title');
   const subEl   = document.getElementById('waiter-drawer-subtitle');
@@ -9432,17 +9456,18 @@ async function openWaiterDrawer(roomId) {
   }
 
   // Resumen
-  await renderDrawerSummary(roomId);
+  try { await renderDrawerSummary(roomId); } catch(e) { console.warn('renderDrawerSummary falló:', e); }
 
   // Mostrar drawer
-  document.getElementById('waiter-table-drawer').style.display = 'block';
+  drawerEl.style.display = 'block';
   document.body.style.overflow = 'hidden';
+  console.log('[openWaiterDrawer] drawer mostrado');
 
   // Cargar pestaña por defecto: pedido
   showDrawerTab('pedido');
 
   // Suscribirse a cambios para actualizar en tiempo real
-  subscribeDrawerRealtime(roomId);
+  try { subscribeDrawerRealtime(roomId); } catch(e) { console.warn('subscribeDrawerRealtime falló:', e); }
 }
 
 function closeWaiterDrawer() {
@@ -9849,6 +9874,15 @@ async function callBillForDrawer() {
 
 // ── MESAS ──
 async function loadWaiterMesas() {
+  // Anti-bucle: si la última llamada fue hace <300ms, ignorar
+  const now = Date.now();
+  if (window._lastWaiterMesas && (now - window._lastWaiterMesas) < 300) {
+    console.log('[loadWaiterMesas] saltada (debounce)');
+    return;
+  }
+  window._lastWaiterMesas = now;
+  console.log('[loadWaiterMesas] ejecutando');
+
   const el = document.getElementById('waiter-mesas-list');
   const emptyEl = document.getElementById('waiter-mesas-empty');
   el.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--t3);font-size:13px">Cargando...</div>';
