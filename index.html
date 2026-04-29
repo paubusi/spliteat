@@ -9357,9 +9357,9 @@ async function loadWaiterPlano(myRoomsByTable, myRooms, tablesById, dishesByRoom
         width:${size}px;height:${size}px;background:${st.bg};border:1.5px solid rgba(0,0,0,.08);
         border-radius:${radius};cursor:pointer;
         display:flex;flex-direction:column;align-items:center;justify-content:center;
-        box-shadow:0 2px 6px rgba(0,0,0,.08);transition:transform .15s ease,box-shadow .15s ease"
-        onmouseover="this.style.transform='translate(-50%,-50%) scale(1.05)';this.style.boxShadow='0 6px 16px rgba(0,0,0,.18)'"
-        onmouseout="this.style.transform='translate(-50%,-50%)';this.style.boxShadow='0 2px 6px rgba(0,0,0,.08)'">
+        box-shadow:0 2px 6px rgba(0,0,0,.08);transition:box-shadow .15s ease"
+        onmouseover="this.style.boxShadow='0 6px 16px rgba(0,0,0,.18)'"
+        onmouseout="this.style.boxShadow='0 2px 6px rgba(0,0,0,.08)'">
         <div style="display:flex;align-items:baseline;gap:4px">
           <div style="font-family:'Fraunces',serif;font-size:${size>=80?20:17}px;font-weight:700;color:${st.txt};line-height:1">${t.number}</div>
           <div style="font-size:11px;line-height:1">${st.icon}</div>
@@ -10062,19 +10062,48 @@ async function markBebidasReady(dishId) {
 
 function waiterGoToPedido(roomId) {
   // Antes había una tab top-level "Tomar pedido"; ahora es una sub-tab del drawer
-  openWaiterDrawer(roomId).then(() => showDrawerTab('carta'));
+  console.log('[waiterGoToPedido]', roomId);
+  if (!roomId) { notify('roomId vacío', 'error'); return; }
+  if (typeof openWaiterDrawer !== 'function') { notify('openWaiterDrawer no definido', 'error'); return; }
+  openWaiterDrawer(roomId).then(() => {
+    if (typeof showDrawerTab === 'function') showDrawerTab('carta');
+  }).catch(err => {
+    console.error('Error abriendo drawer:', err);
+    notify('Error: ' + err.message, 'error');
+  });
 }
 
 function waiterGoToCobrar(roomId) {
-  openWaiterDrawer(roomId).then(() => showDrawerTab('cobrar'));
+  console.log('[waiterGoToCobrar]', roomId);
+  if (!roomId) { notify('roomId vacío', 'error'); return; }
+  if (typeof openWaiterDrawer !== 'function') { notify('openWaiterDrawer no definido', 'error'); return; }
+  openWaiterDrawer(roomId).then(() => {
+    if (typeof showDrawerTab === 'function') showDrawerTab('cobrar');
+  }).catch(err => {
+    console.error('Error abriendo drawer:', err);
+    notify('Error: ' + err.message, 'error');
+  });
 }
 
 // Cerrar mesa desde lista de serveat (la versión que antes llamaba a adminCloseTable que no existe en serveat)
 async function waiterCloseTableQuick(roomId) {
-  if (!(await confirmModal('¿Cerrar esta mesa?'))) return;
-  await sb.from('rooms').update({
+  console.log('[waiterCloseTableQuick]', roomId);
+  if (!roomId) { notify('roomId vacío', 'error'); return; }
+  let confirmed = false;
+  try {
+    confirmed = await confirmModal('¿Cerrar esta mesa?');
+  } catch(e) {
+    confirmed = confirm('¿Cerrar esta mesa?');
+  }
+  if (!confirmed) return;
+  const { error } = await sb.from('rooms').update({
     closed: true, closed_at: new Date().toISOString(), needs_cleaning: true
   }).eq('id', roomId);
+  if (error) {
+    console.error('Error cerrando mesa:', error);
+    notify('Error: ' + error.message, 'error');
+    return;
+  }
   notify('Mesa cerrada — pendiente de limpieza', 'success');
   loadWaiterMesas();
 }
