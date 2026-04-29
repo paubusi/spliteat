@@ -9874,14 +9874,16 @@ async function callBillForDrawer() {
 
 // ── MESAS ──
 async function loadWaiterMesas() {
-  // Anti-bucle: si la última llamada fue hace <300ms, ignorar
+  // Anti-bucle: si la última llamada fue hace <1s, ignorar
   const now = Date.now();
-  if (window._lastWaiterMesas && (now - window._lastWaiterMesas) < 300) {
+  if (window._lastWaiterMesas && (now - window._lastWaiterMesas) < 1000) {
     console.log('[loadWaiterMesas] saltada (debounce)');
     return;
   }
   window._lastWaiterMesas = now;
-  console.log('[loadWaiterMesas] ejecutando');
+  // Log con caller para identificar bucles — solo primera línea del stack tras la propia función
+  const caller = new Error().stack?.split('\n')[2]?.trim() || '?';
+  console.log('[loadWaiterMesas] ejecutando ←', caller);
 
   const el = document.getElementById('waiter-mesas-list');
   const emptyEl = document.getElementById('waiter-mesas-empty');
