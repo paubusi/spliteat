@@ -3769,7 +3769,7 @@ function updateS3CtaBar() {
     if (statusDiv) { statusDiv.textContent = '¡Todo servido! Es hora de pagar.'; statusDiv.style.display = 'block'; }
   } else if (unsent.length > 0) {
     if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
-    if (lbl) lbl.textContent = 'Enviar a cocina';
+    if (lbl) lbl.textContent = 'Revisar y enviar a cocina';
     if (badge) { badge.textContent = unsent.length + ' plato' + (unsent.length!==1?'s':''); badge.style.display = ''; }
     if (statusDiv) statusDiv.style.display = 'none';
   } else {
@@ -6141,13 +6141,21 @@ function applyCustomTip(value) {
   _rebuildPayForMethod();
 }
 
-// Rebuild correct pay screen based on active method
+// Rebuild correct pay screen based on active method (recalculates tip too)
 function _rebuildPayForMethod() {
-  if (_payMethod === 'full') {
-    buildFullPayScreen();
-  } else if (_payMethod === 'equal' && typeof _equalPax === 'number') {
-    buildEqualPayScreen(_equalPax);
-  } else {
+  try {
+    if (_payMethod === 'full') {
+      buildFullPayScreen();
+    } else if (_payMethod === 'equal') {
+      const pax = (typeof _equalPax === 'number' && _equalPax > 0)
+        ? _equalPax
+        : Math.max(2, (state.guests || []).length || 2);
+      buildEqualPayScreen(pax);
+    } else {
+      buildPayScreen();
+    }
+  } catch (e) {
+    console.error('_rebuildPayForMethod error:', e);
     buildPayScreen();
   }
 }
@@ -6374,7 +6382,7 @@ function buildSummary() {
       ${meFirst.length > 1 ? `<div id="others-header" style="display:flex;align-items:center;justify-content:space-between;margin:.25rem 0 .4rem">
         <div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em">Los demás (${meFirst.length-1})</div>
         <button id="others-toggle-btn" onclick="(function(){var s=document.getElementById('others-section');var b=document.getElementById('others-toggle-btn');if(!s)return;var h=s.style.display==='none';s.style.display=h?'':'none';b.textContent=h?'Ocultar ▲':'Ver todos ▼';})()"
-          style="font-size:11px;color:var(--brand-d);background:var(--brand-l);border:none;border-radius:99px;padding:3px 11px;cursor:pointer;font-family:inherit;font-weight:500">Ocultar ▲</button>
+          style="font-size:11px;color:var(--brand-d);background:var(--brand-l);border:none;border-radius:99px;padding:3px 11px;cursor:pointer;font-family:inherit;font-weight:500">Ver todos ▼</button>
       </div>` : ''}`;
     }
 
@@ -6382,7 +6390,7 @@ function buildSummary() {
     const color = GUEST_COLORS[origIdx % GUEST_COLORS.length];
     const _othersOnly = meFirst.filter(x => x.g.id !== state.myGuestId);
     const _oIdx = _othersOnly.findIndex(x => x.g.id === t.g.id);
-    const _openDiv = (_oIdx === 0 && _othersOnly.length > 0) ? '<div id="others-section">' : '';
+    const _openDiv = (_oIdx === 0 && _othersOnly.length > 0) ? '<div id="others-section" style="display:none">' : '';
     const _closeDiv = (_oIdx === _othersOnly.length - 1 && _othersOnly.length > 0) ? '</div>' : '';
     return _openDiv + `<div class="sum-card" style="margin-bottom:.4rem;padding:.65rem .85rem;${isManual?'border-color:var(--amber);border-style:dashed':''}">
       <div class="sum-hdr">
@@ -16705,23 +16713,28 @@ function openRevisarCuenta() {
     ).join('');
     const itemLines = soloLines + sharedLines || `<div style="font-size:12px;color:var(--t3);padding:2px 0">Sin platos asignados</div>`;
 
-    // Edit link — only for my card when payment not locked
+    // Edit link — only for my card when payment not locked.
+    // event.stopPropagation() para que no expanda el acordeón al pulsar Editar.
     const editLink = (isMe && !payLocked)
-      ? `<button onclick="document.getElementById('revisar-cuenta-screen').remove();goToRevisarCuenta()"
-           style="font-size:11px;color:var(--brand-d);background:none;border:1px solid var(--brand);border-radius:99px;padding:2px 9px;cursor:pointer;font-family:inherit;margin-left:auto;flex-shrink:0">✎ Editar</button>`
+      ? `<span onclick="event.stopPropagation();document.getElementById('revisar-cuenta-screen').remove();showEditRepartoModal()"
+           style="font-size:11px;color:var(--brand-d);background:none;border:1px solid var(--brand);border-radius:99px;padding:3px 10px;cursor:pointer;font-family:inherit;flex-shrink:0;display:inline-flex;align-items:center;line-height:1">✎ Editar</span>`
       : '';
 
-    return `<div style="border-radius:var(--r);margin-bottom:.5rem;overflow:hidden;border:${isMe?'2px solid var(--brand)':'1px solid var(--bd2)'}">
-      <!-- Clickable header: tap to expand/collapse -->
-      <button onclick="var c=this.nextElementSibling;var arr=this.querySelector('.rc-arr');var h=c.style.display==='none';c.style.display=h?'block':'none';arr.textContent=h?'⌄':'›';"
-        style="width:100%;display:flex;align-items:center;gap:10px;padding:.65rem .9rem;background:${isMe?'var(--brand-l)':'var(--card)'};border:none;cursor:pointer;font-family:inherit;text-align:left">
-        <div style="width:30px;height:30px;border-radius:50%;background:${c}22;border:2px solid ${c};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:700;color:${c}">${escHtml(t.g.name[0].toUpperCase())}</div>
+    // CRITICAL: usar <div role="button"> en vez de <button> porque el editLink
+    // es un elemento clickable hijo y los <button> no pueden anidarse (HTML inválido,
+    // el navegador auto-cierra el outer y el layout flex se rompe — eso causaba que
+    // "Editar" y el importe aparecieran en líneas separadas).
+    return `<div style="border-radius:var(--r);margin-bottom:.5rem;overflow:hidden;border:${isMe?'2px solid var(--brand)':'1px solid var(--bd2)'};background:${isMe?'var(--brand-l)':'var(--card)'}">
+      <div role="button" tabindex="0"
+        onclick="var c=this.nextElementSibling;var arr=this.querySelector('.rc-arr');var h=c.style.display==='none';c.style.display=h?'block':'none';arr.textContent=h?'⌄':'›';"
+        style="display:flex;align-items:center;gap:10px;padding:.7rem .9rem;cursor:pointer;user-select:none">
+        <div style="width:32px;height:32px;border-radius:50%;background:${c}22;border:2px solid ${c};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;font-weight:700;color:${c}">${escHtml(t.g.name[0].toUpperCase())}</div>
         <div style="font-size:14px;font-weight:${isMe?'700':'500'};color:var(--t1);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(t.g.name)}${isMe?' <span style="font-size:11px;color:var(--brand);font-weight:500">(tú)</span>':''}</div>
         ${editLink}
-        <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:${isMe?'var(--brand-d)':'var(--t1)'};flex-shrink:0">${fmt(t.total)}</div>
-        <span class="rc-arr" style="font-size:14px;color:var(--t3);flex-shrink:0">›</span>
-      </button>
-      <div style="display:none;padding:.35rem .9rem .6rem;background:${isMe?'var(--brand-l)':'var(--bg2)'};border-top:1px solid var(--bd2)">${itemLines}</div>
+        <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:${isMe?'var(--brand-d)':'var(--t1)'};flex-shrink:0;margin-left:.25rem">${fmt(t.total)}</div>
+        <span class="rc-arr" style="font-size:16px;color:var(--t3);flex-shrink:0;width:12px;text-align:center">›</span>
+      </div>
+      <div style="display:none;padding:.35rem .9rem .6rem;border-top:1px solid var(--bd2);background:${isMe?'rgba(255,255,255,.4)':'var(--bg2)'}">${itemLines}</div>
     </div>`;
   }).join('');
 
@@ -17386,7 +17399,8 @@ async function confirmEqualSplit() {
 function buildFullPayScreen() {
   const total = state.dishes.reduce((s, d) => s + parseFloat(d.price || 0), 0);
   const tipPct = (state.tipPercent || 0) / 100;
-  const tipAmt = total * tipPct;
+  const tipFixed = parseFloat(state.tipFixed) || 0;
+  const tipAmt = tipFixed > 0 ? tipFixed : total * tipPct;
   const grandTotal = total + tipAmt;
   const totals = calcTotals();
   const me = totals.find(t => t.g.id === state.myGuestId);
@@ -17450,7 +17464,8 @@ function buildFullPayScreen() {
 function buildEqualPayScreen(numPax) {
   const total = state.dishes.reduce((s, d) => s + parseFloat(d.price || 0), 0);
   const tipPct = (state.tipPercent || 0) / 100;
-  const tipAmt = total * tipPct;
+  const tipFixed = parseFloat(state.tipFixed) || 0;
+  const tipAmt = tipFixed > 0 ? tipFixed : total * tipPct;
   const grandTotal = total + tipAmt;
   const perPerson = grandTotal / numPax;
 
