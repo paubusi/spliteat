@@ -9412,8 +9412,8 @@ async function loadWaiterPlano(myRoomsByTable, myRooms, tablesById, dishesByRoom
 let _drawerRoomId = null;
 let _drawerRoom = null;
 
-async function openWaiterDrawer(roomId) {
-  console.log('[openWaiterDrawer] start', roomId);
+async function openWaiterDrawer(roomId, initialTab) {
+  console.log('[openWaiterDrawer] start', roomId, 'tab:', initialTab || 'pedido');
   _drawerRoomId = roomId;
 
   // Verificar que el elemento del drawer existe
@@ -9463,21 +9463,22 @@ async function openWaiterDrawer(roomId) {
   document.body.style.overflow = 'hidden';
   console.log('[openWaiterDrawer] drawer mostrado');
 
-  // Cargar pestaña por defecto: pedido
-  showDrawerTab('pedido');
+  // Cargar pestaña pasada como parámetro (default: pedido)
+  showDrawerTab(initialTab || 'pedido');
 
   // Suscribirse a cambios para actualizar en tiempo real
   try { subscribeDrawerRealtime(roomId); } catch(e) { console.warn('subscribeDrawerRealtime falló:', e); }
 }
 
 function closeWaiterDrawer() {
-  document.getElementById('waiter-table-drawer').style.display = 'none';
+  const drawerEl = document.getElementById('waiter-table-drawer');
+  if (drawerEl) drawerEl.style.display = 'none';
   document.body.style.overflow = '';
   if (_drawerSub) { try { sb.removeChannel(_drawerSub); } catch(e) {} _drawerSub = null; }
   _drawerRoomId = null;
   _drawerRoom = null;
-  // Refrescar lista al cerrar para reflejar cambios
-  loadWaiterMesas();
+  // NO llamar a loadWaiterMesas aquí — el realtime sub mantiene el plano actualizado.
+  // Llamarlo aquí provoca un bucle visible (vibración del plano) si algo cierra-reabre el drawer.
 }
 
 let _drawerSub = null;
@@ -9702,6 +9703,10 @@ async function renderDrawerCarta() {
     .eq('restaurant_id', _waiterRestaurantId).eq('active', true).order('sort_order');
 
   const cartaEl = document.getElementById('drawer-carta-list');
+  if (!cartaEl) {
+    console.warn('[renderDrawerCarta] drawer-carta-list no existe — drawer cerrado o tab cambiada');
+    return;
+  }
   if (!items?.length) {
     cartaEl.innerHTML = `<div class="empty" style="padding:1.5rem;text-align:center;color:var(--t3)">No hay platos en la carta</div>`;
     return;
@@ -9739,6 +9744,8 @@ async function renderDrawerCarta() {
       </div>`;
     });
   });
+  // Re-check porque async fetch puede haber pasado y el drawer podría haberse cerrado
+  if (!document.getElementById('drawer-carta-list')) return;
   cartaEl.innerHTML = html;
   refreshDrawerCart();
 }
@@ -10101,9 +10108,7 @@ function waiterGoToPedido(roomId) {
   console.log('[waiterGoToPedido]', roomId);
   if (!roomId) { notify('roomId vacío', 'error'); return; }
   if (typeof openWaiterDrawer !== 'function') { notify('openWaiterDrawer no definido', 'error'); return; }
-  openWaiterDrawer(roomId).then(() => {
-    if (typeof showDrawerTab === 'function') showDrawerTab('carta');
-  }).catch(err => {
+  openWaiterDrawer(roomId, 'carta').catch(err => {
     console.error('Error abriendo drawer:', err);
     notify('Error: ' + err.message, 'error');
   });
@@ -10113,9 +10118,7 @@ function waiterGoToCobrar(roomId) {
   console.log('[waiterGoToCobrar]', roomId);
   if (!roomId) { notify('roomId vacío', 'error'); return; }
   if (typeof openWaiterDrawer !== 'function') { notify('openWaiterDrawer no definido', 'error'); return; }
-  openWaiterDrawer(roomId).then(() => {
-    if (typeof showDrawerTab === 'function') showDrawerTab('cobrar');
-  }).catch(err => {
+  openWaiterDrawer(roomId, 'cobrar').catch(err => {
     console.error('Error abriendo drawer:', err);
     notify('Error: ' + err.message, 'error');
   });
