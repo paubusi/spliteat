@@ -11021,13 +11021,12 @@ function _subscribeStockeatAlerts(restId) {
   if (state._stockeatAlertsSub) {
     sb.removeChannel(state._stockeatAlertsSub).catch(() => {});
   }
+  // Realtime: escucha cambios en inventory (cantidad cambia → recalculamos alertas derivadas)
   state._stockeatAlertsSub = sb.channel('stockeat-alerts-' + restId)
     .on('postgres_changes', {
-      event: '*', schema: 'public', table: 'stock_alerts',
-      filter: 'restaurant_id=eq.' + restId
+      event: '*', schema: 'public', table: 'inventory'
     }, () => {
       _refreshStockeatAlertsBadge(restId);
-      // Refrescar UI completa para que las alertas se actualicen al instante
       if (typeof loadStockInventory === 'function') loadStockInventory();
     })
     .subscribe();
@@ -11038,10 +11037,12 @@ async function _refreshStockeatAlertsBadge(restId) {
   const badge = document.getElementById('stockeat-alerts-badge');
   if (!badge) return;
   try {
-    const { count } = await sb.from('stock_alerts')
-      .select('*', { count: 'exact', head: true })
+    // Contar ingredientes bajo mínimo (alertas derivadas en tiempo real)
+    const { data } = await sb.from('inventory_with_alerts')
+      .select('id')
       .eq('restaurant_id', restId)
-      .is('resolved_at', null);
+      .eq('is_low_stock', true);
+    const count = (data || []).length;
     if (count > 0) {
       badge.textContent = count;
       badge.style.display = 'inline-block';
@@ -19516,23 +19517,29 @@ async function loadStockInventory() {
   const restId = state.adminRestaurantId;
   if (!restId) return;
 
-  // 1) Ingredientes del restaurante
-  const { data: ings } = await sb.from('stock_ingredients')
-    .select('*').eq('restaurant_id', restId).eq('is_active', true).order('name');
+  // 1) Catálogo de ingredientes (sin stock — viene de inventory_with_alerts)
+  const { data: ings } = await sb.from('ingredients')
+    .select('*').eq('restaurant_id', restId).eq('is_archived', false).order('name');
   _stk.ingredients = ings || [];
 
-  // 2) Inventario actual
-  const { data: inv } = await sb.from('stock_inventory')
-    .select('*').eq('restaurant_id', restId);
+  // 2) Inventario con alertas (vista pre-calculada)
+  const { data: inv } = await sb.from('inventory_with_alerts')
+    .select('*').eq('restaurant_id', restId).order('ingredient_name');
   _stk.inventory = inv || [];
 
-  // 3) Alertas sin resolver
-  const { data: alerts } = await sb.from('stock_alerts')
-    .select('*').eq('restaurant_id', restId).is('resolved_at', null)
-    .order('created_at', { ascending: false }).limit(20);
+  // 3) Alertas: derivadas en tiempo real desde inventory_with_alerts (no hay tabla stock_alerts en el esquema nuevo)
+  const alerts = (inv || []).filter(i => i.is_low_stock).map(i => ({
+    id: 'low_' + i.id,
+    kind: i.is_out_of_stock ? 'oversold' : 'low_stock',
+    ingredient_id: i.ingredient_id,
+    ingredient_name: i.ingredient_name,
+    qty_on_hand: i.qty_on_hand,
+    alert_threshold: i.alert_threshold,
+    unit: i.unit
+  }));
 
-  renderStockKPIs(alerts || []);
-  renderStockAlerts(alerts || []);
+  renderStockKPIs(alerts);
+  renderStockAlerts(alerts);
   renderStockInventoryList();
 }
 
@@ -19540,14 +19547,12 @@ function renderStockKPIs(alerts) {
   const el = document.getElementById('stk-kpis');
   if (!el) return;
 
-  // Valor total del stock: sum(qty_on_hand * avg_cost) para cada ingrediente
-  const invByIng = new Map(_stk.inventory.map(i => [i.ingredient_id, i.qty_on_hand || 0]));
+  // Valor total del stock: sum(qty_on_hand × cost_per_unit)
   let totalValue = 0;
   let belowPar = 0;
-  _stk.ingredients.forEach(ing => {
-    const qty = invByIng.get(ing.id) || 0;
-    totalValue += qty * (parseFloat(ing.avg_cost) || 0);
-    if (ing.par_min > 0 && qty < ing.par_min) belowPar++;
+  _stk.inventory.forEach(row => {
+    totalValue += (row.qty_on_hand || 0) * (parseFloat(row.cost_per_unit) || 0);
+    if (row.is_low_stock) belowPar++;
   });
 
   const activeAlerts = alerts.length;
@@ -19578,98 +19583,67 @@ function renderStockAlerts(alerts) {
   const el = document.getElementById('stk-alerts');
   if (!el) return;
   if (!alerts.length) { el.innerHTML = ''; return; }
-  const ingMap = new Map(_stk.ingredients.map(i => [i.id, i]));
 
-  // Helper: convierte mensaje de alerta a algo útil. Las viejas tienen UUID;
-  // las nuevas usan action_suggested con menu_item_name.
-  const friendlyMessage = (a) => {
-    const ing = ingMap.get(a.ingredient_id);
-    // Caso 1: tiene action_suggested.menu_item_name → "Plato sin receta: <Nombre>"
-    if (a.action_suggested && a.action_suggested.menu_item_name) {
-      return { text: `Plato sin receta: ${a.action_suggested.menu_item_name}`, hint: 'Configúrale una receta para que descuente stock al venderse.' };
-    }
-    // Caso 2: ingredient bajo mínimo
-    if (a.kind === 'low_stock' && ing) {
-      return { text: `Stock bajo: ${ing.name}`, hint: 'Por debajo del mínimo configurado. Considera reponer.' };
-    }
-    if (a.kind === 'oversold' && ing) {
-      return { text: `Sobrevendido: ${ing.name}`, hint: 'Has servido más de lo que había en stock. Revisa el conteo.' };
-    }
-    if (a.kind === 'high_deviation' && ing) {
-      return { text: `Desviación alta: ${ing.name}`, hint: 'Diferencia significativa entre teórico y real. Posible merma o robo.' };
-    }
-    // Caso 3: alerta vieja con UUID en el mensaje → mensaje genérico
-    if (a.kind === 'missing_recipe' && a.message?.includes('dish ')) {
-      return { text: 'Plato vendido sin receta configurada', hint: 'Esta alerta es antigua. Resuélvela: las nuevas mostrarán el nombre del plato.' };
-    }
-    return { text: a.message || (ing ? ing.name : 'Alerta'), hint: '' };
-  };
-
+  // Las alertas son derivadas en tiempo real desde inventory_with_alerts.
+  // No tienen estado "resuelto" — se resuelven al reponer stock.
   el.innerHTML = `<div style="background:#FAECE7;border:1px solid rgba(216,90,48,.25);border-radius:var(--r);padding:.85rem 1rem">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
-      <span style="font-size:13px;font-weight:600;color:var(--accent)">⚠️ ${alerts.length} alerta${alerts.length > 1 ? 's' : ''} activa${alerts.length > 1 ? 's' : ''}</span>
-      ${alerts.length > 1 ? `<button onclick="resolveAllStockAlerts()" style="padding:3px 10px;border-radius:99px;border:1px solid rgba(216,90,48,.3);background:#fff;color:var(--accent);font-size:11px;cursor:pointer;font-family:inherit;font-weight:500">Resolver todas</button>` : ''}
+      <span style="font-size:13px;font-weight:600;color:var(--accent)">⚠️ ${alerts.length} ingrediente${alerts.length > 1 ? 's' : ''} bajo mínimo</span>
     </div>
     ${alerts.slice(0, 5).map(a => {
-      const fm = friendlyMessage(a);
+      const text = a.kind === 'oversold'
+        ? `Sin stock: ${escHtml(a.ingredient_name)}`
+        : `Stock bajo: ${escHtml(a.ingredient_name)} (${a.qty_on_hand} ${a.unit})`;
+      const hint = a.kind === 'oversold'
+        ? 'Has servido más de lo que había en stock. Repón o ajusta.'
+        : `Mínimo configurado: ${a.alert_threshold} ${a.unit}. Considera reponer.`;
       return `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;font-size:12px;color:var(--t1);gap:8px">
         <div style="flex:1;min-width:0">
-          <div>${escHtml(fm.text)}</div>
-          ${fm.hint ? `<div style="font-size:10px;color:var(--t2);margin-top:2px;line-height:1.3">${escHtml(fm.hint)}</div>` : ''}
+          <div>${text}</div>
+          <div style="font-size:10px;color:var(--t2);margin-top:2px;line-height:1.3">${hint}</div>
         </div>
-        <button onclick="resolveStockAlert('${a.id}')" style="padding:3px 9px;border-radius:99px;border:1px solid var(--bd2);background:#fff;font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0">Resolver</button>
+        <button onclick="openStockAdjustModal('${a.ingredient_id}')" style="padding:3px 9px;border-radius:99px;border:1px solid var(--bd2);background:#fff;font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0">Reponer</button>
       </div>`;
     }).join('')}
     ${alerts.length > 5 ? `<div style="font-size:11px;color:var(--t2);margin-top:6px">+ ${alerts.length - 5} más</div>` : ''}
   </div>`;
 }
 
+// Stub para no romper handlers antiguos. Las alertas son derivadas, no tienen estado.
 async function resolveAllStockAlerts() {
-  if (!(await confirmModal('¿Resolver todas las alertas activas?\nEsto las marca como vistas. Si los problemas persisten, volverán a aparecer.', { danger: false, confirmText: 'Resolver todas' }))) return;
-  const restId = state.adminRestaurantId;
-  if (!restId) return;
-  await sb.from('stock_alerts')
-    .update({ resolved_at: new Date().toISOString() })
-    .eq('restaurant_id', restId)
-    .is('resolved_at', null);
-  loadStockInventory();
-  notify('Alertas resueltas', 'success');
+  notify('Las alertas se resuelven al reponer el stock', 'info');
 }
-
 async function resolveStockAlert(alertId) {
-  if (!_assertStockeatEditable()) return;
-  await sb.from('stock_alerts').update({ resolved_at: new Date().toISOString() }).eq('id', alertId);
-  loadStockInventory();
+  notify('Las alertas se resuelven al reponer el stock', 'info');
 }
 
 function renderStockInventoryList() {
   const el = document.getElementById('stk-inv-list');
   if (!el) return;
-  if (!_stk.ingredients.length) {
+  if (!_stk.inventory.length) {
     el.innerHTML = `<div style="padding:2rem 1rem;text-align:center;color:var(--t2);font-size:13px">
-      Aún no hay ingredientes. <a href="#" onclick="event.preventDefault();showStockeatTab('ingredients')" style="color:var(--brand);text-decoration:underline">Crear el primero →</a>
+      Aún no hay inventario. <a href="#" onclick="event.preventDefault();showStockeatTab('ingredients')" style="color:var(--brand);text-decoration:underline">Crear ingredientes →</a>
     </div>`;
     return;
   }
-  const invByIng = new Map(_stk.inventory.map(i => [i.ingredient_id, i.qty_on_hand || 0]));
-  el.innerHTML = _stk.ingredients.map(ing => {
-    const qty = invByIng.get(ing.id) || 0;
-    const isLow = ing.par_min > 0 && qty < ing.par_min;
-    const isZero = qty <= 0;
+  el.innerHTML = _stk.inventory.map(row => {
+    const qty = row.qty_on_hand || 0;
+    const isZero = row.is_out_of_stock;
+    const isLow = row.is_low_stock && !isZero;
     return `<div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-bottom:1px solid var(--bd)">
       <div style="flex:1;min-width:0">
-        <div style="font-size:14px;font-weight:500;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(ing.name)}</div>
+        <div style="font-size:14px;font-weight:500;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(row.ingredient_name)}</div>
         <div style="font-size:11px;color:var(--t3);margin-top:2px">
-          ${ing.par_min > 0 ? 'Mínimo: ' + ing.par_min + ' ' + ing.base_unit + ' · ' : ''}Coste: €${(parseFloat(ing.avg_cost) || 0).toFixed(3)}/${ing.base_unit}
+          ${row.alert_threshold > 0 ? 'Mínimo: ' + row.alert_threshold + ' ' + row.unit + ' · ' : ''}Coste: €${(parseFloat(row.cost_per_unit) || 0).toFixed(3)}/${row.unit}
         </div>
       </div>
       <div style="text-align:right;margin-left:1rem">
         <div style="font-size:15px;font-weight:600;color:${isZero ? 'var(--accent)' : isLow ? 'var(--amber)' : 'var(--t1)'};font-family:'Fraunces',serif">
-          ${qty.toLocaleString('es-ES', {maximumFractionDigits:2})} ${ing.base_unit}
+          ${qty.toLocaleString('es-ES', {maximumFractionDigits:2})} ${row.unit}
         </div>
-        ${isLow ? `<div style="font-size:10px;color:var(--accent);font-weight:500">Bajo mínimo</div>` : ''}
+        ${isZero ? `<div style="font-size:10px;color:var(--accent);font-weight:500">Sin stock</div>` : isLow ? `<div style="font-size:10px;color:var(--amber);font-weight:500">Bajo mínimo</div>` : ''}
       </div>
-      <button onclick="openStockAdjustModal('${ing.id}')" style="margin-left:.75rem;padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0">Ajustar</button>
+      <button onclick="openStockAdjustModal('${row.ingredient_id}')" style="margin-left:.75rem;padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0">Ajustar</button>
     </div>`;
   }).join('');
 }
@@ -19678,8 +19652,8 @@ function renderStockInventoryList() {
 async function loadStockIngredients() {
   const restId = state.adminRestaurantId;
   if (!restId) return;
-  const { data } = await sb.from('stock_ingredients')
-    .select('*').eq('restaurant_id', restId).order('name');
+  const { data } = await sb.from('ingredients')
+    .select('*').eq('restaurant_id', restId).eq('is_archived', false).order('name');
   _stk.ingredients = data || [];
   renderIngredientsList();
 }
@@ -19694,11 +19668,11 @@ function renderIngredientsList() {
     return;
   }
   el.innerHTML = _stk.ingredients.map(ing => `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-bottom:1px solid var(--bd);${ing.is_active === false ? 'opacity:.5' : ''}">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1rem;border-bottom:1px solid var(--bd)">
       <div style="flex:1;min-width:0">
         <div style="font-size:14px;font-weight:500;color:var(--t1)">${escHtml(ing.name)}</div>
         <div style="font-size:11px;color:var(--t3);margin-top:2px">
-          ${ing.base_unit} · €${(parseFloat(ing.avg_cost) || 0).toFixed(3)}/${ing.base_unit}${ing.par_min > 0 ? ' · min ' + ing.par_min : ''}
+          ${ing.unit} · €${(parseFloat(ing.cost_per_unit) || 0).toFixed(3)}/${ing.unit}${ing.supplier_name ? ' · ' + escHtml(ing.supplier_name) : ''}
         </div>
       </div>
       <button onclick="openIngredientModal('${ing.id}')" style="padding:6px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);font-size:12px;cursor:pointer;font-family:inherit;margin-left:.5rem">Editar</button>
