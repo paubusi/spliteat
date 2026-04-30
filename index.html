@@ -3098,6 +3098,16 @@
         </div>
         <div class="field"><label>Coste (€) <span style="font-weight:400;color:var(--t3)">(opcional, para margen)</span></label><input id="edit-item-cost" type="number" step="0.01" min="0" placeholder="0.00"></div>
         <div class="field"><label>Tiempo de preparación (min)</label><input id="edit-item-prep" type="number" min="1" max="120" placeholder="ej. 15"></div>
+        <!-- ── VARIANTS EDITOR (Turno 3.5) ── -->
+        <div style="margin:.85rem 0;padding:.75rem 1rem;background:var(--bg2);border-radius:var(--r-sm);border:1px solid var(--bd2)">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
+            <div style="font-size:14px;font-weight:600;color:var(--t1)">Variantes</div>
+            <button type="button" onclick="addVariantRow()" style="font-size:11px;padding:4px 10px;border-radius:99px;border:1px solid var(--brand);background:none;color:var(--brand-d);cursor:pointer;font-family:inherit;font-weight:500">+ Añadir</button>
+          </div>
+          <div style="font-size:11px;color:var(--t3);margin-bottom:.5rem;line-height:1.4">Solo si el plato tiene varias opciones (Copa/Botella, Media/Entera). Si no hay variantes, se usa el precio base.</div>
+          <div id="edit-item-variants-list" style="display:flex;flex-direction:column;gap:.4rem"></div>
+        </div>
+        <!-- /VARIANTS EDITOR -->
         <!-- #12c: Plato normalmente compartido -->
         <div style="display:flex;align-items:flex-start;gap:12px;padding:.85rem 1rem;background:var(--bg2);border-radius:var(--r-sm);margin-bottom:.65rem;border:1px solid var(--bd2)">
           <input type="checkbox" id="edit-item-shared" style="width:18px;height:18px;margin-top:2px;accent-color:var(--brand);flex-shrink:0">
@@ -11151,41 +11161,52 @@ function renderMobileCartaTab() {
 async function loadAdminCartaMobile() {
   const el = document.getElementById('admin-carta-list-mobile');
   if (!el) return;
-  const { data } = await sb.from('menu_items').select('*')
-    .eq('restaurant_id', state.adminRestaurantId).order('category').order('name');
-  const cats = ['entrantes','principales','postres','bebidas','otros'];
+  const cats = await loadAdminCategories(true);
+  const { data } = await sb.from('menu_items')
+    .select('*, menu_item_variants(id,name,price,sort_order,is_default)')
+    .eq('restaurant_id', state.adminRestaurantId).order('sort_order').order('name');
   const grouped = {};
   (data || []).forEach(item => {
-    const cat = item.category || 'otros';
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(item);
+    const cid = item.category_id || '__sin__';
+    if (!grouped[cid]) grouped[cid] = [];
+    grouped[cid].push(item);
   });
+  const renderItem = (item) => {
+    const variantsHtml = (item.menu_item_variants && item.menu_item_variants.length)
+      ? `<div style="font-size:11px;color:var(--blue);margin-top:2px">↳ ${item.menu_item_variants.sort((a,b)=>a.sort_order-b.sort_order).map(v => escHtml(v.name)+' '+fmt(parseFloat(v.price))).join(' · ')}</div>`
+      : '';
+    const photoEl = item.photo_url
+      ? `<div style="position:relative;flex-shrink:0;width:44px;height:44px">
+          <img src="${item.photo_url}" style="width:44px;height:44px;border-radius:var(--r-sm);object-fit:cover">
+          <button onclick="deleteDishPhoto('${item.id}',event)" style="position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:#E24B4A;border:none;color:#fff;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+         </div>`
+      : `<div onclick="uploadDishPhoto('${item.id}')" style="width:44px;height:44px;border-radius:var(--r-sm);background:var(--bg2);border:1px dashed var(--bd2);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer"><span style="font-size:16px">📷</span></div>`;
+    return `<div class="card" id="mitem-${item.id}" style="margin-bottom:.4rem;${!item.active?'opacity:.6;':''}">
+      <div style="display:flex;align-items:center;gap:8px">
+        ${photoEl}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:500">${escHtml(item.name)}</div>
+          <div style="font-size:12px;color:var(--t2)">${fmt(parseFloat(item.price))} · ${item.is_shared?'🤝':'👤'}${!item.active?' · <span style="color:var(--accent);font-size:11px">Inactivo</span>':''}</div>
+          ${variantsHtml}
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          <button onclick="openEditItem('${item.id}')" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer">✏️</button>
+          <div class="toggle-track ${item.active?'on':''}" onclick="toggleItemActiveMobile('${item.id}',${!item.active},this)"><div class="toggle-thumb"></div></div>
+          <button onclick="deleteItemMobile('${item.id}')" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:14px;cursor:pointer">✕</button>
+        </div>
+      </div>
+    </div>`;
+  };
   let html = '';
   cats.forEach(cat => {
-    if (!grouped[cat]) return;
-    html += `<div class="sec-label" style="text-transform:capitalize">${cat}</div>`;
-    grouped[cat].forEach(item => {
-      const photoEl = item.photo_url
-        ? `<div style="position:relative;flex-shrink:0;width:44px;height:44px">
-            <img src="${item.photo_url}" style="width:44px;height:44px;border-radius:var(--r-sm);object-fit:cover">
-            <button onclick="deleteDishPhoto('${item.id}',event)" style="position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:#E24B4A;border:none;color:#fff;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
-           </div>`
-        : `<div onclick="uploadDishPhoto('${item.id}')" style="width:44px;height:44px;border-radius:var(--r-sm);background:var(--bg2);border:1px dashed var(--bd2);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer"><span style="font-size:16px">📷</span></div>`;
-      html += `<div class="card" id="mitem-${item.id}" style="margin-bottom:.4rem;${!item.active?'opacity:.6;':''}">
-        <div style="display:flex;align-items:center;gap:8px">
-          ${photoEl}
-          <div style="flex:1;min-width:0">
-            <div style="font-size:14px;font-weight:500">${escHtml(item.name)}</div>
-            <div style="font-size:12px;color:var(--t2)">${fmt(parseFloat(item.price))} · ${item.is_shared?'🤝':'👤'}${!item.active?' · <span style="color:var(--accent);font-size:11px">Inactivo</span>':''}</div>
-          </div>
-          <div style="display:flex;gap:4px;flex-shrink:0">
-            <div class="toggle-track ${item.active?'on':''}" onclick="toggleItemActiveMobile('${item.id}',${!item.active},this)"><div class="toggle-thumb"></div></div>
-            <button onclick="deleteItemMobile('${item.id}')" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:14px;cursor:pointer">✕</button>
-          </div>
-        </div>
-      </div>`;
-    });
+    if (!grouped[cat.id]) return;
+    html += `<div class="sec-label" style="text-transform:capitalize">${cat.icon ? cat.icon + ' ' : ''}${escHtml(cat.name)}</div>`;
+    grouped[cat.id].forEach(item => { html += renderItem(item); });
   });
+  if (grouped['__sin__']?.length) {
+    html += `<div class="sec-label" style="color:var(--accent)">⚠ Sin categoría</div>`;
+    grouped['__sin__'].forEach(item => { html += renderItem(item); });
+  }
   el.innerHTML = html || '<div class="empty"><div class="empty-text">No hay platos.</div></div>';
 }
 
@@ -11200,8 +11221,9 @@ async function saveMenuItemMobile() {
   const cat = document.getElementById('aim-cat')?.value;
   const isShared = document.getElementById('aim-shared-track')?.classList.contains('on');
   if (!name || isNaN(price) || price <= 0) { notify('Rellena nombre y precio.'); return; }
+  const categoryId = await _ensureCategory(state.adminRestaurantId, cat);
   const { error } = await sb.from('menu_items').insert({
-    restaurant_id: state.adminRestaurantId, name, price, category: cat, is_shared: isShared, active: true
+    restaurant_id: state.adminRestaurantId, name, price, category_id: categoryId, is_shared: isShared, active: true
   });
   if (error) { notify('Error: ' + (error.message || error)); return; }
   document.getElementById('add-item-form-mobile').style.display = 'none';
@@ -12125,30 +12147,73 @@ async function loadKPIPlatos() {
 // ══════════════════════════════════════════════════════
 // ADMIN CARTA
 // ══════════════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════════
+// CATEGORIES HELPER (Turno 3.5) — resolver category_id por nombre
+// ══════════════════════════════════════════════════════════════════
+async function _ensureCategory(restaurantId, name) {
+  if (!name) name = 'Otros';
+  // Normalizar para matching (Entrantes / entrantes / ENTRANTES → mismo)
+  const normalized = String(name).trim();
+  const displayName = normalized.charAt(0).toUpperCase() + normalized.slice(1).toLowerCase();
+  // Buscar existente (case-insensitive)
+  const { data: existing } = await sb.from('categories').select('id,name')
+    .eq('restaurant_id', restaurantId)
+    .ilike('name', displayName).maybeSingle();
+  if (existing) return existing.id;
+  // Crear
+  const sortOrderMap = { 'Entrantes': 10, 'Principales': 20, 'Postres': 30, 'Bebidas': 40 };
+  const { data: created, error } = await sb.from('categories').insert({
+    restaurant_id: restaurantId,
+    name: displayName,
+    sort_order: sortOrderMap[displayName] || 50
+  }).select('id').single();
+  if (error) { console.error('[_ensureCategory]', error); return null; }
+  return created.id;
+}
+
+// Cache local de categorías para el restaurante admin
+let _adminCategoriesCache = null;
+async function loadAdminCategories(force = false) {
+  if (_adminCategoriesCache && !force) return _adminCategoriesCache;
+  const { data } = await sb.from('categories').select('*')
+    .eq('restaurant_id', state.adminRestaurantId)
+    .order('sort_order').order('name');
+  _adminCategoriesCache = data || [];
+  return _adminCategoriesCache;
+}
+
 async function loadAdminCarta() {
   const el = document.getElementById('admin-carta-list');
   if (!el) return;
   el.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--t3);font-size:13px">Cargando...</div>';
 
-  const { data, error } = await sb.from('menu_items').select('*')
+  // Cargar categorías + items con join
+  const cats = await loadAdminCategories(true);
+  const { data, error } = await sb.from('menu_items')
+    .select('*, menu_item_variants(id,name,price,sort_order,is_default)')
     .eq('restaurant_id', state.adminRestaurantId)
-    .order('category').order('name');
+    .order('sort_order').order('name');
 
   if (error) { el.innerHTML = '<div class="empty"><div class="empty-text">Error cargando carta.</div></div>'; return; }
 
-  const cats = ['entrantes','principales','postres','bebidas','otros'];
+  // Agrupar por category_id
   const grouped = {};
   (data || []).forEach(item => {
-    const cat = item.category || 'otros';
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(item);
+    const cid = item.category_id || '__sin__';
+    if (!grouped[cid]) grouped[cid] = [];
+    grouped[cid].push(item);
   });
 
   let html = '';
+  // Iterar categorías en orden
   cats.forEach(cat => {
-    if (!grouped[cat]) return;
-    html += `<div class="sec-label" style="text-transform:capitalize;margin-top:.5rem">${cat}</div>`;
-    grouped[cat].forEach(item => {
+    if (!grouped[cat.id]) return;
+    html += `<div class="sec-label" style="text-transform:capitalize;margin-top:.5rem">${cat.icon ? cat.icon + ' ' : ''}${escHtml(cat.name)}</div>`;
+    grouped[cat.id].forEach(item => {
+      const variantsHtml = (item.menu_item_variants && item.menu_item_variants.length)
+        ? `<div style="font-size:11px;color:var(--blue);margin-top:2px">↳ ${item.menu_item_variants.map(v => escHtml(v.name)+' '+fmt(parseFloat(v.price))).join(' · ')}</div>`
+        : '';
       const photoHtml = item.photo_url
         ? `<div style="position:relative;flex-shrink:0;width:48px;height:48px">
             <img src="${item.photo_url}" style="width:48px;height:48px;border-radius:var(--r-sm);object-fit:cover" loading="lazy">
@@ -12162,6 +12227,7 @@ async function loadAdminCarta() {
           <div style="flex:1;min-width:0">
             <div style="font-size:14px;font-weight:${item.active ? '500' : '400'}">${escHtml(item.name)}</div>
             <div style="font-size:12px;color:var(--t2)">${fmt(parseFloat(item.price))} · ${item.is_shared ? '🤝' : '👤'}${item.prep_time_minutes ? ' · ⏱ ' + item.prep_time_minutes + ' min' : ''}${!item.active ? ' · <span style="color:var(--accent);font-size:11px">Inactivo</span>' : ''}</div>
+            ${variantsHtml}
           </div>
           <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
             <div class="toggle-track ${item.active ? 'on' : ''}" onclick="toggleItemActive('${item.id}',${!item.active},this)" style="cursor:pointer">
@@ -12173,6 +12239,21 @@ async function loadAdminCarta() {
       </div>`;
     });
   });
+  // Items sin categoría al final
+  if (grouped['__sin__']?.length) {
+    html += `<div class="sec-label" style="margin-top:.5rem;color:var(--t3)">Sin categoría</div>`;
+    grouped['__sin__'].forEach(item => {
+      html += `<div class="card" id="item-card-${item.id}" style="margin-bottom:.4rem;padding:.65rem .75rem">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px">${escHtml(item.name)}</div>
+            <div style="font-size:11px;color:var(--accent)">⚠ Asigna una categoría</div>
+          </div>
+          <button onclick="openEditItem('${item.id}')" style="font-size:11px;padding:4px 10px;border-radius:99px;border:1px solid var(--brand);background:none;color:var(--brand-d);cursor:pointer">Editar</button>
+        </div>
+      </div>`;
+    });
+  }
 
   el.innerHTML = html || '<div class="empty"><div class="empty-text">No hay platos. Añade el primero.</div></div>';
 }
@@ -12315,10 +12396,16 @@ async function processCartaPhoto(input) {
 async function confirmCartaImport() {
   const selected = _importedDishes.filter((_, i) => document.getElementById(`imp-${i}`)?.checked);
   if (!selected.length) { notify('Selecciona al menos un plato', 'info'); return; }
+  // Resolver category_id por cada categoría única antes del insert
+  const uniqueCats = [...new Set(selected.map(p => p.categoria || 'Otros'))];
+  const catIdMap = {};
+  for (const cat of uniqueCats) {
+    catIdMap[cat] = await _ensureCategory(state.adminRestaurantId, cat);
+  }
   const inserts = selected.map(p => ({
     restaurant_id: state.adminRestaurantId,
     name: p.nombre, price: p.precio || 0,
-    category: p.categoria || 'otros',
+    category_id: catIdMap[p.categoria || 'Otros'],
     is_shared: p.compartido || false, active: true
   }));
   const { error } = await sb.from('menu_items').insert(inserts);
@@ -12352,8 +12439,9 @@ async function saveMenuItemInline() {
   const isShared = document.getElementById('ai-shared-track')?.classList.contains('on');
   const requiresCookingPoint = document.getElementById('ai-cooking-track')?.classList.contains('on');
   if (!name || isNaN(price)) { notify('Nombre y precio son obligatorios', 'error'); return; }
+  const categoryId = await _ensureCategory(state.adminRestaurantId, cat);
   const { error } = await sb.from('menu_items').insert({
-    restaurant_id: state.adminRestaurantId, name, price, category: cat,
+    restaurant_id: state.adminRestaurantId, name, price, category_id: categoryId,
     prep_time_minutes: prep, is_shared: isShared, requires_cooking_point: requiresCookingPoint, active: true
   });
   if (error) { notify('Error: ' + error.message); return; }
@@ -12366,13 +12454,14 @@ async function saveMenuItemInline() {
 async function loadAdminCartaInline() {
   const el = document.getElementById('ajustes-carta-list');
   if (!el) { loadAdminCarta(); return; }
-  const { data } = await sb.from('menu_items').select('*')
-    .eq('restaurant_id', state.adminRestaurantId).order('category').order('name');
+  const cats = await loadAdminCategories(true);
+  const { data } = await sb.from('menu_items')
+    .select('*, menu_item_variants(id,name,price,sort_order,is_default)')
+    .eq('restaurant_id', state.adminRestaurantId).order('sort_order').order('name');
   if (!data?.length) { el.innerHTML = '<div class="empty"><div class="empty-text">No hay platos. Añade el primero.</div></div>'; return; }
 
-  const cats = ['entrantes','principales','postres','bebidas','otros'];
   const grouped = {};
-  data.forEach(item => { const c = item.category||'otros'; if(!grouped[c]) grouped[c]=[]; grouped[c].push(item); });
+  data.forEach(item => { const c = item.category_id || '__sin__'; if(!grouped[c]) grouped[c]=[]; grouped[c].push(item); });
 
   const disabled = data.filter(d => !d.active).length;
   let html = '';
@@ -12380,30 +12469,39 @@ async function loadAdminCartaInline() {
     html += `<div style="background:#FAEEDA;border:1px solid #E5A85A;border-radius:var(--r-sm);padding:.65rem .85rem;font-size:12px;color:#854F0B;margin-bottom:.75rem">
       ⚠️ ${disabled} plato${disabled>1?'s':''} desactivado${disabled>1?'s':''}. Reactívalos cuando tengas disponibilidad.</div>`;
   }
-  cats.forEach(cat => {
-    if (!grouped[cat]) return;
-    html += `<div class="sec-label" style="text-transform:capitalize;margin-top:.5rem">${cat}</div>`;
-    grouped[cat].forEach(item => {
-      const marginStr = item.cost_price ? ` · 💹 ${Math.round((1-item.cost_price/item.price)*100)}%` : '';
-      const allergenHtml = item.allergens?.length ? `<details style="margin-top:.35rem"><summary style="font-size:11px;color:var(--t3);cursor:pointer">Alérgenos (${item.allergens.length})</summary><div style="margin-top:.35rem;line-height:2">${renderAllergenPicker(item.allergens,'${item.id}')}</div></details>` : `<details style="margin-top:.35rem"><summary style="font-size:11px;color:var(--t3);cursor:pointer">+ Añadir alérgenos</summary><div style="margin-top:.35rem;line-height:2">${renderAllergenPicker([],'${item.id}')}</div></details>`;
-      html += `<div class="card" style="margin-bottom:.4rem;padding:.65rem .75rem;${!item.active?'opacity:.6':''}">
-        <div style="display:flex;align-items:center;gap:8px">
-          ${item.photo_url ? `<img src="${item.photo_url}" style="width:40px;height:40px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0">` : ''}
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:500">${escHtml(item.name)}${item.requires_cooking_point?'<span style="font-size:10px;background:#FFF3E0;color:#8B5E3C;border-radius:99px;padding:1px 6px;margin-left:4px;border:1px solid #E8C9A0">Punto</span>':''}</div>
-            <div style="font-size:11px;color:var(--t2)">${fmt(parseFloat(item.price))}${item.prep_time_minutes?' · ⏱'+item.prep_time_minutes+'m':''}${marginStr}${!item.active?' · <span style="color:var(--accent)">Inactivo</span>':''}</div>
-            ${item.allergens?.length ? getAllergenIcons(item.allergens) : ''}
-          </div>
-          <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
-            <button onclick="openEditItem('${item.id}')" title="Editar plato"
-              style="width:24px;height:24px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer">✏️</button>
-            <div class="toggle-track ${item.active?'on':''}" onclick="toggleItemActive('${item.id}',${!item.active},this)"><div class="toggle-thumb"></div></div>
-            <button onclick="deleteItem('${item.id}')" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer">✕</button>
-          </div>
+  const renderItem = (item) => {
+    const marginStr = item.cost_price ? ` · 💹 ${Math.round((1-item.cost_price/item.price)*100)}%` : '';
+    const variantsHtml = (item.menu_item_variants && item.menu_item_variants.length)
+      ? `<div style="font-size:11px;color:var(--blue);margin-top:2px">↳ ${item.menu_item_variants.sort((a,b)=>a.sort_order-b.sort_order).map(v => escHtml(v.name)+' '+fmt(parseFloat(v.price))).join(' · ')}</div>`
+      : '';
+    const allergenHtml = item.allergens?.length ? `<details style="margin-top:.35rem"><summary style="font-size:11px;color:var(--t3);cursor:pointer">Alérgenos (${item.allergens.length})</summary><div style="margin-top:.35rem;line-height:2">${renderAllergenPicker(item.allergens,'${item.id}')}</div></details>` : `<details style="margin-top:.35rem"><summary style="font-size:11px;color:var(--t3);cursor:pointer">+ Añadir alérgenos</summary><div style="margin-top:.35rem;line-height:2">${renderAllergenPicker([],'${item.id}')}</div></details>`;
+    return `<div class="card" style="margin-bottom:.4rem;padding:.65rem .75rem;${!item.active?'opacity:.6':''}">
+      <div style="display:flex;align-items:center;gap:8px">
+        ${item.photo_url ? `<img src="${item.photo_url}" style="width:40px;height:40px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0">` : ''}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500">${escHtml(item.name)}${item.requires_cooking_point?'<span style="font-size:10px;background:#FFF3E0;color:#8B5E3C;border-radius:99px;padding:1px 6px;margin-left:4px;border:1px solid #E8C9A0">Punto</span>':''}</div>
+          <div style="font-size:11px;color:var(--t2)">${fmt(parseFloat(item.price))}${item.prep_time_minutes?' · ⏱'+item.prep_time_minutes+'m':''}${marginStr}${!item.active?' · <span style="color:var(--accent)">Inactivo</span>':''}</div>
+          ${variantsHtml}
+          ${item.allergens?.length ? getAllergenIcons(item.allergens) : ''}
         </div>
-      </div>`;
-    });
+        <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+          <button onclick="openEditItem('${item.id}')" title="Editar plato"
+            style="width:24px;height:24px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer">✏️</button>
+          <div class="toggle-track ${item.active?'on':''}" onclick="toggleItemActive('${item.id}',${!item.active},this)"><div class="toggle-thumb"></div></div>
+          <button onclick="deleteItem('${item.id}')" style="width:24px;height:24px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer">✕</button>
+        </div>
+      </div>
+    </div>`;
+  };
+  cats.forEach(cat => {
+    if (!grouped[cat.id]) return;
+    html += `<div class="sec-label" style="text-transform:capitalize;margin-top:.5rem">${cat.icon ? cat.icon + ' ' : ''}${escHtml(cat.name)}</div>`;
+    grouped[cat.id].forEach(item => { html += renderItem(item); });
   });
+  if (grouped['__sin__']?.length) {
+    html += `<div class="sec-label" style="margin-top:.5rem;color:var(--accent)">⚠ Sin categoría</div>`;
+    grouped['__sin__'].forEach(item => { html += renderItem(item); });
+  }
   el.innerHTML = html;
 }
 
@@ -18557,18 +18655,62 @@ let _editItemId = null;
 
 async function openEditItem(itemId) {
   _editItemId = itemId;
-  const { data: item } = await sb.from('menu_items').select('*').eq('id', itemId).maybeSingle();
+  const { data: item } = await sb.from('menu_items')
+    .select('*, menu_item_variants(id,name,price,sort_order,is_default)')
+    .eq('id', itemId).maybeSingle();
   if (!item) return;
   document.getElementById('edit-item-name').value = item.name || '';
   document.getElementById('edit-item-price').value = item.price || '';
   document.getElementById('edit-item-cost').value = item.cost_price || '';
   document.getElementById('edit-item-prep').value = item.prep_time_minutes || '';
-  document.getElementById('edit-item-category').value = item.category || 'otros';
+  // Resolver categoría desde category_id (para el select que usa nombres)
+  const sel = document.getElementById('edit-item-category');
+  if (sel && item.category_id) {
+    const cats = await loadAdminCategories();
+    const cat = cats.find(c => c.id === item.category_id);
+    sel.value = cat ? cat.name.toLowerCase() : 'otros';
+  } else if (sel) {
+    sel.value = 'otros';
+  }
   document.getElementById('edit-item-shared').checked = !!item.is_shared;
   document.getElementById('edit-item-postre').checked = !!item.can_go_with_postre;
   document.getElementById('edit-item-cooking').checked = !!item.requires_cooking_point;
+  // Cargar variantes existentes
+  _loadVariantsIntoEditor(item.menu_item_variants || []);
   document.getElementById('edit-item-err').style.display = 'none';
   document.getElementById('edit-item-modal').style.display = 'flex';
+}
+
+// ── VARIANTS EDITOR HELPERS ──
+function _loadVariantsIntoEditor(variants) {
+  const list = document.getElementById('edit-item-variants-list');
+  if (!list) return;
+  list.innerHTML = '';
+  const sorted = [...variants].sort((a,b) => (a.sort_order||0) - (b.sort_order||0));
+  sorted.forEach(v => _appendVariantRow(v));
+}
+
+function _appendVariantRow(v) {
+  const list = document.getElementById('edit-item-variants-list');
+  if (!list) return;
+  const idx = list.children.length;
+  const row = document.createElement('div');
+  row.className = 'variant-row';
+  row.dataset.variantId = v?.id || '';
+  row.style.cssText = 'display:flex;gap:.4rem;align-items:center';
+  row.innerHTML = `
+    <input type="text" placeholder="Nombre (Copa, Media...)" value="${v ? escHtml(v.name) : ''}"
+      class="v-name" style="flex:2;padding:7px 10px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-size:13px;font-family:inherit;background:var(--card)">
+    <input type="number" step="0.01" min="0" placeholder="0.00" value="${v?.price ?? ''}"
+      class="v-price" style="flex:1;padding:7px 10px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-size:13px;font-family:inherit;background:var(--card);text-align:right">
+    <span style="font-size:12px;color:var(--t3)">€</span>
+    <button type="button" onclick="this.parentElement.remove()" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:13px;cursor:pointer;flex-shrink:0">✕</button>
+  `;
+  list.appendChild(row);
+}
+
+function addVariantRow() {
+  _appendVariantRow(null);
 }
 
 function closeEditItem() {
@@ -18585,13 +18727,24 @@ async function saveEditItem() {
   if (!name) { errEl.textContent = 'El nombre es obligatorio.'; errEl.style.display = 'block'; return; }
   if (isNaN(price) || price < 0) { errEl.textContent = 'Precio inválido.'; errEl.style.display = 'block'; return; }
 
+  // Recoger variantes del editor
+  const variantRows = Array.from(document.querySelectorAll('#edit-item-variants-list .variant-row'));
+  const variantsData = variantRows.map((row, idx) => ({
+    id: row.dataset.variantId || null,
+    name: row.querySelector('.v-name').value.trim(),
+    price: parseFloat(row.querySelector('.v-price').value),
+    sort_order: idx * 10
+  })).filter(v => v.name && !isNaN(v.price) && v.price >= 0);
+
+  const categoryId = await _ensureCategory(state.adminRestaurantId, document.getElementById('edit-item-category').value);
   const updates = {
     name,
     price,
-    category: document.getElementById('edit-item-category').value,
+    category_id: categoryId,
     is_shared: document.getElementById('edit-item-shared').checked,
     can_go_with_postre: document.getElementById('edit-item-postre').checked,
     requires_cooking_point: document.getElementById('edit-item-cooking').checked,
+    has_variants: variantsData.length > 0
   };
   const costVal = parseFloat(document.getElementById('edit-item-cost').value);
   if (!isNaN(costVal) && costVal > 0) updates.cost_price = costVal;
@@ -18601,8 +18754,24 @@ async function saveEditItem() {
   const { error } = await sb.from('menu_items').update(updates).eq('id', _editItemId);
   if (error) { errEl.textContent = 'Error al guardar: ' + error.message; errEl.style.display = 'block'; return; }
 
+  // Sincronizar variantes: borrar todas y reinsertar (suficiente para volumen esperado)
+  await sb.from('menu_item_variants').delete().eq('menu_item_id', _editItemId);
+  if (variantsData.length > 0) {
+    const inserts = variantsData.map((v, idx) => ({
+      menu_item_id: _editItemId,
+      name: v.name,
+      price: v.price,
+      sort_order: v.sort_order,
+      is_default: idx === 0
+    }));
+    const { error: vErr } = await sb.from('menu_item_variants').insert(inserts);
+    if (vErr) { errEl.textContent = 'Error guardando variantes: ' + vErr.message; errEl.style.display = 'block'; return; }
+  }
+
   closeEditItem();
   loadAdminCartaInline();
+  loadAdminCartaMobile();
+  loadAdminCarta();
   notify('Plato actualizado ✓', 'success');
 }
 
