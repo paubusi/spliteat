@@ -4628,7 +4628,7 @@ function renderCarta() {
   let html = '';
   cats.forEach(cat => {
     if (!grouped[cat.id]) return;
-    html += `<div class="sec-label" style="text-transform:capitalize">${cat.icon ? cat.icon + ' ' : ''}${escHtml(cat.name)}</div><div style="margin-bottom:.5rem">`;
+    html += `<div class="sec-label" style="text-transform:capitalize">${escHtml(cat.name)}</div><div style="margin-bottom:.5rem">`;
     grouped[cat.id].forEach(item => {
       const dishes = itemDishes[item.id] || [];
       const count = dishes.length;
@@ -11304,7 +11304,7 @@ async function loadAdminCartaMobile() {
   let html = '';
   cats.forEach(cat => {
     if (!grouped[cat.id]) return;
-    html += `<div class="sec-label" style="text-transform:capitalize">${cat.icon ? cat.icon + ' ' : ''}${escHtml(cat.name)}</div>`;
+    html += `<div class="sec-label" style="text-transform:capitalize">${escHtml(cat.name)}</div>`;
     grouped[cat.id].forEach(item => { html += renderItem(item); });
   });
   if (grouped['__sin__']?.length) {
@@ -12329,7 +12329,7 @@ async function _populateCategorySelect(selectEl, currentName) {
   const optionsHtml = cats.length
     ? cats.map(c => {
         const sel = currentName && c.name.toLowerCase() === String(currentName).toLowerCase() ? ' selected' : '';
-        return `<option value="${escHtml(c.name)}"${sel}>${c.icon ? c.icon + ' ' : ''}${escHtml(c.name)}</option>`;
+        return `<option value="${escHtml(c.name)}"${sel}>${escHtml(c.name)}</option>`;
       }).join('')
     : '<option value="">(Sin categorías — crea una primero)</option>';
   selectEl.innerHTML = optionsHtml;
@@ -12459,8 +12459,8 @@ async function loadCategoriesEditor() {
       : `${c.course_order}º curso`;
     html += `<div class="card" style="margin-bottom:.4rem;padding:.7rem .85rem;${!c.is_visible?'opacity:.6':''}">
       <div style="display:flex;align-items:center;gap:10px">
-        <div style="width:36px;height:36px;border-radius:8px;background:${c.routing_target==='bar'?'#FAEEDA':'var(--brand-l)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:${c.routing_target==='bar'?'#854F0B':'var(--brand-d)'}">
-          ${_renderCategoryIcon(c.icon || 'plate', 22, 'currentColor')}
+        <div style="width:36px;height:36px;border-radius:8px;background:${c.routing_target==='bar'?'#FAEEDA':'var(--brand-l)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:${c.routing_target==='bar'?'#854F0B':'var(--brand-d)'};font-family:'Fraunces',serif;font-weight:700;font-size:16px">
+          ${escHtml(c.name?.[0]?.toUpperCase() || '?')}
         </div>
         <div style="flex:1;min-width:0">
           <div style="font-size:14px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(c.name)}${!c.is_visible?' <span style="font-size:11px;color:var(--accent);font-weight:400">(desactivada)</span>':''}</div>
@@ -12477,33 +12477,6 @@ async function loadCategoriesEditor() {
 }
 
 let _editingCategoryId = null;
-// ── Set de iconos SVG para categorías (alternativa a emoji) ──
-const CATEGORY_ICONS = {
-  'plate':    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="6"/></svg>',
-  'fork':     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 3v6a3 3 0 003 3v9M7 3v6M11 3v6"/></svg>',
-  'knife':    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M5 3l11 11-2 7-9-9V3z"/></svg>',
-  'wine':     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 3h10l-1 6a4 4 0 11-8 0L7 3zM12 13v8M9 21h6"/></svg>',
-  'beer':     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h11v15a1 1 0 01-1 1H6a1 1 0 01-1-1V5zM16 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2M8 9v9M11 9v9"/></svg>',
-  'cup':      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h12v8a4 4 0 01-4 4H8a4 4 0 01-4-4V8zM16 11h2a2 2 0 012 2v1a2 2 0 01-2 2h-2"/></svg>',
-  'coffee':   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h11v7a4 4 0 01-4 4H9a4 4 0 01-4-4V9zM16 11h2a2 2 0 012 2v1a2 2 0 01-2 2h-2M8 4l1 2M11 4l1 2M14 4l1 2"/></svg>',
-  'fish':     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M3 12c3-5 8-6 12-4l3-2v12l-3-2c-4 2-9 1-12-4z"/><circle cx="15" cy="11" r=".8" fill="currentColor"/></svg>',
-  'meat':     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l5 5-3 3-3-3M14 5l-9 9 5 5 9-9-5-5z"/><circle cx="9" cy="13" r="1.2"/></svg>',
-  'leaf':     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19c8 0 14-6 14-14V3h-2C9 3 3 9 3 17v2zM5 19l7-7"/></svg>',
-  'cake':     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M3 14h18v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM3 14c0-2 2-3 4-3M21 14c0-2-2-3-4-3M7 11V7M12 11V7M17 11V7M7 6V4M12 6V4M17 6V4"/></svg>',
-  'pizza':    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M12 2L3 18a1 1 0 00.9 1.5L19 21a1 1 0 00.9-1.5L12 2z"/><circle cx="9" cy="14" r="1"/><circle cx="13" cy="11" r="1"/><circle cx="14" cy="16" r="1"/></svg>',
-  'bread':    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M4 12c0-3 2-6 8-6s8 3 8 6c0 1-1 2-2 2v5a1 1 0 01-1 1H7a1 1 0 01-1-1v-5c-1 0-2-1-2-2zM9 14v5M15 14v5"/></svg>',
-  'soup':     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M3 11h18a8 8 0 01-8 8h-2a8 8 0 01-8-8zM12 7c0-1 1-2 0-3M9 7c0-1 1-2 0-3M15 7c0-1 1-2 0-3"/></svg>',
-  'pasta':    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 19c4 0 4-7 8-7s4 7 8 7M3 16c4 0 4-7 8-7s4 7 8 7M3 13c4 0 4-7 8-7s4 7 8 7"/></svg>',
-  'icecream': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M8 9a4 4 0 118 0v1H8V9zM8 10h8l-4 11-4-11z"/></svg>',
-  'star':     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3l3 6 6 1-4 4 1 6-6-3-6 3 1-6-4-4 6-1 3-6z"/></svg>',
-  'tag':      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M20 12l-9 9-9-9V3h9l9 9z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg>'
-};
-
-function _renderCategoryIcon(iconKey, size = 24, color = 'var(--brand-d)') {
-  const svg = CATEGORY_ICONS[iconKey] || CATEGORY_ICONS['plate'];
-  return `<span style="display:inline-flex;width:${size}px;height:${size}px;align-items:center;justify-content:center;color:${color}">${svg.replace('<svg ', `<svg width="${size}" height="${size}" `)}</span>`;
-}
-
 async function openCategoryEditor(catId) {
   _editingCategoryId = catId;
   let cat = null;
@@ -12516,14 +12489,6 @@ async function openCategoryEditor(catId) {
   el.id = 'category-editor-modal';
   el.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center';
   const isNew = !cat;
-  const currentIcon = cat?.icon || 'plate';
-
-  // Grid de iconos seleccionables
-  const iconOptions = Object.keys(CATEGORY_ICONS).map(k => {
-    const selected = k === currentIcon;
-    return `<button type="button" data-icon="${k}" onclick="_pickCategoryIcon('${k}')"
-      style="width:42px;height:42px;border-radius:10px;border:2px solid ${selected ? 'var(--brand)' : 'var(--bd2)'};background:${selected ? 'var(--brand-l)' : 'var(--card)'};color:${selected ? 'var(--brand-d)' : 'var(--t2)'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .12s;font-family:inherit">${CATEGORY_ICONS[k].replace('<svg ', '<svg width="22" height="22" ')}</button>`;
-  }).join('');
 
   el.innerHTML = `
     <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;padding:1.25rem 1.1rem 1.5rem;animation:slideUp .2s ease">
@@ -12532,12 +12497,6 @@ async function openCategoryEditor(catId) {
 
       <div class="field"><label>Nombre</label>
         <input id="cat-name" type="text" value="${cat ? escHtml(cat.name) : ''}" placeholder="ej. Tapas, Pescados, Vinos..." autocomplete="off">
-      </div>
-
-      <div class="field" style="margin-top:.75rem">
-        <label>Icono</label>
-        <div id="cat-icon-grid" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;border:1px solid var(--bd2);border-radius:var(--r-sm);background:var(--bg2)">${iconOptions}</div>
-        <input type="hidden" id="cat-icon" value="${currentIcon}">
       </div>
 
       <div class="field" style="margin-top:.75rem">
@@ -12582,17 +12541,6 @@ async function openCategoryEditor(catId) {
   el.addEventListener('click', e => { if (e.target === el) el.remove(); });
 }
 
-function _pickCategoryIcon(key) {
-  document.getElementById('cat-icon').value = key;
-  // Re-render selection styling
-  document.querySelectorAll('#cat-icon-grid button[data-icon]').forEach(btn => {
-    const sel = btn.dataset.icon === key;
-    btn.style.borderColor = sel ? 'var(--brand)' : 'var(--bd2)';
-    btn.style.background = sel ? 'var(--brand-l)' : 'var(--card)';
-    btn.style.color = sel ? 'var(--brand-d)' : 'var(--t2)';
-  });
-}
-
 function _setCatRouting(target) {
   document.getElementById('cat-routing').value = target;
   const k = document.getElementById('cat-route-kitchen');
@@ -12622,7 +12570,6 @@ function _setCatRouting(target) {
 
 async function saveCategory() {
   const name = document.getElementById('cat-name').value.trim();
-  const icon = document.getElementById('cat-icon').value.trim() || 'plate';
   const routingTarget = document.getElementById('cat-routing').value;
   const courseOrder = parseInt(document.getElementById('cat-course').value) || 0;
   const isVisible = document.getElementById('cat-visible-track').classList.contains('on');
@@ -12634,7 +12581,6 @@ async function saveCategory() {
 
   const payload = {
     name,
-    icon,
     routing_target: routingTarget,
     course_order: courseOrder,
     is_visible: isVisible
@@ -12709,7 +12655,7 @@ async function loadAdminCarta() {
   // Iterar categorías en orden
   cats.forEach(cat => {
     if (!grouped[cat.id]) return;
-    html += `<div class="sec-label" style="text-transform:capitalize;margin-top:.5rem">${cat.icon ? cat.icon + ' ' : ''}${escHtml(cat.name)}</div>`;
+    html += `<div class="sec-label" style="text-transform:capitalize;margin-top:.5rem">${escHtml(cat.name)}</div>`;
     grouped[cat.id].forEach(item => {
       const variantsHtml = (item.menu_item_variants && item.menu_item_variants.length)
         ? `<div style="font-size:11px;color:var(--blue);margin-top:2px">↳ ${item.menu_item_variants.map(v => escHtml(v.name)+' '+fmt(parseFloat(v.price))).join(' · ')}</div>`
@@ -13058,7 +13004,6 @@ async function _ensureCategoryWithMeta(restaurantId, name, meta) {
   const payload = {
     restaurant_id: restaurantId,
     name: displayName,
-    icon: meta?.icon || 'plate',
     routing_target: meta?.routing_target === 'bar' ? 'bar' : 'kitchen',
     course_order: typeof meta?.course_order === 'number' ? meta.course_order : 1,
     sort_order: 50
@@ -13152,7 +13097,7 @@ async function loadAdminCartaInline() {
   };
   cats.forEach(cat => {
     if (!grouped[cat.id]) return;
-    html += `<div class="sec-label" style="text-transform:capitalize;margin-top:.5rem">${cat.icon ? cat.icon + ' ' : ''}${escHtml(cat.name)}</div>`;
+    html += `<div class="sec-label" style="text-transform:capitalize;margin-top:.5rem">${escHtml(cat.name)}</div>`;
     grouped[cat.id].forEach(item => { html += renderItem(item); });
   });
   if (grouped['__sin__']?.length) {
