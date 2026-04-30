@@ -5408,15 +5408,16 @@ async function confirmAddDish() {
   // #33: Save note/comment if provided
   const noteVal = document.getElementById('modal-dish-note')?.value?.trim();
   if (noteVal) dishPayload.notes = noteVal;
-  // B5: Si bebida marcada "con postre", sincroniza timing con el último course
-  // del restaurante (evita hardcoding course=3 que rompe si hay más cursos).
+  // B5: Si bebida marcada "con postre", sincroniza timing con el course del POSTRE
+  // (turno 3.1.5: usa state.categories course_order — ya no m.category text).
   const withPostreChecked = document.getElementById('modal-with-postre')?.checked;
   if (withPostreChecked) {
     dishPayload.with_postre = true;
-    // Buscar el course del postre en menu_items (category postre/dessert); fallback 3
-    const postreItem = state.menuItems?.find(m =>
-      m && m.category && /postre|dessert/i.test(m.category));
-    dishPayload.course = postreItem?.course ?? 3;
+    // Buscar la categoría "Postres" (course_order más alto que no sea bar)
+    const postreCat = (state.categories || [])
+      .filter(c => c.routing_target === 'kitchen' && c.course_order > 0)
+      .sort((a, b) => b.course_order - a.course_order)[0];
+    dishPayload.course = postreCat?.course_order ?? 3;
   }
   const { data: dish, error } = await sb.from('dishes').insert(dishPayload).select().single();
   if (error) { notify('Error al añadir: ' + error.message); return; }
@@ -6416,15 +6417,23 @@ function buildSummary() {
 
     // #13: My card is large and prominent; others are compact
     if (isMe) {
-      // ── NUEVA "Cuenta completa" — todos los platos con claridad solo/compartido,
-      //    precio total + parte proporcional + ÷N a la izquierda del precio.
-      const dishCount = sentDishesAll.length;
+      // ── "TU PARTE" — solo los platos en los que YO estoy implicado.
+      //    Los platos de los demás aparecen en sus propias tarjetas debajo (Los demás).
+      const myDishes = sentDishesAll.filter(d => {
+        if (d.type === 'shared') {
+          const parts = state.participants[d.id] || [];
+          return parts.includes(state.myGuestId);
+        }
+        return d.assignee_id === state.myGuestId;
+      });
+      const dishCount = myDishes.length;
+      const totalDishCount = sentDishesAll.length;
       const guestCount = state.guests.length;
 
       // Agrupar platos idénticos (mismo nombre + precio + tipo + participantes) → "2× X"
       const groupedBill = [];
       const seenKey = {};
-      sentDishesAll.forEach(d => {
+      myDishes.forEach(d => {
         const isShared = d.type === 'shared';
         const partsKey = isShared
           ? (state.participants[d.id]||[]).slice().sort().join(',')
@@ -6438,7 +6447,7 @@ function buildSummary() {
       });
 
       const billRows = dishCount === 0
-        ? `<div style="text-align:center;color:var(--t3);padding:1.5rem 0;font-size:13px">No hay platos enviados todavía</div>`
+        ? `<div style="text-align:center;color:var(--t3);padding:1.5rem 0;font-size:13px">${totalDishCount === 0 ? 'No hay platos enviados todavía' : 'No tienes platos asignados — toca «Editar reparto» abajo'}</div>`
         : groupedBill.map(({ sample: d, qty }) => {
             const fullPrice = parseFloat(d.price || 0) * qty;
             const isShared = d.type === 'shared';
@@ -6446,33 +6455,29 @@ function buildSummary() {
               ? (state.participants[d.id] || [])
               : (d.assignee_id ? [d.assignee_id] : []);
             const nP = Math.max(participants.length, 1);
-            const isInvolved = isShared
-              ? participants.includes(state.myGuestId)
-              : (d.assignee_id === state.myGuestId);
-            const myShare = isInvolved ? fullPrice / nP : 0;
+            const myShare = fullPrice / nP;
 
-            const partNames = participants.length
-              ? participants.map(id => state.guests.find(g => g.id === id)?.name || '?').join(', ')
-              : 'Sin asignar';
+            // Quién más comparte (excluyendo a mí)
+            const othersInShare = isShared
+              ? participants.filter(id => id !== state.myGuestId)
+                  .map(id => state.guests.find(g => g.id === id)?.name || '?')
+              : [];
 
-            // Color del label según mi implicación
-            const labelColor = isInvolved
-              ? (isShared ? 'var(--blue)' : 'var(--brand-d)')
-              : 'var(--t3)';
             const labelText = isShared
-              ? `Compartido entre ${partNames}`
-              : `Solo · ${partNames}`;
+              ? (othersInShare.length ? `Compartido con ${othersInShare.join(', ')}` : `Compartido contigo`)
+              : `Solo · tú`;
+            const labelColor = isShared ? 'var(--blue)' : 'var(--brand-d)';
 
-            // Badge ÷N (a la IZQUIERDA del precio)
+            // Badge ÷N (a la IZQUIERDA del precio) — solo si shared
             const divBadge = isShared
-              ? `<span style="background:${isInvolved?'var(--blue-l)':'var(--bg2)'};color:${isInvolved?'var(--blue)':'var(--t3)'};border-radius:99px;padding:2px 8px;font-size:10px;font-weight:700;line-height:1.2">÷${nP}</span>`
+              ? `<span style="background:var(--blue-l);color:var(--blue);border-radius:99px;padding:2px 8px;font-size:10px;font-weight:700;line-height:1.2">÷${nP}</span>`
               : '';
 
             const qtyPrefix = qty > 1
               ? `<span style="color:var(--t3);font-weight:500">${qty}×</span> `
               : '';
 
-            const myShareLabel = (isShared && isInvolved)
+            const myShareLabel = isShared
               ? `<div style="font-size:11px;color:var(--blue);font-weight:600;margin-top:2px">tu parte: ${fmt(myShare)}</div>`
               : '';
 
@@ -6492,14 +6497,14 @@ function buildSummary() {
           }).join('');
 
       return `<div class="sum-card me" style="border:2px solid var(--brand);background:var(--brand-l);margin-bottom:1rem;padding:.85rem 1rem;border-radius:var(--r)${isManual?';border-color:var(--amber);border-style:dashed':''}">
-        <!-- Header: La cuenta · Tu parte -->
+        <!-- Header: Tu parte (sólo platos del usuario) -->
         <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:.7rem;padding-bottom:.65rem;border-bottom:1px solid var(--brand)">
           <div>
-            <div style="font-size:10px;font-weight:600;color:var(--brand);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">La cuenta</div>
-            <div style="font-size:12px;color:var(--brand-d);font-weight:500">${dishCount} plato${dishCount !== 1 ? 's' : ''} · ${guestCount} comensal${guestCount !== 1 ? 'es' : ''}</div>
+            <div style="font-size:10px;font-weight:600;color:var(--brand);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Tu parte</div>
+            <div style="font-size:12px;color:var(--brand-d);font-weight:500">${dishCount} plato${dishCount !== 1 ? 's' : ''} ${dishCount < totalDishCount ? `<span style="color:var(--t3);font-weight:400">de ${totalDishCount} en mesa</span>` : ''}</div>
           </div>
           <div style="text-align:right">
-            <div style="font-size:10px;color:var(--brand);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:1px">Tu parte</div>
+            <div style="font-size:10px;color:var(--brand);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:1px">Total</div>
             <div style="font-family:'Fraunces',serif;font-size:24px;font-weight:800;color:var(--brand-d);line-height:1">${fmt(t.total)}</div>
           </div>
         </div>
