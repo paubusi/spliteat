@@ -4711,7 +4711,14 @@ function renderCarta() {
           : ''}
         <div style="flex:1;min-width:0">
           <div style="font-size:14px;font-weight:${onTable ? '500' : '400'};color:${onTable ? 'var(--brand-d)' : 'var(--t1)'};">${escHtml(item.name)}</div>
-          <div style="font-size:12px;color:${onTable ? 'var(--brand)' : 'var(--t3)'};margin-top:1px">${fmt(parseFloat(item.price))}</div>
+          <div style="font-size:12px;color:${onTable ? 'var(--brand)' : 'var(--t3)'};margin-top:1px">${(() => {
+            const vs = item.menu_item_variants;
+            if (vs && vs.length > 0) {
+              const minP = Math.min(...vs.map(v => parseFloat(v.price)));
+              return `desde ${fmt(minP)}`;
+            }
+            return fmt(parseFloat(item.price));
+          })()}</div>
         </div>
         ${initialsHtml}
         ${onTable ? `<span style="font-size:13px;font-weight:700;color:var(--brand-d);min-width:16px;text-align:center">${count}</span>` : ''}
@@ -5125,6 +5132,24 @@ async function deleteCartaDish(dishId) {
 function openModal(itemId) {
   const item = state.menuItems.find(i => i.id === itemId);
   if (!item) return;
+  // ── TURNO 3.4: Si el plato tiene variantes (Copa/Botella, Media/Entera), pickea antes ──
+  const variants = (item.menu_item_variants || []).slice().sort((a,b) => (a.sort_order||0) - (b.sort_order||0));
+  if (variants.length > 0) {
+    showVariantPicker(item, variants, (chosen) => {
+      // Inject variant info into the modal flow — store on item-like object
+      const itemWithVariant = { ...item, _selectedVariant: chosen };
+      const existingShared = state.dishes.filter(d => d.menu_item_id === itemId && d.variant_id === chosen.id && d.type === 'shared');
+      if (existingShared.length > 0) {
+        const msg = existingShared.length === 1
+          ? `Ya habéis pedido "${item.name} (${chosen.name})". ¿Añadir otro?`
+          : `Ya habéis pedido ${existingShared.length}x "${item.name} (${chosen.name})". ¿Añadir uno más?`;
+        showDuplicateDishWarning(msg, () => _openModalFor(itemId, itemWithVariant));
+        return;
+      }
+      _openModalFor(itemId, itemWithVariant);
+    });
+    return;
+  }
   // #11: Warn if shared dish already on table
   const existingShared = state.dishes.filter(d => d.menu_item_id === itemId && d.type === 'shared');
   if (existingShared.length > 0) {
@@ -5135,6 +5160,40 @@ function openModal(itemId) {
     return;
   }
   _openModalFor(itemId, item);
+}
+
+// ── Variant picker (Turno 3.4) — bottom sheet con opciones Copa/Botella ──
+function showVariantPicker(item, variants, onPick) {
+  document.getElementById('variant-picker-modal')?.remove();
+  const el = document.createElement('div');
+  el.id = 'variant-picker-modal';
+  el.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center';
+  const variantBtns = variants.map(v => `
+    <button onclick="(window.__pickVariant && window.__pickVariant('${v.id}'))"
+      style="display:flex;align-items:center;justify-content:space-between;width:100%;padding:1rem 1.1rem;border:1.5px solid var(--bd2);border-radius:var(--r);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.5rem;text-align:left;transition:all .15s">
+      <div>
+        <div style="font-size:15px;font-weight:600;color:var(--t1)">${escHtml(v.name)}</div>
+        ${v.is_default ? '<div style="font-size:10px;color:var(--brand);margin-top:1px">Más popular</div>' : ''}
+      </div>
+      <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--brand-d)">${fmt(parseFloat(v.price))}</div>
+    </button>`).join('');
+  el.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;padding:1.5rem 1.1rem 1.5rem;animation:slideUp .2s ease">
+      <div style="width:36px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto 1rem"></div>
+      <div style="font-size:11px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Elige tamaño</div>
+      <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--t1);margin-bottom:1rem">${escHtml(item.name)}</div>
+      ${variantBtns}
+      <button onclick="document.getElementById('variant-picker-modal').remove()"
+        style="width:100%;padding:11px;border:1px solid var(--bd2);border-radius:var(--r-sm);background:none;color:var(--t2);font-size:14px;cursor:pointer;font-family:inherit;margin-top:.25rem">Cancelar</button>
+    </div>`;
+  document.body.appendChild(el);
+  el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+  window.__pickVariant = (variantId) => {
+    const chosen = variants.find(v => v.id === variantId);
+    el.remove();
+    delete window.__pickVariant;
+    if (chosen) onPick(chosen);
+  };
 }
 
 // Actually opens and populates the dish modal
@@ -5153,8 +5212,12 @@ function _openModalFor(itemId, item) {
   const isBar = cat?.routing_target === 'bar';
   if (isBar) modalCourse = 0;
 
-  document.getElementById('modal-dish-name').textContent = item.name;
-  document.getElementById('modal-dish-price').textContent = fmt(parseFloat(item.price));
+  // Variant override: si se eligió variante, usar su nombre+precio
+  const v = item._selectedVariant;
+  const displayName = v ? `${item.name} (${v.name})` : item.name;
+  const displayPrice = v ? parseFloat(v.price) : parseFloat(item.price);
+  document.getElementById('modal-dish-name').textContent = displayName;
+  document.getElementById('modal-dish-price').textContent = fmt(displayPrice);
   document.getElementById('modal-shared-hint').style.display = 'none';
   setModalType(item.is_shared ? 'shared' : 'solo');
   setCourse(modalCourse, true);
@@ -5320,19 +5383,27 @@ async function confirmAddDish() {
     return;
   }
   closeModal();
+  // Variant: si se eligió, usa su precio/nombre y guarda variant_id
+  const v = item._selectedVariant;
+  const finalName = v ? `${item.name} (${v.name})` : item.name;
+  const finalPrice = v ? parseFloat(v.price) : parseFloat(item.price);
   // Snapshot del nombre de categoría para legibilidad histórica
   const catObj = (state.categories || []).find(c => c.id === item.category_id);
   const dishPayload = {
     restaurant_id: state.restaurantId,
     room_id: state.roomId,
-    name: item.name,
-    price: item.price,
+    name: finalName,
+    price: finalPrice,
     type: modalType,
     assignee_id: modalType === 'solo' ? (_modalSoloGuestId || state.myGuestId) : null,
     menu_item_id: item.id,
     course: modalCourse,
     category: catObj?.name || null
   };
+  if (v) {
+    dishPayload.variant_id   = v.id;
+    dishPayload.variant_name = v.name;
+  }
   if (modalCookingPoint) dishPayload.cooking_point = modalCookingPoint;
   // #33: Save note/comment if provided
   const noteVal = document.getElementById('modal-dish-note')?.value?.trim();
@@ -9650,12 +9721,10 @@ async function renderDrawerPedido() {
 
   // Course → label
   const COURSE_LABEL = {
-    0: 'Sin categoría',
+    0: '🍷 Bebidas',
     1: '🥗 Entrantes',
     2: '🍽 Principales',
-    3: '🍰 Postres',
-    4: '🍷 Bebidas',
-    5: '☕️ Cafés'
+    3: '🍰 Postres'
   };
   const STATUS = {
     new:       { icon: '⏱', label: 'Pendiente',  color: '#7a5715', bg: '#FFF4D9' },
@@ -9682,7 +9751,7 @@ async function renderDrawerPedido() {
     g.ids.push(d.id);
   });
 
-  const courseOrder = [0, 1, 2, 4, 5, 3];  // bebidas con principales para evitar dispersar
+  const courseOrder = [0, 1, 2, 3];  // bebidas (0), entrantes, principales, postres
   let html = '';
   courseOrder.forEach(c => {
     if (!groups[c]) return;
