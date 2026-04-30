@@ -2923,6 +2923,14 @@
             </div>
             <span class="settings-row-arrow">›</span>
           </div>
+          <div class="settings-row" onclick="openAjustesSection('categorias')">
+            <span class="settings-row-icon">🗂</span>
+            <div class="settings-row-content">
+              <div class="settings-row-title">Categorías</div>
+              <div class="settings-row-desc">Crear/editar categorías · cocina vs barra · orden de cursos</div>
+            </div>
+            <span class="settings-row-arrow">›</span>
+          </div>
         </div>
 
         <!-- Mesas -->
@@ -3088,11 +3096,7 @@
           <div class="field"><label>Precio (€)</label><input id="edit-item-price" type="number" step="0.01" min="0" placeholder="0.00"></div>
           <div class="field"><label>Categoría</label>
             <select id="edit-item-category" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
-              <option value="entrantes">Entrantes</option>
-              <option value="principales">Principales</option>
-              <option value="postres">Postres</option>
-              <option value="bebidas">Bebidas</option>
-              <option value="otros">Otros</option>
+              <option value="">Cargando…</option>
             </select>
           </div>
         </div>
@@ -11251,7 +11255,7 @@ function renderMobileCartaTab() {
       <div class="row" style="gap:.5rem">
         <div class="field" style="flex:1;margin:0"><label>Precio €</label><input id="aim-price" type="number" step="0.01" min="0" inputmode="decimal" placeholder="9.50"></div>
         <div class="field" style="flex:1;margin:0"><label>Categoría</label>
-          <select id="aim-cat"><option value="entrantes">Entrantes</option><option value="principales">Principales</option><option value="postres">Postres</option><option value="bebidas">Bebidas</option><option value="otros">Otros</option></select>
+          <select id="aim-cat"><option value="">Cargando…</option></select>
         </div>
       </div>
       <div class="toggle" style="margin-top:.5rem">
@@ -11323,7 +11327,11 @@ async function loadAdminCartaMobile() {
 
 function showAddItemFormMobile() {
   const f = document.getElementById('add-item-form-mobile');
-  if (f) { f.style.display = 'block'; document.getElementById('aim-name')?.focus(); }
+  if (f) {
+    f.style.display = 'block';
+    document.getElementById('aim-name')?.focus();
+    _populateCategorySelect(document.getElementById('aim-cat'), null);
+  }
 }
 
 async function saveMenuItemMobile() {
@@ -11805,6 +11813,7 @@ function openAjustesSection(section) {
 
   const titles = {
     carta: 'Gestionar carta', importar: 'Importar con IA', costes: 'Costes por plato',
+    categorias: 'Categorías',
     mesas: 'Gestionar mesas', camareros: 'Camareros',
     perfil: 'Perfil del restaurante', 'reservas-config': 'Configuración de reservas',
     'metodos-pago': 'Métodos de pago aceptados'
@@ -11832,8 +11841,7 @@ function openAjustesSection(section) {
           <div class="field" style="flex:1;margin:0"><label>Precio €</label><input id="ai-price" type="number" step="0.01" placeholder="12.50" autocomplete="off"></div>
           <div class="field" style="flex:1;margin:0"><label>Categoría</label>
             <select id="ai-cat" style="width:100%;padding:12px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-size:14px;font-family:inherit;background:var(--card)">
-              <option value="entrantes">Entrantes</option><option value="principales">Principales</option>
-              <option value="postres">Postres</option><option value="bebidas">Bebidas</option><option value="otros">Otros</option>
+              <option value="">Cargando…</option>
             </select>
           </div>
         </div>
@@ -11859,6 +11867,14 @@ function openAjustesSection(section) {
       </div>
       <div id="ajustes-carta-list"><div style="text-align:center;padding:2rem;color:var(--t3)">Cargando...</div></div>`;
     loadAdminCartaInline();
+  } else if (section === 'categorias') {
+    content.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+        <div style="font-size:13px;color:var(--t3);line-height:1.4">Las categorías agrupan tus platos en spliteat (acordeón) y deciden si van a <strong>cocina</strong> o <strong>barra</strong>.</div>
+        <button class="btn btn-primary btn-sm" onclick="openCategoryEditor(null)" style="flex-shrink:0;margin-left:.5rem">+ Añadir</button>
+      </div>
+      <div id="categories-list"><div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando...</div></div>`;
+    loadCategoriesEditor();
   } else if (section === 'mesas') {
     content.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
@@ -12289,9 +12305,235 @@ async function loadAdminCategories(force = false) {
   if (_adminCategoriesCache && !force) return _adminCategoriesCache;
   const { data } = await sb.from('categories').select('*')
     .eq('restaurant_id', state.adminRestaurantId)
-    .order('sort_order').order('name');
+    .order('course_order').order('sort_order').order('name');
   _adminCategoriesCache = data || [];
   return _adminCategoriesCache;
+}
+
+// Populate a <select> with current categories — currentName should be the
+// already-selected category name (case-insensitive match) or null.
+async function _populateCategorySelect(selectEl, currentName) {
+  if (!selectEl) return;
+  const cats = await loadAdminCategories();
+  const optionsHtml = cats.length
+    ? cats.map(c => {
+        const sel = currentName && c.name.toLowerCase() === String(currentName).toLowerCase() ? ' selected' : '';
+        return `<option value="${escHtml(c.name)}"${sel}>${c.icon ? c.icon + ' ' : ''}${escHtml(c.name)}</option>`;
+      }).join('')
+    : '<option value="">(Sin categorías — crea una primero)</option>';
+  selectEl.innerHTML = optionsHtml;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CATEGORIES EDITOR (Turno 3.3) — gestionar categorías personalizables
+// ══════════════════════════════════════════════════════════════════
+async function loadCategoriesEditor() {
+  const el = document.getElementById('categories-list');
+  if (!el) return;
+  const cats = await loadAdminCategories(true);
+  // Contar items por categoría para informar al usuario
+  const { data: items } = await sb.from('menu_items').select('id,category_id')
+    .eq('restaurant_id', state.adminRestaurantId);
+  const itemCount = {};
+  (items || []).forEach(i => {
+    const k = i.category_id || '__sin__';
+    itemCount[k] = (itemCount[k] || 0) + 1;
+  });
+
+  if (!cats.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-text">No hay categorías. Añade la primera.</div></div>`;
+    return;
+  }
+
+  // Agrupar visualmente por course_order para que se vea el flujo
+  let html = '';
+  cats.forEach(c => {
+    const count = itemCount[c.id] || 0;
+    const routingLabel = c.routing_target === 'bar'
+      ? '<span style="background:#FAEEDA;color:#854F0B;font-size:10px;font-weight:700;border-radius:99px;padding:2px 8px">🍷 Barra</span>'
+      : '<span style="background:var(--brand-l);color:var(--brand-d);font-size:10px;font-weight:700;border-radius:99px;padding:2px 8px">🍳 Cocina</span>';
+    const courseLabel = c.course_order === 0
+      ? 'Sin curso'
+      : `${c.course_order}º curso`;
+    html += `<div class="card" style="margin-bottom:.4rem;padding:.7rem .85rem;${!c.is_visible?'opacity:.6':''}">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:22px;flex-shrink:0;width:32px;text-align:center">${c.icon || '📋'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(c.name)}${!c.is_visible?' <span style="font-size:11px;color:var(--accent);font-weight:400">(oculta)</span>':''}</div>
+          <div style="display:flex;gap:5px;align-items:center;margin-top:3px;flex-wrap:wrap">
+            ${routingLabel}
+            <span style="font-size:11px;color:var(--t3)">· ${courseLabel} · ${count} plato${count!==1?'s':''}</span>
+          </div>
+        </div>
+        <button onclick="openCategoryEditor('${c.id}')" style="font-size:11px;padding:5px 11px;border-radius:99px;border:1px solid var(--brand);background:none;color:var(--brand-d);cursor:pointer;font-family:inherit;font-weight:500;flex-shrink:0">Editar</button>
+      </div>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+let _editingCategoryId = null;
+async function openCategoryEditor(catId) {
+  _editingCategoryId = catId;
+  let cat = null;
+  if (catId) {
+    const { data } = await sb.from('categories').select('*').eq('id', catId).maybeSingle();
+    cat = data;
+  }
+  document.getElementById('category-editor-modal')?.remove();
+  const el = document.createElement('div');
+  el.id = 'category-editor-modal';
+  el.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center';
+  const isNew = !cat;
+  el.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;padding:1.25rem 1.1rem 1.5rem;animation:slideUp .2s ease">
+      <div style="width:36px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto 1rem"></div>
+      <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--t1);margin-bottom:1rem">${isNew ? 'Nueva categoría' : 'Editar categoría'}</div>
+
+      <div class="field"><label>Nombre</label>
+        <input id="cat-name" type="text" value="${cat ? escHtml(cat.name) : ''}" placeholder="ej. Tapas, Pescados, Vinos..." autocomplete="off">
+      </div>
+
+      <div style="display:flex;gap:.5rem">
+        <div class="field" style="flex:0 0 90px;margin:0">
+          <label>Icono</label>
+          <input id="cat-icon" type="text" maxlength="2" value="${cat?.icon || ''}" placeholder="🥗" style="text-align:center;font-size:18px">
+        </div>
+        <div class="field" style="flex:1;margin:0">
+          <label>Orden visual</label>
+          <input id="cat-sort" type="number" min="0" value="${cat?.sort_order ?? 50}" placeholder="50">
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:.75rem">
+        <label style="margin-bottom:.4rem">¿A dónde van los pedidos?</label>
+        <div style="display:flex;gap:.4rem">
+          <button type="button" id="cat-route-kitchen" onclick="_setCatRouting('kitchen')" style="flex:1;padding:10px;border-radius:var(--r-sm);border:2px solid ${cat?.routing_target==='bar'?'var(--bd2)':'var(--brand)'};background:${cat?.routing_target==='bar'?'var(--card)':'var(--brand-l)'};color:${cat?.routing_target==='bar'?'var(--t2)':'var(--brand-d)'};cursor:pointer;font-family:inherit;font-size:13px;font-weight:600">🍳 Cocina<br><span style="font-size:10px;font-weight:400;opacity:.7">cookeat</span></button>
+          <button type="button" id="cat-route-bar" onclick="_setCatRouting('bar')" style="flex:1;padding:10px;border-radius:var(--r-sm);border:2px solid ${cat?.routing_target==='bar'?'#E5A85A':'var(--bd2)'};background:${cat?.routing_target==='bar'?'#FAEEDA':'var(--card)'};color:${cat?.routing_target==='bar'?'#854F0B':'var(--t2)'};cursor:pointer;font-family:inherit;font-size:13px;font-weight:600">🍷 Barra<br><span style="font-size:10px;font-weight:400;opacity:.7">se sirve directamente</span></button>
+        </div>
+        <input type="hidden" id="cat-routing" value="${cat?.routing_target || 'kitchen'}">
+      </div>
+
+      <div class="field" style="margin-top:.75rem">
+        <label>Orden del curso</label>
+        <select id="cat-course" style="width:100%;padding:12px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-size:14px;font-family:inherit;background:var(--card)">
+          <option value="0" ${(cat?.course_order ?? -1) === 0 ? 'selected' : ''}>Sin curso (0) — bebidas, snacks</option>
+          <option value="1" ${(cat?.course_order ?? -1) === 1 ? 'selected' : ''}>1º curso — entrantes</option>
+          <option value="2" ${(cat?.course_order ?? -1) === 2 ? 'selected' : ''}>2º curso — principales</option>
+          <option value="3" ${(cat?.course_order ?? -1) === 3 ? 'selected' : ''}>3º curso — postres</option>
+          <option value="4" ${(cat?.course_order ?? -1) === 4 ? 'selected' : ''}>4º curso</option>
+          <option value="5" ${(cat?.course_order ?? -1) === 5 ? 'selected' : ''}>5º curso</option>
+        </select>
+        <div style="font-size:11px;color:var(--t3);margin-top:.35rem;line-height:1.4">El curso determina cuándo se sirve. Bebidas se sirven inmediatamente. Entrantes antes que principales, etc.</div>
+      </div>
+
+      <div class="toggle" style="margin-top:.75rem">
+        <span style="font-size:13px;color:var(--t2)">Visible en la carta del comensal</span>
+        <div class="toggle-track ${cat?.is_visible !== false ? 'on' : ''}" id="cat-visible-track" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></div>
+      </div>
+
+      <div id="cat-editor-err" style="display:none;margin-top:.5rem;font-size:12px;color:var(--accent);background:#FCEBEA;padding:6px 10px;border-radius:var(--r-sm)"></div>
+
+      <div style="display:flex;gap:.5rem;margin-top:1rem">
+        <button class="btn btn-primary" onclick="saveCategory()" style="flex:1">Guardar</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('category-editor-modal').remove()">Cancelar</button>
+      </div>
+      ${!isNew ? `<button onclick="deleteCategory('${cat.id}')" style="width:100%;margin-top:.5rem;padding:9px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:none;color:var(--accent);font-size:12px;cursor:pointer;font-family:inherit">Eliminar categoría</button>` : ''}
+    </div>`;
+  document.body.appendChild(el);
+  el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+}
+
+function _setCatRouting(target) {
+  document.getElementById('cat-routing').value = target;
+  const k = document.getElementById('cat-route-kitchen');
+  const b = document.getElementById('cat-route-bar');
+  if (target === 'kitchen') {
+    k.style.borderColor = 'var(--brand)';
+    k.style.background = 'var(--brand-l)';
+    k.style.color = 'var(--brand-d)';
+    b.style.borderColor = 'var(--bd2)';
+    b.style.background = 'var(--card)';
+    b.style.color = 'var(--t2)';
+    // Auto-suggest: si bebidas/barra → course 0; si cocina → course 1 si era 0
+    const courseSel = document.getElementById('cat-course');
+    if (courseSel.value === '0') courseSel.value = '1';
+  } else {
+    b.style.borderColor = '#E5A85A';
+    b.style.background = '#FAEEDA';
+    b.style.color = '#854F0B';
+    k.style.borderColor = 'var(--bd2)';
+    k.style.background = 'var(--card)';
+    k.style.color = 'var(--t2)';
+    // Auto-suggest: barra → course 0
+    const courseSel = document.getElementById('cat-course');
+    courseSel.value = '0';
+  }
+}
+
+async function saveCategory() {
+  const name = document.getElementById('cat-name').value.trim();
+  const icon = document.getElementById('cat-icon').value.trim() || null;
+  const sortOrder = parseInt(document.getElementById('cat-sort').value) || 50;
+  const routingTarget = document.getElementById('cat-routing').value;
+  const courseOrder = parseInt(document.getElementById('cat-course').value) || 0;
+  const isVisible = document.getElementById('cat-visible-track').classList.contains('on');
+  const errEl = document.getElementById('cat-editor-err');
+
+  if (!name) {
+    errEl.textContent = 'El nombre es obligatorio.'; errEl.style.display = 'block'; return;
+  }
+
+  const payload = {
+    name,
+    icon,
+    sort_order: sortOrder,
+    routing_target: routingTarget,
+    course_order: courseOrder,
+    is_visible: isVisible
+  };
+
+  if (_editingCategoryId) {
+    const { error } = await sb.from('categories').update(payload).eq('id', _editingCategoryId);
+    if (error) { errEl.textContent = 'Error: ' + error.message; errEl.style.display = 'block'; return; }
+  } else {
+    payload.restaurant_id = state.adminRestaurantId;
+    const { error } = await sb.from('categories').insert(payload);
+    if (error) { errEl.textContent = 'Error: ' + error.message; errEl.style.display = 'block'; return; }
+  }
+
+  document.getElementById('category-editor-modal').remove();
+  _adminCategoriesCache = null; // invalidate cache
+  loadCategoriesEditor();
+  // Refresh dependent views
+  loadAdminCartaInline?.();
+  loadAdminCartaMobile?.();
+  loadAdminCarta?.();
+  notify('Categoría guardada ✓', 'success');
+}
+
+async function deleteCategory(catId) {
+  // Check if has items
+  const { count } = await sb.from('menu_items')
+    .select('id', { count: 'exact', head: true })
+    .eq('category_id', catId);
+
+  let msg = '¿Eliminar esta categoría?';
+  if ((count || 0) > 0) {
+    msg = `Esta categoría tiene ${count} plato${count !== 1 ? 's' : ''}. Quedarán sin categoría asignada (sección "Sin categoría"). ¿Continuar?`;
+  }
+  if (!confirm(msg)) return;
+
+  const { error } = await sb.from('categories').delete().eq('id', catId);
+  if (error) { notify('Error: ' + error.message, 'error'); return; }
+
+  document.getElementById('category-editor-modal').remove();
+  _adminCategoriesCache = null;
+  loadCategoriesEditor();
+  loadAdminCartaInline?.();
+  loadAdminCartaMobile?.();
+  loadAdminCarta?.();
+  notify('Categoría eliminada ✓', 'success');
 }
 
 async function loadAdminCarta() {
@@ -12539,7 +12781,12 @@ function hideAddItemForm() {
 
 function showAddItemFormInline() {
   const f = document.getElementById('add-item-form-inline');
-  if (f) f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  if (!f) return;
+  const becomeVisible = f.style.display === 'none';
+  f.style.display = becomeVisible ? 'block' : 'none';
+  if (becomeVisible) {
+    _populateCategorySelect(document.getElementById('ai-cat'), null);
+  }
 }
 
 async function saveMenuItemInline() {
@@ -18774,14 +19021,16 @@ async function openEditItem(itemId) {
   document.getElementById('edit-item-price').value = item.price || '';
   document.getElementById('edit-item-cost').value = item.cost_price || '';
   document.getElementById('edit-item-prep').value = item.prep_time_minutes || '';
-  // Resolver categoría desde category_id (para el select que usa nombres)
+  // Resolver categoría desde category_id → poblar select dinámicamente
   const sel = document.getElementById('edit-item-category');
-  if (sel && item.category_id) {
-    const cats = await loadAdminCategories();
-    const cat = cats.find(c => c.id === item.category_id);
-    sel.value = cat ? cat.name.toLowerCase() : 'otros';
-  } else if (sel) {
-    sel.value = 'otros';
+  if (sel) {
+    let currentName = null;
+    if (item.category_id) {
+      const cats = await loadAdminCategories();
+      const cat = cats.find(c => c.id === item.category_id);
+      currentName = cat?.name || null;
+    }
+    await _populateCategorySelect(sel, currentName);
   }
   document.getElementById('edit-item-shared').checked = !!item.is_shared;
   document.getElementById('edit-item-postre').checked = !!item.can_go_with_postre;
