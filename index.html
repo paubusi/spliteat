@@ -8167,24 +8167,33 @@ async function loadKitchenCarta() {
   if (!el) return;
   el.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--t3);font-size:13px">Cargando...</div>';
 
-  const { data } = await sb.from('menu_items').select('*')
-    .eq('restaurant_id', state.kitchenRestaurantId).order('category').order('name');
+  const { data, error } = await sb.from('menu_items')
+    .select('*, categories(name, course_order)')
+    .eq('restaurant_id', state.kitchenRestaurantId)
+    .order('name');
 
+  if (error) {
+    console.error('[loadKitchenCarta]', error);
+    el.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3)">Error cargando carta</div>';
+    return;
+  }
   if (!data?.length) { el.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3)">No hay platos configurados</div>'; return; }
 
-  const cats = ['entrantes','principales','postres','bebidas','otros'];
-  const grouped = {};
+  // Agrupar por categoría real (con nombre desde la tabla categories)
+  const grouped = new Map();
   data.forEach(item => {
-    const cat = item.category || 'otros';
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(item);
+    const catName = item.categories?.name || 'Sin categoría';
+    const courseOrder = typeof item.categories?.course_order === 'number' ? item.categories.course_order : 99;
+    const key = `${courseOrder}|${catName}`;
+    if (!grouped.has(key)) grouped.set(key, { name: catName, courseOrder, items: [] });
+    grouped.get(key).items.push(item);
   });
+  const sortedCats = Array.from(grouped.values()).sort((a,b) => a.courseOrder - b.courseOrder || a.name.localeCompare(b.name));
 
   let html = '';
-  cats.forEach(cat => {
-    if (!grouped[cat]) return;
-    html += `<div style="font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin:.65rem 0 .35rem;grid-column:1/-1">${cat}</div>`;
-    grouped[cat].forEach(item => {
+  sortedCats.forEach(cat => {
+    html += `<div style="font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin:.65rem 0 .35rem;grid-column:1/-1">${escHtml(cat.name)}</div>`;
+    cat.items.forEach(item => {
       html += `<div class="card" style="margin-bottom:.35rem;padding:.6rem .75rem;${!item.active?'opacity:.55':''}">
         <div style="display:flex;align-items:center;gap:8px">
           ${item.photo_url ? `<img src="${item.photo_url}" style="width:38px;height:38px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0">` : ''}
@@ -8218,25 +8227,33 @@ async function loadKitchenPrepTimes() {
   if (!el) return;
   el.innerHTML = '<div style="text-align:center;padding:1.5rem;color:var(--t3);font-size:13px">Cargando...</div>';
 
-  const { data } = await sb.from('menu_items').select('id,name,category,prep_time_minutes,active')
+  const { data, error } = await sb.from('menu_items')
+    .select('id,name,prep_time_minutes,active,categories(name,course_order)')
     .eq('restaurant_id', state.kitchenRestaurantId)
-    .eq('active', true).order('category').order('name');
+    .eq('active', true)
+    .order('name');
 
+  if (error) {
+    console.error('[loadKitchenPrepTimes]', error);
+    el.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3)">Error cargando platos</div>';
+    return;
+  }
   if (!data?.length) { el.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3)">No hay platos activos</div>'; return; }
 
-  const cats = ['entrantes','principales','postres','bebidas','otros'];
-  const grouped = {};
+  const grouped = new Map();
   data.forEach(item => {
-    const cat = item.category || 'otros';
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(item);
+    const catName = item.categories?.name || 'Sin categoría';
+    const courseOrder = typeof item.categories?.course_order === 'number' ? item.categories.course_order : 99;
+    const key = `${courseOrder}|${catName}`;
+    if (!grouped.has(key)) grouped.set(key, { name: catName, courseOrder, items: [] });
+    grouped.get(key).items.push(item);
   });
+  const sortedCats = Array.from(grouped.values()).sort((a,b) => a.courseOrder - b.courseOrder || a.name.localeCompare(b.name));
 
   let html = '';
-  cats.forEach(cat => {
-    if (!grouped[cat]) return;
-    html += `<div style="font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin:.65rem 0 .35rem;grid-column:1/-1">${cat}</div>`;
-    grouped[cat].forEach(item => {
+  sortedCats.forEach(cat => {
+    html += `<div style="font-size:11px;font-weight:500;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin:.65rem 0 .35rem;grid-column:1/-1">${escHtml(cat.name)}</div>`;
+    cat.items.forEach(item => {
       html += `<div class="card" style="margin-bottom:.35rem;padding:.6rem .75rem">
         <div style="display:flex;align-items:center;gap:10px">
           <div style="flex:1;font-size:14px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(item.name)}</div>
