@@ -2902,32 +2902,8 @@
           <div class="settings-row" onclick="openAjustesSection('carta')">
             <span class="settings-row-icon">📋</span>
             <div class="settings-row-content">
-              <div class="settings-row-title">Gestionar platos</div>
-              <div class="settings-row-desc">Añadir, editar y activar/desactivar platos · <span id="carta-disabled-count" style="color:#854F0B"></span></div>
-            </div>
-            <span class="settings-row-arrow">›</span>
-          </div>
-          <div class="settings-row" onclick="openAjustesSection('importar')">
-            <span class="settings-row-icon">🤖</span>
-            <div class="settings-row-content">
-              <div class="settings-row-title">Importar carta con IA</div>
-              <div class="settings-row-desc">Sube una foto de tu carta y la importamos automáticamente</div>
-            </div>
-            <span class="settings-row-arrow">›</span>
-          </div>
-          <div class="settings-row" onclick="openAjustesSection('costes')">
-            <span class="settings-row-icon">💹</span>
-            <div class="settings-row-content">
-              <div class="settings-row-title">Costes por plato</div>
-              <div class="settings-row-desc">Introduce costes para calcular margen de beneficio</div>
-            </div>
-            <span class="settings-row-arrow">›</span>
-          </div>
-          <div class="settings-row" onclick="openAjustesSection('categorias')">
-            <span class="settings-row-icon">🗂</span>
-            <div class="settings-row-content">
-              <div class="settings-row-title">Categorías</div>
-              <div class="settings-row-desc">Crear/editar categorías · cocina vs barra · orden de cursos</div>
+              <div class="settings-row-title">Gestionar carta</div>
+              <div class="settings-row-desc">Platos, categorías, costes e importación con IA · <span id="carta-disabled-count" style="color:#854F0B"></span></div>
             </div>
             <span class="settings-row-arrow">›</span>
           </div>
@@ -3092,15 +3068,28 @@
           <button onclick="closeEditItem()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
         </div>
         <div class="field"><label>Nombre</label><input id="edit-item-name" type="text" placeholder="Nombre del plato"></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
-          <div class="field"><label>Precio (€)</label><input id="edit-item-price" type="number" step="0.01" min="0" placeholder="0.00"></div>
+        <div id="edit-item-base-price-block">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
+            <div class="field"><label>Precio (€)</label><input id="edit-item-price" type="number" step="0.01" min="0" placeholder="0.00"></div>
+            <div class="field"><label>Categoría</label>
+              <select id="edit-item-category" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
+                <option value="">Cargando…</option>
+              </select>
+            </div>
+          </div>
+          <div class="field"><label>Coste (€) <span style="font-weight:400;color:var(--t3)">(opcional, para margen)</span></label><input id="edit-item-cost" type="number" step="0.01" min="0" placeholder="0.00"></div>
+        </div>
+        <!-- Si hay variantes, el bloque anterior se oculta y aparece esto en su lugar -->
+        <div id="edit-item-variants-cat-block" style="display:none">
           <div class="field"><label>Categoría</label>
-            <select id="edit-item-category" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
+            <select id="edit-item-category-alt" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
               <option value="">Cargando…</option>
             </select>
           </div>
+          <div style="font-size:12px;color:var(--t3);background:var(--brand-l);border-radius:var(--r-sm);padding:8px 12px;margin-bottom:.5rem;line-height:1.4">
+            ℹ️ Este plato tiene <strong>variantes</strong>. Los precios y costes se gestionan por variante abajo.
+          </div>
         </div>
-        <div class="field"><label>Coste (€) <span style="font-weight:400;color:var(--t3)">(opcional, para margen)</span></label><input id="edit-item-cost" type="number" step="0.01" min="0" placeholder="0.00"></div>
         <div class="field"><label>Tiempo de preparación (min)</label><input id="edit-item-prep" type="number" min="1" max="120" placeholder="ej. 15"></div>
         <!-- ── VARIANTS EDITOR (Turno 3.5) ── -->
         <div style="margin:.85rem 0;padding:.75rem 1rem;background:var(--bg2);border-radius:var(--r-sm);border:1px solid var(--bd2)">
@@ -3108,7 +3097,7 @@
             <div style="font-size:14px;font-weight:600;color:var(--t1)">Variantes</div>
             <button type="button" onclick="addVariantRow()" style="font-size:11px;padding:4px 10px;border-radius:99px;border:1px solid var(--brand);background:none;color:var(--brand-d);cursor:pointer;font-family:inherit;font-weight:500">+ Añadir</button>
           </div>
-          <div style="font-size:11px;color:var(--t3);margin-bottom:.5rem;line-height:1.4">Solo si el plato tiene varias opciones (Copa/Botella, Media/Entera). Si no hay variantes, se usa el precio base.</div>
+          <div style="font-size:11px;color:var(--t3);margin-bottom:.5rem;line-height:1.4">Añade variantes solo si el plato tiene varias opciones (Copa/Botella, Media/Entera, etc.). Cuando hay variantes, el precio base se ignora.</div>
           <div id="edit-item-variants-list" style="display:flex;flex-direction:column;gap:.4rem"></div>
         </div>
         <!-- /VARIANTS EDITOR -->
@@ -11812,8 +11801,7 @@ function openAjustesSection(section) {
   if (!panel || !content) return;
 
   const titles = {
-    carta: 'Gestionar carta', importar: 'Importar con IA', costes: 'Costes por plato',
-    categorias: 'Categorías',
+    carta: 'Gestionar carta',
     mesas: 'Gestionar mesas', camareros: 'Camareros',
     perfil: 'Perfil del restaurante', 'reservas-config': 'Configuración de reservas',
     'metodos-pago': 'Métodos de pago aceptados'
@@ -11828,53 +11816,76 @@ function openAjustesSection(section) {
   // Render section content
   if (section === 'carta') {
     content.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
-        <div style="font-size:14px;font-weight:600">Platos de la carta</div>
-        <div style="display:flex;gap:.4rem">
-          <button class="btn btn-secondary btn-sm" onclick="showImportCartaModal()">🤖 IA</button>
-          <button class="btn btn-primary btn-sm" onclick="showAddItemFormInline()">+ Añadir</button>
-        </div>
+      <!-- Tabs nav -->
+      <div id="carta-tabs" style="display:flex;gap:.25rem;border-bottom:1.5px solid var(--bd2);margin-bottom:.85rem;overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <button class="carta-tab active" data-tab="platos" onclick="switchCartaTab('platos')" style="padding:9px 14px;border:none;background:none;border-bottom:2px solid var(--brand);color:var(--brand-d);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">📋 Platos</button>
+        <button class="carta-tab" data-tab="categorias" onclick="switchCartaTab('categorias')" style="padding:9px 14px;border:none;background:none;border-bottom:2px solid transparent;color:var(--t2);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap">🗂 Categorías</button>
+        <button class="carta-tab" data-tab="ia" onclick="switchCartaTab('ia')" style="padding:9px 14px;border:none;background:none;border-bottom:2px solid transparent;color:var(--t2);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap">🤖 IA</button>
+        <button class="carta-tab" data-tab="costes" onclick="switchCartaTab('costes')" style="padding:9px 14px;border:none;background:none;border-bottom:2px solid transparent;color:var(--t2);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap">💹 Costes</button>
       </div>
-      <div id="add-item-form-inline" style="display:none" class="card" style="margin-bottom:.75rem">
-        <div class="field"><label>Nombre del plato</label><input id="ai-name" type="text" placeholder="ej. Tortilla española" autocomplete="off"></div>
-        <div style="display:flex;gap:.5rem">
-          <div class="field" style="flex:1;margin:0"><label>Precio €</label><input id="ai-price" type="number" step="0.01" placeholder="12.50" autocomplete="off"></div>
-          <div class="field" style="flex:1;margin:0"><label>Categoría</label>
-            <select id="ai-cat" style="width:100%;padding:12px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-size:14px;font-family:inherit;background:var(--card)">
-              <option value="">Cargando…</option>
-            </select>
+
+      <!-- Tab: Platos -->
+      <div id="carta-tab-platos" class="carta-tab-content">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+          <div style="font-size:13px;color:var(--t3)">Platos del restaurante</div>
+          <button class="btn btn-primary btn-sm" onclick="showAddItemFormInline()">+ Añadir plato</button>
+        </div>
+        <div id="add-item-form-inline" style="display:none" class="card" style="margin-bottom:.75rem">
+          <div class="field"><label>Nombre del plato</label><input id="ai-name" type="text" placeholder="ej. Tortilla española" autocomplete="off"></div>
+          <div style="display:flex;gap:.5rem">
+            <div class="field" style="flex:1;margin:0"><label>Precio €</label><input id="ai-price" type="number" step="0.01" placeholder="12.50" autocomplete="off"></div>
+            <div class="field" style="flex:1;margin:0"><label>Categoría</label>
+              <select id="ai-cat" style="width:100%;padding:12px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-size:14px;font-family:inherit;background:var(--card)">
+                <option value="">Cargando…</option>
+              </select>
+            </div>
+          </div>
+          <div class="field" style="margin-top:.5rem"><label>⏱ Tiempo prep. (min)</label><input id="ai-prep" type="number" min="0" max="120" placeholder="15" autocomplete="off"></div>
+          <div class="toggle" style="margin:.25rem 0">
+            <span style="font-size:13px;color:var(--t2)">Plato normalmente compartido <span style="font-size:11px;color:var(--t3)">(los comensales siempre pueden cambiarlo a individual)</span></span>
+            <div class="toggle-track" id="ai-shared-track" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></div>
+          </div>
+          <div class="toggle" style="margin:.25rem 0">
+            <span style="font-size:13px;color:var(--t2)">Requiere punto de cocción (carnes)</span>
+            <div class="toggle-track" id="ai-cooking-track" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></div>
+          </div>
+          <div class="field" style="margin-top:.35rem">
+            <label>Alérgenos</label>
+            <div id="ai-allergens-area" style="display:flex;flex-wrap:wrap;gap:2px;padding:8px;border:1px solid var(--bd2);border-radius:var(--r-sm);min-height:36px;cursor:pointer">
+              <span style="font-size:11px;color:var(--t3)">Ninguno seleccionado</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:.5rem;margin-top:.5rem">
+            <button class="btn btn-primary btn-sm" onclick="saveMenuItemInline()">Guardar</button>
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('add-item-form-inline').style.display='none'">Cancelar</button>
           </div>
         </div>
-        <div class="field" style="margin-top:.5rem"><label>⏱ Tiempo prep. (min)</label><input id="ai-prep" type="number" min="0" max="120" placeholder="15" autocomplete="off"></div>
-        <div class="toggle" style="margin:.25rem 0">
-          <span style="font-size:13px;color:var(--t2)">Plato normalmente compartido <span style="font-size:11px;color:var(--t3)">(los comensales siempre pueden cambiarlo a individual)</span></span>
-          <div class="toggle-track" id="ai-shared-track" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></div>
-        </div>
-        <div class="toggle" style="margin:.25rem 0">
-          <span style="font-size:13px;color:var(--t2)">Requiere punto de cocción (carnes)</span>
-          <div class="toggle-track" id="ai-cooking-track" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></div>
-        </div>
-        <div class="field" style="margin-top:.35rem">
-          <label>Alérgenos</label>
-          <div id="ai-allergens-area" style="display:flex;flex-wrap:wrap;gap:2px;padding:8px;border:1px solid var(--bd2);border-radius:var(--r-sm);min-height:36px;cursor:pointer">
-            <span style="font-size:11px;color:var(--t3)">Ninguno seleccionado</span>
-          </div>
-        </div>
-        <div style="display:flex;gap:.5rem;margin-top:.5rem">
-          <button class="btn btn-primary btn-sm" onclick="saveMenuItemInline()">Guardar</button>
-          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('add-item-form-inline').style.display='none'">Cancelar</button>
-        </div>
+        <div id="ajustes-carta-list"><div style="text-align:center;padding:2rem;color:var(--t3)">Cargando...</div></div>
       </div>
-      <div id="ajustes-carta-list"><div style="text-align:center;padding:2rem;color:var(--t3)">Cargando...</div></div>`;
+
+      <!-- Tab: Categorías -->
+      <div id="carta-tab-categorias" class="carta-tab-content" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;gap:.5rem">
+          <div style="font-size:13px;color:var(--t3);line-height:1.4;flex:1">Las categorías agrupan tus platos en spliteat y deciden si van a <strong>cocina</strong> o <strong>barra</strong>.</div>
+          <button class="btn btn-primary btn-sm" onclick="openCategoryEditor(null)" style="flex-shrink:0">+ Añadir</button>
+        </div>
+        <div id="categories-list"><div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando...</div></div>
+      </div>
+
+      <!-- Tab: IA -->
+      <div id="carta-tab-ia" class="carta-tab-content" style="display:none">
+        <div style="font-size:13px;color:var(--t3);margin-bottom:.85rem;line-height:1.4">Sube una foto de tu carta en papel y la importamos automáticamente con IA. Detectaremos platos, precios y categorías.</div>
+        <button class="btn btn-primary" style="width:100%" onclick="showImportCartaModal()">📷 Importar carta desde foto</button>
+        <div style="font-size:11px;color:var(--t3);margin-top:.85rem;line-height:1.5;text-align:center">Tras importar, podrás revisar y editar todo antes de guardar.</div>
+      </div>
+
+      <!-- Tab: Costes -->
+      <div id="carta-tab-costes" class="carta-tab-content" style="display:none">
+        <div style="font-size:13px;color:var(--t3);margin-bottom:.85rem;line-height:1.4">Introduce el coste de cada plato (lo que te cuesta producirlo) para calcular tu margen de beneficio.</div>
+        <div id="costes-list"><div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando...</div></div>
+      </div>
+      `;
     loadAdminCartaInline();
-  } else if (section === 'categorias') {
-    content.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
-        <div style="font-size:13px;color:var(--t3);line-height:1.4">Las categorías agrupan tus platos en spliteat (acordeón) y deciden si van a <strong>cocina</strong> o <strong>barra</strong>.</div>
-        <button class="btn btn-primary btn-sm" onclick="openCategoryEditor(null)" style="flex-shrink:0;margin-left:.5rem">+ Añadir</button>
-      </div>
-      <div id="categories-list"><div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando...</div></div>`;
-    loadCategoriesEditor();
   } else if (section === 'mesas') {
     content.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
@@ -12324,6 +12335,97 @@ async function _populateCategorySelect(selectEl, currentName) {
   selectEl.innerHTML = optionsHtml;
 }
 
+// ── Tabs en Ajustes → Carta (Turno 3.3 unificado) ──
+function switchCartaTab(tab) {
+  ['platos','categorias','ia','costes'].forEach(t => {
+    const content = document.getElementById('carta-tab-' + t);
+    const btn = document.querySelector(`#carta-tabs .carta-tab[data-tab="${t}"]`);
+    if (content) content.style.display = (t === tab) ? 'block' : 'none';
+    if (btn) {
+      const active = (t === tab);
+      btn.style.borderBottomColor = active ? 'var(--brand)' : 'transparent';
+      btn.style.color = active ? 'var(--brand-d)' : 'var(--t2)';
+      btn.style.fontWeight = active ? '600' : '500';
+      btn.classList.toggle('active', active);
+    }
+  });
+  // Lazy-load tab content
+  if (tab === 'categorias') loadCategoriesEditor();
+  else if (tab === 'costes') loadCostesEditor();
+  else if (tab === 'platos') loadAdminCartaInline();
+}
+
+async function loadCostesEditor() {
+  const el = document.getElementById('costes-list');
+  if (!el) return;
+  const { data } = await sb.from('menu_items')
+    .select('id,name,price,cost_price,has_variants, menu_item_variants(id,name,price,cost_price,sort_order)')
+    .eq('restaurant_id', state.adminRestaurantId)
+    .order('name');
+  if (!data?.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-text">No hay platos. Añade el primero en la pestaña «Platos».</div></div>';
+    return;
+  }
+  let html = '';
+  data.forEach(item => {
+    const hasV = item.has_variants && item.menu_item_variants?.length;
+    if (hasV) {
+      // Render por variante
+      html += `<div class="card" style="margin-bottom:.4rem;padding:.7rem .85rem">
+        <div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:.4rem">${escHtml(item.name)} <span style="font-size:11px;color:var(--t3);font-weight:400">(con variantes)</span></div>`;
+      item.menu_item_variants.sort((a,b) => (a.sort_order||0) - (b.sort_order||0)).forEach(v => {
+        const margin = (v.cost_price && v.price) ? Math.round((1 - v.cost_price/v.price)*100) : null;
+        html += `<div style="display:flex;align-items:center;gap:.5rem;padding:4px 0">
+          <div style="flex:1;font-size:12px;color:var(--t2)">↳ ${escHtml(v.name)} <span style="color:var(--t3)">(${fmt(parseFloat(v.price))})</span></div>
+          <div style="position:relative;width:90px">
+            <input type="number" step="0.01" min="0" placeholder="0.00" value="${v.cost_price ?? ''}"
+              data-variant-id="${v.id}"
+              onchange="_saveVariantCost(this)"
+              style="width:100%;padding:5px 22px 5px 8px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-size:12px;font-family:inherit;background:var(--card);text-align:right">
+            <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--t3);pointer-events:none">€</span>
+          </div>
+          ${margin !== null ? `<span style="font-size:11px;color:${margin >= 50 ? 'var(--brand-d)' : margin >= 30 ? '#854F0B' : 'var(--accent)'};font-weight:600;flex-shrink:0;width:42px;text-align:right">${margin}%</span>` : '<span style="width:42px"></span>'}
+        </div>`;
+      });
+      html += `</div>`;
+    } else {
+      const margin = (item.cost_price && item.price) ? Math.round((1 - item.cost_price/item.price)*100) : null;
+      html += `<div class="card" style="margin-bottom:.4rem;padding:.65rem .85rem">
+        <div style="display:flex;align-items:center;gap:.5rem">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:500;color:var(--t1)">${escHtml(item.name)}</div>
+            <div style="font-size:11px;color:var(--t3)">PVP ${fmt(parseFloat(item.price))}</div>
+          </div>
+          <div style="position:relative;width:90px">
+            <input type="number" step="0.01" min="0" placeholder="Coste" value="${item.cost_price ?? ''}"
+              data-item-id="${item.id}"
+              onchange="_saveItemCost(this)"
+              style="width:100%;padding:6px 22px 6px 8px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-size:12px;font-family:inherit;background:var(--card);text-align:right">
+            <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--t3);pointer-events:none">€</span>
+          </div>
+          ${margin !== null ? `<span style="font-size:11px;color:${margin >= 50 ? 'var(--brand-d)' : margin >= 30 ? '#854F0B' : 'var(--accent)'};font-weight:600;flex-shrink:0;width:42px;text-align:right">${margin}%</span>` : '<span style="width:42px"></span>'}
+        </div>
+      </div>`;
+    }
+  });
+  el.innerHTML = html;
+}
+
+async function _saveItemCost(inputEl) {
+  const itemId = inputEl.dataset.itemId;
+  const val = parseFloat(inputEl.value);
+  const cost = (!isNaN(val) && val >= 0) ? val : null;
+  await sb.from('menu_items').update({ cost_price: cost }).eq('id', itemId);
+  loadCostesEditor();
+}
+async function _saveVariantCost(inputEl) {
+  const varId = inputEl.dataset.variantId;
+  const val = parseFloat(inputEl.value);
+  const cost = (!isNaN(val) && val >= 0) ? val : null;
+  await sb.from('menu_item_variants').update({ cost_price: cost }).eq('id', varId);
+  loadCostesEditor();
+}
+
 // ══════════════════════════════════════════════════════════════════
 // CATEGORIES EDITOR (Turno 3.3) — gestionar categorías personalizables
 // ══════════════════════════════════════════════════════════════════
@@ -12357,9 +12459,11 @@ async function loadCategoriesEditor() {
       : `${c.course_order}º curso`;
     html += `<div class="card" style="margin-bottom:.4rem;padding:.7rem .85rem;${!c.is_visible?'opacity:.6':''}">
       <div style="display:flex;align-items:center;gap:10px">
-        <div style="font-size:22px;flex-shrink:0;width:32px;text-align:center">${c.icon || '📋'}</div>
+        <div style="width:36px;height:36px;border-radius:8px;background:${c.routing_target==='bar'?'#FAEEDA':'var(--brand-l)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:${c.routing_target==='bar'?'#854F0B':'var(--brand-d)'}">
+          ${_renderCategoryIcon(c.icon || 'plate', 22, 'currentColor')}
+        </div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(c.name)}${!c.is_visible?' <span style="font-size:11px;color:var(--accent);font-weight:400">(oculta)</span>':''}</div>
+          <div style="font-size:14px;font-weight:600;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(c.name)}${!c.is_visible?' <span style="font-size:11px;color:var(--accent);font-weight:400">(desactivada)</span>':''}</div>
           <div style="display:flex;gap:5px;align-items:center;margin-top:3px;flex-wrap:wrap">
             ${routingLabel}
             <span style="font-size:11px;color:var(--t3)">· ${courseLabel} · ${count} plato${count!==1?'s':''}</span>
@@ -12373,6 +12477,33 @@ async function loadCategoriesEditor() {
 }
 
 let _editingCategoryId = null;
+// ── Set de iconos SVG para categorías (alternativa a emoji) ──
+const CATEGORY_ICONS = {
+  'plate':    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="6"/></svg>',
+  'fork':     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 3v6a3 3 0 003 3v9M7 3v6M11 3v6"/></svg>',
+  'knife':    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M5 3l11 11-2 7-9-9V3z"/></svg>',
+  'wine':     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 3h10l-1 6a4 4 0 11-8 0L7 3zM12 13v8M9 21h6"/></svg>',
+  'beer':     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h11v15a1 1 0 01-1 1H6a1 1 0 01-1-1V5zM16 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2M8 9v9M11 9v9"/></svg>',
+  'cup':      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h12v8a4 4 0 01-4 4H8a4 4 0 01-4-4V8zM16 11h2a2 2 0 012 2v1a2 2 0 01-2 2h-2"/></svg>',
+  'coffee':   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h11v7a4 4 0 01-4 4H9a4 4 0 01-4-4V9zM16 11h2a2 2 0 012 2v1a2 2 0 01-2 2h-2M8 4l1 2M11 4l1 2M14 4l1 2"/></svg>',
+  'fish':     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M3 12c3-5 8-6 12-4l3-2v12l-3-2c-4 2-9 1-12-4z"/><circle cx="15" cy="11" r=".8" fill="currentColor"/></svg>',
+  'meat':     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l5 5-3 3-3-3M14 5l-9 9 5 5 9-9-5-5z"/><circle cx="9" cy="13" r="1.2"/></svg>',
+  'leaf':     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19c8 0 14-6 14-14V3h-2C9 3 3 9 3 17v2zM5 19l7-7"/></svg>',
+  'cake':     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M3 14h18v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM3 14c0-2 2-3 4-3M21 14c0-2-2-3-4-3M7 11V7M12 11V7M17 11V7M7 6V4M12 6V4M17 6V4"/></svg>',
+  'pizza':    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M12 2L3 18a1 1 0 00.9 1.5L19 21a1 1 0 00.9-1.5L12 2z"/><circle cx="9" cy="14" r="1"/><circle cx="13" cy="11" r="1"/><circle cx="14" cy="16" r="1"/></svg>',
+  'bread':    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M4 12c0-3 2-6 8-6s8 3 8 6c0 1-1 2-2 2v5a1 1 0 01-1 1H7a1 1 0 01-1-1v-5c-1 0-2-1-2-2zM9 14v5M15 14v5"/></svg>',
+  'soup':     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M3 11h18a8 8 0 01-8 8h-2a8 8 0 01-8-8zM12 7c0-1 1-2 0-3M9 7c0-1 1-2 0-3M15 7c0-1 1-2 0-3"/></svg>',
+  'pasta':    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 19c4 0 4-7 8-7s4 7 8 7M3 16c4 0 4-7 8-7s4 7 8 7M3 13c4 0 4-7 8-7s4 7 8 7"/></svg>',
+  'icecream': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M8 9a4 4 0 118 0v1H8V9zM8 10h8l-4 11-4-11z"/></svg>',
+  'star':     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3l3 6 6 1-4 4 1 6-6-3-6 3 1-6-4-4 6-1 3-6z"/></svg>',
+  'tag':      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M20 12l-9 9-9-9V3h9l9 9z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg>'
+};
+
+function _renderCategoryIcon(iconKey, size = 24, color = 'var(--brand-d)') {
+  const svg = CATEGORY_ICONS[iconKey] || CATEGORY_ICONS['plate'];
+  return `<span style="display:inline-flex;width:${size}px;height:${size}px;align-items:center;justify-content:center;color:${color}">${svg.replace('<svg ', `<svg width="${size}" height="${size}" `)}</span>`;
+}
+
 async function openCategoryEditor(catId) {
   _editingCategoryId = catId;
   let cat = null;
@@ -12385,8 +12516,17 @@ async function openCategoryEditor(catId) {
   el.id = 'category-editor-modal';
   el.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center';
   const isNew = !cat;
+  const currentIcon = cat?.icon || 'plate';
+
+  // Grid de iconos seleccionables
+  const iconOptions = Object.keys(CATEGORY_ICONS).map(k => {
+    const selected = k === currentIcon;
+    return `<button type="button" data-icon="${k}" onclick="_pickCategoryIcon('${k}')"
+      style="width:42px;height:42px;border-radius:10px;border:2px solid ${selected ? 'var(--brand)' : 'var(--bd2)'};background:${selected ? 'var(--brand-l)' : 'var(--card)'};color:${selected ? 'var(--brand-d)' : 'var(--t2)'};cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .12s;font-family:inherit">${CATEGORY_ICONS[k].replace('<svg ', '<svg width="22" height="22" ')}</button>`;
+  }).join('');
+
   el.innerHTML = `
-    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:480px;max-height:85vh;overflow-y:auto;padding:1.25rem 1.1rem 1.5rem;animation:slideUp .2s ease">
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;padding:1.25rem 1.1rem 1.5rem;animation:slideUp .2s ease">
       <div style="width:36px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto 1rem"></div>
       <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--t1);margin-bottom:1rem">${isNew ? 'Nueva categoría' : 'Editar categoría'}</div>
 
@@ -12394,15 +12534,10 @@ async function openCategoryEditor(catId) {
         <input id="cat-name" type="text" value="${cat ? escHtml(cat.name) : ''}" placeholder="ej. Tapas, Pescados, Vinos..." autocomplete="off">
       </div>
 
-      <div style="display:flex;gap:.5rem">
-        <div class="field" style="flex:0 0 90px;margin:0">
-          <label>Icono</label>
-          <input id="cat-icon" type="text" maxlength="2" value="${cat?.icon || ''}" placeholder="🥗" style="text-align:center;font-size:18px">
-        </div>
-        <div class="field" style="flex:1;margin:0">
-          <label>Orden visual</label>
-          <input id="cat-sort" type="number" min="0" value="${cat?.sort_order ?? 50}" placeholder="50">
-        </div>
+      <div class="field" style="margin-top:.75rem">
+        <label>Icono</label>
+        <div id="cat-icon-grid" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;border:1px solid var(--bd2);border-radius:var(--r-sm);background:var(--bg2)">${iconOptions}</div>
+        <input type="hidden" id="cat-icon" value="${currentIcon}">
       </div>
 
       <div class="field" style="margin-top:.75rem">
@@ -12424,11 +12559,14 @@ async function openCategoryEditor(catId) {
           <option value="4" ${(cat?.course_order ?? -1) === 4 ? 'selected' : ''}>4º curso</option>
           <option value="5" ${(cat?.course_order ?? -1) === 5 ? 'selected' : ''}>5º curso</option>
         </select>
-        <div style="font-size:11px;color:var(--t3);margin-top:.35rem;line-height:1.4">El curso determina cuándo se sirve. Bebidas se sirven inmediatamente. Entrantes antes que principales, etc.</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:.35rem;line-height:1.4">El curso determina cuándo se sirve. Bebidas se sirven inmediatamente; entrantes antes que principales, etc.</div>
       </div>
 
       <div class="toggle" style="margin-top:.75rem">
-        <span style="font-size:13px;color:var(--t2)">Visible en la carta del comensal</span>
+        <div style="flex:1">
+          <div style="font-size:13px;color:var(--t2);font-weight:500">Activar categoría</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px;line-height:1.4">Desactiva temporalmente platos fuera de stock o de temporada (ej. terraza en invierno). Los platos siguen existiendo pero no aparecen al comensal.</div>
+        </div>
         <div class="toggle-track ${cat?.is_visible !== false ? 'on' : ''}" id="cat-visible-track" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></div>
       </div>
 
@@ -12442,6 +12580,17 @@ async function openCategoryEditor(catId) {
     </div>`;
   document.body.appendChild(el);
   el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+}
+
+function _pickCategoryIcon(key) {
+  document.getElementById('cat-icon').value = key;
+  // Re-render selection styling
+  document.querySelectorAll('#cat-icon-grid button[data-icon]').forEach(btn => {
+    const sel = btn.dataset.icon === key;
+    btn.style.borderColor = sel ? 'var(--brand)' : 'var(--bd2)';
+    btn.style.background = sel ? 'var(--brand-l)' : 'var(--card)';
+    btn.style.color = sel ? 'var(--brand-d)' : 'var(--t2)';
+  });
 }
 
 function _setCatRouting(target) {
@@ -12473,8 +12622,7 @@ function _setCatRouting(target) {
 
 async function saveCategory() {
   const name = document.getElementById('cat-name').value.trim();
-  const icon = document.getElementById('cat-icon').value.trim() || null;
-  const sortOrder = parseInt(document.getElementById('cat-sort').value) || 50;
+  const icon = document.getElementById('cat-icon').value.trim() || 'plate';
   const routingTarget = document.getElementById('cat-routing').value;
   const courseOrder = parseInt(document.getElementById('cat-course').value) || 0;
   const isVisible = document.getElementById('cat-visible-track').classList.contains('on');
@@ -12487,7 +12635,6 @@ async function saveCategory() {
   const payload = {
     name,
     icon,
-    sort_order: sortOrder,
     routing_target: routingTarget,
     course_order: courseOrder,
     is_visible: isVisible
@@ -19021,17 +19168,17 @@ async function openEditItem(itemId) {
   document.getElementById('edit-item-price').value = item.price || '';
   document.getElementById('edit-item-cost').value = item.cost_price || '';
   document.getElementById('edit-item-prep').value = item.prep_time_minutes || '';
-  // Resolver categoría desde category_id → poblar select dinámicamente
+  // Resolver categoría desde category_id → poblar ambos selects (base + alt)
   const sel = document.getElementById('edit-item-category');
-  if (sel) {
-    let currentName = null;
-    if (item.category_id) {
-      const cats = await loadAdminCategories();
-      const cat = cats.find(c => c.id === item.category_id);
-      currentName = cat?.name || null;
-    }
-    await _populateCategorySelect(sel, currentName);
+  const selAlt = document.getElementById('edit-item-category-alt');
+  let currentName = null;
+  if (item.category_id) {
+    const cats = await loadAdminCategories();
+    const cat = cats.find(c => c.id === item.category_id);
+    currentName = cat?.name || null;
   }
+  if (sel)    await _populateCategorySelect(sel, currentName);
+  if (selAlt) await _populateCategorySelect(selAlt, currentName);
   document.getElementById('edit-item-shared').checked = !!item.is_shared;
   document.getElementById('edit-item-postre').checked = !!item.can_go_with_postre;
   document.getElementById('edit-item-cooking').checked = !!item.requires_cooking_point;
@@ -19048,6 +19195,7 @@ function _loadVariantsIntoEditor(variants) {
   list.innerHTML = '';
   const sorted = [...variants].sort((a,b) => (a.sort_order||0) - (b.sort_order||0));
   sorted.forEach(v => _appendVariantRow(v));
+  _refreshVariantsUI();
 }
 
 function _appendVariantRow(v) {
@@ -19071,9 +19219,37 @@ function _appendVariantRow(v) {
         class="v-cost" style="width:100%;padding:7px 22px 7px 10px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-size:13px;font-family:inherit;background:var(--card);text-align:right;min-width:0;color:var(--t2)">
       <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--t3);pointer-events:none">€</span>
     </div>
-    <button type="button" onclick="this.parentElement.remove()" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:13px;cursor:pointer;flex-shrink:0">✕</button>
+    <button type="button" onclick="this.parentElement.remove();_refreshVariantsUI()" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:13px;cursor:pointer;flex-shrink:0">✕</button>
   `;
   list.appendChild(row);
+  _refreshVariantsUI();
+}
+
+// Cuando hay variantes, oculta precio/coste base; cuando no hay, los muestra.
+function _refreshVariantsUI() {
+  const list = document.getElementById('edit-item-variants-list');
+  if (!list) return;
+  const hasVariants = list.children.length > 0;
+  const baseBlock = document.getElementById('edit-item-base-price-block');
+  const altBlock  = document.getElementById('edit-item-variants-cat-block');
+  if (baseBlock) baseBlock.style.display = hasVariants ? 'none' : 'block';
+  if (altBlock)  altBlock.style.display  = hasVariants ? 'block' : 'none';
+  // Sincroniza categoría entre los dos selects
+  if (hasVariants) {
+    const src = document.getElementById('edit-item-category');
+    const dst = document.getElementById('edit-item-category-alt');
+    if (src && dst && dst.children.length <= 1) {
+      // Copia opciones del src al dst para no recargar
+      dst.innerHTML = src.innerHTML;
+      dst.value = src.value;
+    }
+  } else {
+    const src = document.getElementById('edit-item-category-alt');
+    const dst = document.getElementById('edit-item-category');
+    if (src && dst && src.value) {
+      dst.value = src.value;
+    }
+  }
 }
 
 function addVariantRow() {
@@ -19088,13 +19264,11 @@ function closeEditItem() {
 async function saveEditItem() {
   if (!_editItemId) return;
   const name = document.getElementById('edit-item-name').value.trim();
-  const price = parseFloat(document.getElementById('edit-item-price').value);
   const errEl = document.getElementById('edit-item-err');
 
   if (!name) { errEl.textContent = 'El nombre es obligatorio.'; errEl.style.display = 'block'; return; }
-  if (isNaN(price) || price < 0) { errEl.textContent = 'Precio inválido.'; errEl.style.display = 'block'; return; }
 
-  // Recoger variantes del editor
+  // Recoger variantes del editor primero (para saber si hay variantes)
   const variantRows = Array.from(document.querySelectorAll('#edit-item-variants-list .variant-row'));
   const variantsData = variantRows.map((row, idx) => {
     const costRaw = row.querySelector('.v-cost')?.value;
@@ -19108,7 +19282,25 @@ async function saveEditItem() {
     };
   }).filter(v => v.name && !isNaN(v.price) && v.price >= 0);
 
-  const categoryId = await _ensureCategory(state.adminRestaurantId, document.getElementById('edit-item-category').value);
+  const hasVariants = variantsData.length > 0;
+  // Si NO hay variantes el precio base es obligatorio; si SÍ hay variantes se ignora
+  let price = 0;
+  if (hasVariants) {
+    price = Math.min(...variantsData.map(v => v.price)); // precio base = el más bajo (para "desde")
+  } else {
+    price = parseFloat(document.getElementById('edit-item-price').value);
+    if (isNaN(price) || price < 0) {
+      errEl.textContent = 'Introduce un precio válido o añade variantes.'; errEl.style.display = 'block'; return;
+    }
+  }
+
+  // Categoría: leer del select activo
+  const catSel = hasVariants
+    ? document.getElementById('edit-item-category-alt')
+    : document.getElementById('edit-item-category');
+  const categoryName = catSel?.value || '';
+  const categoryId = await _ensureCategory(state.adminRestaurantId, categoryName);
+
   const updates = {
     name,
     price,
@@ -19116,10 +19308,16 @@ async function saveEditItem() {
     is_shared: document.getElementById('edit-item-shared').checked,
     can_go_with_postre: document.getElementById('edit-item-postre').checked,
     requires_cooking_point: document.getElementById('edit-item-cooking').checked,
-    has_variants: variantsData.length > 0
+    has_variants: hasVariants
   };
-  const costVal = parseFloat(document.getElementById('edit-item-cost').value);
-  if (!isNaN(costVal) && costVal > 0) updates.cost_price = costVal;
+  // cost_price base solo si NO hay variantes
+  if (!hasVariants) {
+    const costVal = parseFloat(document.getElementById('edit-item-cost').value);
+    if (!isNaN(costVal) && costVal > 0) updates.cost_price = costVal;
+    else updates.cost_price = null;
+  } else {
+    updates.cost_price = null;
+  }
   const prepVal = parseInt(document.getElementById('edit-item-prep').value);
   if (!isNaN(prepVal) && prepVal > 0) updates.prep_time_minutes = prepVal;
 
