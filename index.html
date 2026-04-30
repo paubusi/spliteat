@@ -4585,7 +4585,7 @@ async function loadCarta() {
   state.categories = cats || [];
   // Load items + variants
   const { data } = await sb.from('menu_items')
-    .select('*, menu_item_variants(id,name,price,sort_order,is_default)')
+    .select('*, menu_item_variants(id,name,price,cost_price,sort_order,is_default)')
     .eq('restaurant_id', state.restaurantId).eq('active', true).order('sort_order');
   state.menuItems = data || [];
   document.getElementById('carta-loading').style.display = 'none';
@@ -5141,8 +5141,8 @@ function openModal(itemId) {
       const existingShared = state.dishes.filter(d => d.menu_item_id === itemId && d.variant_id === chosen.id && d.type === 'shared');
       if (existingShared.length > 0) {
         const msg = existingShared.length === 1
-          ? `Ya habéis pedido "${item.name} (${chosen.name})". ¿Añadir otro?`
-          : `Ya habéis pedido ${existingShared.length}x "${item.name} (${chosen.name})". ¿Añadir uno más?`;
+          ? `Ya habéis pedido "${item.name} — ${chosen.name}". ¿Añadir otro?`
+          : `Ya habéis pedido ${existingShared.length}x "${item.name} — ${chosen.name}". ¿Añadir uno más?`;
         showDuplicateDishWarning(msg, () => _openModalFor(itemId, itemWithVariant));
         return;
       }
@@ -5212,11 +5212,13 @@ function _openModalFor(itemId, item) {
   const isBar = cat?.routing_target === 'bar';
   if (isBar) modalCourse = 0;
 
-  // Variant override: si se eligió variante, usar su nombre+precio
+  // Variant override: si se eligió variante, mostrarla bajo el nombre principal
   const v = item._selectedVariant;
-  const displayName = v ? `${item.name} (${v.name})` : item.name;
   const displayPrice = v ? parseFloat(v.price) : parseFloat(item.price);
-  document.getElementById('modal-dish-name').textContent = displayName;
+  const nameEl = document.getElementById('modal-dish-name');
+  if (nameEl) {
+    nameEl.innerHTML = `${escHtml(item.name)}${v ? `<div style="font-size:13px;font-weight:500;color:var(--brand);margin-top:3px">${escHtml(v.name)}</div>` : ''}`;
+  }
   document.getElementById('modal-dish-price').textContent = fmt(displayPrice);
   document.getElementById('modal-shared-hint').style.display = 'none';
   setModalType(item.is_shared ? 'shared' : 'solo');
@@ -5383,9 +5385,11 @@ async function confirmAddDish() {
     return;
   }
   closeModal();
-  // Variant: si se eligió, usa su precio/nombre y guarda variant_id
+  // Variant: si se eligió, usa su precio. El nombre BASE se guarda limpio en
+  // dish.name; la variante se guarda en dish.variant_name → cocina/serveat la
+  // muestran como BADGE (legibilidad), evitamos parens que se truncan.
   const v = item._selectedVariant;
-  const finalName = v ? `${item.name} (${v.name})` : item.name;
+  const finalName = item.name;
   const finalPrice = v ? parseFloat(v.price) : parseFloat(item.price);
   // Snapshot del nombre de categoría para legibilidad histórica
   const catObj = (state.categories || []).find(c => c.id === item.category_id);
@@ -5873,7 +5877,7 @@ function renderDishCard(dish) {
   return `<div class="dish-card${isConfirmed?' confirmed':''}" id="dc-${dish.id}" style="${cardStyle}">
     <div class="dish-card-top" style="margin-bottom:${bodyHtml||actionBtns?'4px':'0'}">
       <div class="dish-name" style="font-size:13px;${isDelivered?'color:var(--t3);':''}">
-        ${isDelivered ? `<s style="text-decoration-color:var(--t3)">` : ''}${escHtml(dish.name)}${isDelivered ? '</s>' : ''}${courseBadge}${cookingBadge}
+        ${isDelivered ? `<s style="text-decoration-color:var(--t3)">` : ''}${escHtml(dish.name)}${dish.variant_name ? ` <span style="display:inline-block;font-size:10px;font-weight:700;color:var(--brand-d);background:var(--brand-l);border:1px solid var(--brand);border-radius:99px;padding:1px 7px;margin-left:4px;letter-spacing:.02em;vertical-align:middle">${escHtml(dish.variant_name)}</span>` : ''}${isDelivered ? '</s>' : ''}${courseBadge}${cookingBadge}
         ${dish.notes ? `<div style="font-size:11px;color:var(--t2);font-weight:400;margin-top:2px;font-style:italic">📝 ${escHtml(dish.notes)}</div>` : ''}
       </div>
       <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
@@ -6438,7 +6442,7 @@ function buildSummary() {
         const partsKey = isShared
           ? (state.participants[d.id]||[]).slice().sort().join(',')
           : (d.assignee_id || '');
-        const k = `${d.name}|${parseFloat(d.price||0).toFixed(2)}|${isShared?'S':'I'}|${partsKey}`;
+        const k = `${d.name}|${d.variant_id||''}|${parseFloat(d.price||0).toFixed(2)}|${isShared?'S':'I'}|${partsKey}`;
         if (seenKey[k] === undefined) {
           seenKey[k] = groupedBill.length;
           groupedBill.push({ sample: d, qty: 0 });
@@ -6483,7 +6487,7 @@ function buildSummary() {
 
             return `<div style="display:flex;align-items:center;gap:.65rem;padding:.55rem 0;border-bottom:1px solid var(--bd)">
               <div style="flex:1;min-width:0">
-                <div style="font-size:13px;font-weight:500;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${qtyPrefix}${escHtml(d.name)}</div>
+                <div style="font-size:13px;font-weight:500;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${qtyPrefix}${escHtml(d.name)}${d.variant_name ? ` <span style="display:inline-block;font-size:10px;font-weight:700;color:var(--brand-d);background:var(--brand-l);border:1px solid var(--brand);border-radius:99px;padding:1px 7px;margin-left:3px;letter-spacing:.02em;vertical-align:middle">${escHtml(d.variant_name)}</span>` : ''}</div>
                 <div style="font-size:11px;color:${labelColor};margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${labelText}</div>
               </div>
               <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
@@ -8071,15 +8075,15 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
 
       const maxPrep = Math.max(...cDishes.map(d => prepByItem[d.menu_item_id] || 0));
 
-      // Agrupar platos idénticos (nombre + punto cocción) → mostrar ×2, ×3
+      // Agrupar platos idénticos (nombre + variante + punto cocción + estado) → mostrar ×2, ×3
       const dishGroupsMap = {};
       const dishGroupsOrder = [];
       cDishes.forEach(d => {
-        const key = (d.name||'').trim().toLowerCase() + '|' + (d.cooking_point||'').trim().toLowerCase() + '|' + (d.kitchen_status||'');
+        const key = (d.name||'').trim().toLowerCase() + '|' + (d.variant_name||'').trim().toLowerCase() + '|' + (d.cooking_point||'').trim().toLowerCase() + '|' + (d.kitchen_status||'');
         if (dishGroupsMap[key]) {
           dishGroupsMap[key].items.push(d);
         } else {
-          dishGroupsMap[key] = { items: [d], name: d.name, cooking_point: d.cooking_point, kitchen_status: d.kitchen_status };
+          dishGroupsMap[key] = { items: [d], name: d.name, variant_name: d.variant_name, cooking_point: d.cooking_point, kitchen_status: d.kitchen_status };
           dishGroupsOrder.push(key);
         }
       });
@@ -8106,7 +8110,7 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
           <span style="font-size:12px;flex-shrink:0;color:${isDone?'#3B6D11':ks==='making'?'#B7560D':'#aaa'}">${dot}</span>
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:${isDone?'400':'500'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${isDone?'text-decoration:line-through;color:var(--t3)':''}">
-              ${count > 1 ? `<strong style="color:var(--brand-d);margin-right:4px">×${count}</strong>` : ''}${escHtml(d.name)}
+              ${count > 1 ? `<strong style="color:var(--brand-d);margin-right:4px">×${count}</strong>` : ''}${escHtml(d.name)}${d.variant_name ? ` <span style="display:inline-block;font-size:10px;font-weight:700;color:var(--brand-d);background:var(--brand-l);border:1px solid var(--brand);border-radius:99px;padding:1px 7px;margin-left:4px;letter-spacing:.02em;vertical-align:middle">${escHtml(d.variant_name)}</span>` : ''}
             </div>
             ${d.cooking_point ? `<div style="font-size:11px;font-weight:600;color:#8B5E3C;margin-top:1px">${d.cooking_point}</div>` : ''}
             ${prep && !isDone ? `<div style="font-size:10px;color:var(--t3)">⏱ ${prep} min · ${dishElapsed} min esperando</div>` : ''}
@@ -11270,7 +11274,7 @@ async function loadAdminCartaMobile() {
   if (!el) return;
   const cats = await loadAdminCategories(true);
   const { data } = await sb.from('menu_items')
-    .select('*, menu_item_variants(id,name,price,sort_order,is_default)')
+    .select('*, menu_item_variants(id,name,price,cost_price,sort_order,is_default)')
     .eq('restaurant_id', state.adminRestaurantId).order('sort_order').order('name');
   const grouped = {};
   (data || []).forEach(item => {
@@ -12298,7 +12302,7 @@ async function loadAdminCarta() {
   // Cargar categorías + items con join
   const cats = await loadAdminCategories(true);
   const { data, error } = await sb.from('menu_items')
-    .select('*, menu_item_variants(id,name,price,sort_order,is_default)')
+    .select('*, menu_item_variants(id,name,price,cost_price,sort_order,is_default)')
     .eq('restaurant_id', state.adminRestaurantId)
     .order('sort_order').order('name');
 
@@ -12563,7 +12567,7 @@ async function loadAdminCartaInline() {
   if (!el) { loadAdminCarta(); return; }
   const cats = await loadAdminCategories(true);
   const { data } = await sb.from('menu_items')
-    .select('*, menu_item_variants(id,name,price,sort_order,is_default)')
+    .select('*, menu_item_variants(id,name,price,cost_price,sort_order,is_default)')
     .eq('restaurant_id', state.adminRestaurantId).order('sort_order').order('name');
   if (!data?.length) { el.innerHTML = '<div class="empty"><div class="empty-text">No hay platos. Añade el primero.</div></div>'; return; }
 
@@ -18763,7 +18767,7 @@ let _editItemId = null;
 async function openEditItem(itemId) {
   _editItemId = itemId;
   const { data: item } = await sb.from('menu_items')
-    .select('*, menu_item_variants(id,name,price,sort_order,is_default)')
+    .select('*, menu_item_variants(id,name,price,cost_price,sort_order,is_default)')
     .eq('id', itemId).maybeSingle();
   if (!item) return;
   document.getElementById('edit-item-name').value = item.name || '';
@@ -18804,13 +18808,20 @@ function _appendVariantRow(v) {
   const row = document.createElement('div');
   row.className = 'variant-row';
   row.dataset.variantId = v?.id || '';
-  row.style.cssText = 'display:flex;gap:.4rem;align-items:center';
+  row.style.cssText = 'display:grid;grid-template-columns:1.6fr 1fr 1fr auto;gap:.4rem;align-items:center';
   row.innerHTML = `
     <input type="text" placeholder="Nombre (Copa, Media...)" value="${v ? escHtml(v.name) : ''}"
-      class="v-name" style="flex:2;padding:7px 10px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-size:13px;font-family:inherit;background:var(--card)">
-    <input type="number" step="0.01" min="0" placeholder="0.00" value="${v?.price ?? ''}"
-      class="v-price" style="flex:1;padding:7px 10px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-size:13px;font-family:inherit;background:var(--card);text-align:right">
-    <span style="font-size:12px;color:var(--t3)">€</span>
+      class="v-name" style="padding:7px 10px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-size:13px;font-family:inherit;background:var(--card);min-width:0">
+    <div style="position:relative">
+      <input type="number" step="0.01" min="0" placeholder="PVP" value="${v?.price ?? ''}"
+        class="v-price" style="width:100%;padding:7px 22px 7px 10px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-size:13px;font-family:inherit;background:var(--card);text-align:right;min-width:0">
+      <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--t3);pointer-events:none">€</span>
+    </div>
+    <div style="position:relative">
+      <input type="number" step="0.01" min="0" placeholder="Coste" value="${v?.cost_price ?? ''}"
+        class="v-cost" style="width:100%;padding:7px 22px 7px 10px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-size:13px;font-family:inherit;background:var(--card);text-align:right;min-width:0;color:var(--t2)">
+      <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--t3);pointer-events:none">€</span>
+    </div>
     <button type="button" onclick="this.parentElement.remove()" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:13px;cursor:pointer;flex-shrink:0">✕</button>
   `;
   list.appendChild(row);
@@ -18836,12 +18847,17 @@ async function saveEditItem() {
 
   // Recoger variantes del editor
   const variantRows = Array.from(document.querySelectorAll('#edit-item-variants-list .variant-row'));
-  const variantsData = variantRows.map((row, idx) => ({
-    id: row.dataset.variantId || null,
-    name: row.querySelector('.v-name').value.trim(),
-    price: parseFloat(row.querySelector('.v-price').value),
-    sort_order: idx * 10
-  })).filter(v => v.name && !isNaN(v.price) && v.price >= 0);
+  const variantsData = variantRows.map((row, idx) => {
+    const costRaw = row.querySelector('.v-cost')?.value;
+    const costNum = parseFloat(costRaw);
+    return {
+      id: row.dataset.variantId || null,
+      name: row.querySelector('.v-name').value.trim(),
+      price: parseFloat(row.querySelector('.v-price').value),
+      cost_price: (!isNaN(costNum) && costNum >= 0) ? costNum : null,
+      sort_order: idx * 10
+    };
+  }).filter(v => v.name && !isNaN(v.price) && v.price >= 0);
 
   const categoryId = await _ensureCategory(state.adminRestaurantId, document.getElementById('edit-item-category').value);
   const updates = {
@@ -18868,6 +18884,7 @@ async function saveEditItem() {
       menu_item_id: _editItemId,
       name: v.name,
       price: v.price,
+      cost_price: v.cost_price,
       sort_order: v.sort_order,
       is_default: idx === 0
     }));
