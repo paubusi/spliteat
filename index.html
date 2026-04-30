@@ -7914,17 +7914,71 @@ async function loadKitchenOrders() {
   const roomTableMap = {};
   rooms.forEach(r => { roomTableMap[r.id] = r.table_id; });
 
-  const [{ data: dishes }, { data: tables }, { data: menuItems }] = await Promise.all([
+  const [{ data: dishes }, { data: tables }, { data: menuItems }, { data: recipesData }, { data: invData }] = await Promise.all([
     sb.from('dishes').select('*').in('room_id', roomIds)
       .in('kitchen_status', ['sent','making','ready','delivered']).order('created_at'),
     sb.from('tables').select('*').eq('restaurant_id', state.kitchenRestaurantId),
-    sb.from('menu_items').select('id,prep_time_minutes').eq('restaurant_id', state.kitchenRestaurantId)
+    sb.from('menu_items').select('id,prep_time_minutes,stock_mode,self_ingredient_id,self_qty_per_unit').eq('restaurant_id', state.kitchenRestaurantId),
+    sb.from('recipes').select('id,menu_item_id,variant_id,recipe_items(ingredient_id,quantity)'),
+    sb.from('inventory_with_alerts').select('ingredient_id,ingredient_name,unit,qty_on_hand,alert_threshold,is_low_stock,is_out_of_stock').eq('restaurant_id', state.kitchenRestaurantId)
   ]);
 
   const tablesById = {};
   (tables || []).forEach(t => { tablesById[t.id] = t; });
   const prepByItem = {};
-  (menuItems || []).forEach(m => { if (m.prep_time_minutes) prepByItem[m.id] = m.prep_time_minutes; });
+  const stockModeByItem = {};
+  (menuItems || []).forEach(m => {
+    if (m.prep_time_minutes) prepByItem[m.id] = m.prep_time_minutes;
+    stockModeByItem[m.id] = m;
+  });
+
+  // Mapa de inventario por ingrediente
+  const invByIng = new Map();
+  (invData || []).forEach(i => invByIng.set(i.ingredient_id, i));
+
+  // Mapa de recetas por (menu_item_id, variant_id|null)
+  const recipesByKey = new Map();
+  (recipesData || []).forEach(r => {
+    const key = r.menu_item_id + '|' + (r.variant_id || '');
+    recipesByKey.set(key, r.recipe_items || []);
+  });
+
+  // Helper: dado un dish, devuelve lista de ingredientes problemáticos
+  // { name, unit, qty_required, qty_on_hand, severity: 'low'|'out' }
+  function _stockIssuesForDish(dish) {
+    const mi = stockModeByItem[dish.menu_item_id];
+    if (!mi || mi.stock_mode === 'none') return [];
+    const issues = [];
+
+    if (mi.stock_mode === 'self' && mi.self_ingredient_id) {
+      const inv = invByIng.get(mi.self_ingredient_id);
+      if (!inv) return [];
+      const qtyReq = (dish.variant_id ? null : null) || mi.self_qty_per_unit || 1;
+      // Si stock <= qtyReq tras descontar → "out". Si bajo umbral → "low"
+      if (inv.qty_on_hand < qtyReq) {
+        issues.push({ name: inv.ingredient_name, unit: inv.unit, qty_required: qtyReq, qty_on_hand: inv.qty_on_hand, severity: 'out' });
+      } else if (inv.is_low_stock) {
+        issues.push({ name: inv.ingredient_name, unit: inv.unit, qty_required: qtyReq, qty_on_hand: inv.qty_on_hand, severity: 'low' });
+      }
+    } else if (mi.stock_mode === 'ingredient') {
+      // Buscar receta: variante específica → cae a base
+      let items = recipesByKey.get(dish.menu_item_id + '|' + (dish.variant_id || ''));
+      if (!items || !items.length) items = recipesByKey.get(dish.menu_item_id + '|');
+      (items || []).forEach(ri => {
+        const inv = invByIng.get(ri.ingredient_id);
+        if (!inv) return;
+        const qtyReq = parseFloat(ri.quantity) || 0;
+        if (inv.qty_on_hand < qtyReq) {
+          issues.push({ name: inv.ingredient_name, unit: inv.unit, qty_required: qtyReq, qty_on_hand: inv.qty_on_hand, severity: 'out' });
+        } else if (inv.is_low_stock) {
+          issues.push({ name: inv.ingredient_name, unit: inv.unit, qty_required: qtyReq, qty_on_hand: inv.qty_on_hand, severity: 'low' });
+        }
+      });
+    }
+    return issues;
+  }
+  // Hacerla accesible en el render (que es función separada)
+  window._stockIssuesForDish = _stockIssuesForDish;
 
   // Bebidas excluidas del KDS — las gestiona el camarero directamente desde serveat
   // También excluir bebidas "con el postre" (with_postre=true) aunque tengan otra categoría
@@ -8102,14 +8156,35 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
             style="padding:4px 12px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">✓ Listo</button>`;
         }
 
-        return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid rgba(0,0,0,.05);opacity:${isDone?'.5':'1'}">
-          <span style="font-size:12px;flex-shrink:0;color:${isDone?'#3B6D11':ks==='making'?'#B7560D':'#aaa'}">${dot}</span>
+        return `<div style="display:flex;align-items:flex-start;gap:6px;padding:6px 0;border-bottom:1px solid rgba(0,0,0,.05);opacity:${isDone?'.5':'1'};flex-wrap:wrap">
+          <span style="font-size:12px;flex-shrink:0;color:${isDone?'#3B6D11':ks==='making'?'#B7560D':'#aaa'};margin-top:1px">${dot}</span>
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:${isDone?'400':'500'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${isDone?'text-decoration:line-through;color:var(--t3)':''}">
               ${count > 1 ? `<strong style="color:var(--brand-d);margin-right:4px">×${count}</strong>` : ''}${escHtml(d.name)}${d.variant_name ? ` <span style="display:inline-block;font-size:10px;font-weight:700;color:var(--brand-d);background:var(--brand-l);border:1px solid var(--brand);border-radius:99px;padding:1px 7px;margin-left:4px;letter-spacing:.02em;vertical-align:middle">${escHtml(d.variant_name)}</span>` : ''}
             </div>
             ${d.cooking_point ? `<div style="font-size:11px;font-weight:600;color:#8B5E3C;margin-top:1px">${d.cooking_point}</div>` : ''}
             ${prep && !isDone ? `<div style="font-size:10px;color:var(--t3)">⏱ ${prep} min · ${dishElapsed} min esperando</div>` : ''}
+            ${(() => {
+              if (isDone || typeof window._stockIssuesForDish !== 'function') return '';
+              const issues = window._stockIssuesForDish(d);
+              if (!issues.length) return '';
+              // Multiplicar por el count del grupo (×N platos idénticos)
+              const scaled = issues.map(i => ({
+                ...i,
+                qty_required: i.qty_required * count,
+                severity: i.qty_on_hand < i.qty_required * count ? 'out' : i.severity
+              }));
+              const hasOut = scaled.some(i => i.severity === 'out');
+              const bg = hasOut ? '#FCEBEB' : '#FAEEDA';
+              const border = hasOut ? '#E89C9C' : '#E5A85A';
+              const txt = hasOut ? '#A32D2D' : '#854F0B';
+              const icon = hasOut ? '⚠️' : '⚡';
+              const headline = hasOut ? 'Stock insuficiente' : 'Stock bajo';
+              return `<div style="margin-top:6px;background:${bg};border:1px solid ${border};border-radius:6px;padding:5px 8px">
+                <div style="font-size:11px;font-weight:600;color:${txt};margin-bottom:2px">${icon} ${headline}</div>
+                ${scaled.map(i => `<div style="font-size:10px;color:${txt};line-height:1.4">${escHtml(i.name)}: necesita ${(+i.qty_required.toFixed(3))} ${i.unit}, hay ${i.qty_on_hand}</div>`).join('')}
+              </div>`;
+            })()}
           </div>
           ${btn}
         </div>`;
@@ -19921,21 +19996,67 @@ async function openRecipeEditor(menuItemId) {
   const mi = _stk.menuItems.find(x => x.id === menuItemId);
   if (!mi) return;
 
-  // Cargar la receta actual
-  const { data: recipes } = await sb.from('recipes')
-    .select('id,recipe_items(id,ingredient_id,quantity,ingredients(name,unit))')
-    .eq('menu_item_id', menuItemId).is('variant_id', null);
-  const recipe = (recipes || [])[0];
-  const items = recipe?.recipe_items || [];
+  // Cargar variantes del plato (incluido self_qty_per_unit)
+  const { data: variants } = await sb.from('menu_item_variants')
+    .select('id,name,price,sort_order,self_qty_per_unit')
+    .eq('menu_item_id', menuItemId)
+    .order('sort_order');
+
+  // Cargar TODAS las recetas (base + por variante) en una sola query
+  const { data: allRecipes } = await sb.from('recipes')
+    .select('id,variant_id,recipe_items(id,ingredient_id,quantity)')
+    .eq('menu_item_id', menuItemId);
+
+  // Indexar recetas por variant_id (null = base)
+  const recipesByVariant = new Map();
+  (allRecipes || []).forEach(r => {
+    recipesByVariant.set(r.variant_id || '_BASE_', r);
+  });
+
+  // Estado global del editor: items por receta (variant_id → items[])
+  // Cada entry: { recipeId, items: [{id, ingredient_id, quantity}] }
+  window._recState = {
+    menuItemId,
+    mode: mi.stock_mode || 'none',
+    self_ingredient_id: mi.self_ingredient_id || '',
+    self_qty_per_unit: mi.self_qty_per_unit || 1,
+    variants: variants || [],
+    // Map<variantId|'_BASE_', { recipeId, items[], expanded, selfQtyPerUnit (variantes en self mode) }>
+    recipes: new Map()
+  };
+
+  // Inicializar entry para receta base
+  const baseRec = recipesByVariant.get('_BASE_');
+  window._recState.recipes.set('_BASE_', {
+    recipeId: baseRec?.id || null,
+    items: (baseRec?.recipe_items || []).map(it => ({
+      id: it.id, ingredient_id: it.ingredient_id, quantity: it.quantity
+    })),
+    expanded: true
+  });
+
+  // Inicializar entry para cada variante
+  (variants || []).forEach(v => {
+    const r = recipesByVariant.get(v.id);
+    window._recState.recipes.set(v.id, {
+      recipeId: r?.id || null,
+      items: (r?.recipe_items || []).map(it => ({
+        id: it.id, ingredient_id: it.ingredient_id, quantity: it.quantity
+      })),
+      expanded: false,
+      // Cantidad self por variante (override del menu_item.self_qty_per_unit)
+      selfQtyPerUnit: null   // se rellena solo si stock_mode='self' al cargar
+    });
+  });
 
   const modal = document.createElement('div');
   modal.id = 'rec-modal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000;display:flex;align-items:flex-end;justify-content:center';
   modal.innerHTML = `
-    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;padding:1.25rem 1.1rem 1.5rem">
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:540px;max-height:90vh;overflow-y:auto;padding:1.25rem 1.1rem 1.5rem">
       <div style="width:36px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto 1rem"></div>
       <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--t1);margin-bottom:.25rem">${escHtml(mi.name)}</div>
-      <div style="font-size:12px;color:var(--t2);margin-bottom:1rem">PVP €${(parseFloat(mi.price)||0).toFixed(2)}</div>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:1rem">PVP €${(parseFloat(mi.price)||0).toFixed(2)}${variants?.length ? ` · ${variants.length} variante${variants.length>1?'s':''}` : ''}</div>
 
       <div class="field">
         <label>Modo de stock</label>
@@ -19944,29 +20065,38 @@ async function openRecipeEditor(menuItemId) {
           <button type="button" data-mode="self" onclick="_setRecipeMode('self')" class="rec-mode-btn ${mi.stock_mode==='self'?'on':''}">🥤 Producto directo</button>
           <button type="button" data-mode="none" onclick="_setRecipeMode('none')" class="rec-mode-btn ${mi.stock_mode==='none'?'on':''}">— Sin trackear</button>
         </div>
-        <input type="hidden" id="rec-mode" value="${mi.stock_mode || 'none'}">
       </div>
 
-      <!-- Bloque para modo 'ingredient' -->
+      <!-- Bloque modo 'ingredient' (acordeón con base + variantes) -->
       <div id="rec-ingredient-block" style="display:${mi.stock_mode==='ingredient'?'block':'none'};margin-top:1rem">
-        <div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:.5rem">Ingredientes</div>
-        <div id="rec-items-list" style="margin-bottom:.5rem"></div>
-        <button type="button" onclick="_addRecipeItem()" style="padding:8px 14px;border-radius:99px;border:1px dashed var(--bd2);background:var(--bg2);color:var(--brand-d);font-size:12px;cursor:pointer;font-family:inherit;width:100%">+ Añadir ingrediente</button>
+        <div id="rec-accordion"></div>
       </div>
 
-      <!-- Bloque para modo 'self' -->
+      <!-- Bloque modo 'self' -->
       <div id="rec-self-block" style="display:${mi.stock_mode==='self'?'block':'none'};margin-top:1rem">
         <div class="field">
           <label>Ingrediente que descuenta</label>
-          <select id="rec-self-ing" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
+          <select id="rec-self-ing" onchange="window._recState.self_ingredient_id=this.value" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
             <option value="">— Seleccionar —</option>
             ${_stk.ingredients.map(i => `<option value="${i.id}" ${mi.self_ingredient_id===i.id?'selected':''}>${escHtml(i.name)} (${i.unit})</option>`).join('')}
           </select>
         </div>
         <div class="field">
-          <label>Cantidad por unidad pedida</label>
-          <input id="rec-self-qty" type="number" step="0.001" min="0" value="${mi.self_qty_per_unit || 1}" placeholder="1">
+          <label>Cantidad por unidad pedida (base)</label>
+          <input id="rec-self-qty" type="number" step="0.001" min="0" value="${mi.self_qty_per_unit || 1}" onchange="window._recState.self_qty_per_unit=parseFloat(this.value)||1" placeholder="1">
         </div>
+        ${variants?.length ? `
+          <div style="font-size:12px;font-weight:600;color:var(--t2);margin:1rem 0 .5rem">Cantidad por variante (opcional)</div>
+          <div style="font-size:11px;color:var(--t3);margin-bottom:.5rem">Si se deja vacío, usa la cantidad base</div>
+          ${variants.map(v => `
+            <div style="display:grid;grid-template-columns:1fr 100px;gap:.5rem;align-items:center;margin-bottom:.4rem">
+              <div style="font-size:13px;color:var(--t1)">${escHtml(v.name)}</div>
+              <input type="number" step="0.001" min="0" placeholder="${mi.self_qty_per_unit || 1}" value="${v.self_qty_per_unit ?? ''}"
+                onchange="window._recState.recipes.get('${v.id}').selfQtyPerUnit = this.value === '' ? null : (parseFloat(this.value) || null)"
+                style="padding:7px 10px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:13px;background:var(--card)">
+            </div>
+          `).join('')}
+        ` : ''}
       </div>
 
       <div style="display:flex;gap:.5rem;margin-top:1.5rem">
@@ -19976,26 +20106,35 @@ async function openRecipeEditor(menuItemId) {
     </div>`;
   document.body.appendChild(modal);
 
-  // Init recipe items state
-  window._recItems = items.map(it => ({
-    id: it.id, ingredient_id: it.ingredient_id, quantity: it.quantity
-  }));
-  _renderRecipeItems();
+  // Pre-cargar self_qty_per_unit por variante si vino en BD
+  // (los valores vienen en menu_item_variants.self_qty_per_unit)
+  (variants || []).forEach(v => {
+    const ent = window._recState.recipes.get(v.id);
+    if (ent && v.self_qty_per_unit != null) ent.selfQtyPerUnit = v.self_qty_per_unit;
+  });
 
-  // Inject styles for mode buttons
+  // Render inicial del acordeón
+  _renderRecipeAccordion();
+
+  // Inject styles for mode buttons (idempotente)
   if (!document.getElementById('rec-mode-styles')) {
     const s = document.createElement('style');
     s.id = 'rec-mode-styles';
     s.textContent = `
       .rec-mode-btn { padding:8px 12px;border-radius:99px;border:1.5px solid var(--bd2);background:var(--card);color:var(--t2);font-size:12px;cursor:pointer;font-family:inherit;font-weight:500 }
       .rec-mode-btn.on { border-color:var(--brand);background:var(--brand-l);color:var(--brand-d) }
+      .rec-acc-section { border:1px solid var(--bd2);border-radius:var(--r-sm);margin-bottom:.5rem;overflow:hidden;background:var(--card) }
+      .rec-acc-header { padding:.65rem .85rem;background:var(--bg2);cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none }
+      .rec-acc-header.is-base { background:var(--brand-l) }
+      .rec-acc-body { padding:.65rem .85rem;border-top:1px solid var(--bd) }
     `;
     document.head.appendChild(s);
   }
 }
 
 function _setRecipeMode(mode) {
-  document.getElementById('rec-mode').value = mode;
+  if (!window._recState) return;
+  window._recState.mode = mode;
   document.querySelectorAll('.rec-mode-btn').forEach(b => {
     b.classList.toggle('on', b.dataset.mode === mode);
   });
@@ -20003,46 +20142,118 @@ function _setRecipeMode(mode) {
   document.getElementById('rec-self-block').style.display = mode === 'self' ? 'block' : 'none';
 }
 
-function _addRecipeItem() {
-  if (!window._recItems) window._recItems = [];
-  window._recItems.push({ id: null, ingredient_id: '', quantity: 1 });
-  _renderRecipeItems();
-}
-
-function _removeRecipeItem(idx) {
-  window._recItems.splice(idx, 1);
-  _renderRecipeItems();
-}
-
-function _renderRecipeItems() {
-  const el = document.getElementById('rec-items-list');
+function _renderRecipeAccordion() {
+  const el = document.getElementById('rec-accordion');
   if (!el) return;
-  if (!window._recItems?.length) {
-    el.innerHTML = `<div style="padding:.75rem;text-align:center;color:var(--t3);font-size:12px;border:1px dashed var(--bd2);border-radius:var(--r-sm);margin-bottom:.5rem">Aún no hay ingredientes</div>`;
-    return;
+  const st = window._recState;
+  if (!st) return;
+
+  const sections = [];
+
+  // Sección base
+  const baseEntry = st.recipes.get('_BASE_');
+  sections.push(_renderAccSection('_BASE_', 'Receta base', 'Aplica si no hay receta específica para la variante', baseEntry, true));
+
+  // Una sección por variante
+  st.variants.forEach(v => {
+    const entry = st.recipes.get(v.id);
+    const itemsCount = entry?.items?.length || 0;
+    const sub = itemsCount === 0 ? 'Sin receta — usará la base' : `${itemsCount} ingrediente${itemsCount>1?'s':''}`;
+    sections.push(_renderAccSection(v.id, v.name, sub, entry, false));
+  });
+
+  el.innerHTML = sections.join('');
+}
+
+function _renderAccSection(key, title, subtitle, entry, isBase) {
+  if (!entry) entry = { items: [], expanded: false };
+  const expanded = entry.expanded;
+  const items = entry.items || [];
+
+  const itemsHtml = items.length
+    ? items.map((it, idx) => `
+        <div style="display:grid;grid-template-columns:1fr 90px auto;gap:.4rem;align-items:end;margin-bottom:.4rem">
+          <select onchange="window._recState.recipes.get('${key}').items[${idx}].ingredient_id=this.value;_renderRecipeAccordion()" style="padding:8px 10px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:13px;background:var(--card)">
+            <option value="">— Ingrediente —</option>
+            ${_stk.ingredients.map(i => `<option value="${i.id}" ${i.id===it.ingredient_id?'selected':''}>${escHtml(i.name)} (${i.unit})</option>`).join('')}
+          </select>
+          <input type="number" step="0.001" min="0" value="${it.quantity}" onchange="window._recState.recipes.get('${key}').items[${idx}].quantity=parseFloat(this.value)||0" style="padding:8px 10px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:13px;background:var(--card)">
+          <button type="button" onclick="window._recState.recipes.get('${key}').items.splice(${idx},1);_renderRecipeAccordion()" style="padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);color:var(--accent);cursor:pointer;font-family:inherit;font-size:14px">✕</button>
+        </div>`).join('')
+    : `<div style="padding:.5rem;text-align:center;color:var(--t3);font-size:12px;font-style:italic">${isBase ? 'Aún no hay ingredientes' : 'Sin receta — heredará de la base'}</div>`;
+
+  const actionBtns = [];
+  if (!isBase) {
+    if (items.length === 0) {
+      actionBtns.push(`<button type="button" onclick="_copyFromBase('${key}')" style="padding:6px 11px;border-radius:99px;border:1px dashed var(--bd2);background:var(--card);color:var(--brand-d);font-size:11px;cursor:pointer;font-family:inherit;margin-right:6px">Copiar de base</button>`);
+    } else {
+      actionBtns.push(`<button type="button" onclick="_clearRecipe('${key}')" style="padding:6px 11px;border-radius:99px;border:1px dashed var(--accent);background:var(--card);color:var(--accent);font-size:11px;cursor:pointer;font-family:inherit;margin-right:6px">Vaciar (heredar de base)</button>`);
+    }
   }
-  el.innerHTML = window._recItems.map((it, idx) => {
-    const ing = _stk.ingredients.find(i => i.id === it.ingredient_id);
-    const unit = ing?.unit || '';
-    return `<div style="display:grid;grid-template-columns:1fr 90px auto;gap:.4rem;align-items:end;margin-bottom:.4rem">
-      <select onchange="window._recItems[${idx}].ingredient_id=this.value;_renderRecipeItems()" style="padding:8px 10px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:13px;background:var(--card)">
-        <option value="">— Ingrediente —</option>
-        ${_stk.ingredients.map(i => `<option value="${i.id}" ${i.id===it.ingredient_id?'selected':''}>${escHtml(i.name)}</option>`).join('')}
-      </select>
-      <input type="number" step="0.001" min="0" value="${it.quantity}" onchange="window._recItems[${idx}].quantity=parseFloat(this.value)||0" placeholder="${unit}" style="padding:8px 10px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:13px;background:var(--card)">
-      <button type="button" onclick="_removeRecipeItem(${idx})" style="padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);color:var(--accent);cursor:pointer;font-family:inherit;font-size:14px">✕</button>
-    </div>`;
-  }).join('');
+  actionBtns.push(`<button type="button" onclick="_addRecipeItem('${key}')" style="padding:6px 11px;border-radius:99px;border:1px dashed var(--bd2);background:var(--bg2);color:var(--brand-d);font-size:11px;cursor:pointer;font-family:inherit">+ Ingrediente</button>`);
+
+  return `<div class="rec-acc-section">
+    <div class="rec-acc-header${isBase?' is-base':''}" onclick="_toggleRecipeSection('${key}')">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--t1)">${escHtml(title)}</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:1px">${escHtml(subtitle)}</div>
+      </div>
+      <span style="font-size:14px;color:var(--t3);transition:transform .15s;${expanded?'transform:rotate(90deg)':''}">›</span>
+    </div>
+    ${expanded ? `<div class="rec-acc-body">
+      <div>${itemsHtml}</div>
+      <div style="margin-top:.5rem;display:flex;flex-wrap:wrap;align-items:center">${actionBtns.join('')}</div>
+    </div>` : ''}
+  </div>`;
+}
+
+function _toggleRecipeSection(key) {
+  const ent = window._recState?.recipes.get(key);
+  if (!ent) return;
+  ent.expanded = !ent.expanded;
+  _renderRecipeAccordion();
+}
+
+function _addRecipeItem(key) {
+  const ent = window._recState?.recipes.get(key);
+  if (!ent) return;
+  if (!ent.items) ent.items = [];
+  ent.items.push({ id: null, ingredient_id: '', quantity: 1 });
+  ent.expanded = true;
+  _renderRecipeAccordion();
+}
+
+function _copyFromBase(key) {
+  const st = window._recState;
+  if (!st) return;
+  const base = st.recipes.get('_BASE_');
+  const target = st.recipes.get(key);
+  if (!base || !target) return;
+  // Clonar items de base (sin id porque son nuevos)
+  target.items = (base.items || []).map(it => ({
+    id: null, ingredient_id: it.ingredient_id, quantity: it.quantity
+  }));
+  target.expanded = true;
+  _renderRecipeAccordion();
+}
+
+function _clearRecipe(key) {
+  const ent = window._recState?.recipes.get(key);
+  if (!ent) return;
+  ent.items = [];
+  _renderRecipeAccordion();
 }
 
 async function saveRecipe(menuItemId) {
-  const mode = document.getElementById('rec-mode').value;
+  const st = window._recState;
+  if (!st) return;
+  const mode = st.mode;
 
-  // Update menu_items.stock_mode + (self_ingredient_id, self_qty_per_unit) si aplica
+  // 1) Update menu_items.stock_mode + (self_ingredient_id, self_qty_per_unit)
   const update = { stock_mode: mode };
   if (mode === 'self') {
-    update.self_ingredient_id = document.getElementById('rec-self-ing').value || null;
-    update.self_qty_per_unit = parseFloat(document.getElementById('rec-self-qty').value) || 1;
+    update.self_ingredient_id = st.self_ingredient_id || null;
+    update.self_qty_per_unit = parseFloat(st.self_qty_per_unit) || 1;
     if (!update.self_ingredient_id) { notify('Selecciona el ingrediente'); return; }
   } else {
     update.self_ingredient_id = null;
@@ -20051,37 +20262,78 @@ async function saveRecipe(menuItemId) {
   let { error: e1 } = await sb.from('menu_items').update(update).eq('id', menuItemId);
   if (e1) { notify('Error: ' + e1.message); return; }
 
-  // Si modo 'ingredient', sync recipe + recipe_items
+  // 2) Si modo 'self' y hay variantes, guardar self_qty_per_unit por variante
+  if (mode === 'self' && st.variants.length) {
+    for (const v of st.variants) {
+      const ent = st.recipes.get(v.id);
+      const qty = ent?.selfQtyPerUnit;
+      const { error: ev } = await sb.from('menu_item_variants')
+        .update({ self_qty_per_unit: qty == null ? null : qty })
+        .eq('id', v.id);
+      if (ev) console.warn('Variante self_qty_per_unit error:', ev);
+    }
+  }
+
+  // 3) Si modo 'ingredient', sync recetas (base + cada variante con items)
   if (mode === 'ingredient') {
-    // Buscar receta base existente
-    const { data: existing } = await sb.from('recipes')
-      .select('id').eq('menu_item_id', menuItemId).is('variant_id', null).maybeSingle();
+    // Procesar receta base
+    await _saveRecipeForKey(menuItemId, '_BASE_', null);
 
-    let recipeId = existing?.id;
-    if (!recipeId) {
-      const { data: created, error: ec } = await sb.from('recipes')
-        .insert({ menu_item_id: menuItemId }).select('id').single();
-      if (ec) { notify('Error creando receta: ' + ec.message); return; }
-      recipeId = created.id;
+    // Procesar variantes (solo las que tienen items; si está vacío, borrar la receta para que herede la base)
+    for (const v of st.variants) {
+      await _saveRecipeForKey(menuItemId, v.id, v.id);
     }
-
-    // Reemplazar items: borrar todos y reinsertar
-    await sb.from('recipe_items').delete().eq('recipe_id', recipeId);
-    const items = (window._recItems || []).filter(it => it.ingredient_id && it.quantity > 0);
-    if (items.length) {
-      const payload = items.map(it => ({
-        recipe_id: recipeId,
-        ingredient_id: it.ingredient_id,
-        quantity: it.quantity
-      }));
-      const { error: e2 } = await sb.from('recipe_items').insert(payload);
-      if (e2) { notify('Error guardando ingredientes: ' + e2.message); return; }
-    }
+  } else {
+    // Si se cambia de 'ingredient' a otro modo, no borramos las recetas (preservamos)
+    // Si quieres borrarlas hay que pulsar "Vaciar" en cada sección
   }
 
   document.getElementById('rec-modal')?.remove();
   notify('Receta guardada', 'success');
   loadStockRecipes();
+}
+
+// Helper: guarda/borra una receta concreta según los items que haya en el state
+async function _saveRecipeForKey(menuItemId, key, variantId) {
+  const ent = window._recState?.recipes.get(key);
+  if (!ent) return;
+  const validItems = (ent.items || []).filter(it => it.ingredient_id && it.quantity > 0);
+
+  // Buscar receta existente
+  let q = sb.from('recipes').select('id').eq('menu_item_id', menuItemId);
+  q = variantId ? q.eq('variant_id', variantId) : q.is('variant_id', null);
+  const { data: existing } = await q.maybeSingle();
+
+  // Si NO hay items y hay receta existente: borrar (variante hereda base)
+  // Excepción: nunca borramos la base aunque esté vacía (queremos cero-sin-receta explícito)
+  if (!validItems.length) {
+    if (existing?.id && variantId) {
+      await sb.from('recipes').delete().eq('id', existing.id);
+    }
+    return;
+  }
+
+  // Hay items: crear o actualizar receta
+  let recipeId = existing?.id;
+  if (!recipeId) {
+    const insertPayload = { menu_item_id: menuItemId };
+    if (variantId) insertPayload.variant_id = variantId;
+    const { data: created, error: ec } = await sb.from('recipes')
+      .insert(insertPayload).select('id').single();
+    if (ec) { console.error('Error creando receta', ec); return; }
+    recipeId = created.id;
+  } else {
+    // Limpiar items previos
+    await sb.from('recipe_items').delete().eq('recipe_id', recipeId);
+  }
+
+  const payload = validItems.map(it => ({
+    recipe_id: recipeId,
+    ingredient_id: it.ingredient_id,
+    quantity: it.quantity
+  }));
+  const { error: e2 } = await sb.from('recipe_items').insert(payload);
+  if (e2) console.error('Error guardando items', e2);
 }
 
 // ══════════════════════════════════════════════════════════════════
