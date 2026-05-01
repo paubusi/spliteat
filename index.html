@@ -1582,34 +1582,25 @@
 
 
   <div class="screen" id="s4-summary">
-    <div class="hdr">
-      <button class="back-btn" onclick="go('s3-dishes')">← Mesa</button>
-      <div class="logo">split<em>eat</em></div>
-      <div style="display:flex;align-items:center;gap:.5rem"><div class="live-badge"><div class="live-dot"></div></div><button onclick="openNotifHistory()" style="position:relative;background:none;border:none;cursor:pointer;padding:4px;color:var(--t2);font-size:18px;line-height:1">🔔<span class="notif-bell-badge" style="display:none;position:absolute;top:-2px;right:-2px;background:var(--accent);color:#fff;border-radius:99px;font-size:9px;font-weight:700;min-width:14px;height:14px;text-align:center;line-height:14px;padding:0 3px">0</span></button></div>
+    <!-- Header verde oscuro (consistencia con Revisar cuenta) -->
+    <div style="background:var(--brand-d);padding:.8rem 1.1rem .85rem;flex-shrink:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
+        <button onclick="go('s3-dishes')" style="background:rgba(255,255,255,.12);border:none;border-radius:99px;padding:5px 13px;font-size:12px;color:#fff;cursor:pointer;font-family:inherit">← Volver</button>
+        <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#EEF0EC">Ver reparto</div>
+        <button onclick="openNotifHistory()" style="position:relative;background:rgba(255,255,255,.12);border:none;border-radius:99px;width:30px;height:26px;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;line-height:1">🔔<span class="notif-bell-badge" style="display:none;position:absolute;top:-3px;right:-3px;background:var(--accent);color:#fff;border-radius:99px;font-size:9px;font-weight:700;min-width:14px;height:14px;text-align:center;line-height:14px;padding:0 3px">0</span></button>
+      </div>
+      <div style="display:flex;gap:.5rem">
+        <div style="flex:1;background:rgba(255,255,255,.1);border-radius:var(--r-sm);padding:.5rem .75rem;text-align:center">
+          <div style="font-size:10px;color:rgba(255,255,255,.55);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Tu parte</div>
+          <div id="my-price-amount" style="font-family:'Fraunces',serif;font-size:22px;font-weight:800;color:#6FE8B0">—</div>
+        </div>
+        <div style="flex:1;background:rgba(255,255,255,.08);border-radius:var(--r-sm);padding:.5rem .75rem;text-align:center">
+          <div style="font-size:10px;color:rgba(255,255,255,.45);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Total mesa</div>
+          <div id="grand-total-preview" style="font-family:'Fraunces',serif;font-size:22px;font-weight:800;color:rgba(255,255,255,.85)">—</div>
+        </div>
+      </div>
     </div>
     <div class="body">
-      <!-- Steps -->
-      <div style="display:flex;align-items:center;gap:4px;margin-bottom:1rem;font-size:11px;font-weight:500">
-        <span style="color:var(--brand)">✓ Carta</span>
-        <span style="color:var(--bd2)">——</span>
-        <span style="color:var(--brand)">✓ Cocina</span>
-        <span style="color:var(--bd2)">——</span>
-        <span style="color:var(--brand-d);font-weight:600">Resumen</span>
-        <span style="color:var(--bd2)">——</span>
-        <span style="color:var(--t3)">Pagar</span>
-      </div>
-
-      <!-- #21+#22: My price preview card -->
-      <div id="my-price-preview" style="background:var(--brand-l);border-radius:var(--r);padding:.85rem 1.1rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <div style="font-size:12px;color:var(--brand);font-weight:500;margin-bottom:2px">Tu parte</div>
-          <div id="my-price-amount" style="font-family:'Fraunces',serif;font-size:26px;font-weight:700;color:var(--brand-d)">—</div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:12px;color:var(--brand);font-weight:500;margin-bottom:2px">Total mesa</div>
-          <div id="grand-total-preview" style="font-size:16px;font-weight:600;color:var(--brand-d)">—</div>
-        </div>
-      </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem">
         <div class="sec-label" style="margin:0">Lo que debe cada uno</div>
       </div>
@@ -1649,10 +1640,13 @@
        S5: PAGO — rediseñado
   ════════════════════════════════════════ -->
   <div class="screen" id="s5-pay">
-    <div class="hdr">
-      <button class="back-btn" onclick="go('s4-summary')">← Resumen</button>
-      <div class="logo">split<em>eat</em></div>
-      <div></div>
+    <!-- Header verde oscuro (consistencia con flujo Revisar cuenta / Ver reparto) -->
+    <div style="background:var(--brand-d);padding:.8rem 1.1rem;flex-shrink:0">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <button onclick="go('s4-summary')" style="background:rgba(255,255,255,.12);border:none;border-radius:99px;padding:5px 13px;font-size:12px;color:#fff;cursor:pointer;font-family:inherit">← Resumen</button>
+        <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#EEF0EC">Pagar</div>
+        <div style="width:74px"></div>
+      </div>
     </div>
     <!-- #11-7: Change method banner — visible, descriptive -->
     <div id="change-method-banner" style="background:var(--brand-l);border-bottom:1.5px solid var(--brand);padding:.6rem 1.25rem;display:none;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0">
