@@ -5484,11 +5484,10 @@ async function confirmAddDish() {
     if (err) err.style.display = 'block';
     return;
   }
-  closeModal();
-  // Variant: leer desde el estado global del modal (modalSelectedVariant), NO desde
-  // state.menuItems[item]._selectedVariant porque ese flag no se persiste en state.
-  // El nombre BASE se guarda limpio en dish.name; la variante se guarda en dish.variant_name.
+  // ── BUG FIX: leer modalSelectedVariant ANTES de closeModal() porque closeModal lo resetea a null ──
   const v = modalSelectedVariant;
+  closeModal();
+  // El nombre BASE se guarda limpio en dish.name; la variante se guarda en dish.variant_name.
   const finalName = item.name;
   const finalPrice = v ? parseFloat(v.price) : parseFloat(item.price);
   // Snapshot del nombre de categoría para legibilidad histórica
@@ -9665,6 +9664,7 @@ let _waiterRestaurantName = null;
 let _waiterId = null;
 let _waiterName = null;
 let _waiterCart = []; // { menuItem, qty, type }
+let _waiterMenuItemsCache = []; // últimos menu_items cargados (con menu_item_variants) para resolver variantes en handlers
 let _waiterActiveRoomId = null;
 let _debounceTimer = null;
 
@@ -10454,8 +10454,10 @@ async function renderDrawerCarta() {
   `;
 
   // Cargar items directamente
-  const { data: items } = await sb.from('menu_items').select('*')
+  const { data: items } = await sb.from('menu_items')
+    .select('*, menu_item_variants(id,name,price,sort_order,is_default)')
     .eq('restaurant_id', _waiterRestaurantId).eq('active', true).order('sort_order');
+  _waiterMenuItemsCache = items || [];
 
   const cartaEl = document.getElementById('drawer-carta-list');
   if (!cartaEl) {
@@ -10493,7 +10495,7 @@ async function renderDrawerCarta() {
           <button onclick="waiterCartRemove('${item.id}');refreshDrawerCart()"
             style="width:30px;height:30px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit">−</button>
           <span id="wcart-qty-${item.id}" style="font-size:14px;font-weight:500;min-width:18px;text-align:center">0</span>
-          <button onclick="waiterCartAdd('${item.id}','${escName}',${item.price},${item.is_shared},${!!item.requires_cooking_point});refreshDrawerCart()"
+          <button onclick="waiterTryAddItem('${item.id}', refreshDrawerCart)"
             style="width:30px;height:30px;border-radius:50%;border:none;background:var(--brand);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit">+</button>
         </div>
       </div>`;
@@ -10978,8 +10980,10 @@ async function loadWaiterCarta() {
   _waiterCart = [];
   updateWaiterCart();
 
-  const { data: items } = await sb.from('menu_items').select('*')
+  const { data: items } = await sb.from('menu_items')
+    .select('*, menu_item_variants(id,name,price,sort_order,is_default)')
     .eq('restaurant_id', _waiterRestaurantId).eq('active', true).order('sort_order');
+  _waiterMenuItemsCache = items || [];
 
   const cartaEl = document.getElementById('waiter-carta-list');
   document.getElementById('waiter-carta-area').style.display = 'block';
@@ -11006,7 +11010,7 @@ async function loadWaiterCarta() {
           <button onclick="waiterCartRemove('${item.id}')"
             style="width:28px;height:28px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit">−</button>
           <span id="wcart-qty-${item.id}" style="font-size:14px;font-weight:500;min-width:16px;text-align:center">0</span>
-          <button onclick="waiterCartAdd('${item.id}','${escHtml(item.name)}',${item.price},${item.is_shared},${!!item.requires_cooking_point})"
+          <button onclick="waiterTryAddItem('${item.id}')"
             style="width:28px;height:28px;border-radius:50%;border:none;background:var(--brand);color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit">+</button>
         </div>
       </div>`;
@@ -11015,16 +11019,34 @@ async function loadWaiterCarta() {
   cartaEl.innerHTML = html;
 }
 
-function waiterCartAdd(id, name, price, isShared, requiresCookingPoint) {
+function waiterCartAdd(id, name, price, isShared, requiresCookingPoint, variantId, variantName) {
   if (requiresCookingPoint) {
     // Show cooking point modal before adding
     showWaiterCookingPointModal(id, name, price, isShared);
     return;
   }
-  const existing = _waiterCart.find(i => i.id === id && !i.cookingPoint);
+  // Las variantes nunca se mergean con items existentes (copa ≠ botella ≠ base)
+  const existing = !variantId ? _waiterCart.find(i => i.id === id && !i.cookingPoint && !i.variantId) : null;
   if (existing) { existing.qty++; }
-  else { _waiterCart.push({ id, name, price: parseFloat(price), isShared: !!isShared, qty: 1, cookingPoint: null }); }
+  else { _waiterCart.push({ id, name, price: parseFloat(price), isShared: !!isShared, qty: 1, cookingPoint: null, variantId: variantId || null, variantName: variantName || null }); }
   updateWaiterCart();
+}
+
+// Wrapper: si el item tiene variantes (copa/botella, media/entera) muestra el picker antes de
+// añadirlo al cart. Si no, añade directamente.
+function waiterTryAddItem(itemId, refreshCb) {
+  const item = (_waiterMenuItemsCache || []).find(i => i.id === itemId);
+  if (!item) return;
+  const variants = (item.menu_item_variants || []).slice().sort((a,b) => (a.sort_order||0) - (b.sort_order||0));
+  if (variants.length > 0) {
+    showVariantPicker(item, variants, (chosen) => {
+      waiterCartAdd(item.id, item.name, parseFloat(chosen.price), !!item.is_shared, !!item.requires_cooking_point, chosen.id, chosen.name);
+      if (typeof refreshCb === 'function') refreshCb();
+    });
+    return;
+  }
+  waiterCartAdd(item.id, item.name, parseFloat(item.price), !!item.is_shared, !!item.requires_cooking_point);
+  if (typeof refreshCb === 'function') refreshCb();
 }
 
 function showWaiterCookingPointModal(id, name, price, isShared) {
@@ -11068,23 +11090,33 @@ function addWaiterDishWithPoint(id, name, price, isShared, cookingPoint) {
 }
 
 function waiterCartRemove(id) {
-  const existing = _waiterCart.find(i => i.id === id);
-  if (!existing) return;
-  existing.qty--;
-  if (existing.qty <= 0) _waiterCart = _waiterCart.filter(i => i.id !== id);
+  // Si hay varias entradas (copa+botella, base+variante…), decrementa la ÚLTIMA añadida (LIFO)
+  // para no afectar a otras variantes ya en el cart.
+  for (let i = _waiterCart.length - 1; i >= 0; i--) {
+    if (_waiterCart[i].id === id) {
+      _waiterCart[i].qty--;
+      if (_waiterCart[i].qty <= 0) _waiterCart.splice(i, 1);
+      break;
+    }
+  }
   updateWaiterCart();
 }
 
 function updateWaiterCart() {
-  // Update qty badges
+  // Sum qty per item id (across variants — el badge muestra la qty total del menu_item, sin importar la variante)
+  const qtyByItemId = {};
   _waiterCart.forEach(item => {
-    const el = document.getElementById('wcart-qty-' + item.id);
-    if (el) el.textContent = item.qty;
+    qtyByItemId[item.id] = (qtyByItemId[item.id] || 0) + item.qty;
+  });
+  // Update qty badges
+  Object.keys(qtyByItemId).forEach(itemId => {
+    const el = document.getElementById('wcart-qty-' + itemId);
+    if (el) el.textContent = qtyByItemId[itemId];
   });
   // Reset items not in cart
   document.querySelectorAll('[id^="wcart-qty-"]').forEach(el => {
     const itemId = el.id.replace('wcart-qty-', '');
-    if (!_waiterCart.find(i => i.id === itemId)) el.textContent = '0';
+    if (!qtyByItemId[itemId]) el.textContent = '0';
   });
   // Show/hide cart
   const cartEl = document.getElementById('waiter-cart');
@@ -11095,7 +11127,7 @@ function updateWaiterCart() {
   const total = _waiterCart.reduce((s, i) => s + i.price * i.qty, 0);
   cartItems.innerHTML = _waiterCart.map(i =>
     `<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0">
-      <span>${i.qty}× ${i.name}${i.cookingPoint ? '<span style="font-size:10px;color:#8B5E3C;background:#FFF3E0;border-radius:99px;padding:1px 6px;margin-left:4px">'+i.cookingPoint+'</span>' : ''}</span>
+      <span>${i.qty}× ${i.name}${i.variantName ? ' <span style="font-size:10px;color:var(--brand-d);background:var(--brand-l);border:1px solid var(--brand);border-radius:99px;padding:1px 6px;margin-left:3px;font-weight:500">'+escHtml(i.variantName)+'</span>' : ''}${i.cookingPoint ? '<span style="font-size:10px;color:#8B5E3C;background:#FFF3E0;border-radius:99px;padding:1px 6px;margin-left:4px">'+i.cookingPoint+'</span>' : ''}</span>
       <span style="font-weight:500">${fmt(i.price * i.qty)}</span>
     </div>`
   ).join('') + `<div style="border-top:1px solid var(--bd);margin-top:5px;padding-top:5px;display:flex;justify-content:space-between;font-weight:500">
@@ -11149,6 +11181,9 @@ async function waiterSendOrder() {
         course: meta.course,
         assignee_id: null
       };
+      // Preservar variante si el item del cart la lleva (copa/botella, media/entera)
+      if (item.variantId) wDishPayload.variant_id = item.variantId;
+      if (item.variantName) wDishPayload.variant_name = item.variantName;
       if (item.cookingPoint) wDishPayload.cooking_point = item.cookingPoint;
       const { data: dish, error: insertErr } = await sb.from('dishes').insert(wDishPayload).select().single();
       if (insertErr) {
