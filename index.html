@@ -8265,7 +8265,8 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
             style="padding:4px 12px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">✓ Listo</button>`;
         }
 
-        return `<div style="display:flex;align-items:flex-start;gap:6px;padding:6px 0;border-bottom:1px solid rgba(0,0,0,.05);opacity:${isDone?'.5':'1'};flex-wrap:wrap">
+        const allIds = grp.items.map(x => x.id).join(',');
+        return `<div data-dish-ids="${allIds}" style="display:flex;align-items:flex-start;gap:6px;padding:6px 0;border-bottom:1px solid rgba(0,0,0,.05);opacity:${isDone?'.5':'1'};flex-wrap:wrap;transition:opacity .15s">
           <span style="font-size:12px;flex-shrink:0;color:${isDone?'#3B6D11':ks==='making'?'#B7560D':'#aaa'};margin-top:1px">${dot}</span>
           <div style="flex:1;min-width:0">
             <div style="font-size:13px;font-weight:${isDone?'400':'500'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${isDone?'text-decoration:line-through;color:var(--t3)':''}">
@@ -8817,28 +8818,53 @@ async function setOrderStatus(dishId, status) {
     notify('La gestión de cocina es exclusiva de cookeat. Desde manageat solo hay visibilidad.', 'info');
     return;
   }
-  const { data: dish } = await sb.from('dishes').select('*').eq('id', dishId).single();
 
   // Record timestamps for KPI tracking
   const updates = { kitchen_status: status };
   if (status === 'making') updates.making_at = new Date().toISOString();
   if (status === 'ready') updates.ready_at = new Date().toISOString();
 
-  await sb.from('dishes').update(updates).eq('id', dishId);
-  loadAdminOrders();
-  loadKitchenOrders();
+  // ── 1) UPDATE OPTIMISTA del DOM: marcar la card como pendiente ──
+  // Las filas del KDS tienen data-dish-ids="id1,id2,..." (grupos de platos idénticos).
+  // Buscamos las filas que contengan este dishId.
+  const _matchRows = (id) => Array.from(document.querySelectorAll('[data-dish-ids]'))
+    .filter(el => (',' + el.getAttribute('data-dish-ids') + ',').includes(',' + id + ','));
+  _matchRows(dishId).forEach(el => {
+    el.style.opacity = '0.55';
+    el.style.pointerEvents = 'none';
+  });
 
-  if (dish && (status === 'making' || status === 'ready')) {
-    const title = status === 'making' ? 'En preparación' : 'Plato listo para servir';
-    const body = status === 'making'
-      ? `"${dish.name}" ya está en la cocina.`
-      : `"${dish.name}" está listo — llévalo a la mesa.`;
+  // ── 2) UPDATE en BD — el realtime subscription se encargará del re-render ──
+  try {
+    const { error } = await sb.from('dishes').update(updates).eq('id', dishId);
+    if (error) throw error;
+  } catch (e) {
+    // Revertir UI + notify
+    _matchRows(dishId).forEach(el => {
+      el.style.opacity = '';
+      el.style.pointerEvents = '';
+    });
+    notify('Error al cambiar estado: ' + (e.message || e), 'error');
+    return;
+  }
 
-    fetch(`${SUPA_URL}/functions/v1/send-push`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPA_KEY}` },
-      body: JSON.stringify({ roomId: dish.room_id, title, body, tag: 'spliteat-kitchen' })
-    }).catch(() => {});
+  // ── 3) Push notification (no bloquea, no necesita SELECT previo) ──
+  if (status === 'making' || status === 'ready') {
+    // Buscar el dish en state cache local primero (sin round-trip)
+    const cached = (state.dishes || []).find(d => d.id === dishId);
+    const dishName = cached?.name || 'Plato';
+    const roomId = cached?.room_id;
+    if (roomId) {
+      const title = status === 'making' ? 'En preparación' : 'Plato listo para servir';
+      const body = status === 'making'
+        ? `"${dishName}" ya está en la cocina.`
+        : `"${dishName}" está listo — llévalo a la mesa.`;
+      fetch(`${SUPA_URL}/functions/v1/send-push`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPA_KEY}` },
+        body: JSON.stringify({ roomId, title, body, tag: 'spliteat-kitchen' })
+      }).catch(() => {});
+    }
   }
 }
 
@@ -10582,34 +10608,59 @@ async function loadWaiterMesas() {
   // Anti-bucle: si la última llamada fue hace <1s, ignorar
   const now = Date.now();
   if (window._lastWaiterMesas && (now - window._lastWaiterMesas) < 1000) {
-    console.log('[loadWaiterMesas] saltada (debounce)');
     return;
   }
   window._lastWaiterMesas = now;
-  // Log con caller para identificar bucles — solo primera línea del stack tras la propia función
-  const caller = new Error().stack?.split('\n')[2]?.trim() || '?';
-  console.log('[loadWaiterMesas] ejecutando ←', caller);
 
   const el = document.getElementById('waiter-mesas-list');
   const emptyEl = document.getElementById('waiter-mesas-empty');
-  el.innerHTML = '<div style="text-align:center;padding:1rem;color:var(--t3);font-size:13px">Cargando...</div>';
+  // Skeleton en el grid del plano (vista por defecto), no texto en la lista oculta
+  const planoGrid = document.getElementById('waiter-plano-grid');
+  if (planoGrid && !planoGrid.children.length) {
+    let skel = '';
+    for (let i = 0; i < 6; i++) {
+      skel += '<div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);height:84px;animation:wskelPulse 1.2s ease-in-out infinite"></div>';
+    }
+    planoGrid.innerHTML = skel;
+    if (!document.getElementById('wskel-style')) {
+      const s = document.createElement('style');
+      s.id = 'wskel-style';
+      s.textContent = '@keyframes wskelPulse { 0%,100% { opacity:.55 } 50% { opacity:.85 } }';
+      document.head.appendChild(s);
+    }
+  }
+  el.innerHTML = '';  // ya no mostramos texto "Cargando..." — el skeleton del plano es feedback suficiente
 
   const since12h = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
 
-  // Cargar rooms abiertas + rooms cerradas recientes con limpieza pendiente
-  const [{ data: openRooms }, { data: dirtyRooms }] = await Promise.all([
+  // ── Caché de tables: las mesas del restaurante apenas cambian. TTL 60s. ──
+  const _tblCache = window._waiterTablesCache || {};
+  const _tblFresh = _tblCache.restId === _waiterRestaurantId && (Date.now() - (_tblCache.t || 0) < 60000);
+
+  // Cargar rooms abiertas + rooms cerradas recientes + tables (todo en paralelo)
+  const [openRoomsRes, dirtyRoomsRes, tablesRes] = await Promise.all([
     sb.from('rooms').select('*')
       .eq('restaurant_id', _waiterRestaurantId).eq('closed', false)
       .order('created_at', { ascending: false }),
     sb.from('rooms').select('*')
       .eq('restaurant_id', _waiterRestaurantId).eq('closed', true)
       .eq('needs_cleaning', true).gte('closed_at', since12h)
-      .order('closed_at', { ascending: false })
+      .order('closed_at', { ascending: false }),
+    _tblFresh
+      ? Promise.resolve({ data: _tblCache.data })
+      : sb.from('tables').select('*').eq('restaurant_id', _waiterRestaurantId)
   ]);
+  const openRooms = openRoomsRes.data;
+  const dirtyRooms = dirtyRoomsRes.data;
+  const tables = tablesRes.data;
+
+  // Actualizar caché
+  if (!_tblFresh && tables) {
+    window._waiterTablesCache = { restId: _waiterRestaurantId, t: Date.now(), data: tables };
+  }
 
   const rooms = [...(openRooms || []), ...(dirtyRooms || [])];
 
-  const { data: tables } = await sb.from('tables').select('*').eq('restaurant_id', _waiterRestaurantId);
   const tablesById = {};
   (tables || []).forEach(t => { tablesById[t.id] = t; });
 
@@ -14727,11 +14778,32 @@ async function setAllOrderStatus(dishIds, status) {
   const updates = { kitchen_status: status };
   if (status === 'making') updates.making_at = new Date().toISOString();
   if (status === 'ready') updates.ready_at = new Date().toISOString();
-  await Promise.all(dishIds.map(id =>
-    sb.from('dishes').update(updates).eq('id', id)
-  ));
-  loadAdminOrders();
-  loadKitchenOrders();
+
+  // Update óptimista del DOM
+  const _matchAllRows = (id) => Array.from(document.querySelectorAll('[data-dish-ids]'))
+    .filter(el => (',' + el.getAttribute('data-dish-ids') + ',').includes(',' + id + ','));
+  dishIds.forEach(id => {
+    _matchAllRows(id).forEach(el => {
+      el.style.opacity = '0.55';
+      el.style.pointerEvents = 'none';
+    });
+  });
+
+  // UPDATE en paralelo — confiamos en realtime para re-render
+  try {
+    await Promise.all(dishIds.map(id =>
+      sb.from('dishes').update(updates).eq('id', id)
+    ));
+  } catch (e) {
+    // Revertir UI
+    dishIds.forEach(id => {
+      _matchAllRows(id).forEach(el => {
+        el.style.opacity = '';
+        el.style.pointerEvents = '';
+      });
+    });
+    notify('Error al cambiar estado: ' + (e.message || e), 'error');
+  }
 }
 
 // ══════════════════════════════════════════════════════
