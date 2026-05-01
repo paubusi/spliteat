@@ -430,11 +430,16 @@
     display: flex; background: var(--card); border-top: 1px solid var(--bd);
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
     box-shadow: 0 -1px 12px rgba(0,0,0,.08);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
+  .admin-mobile-tabs::-webkit-scrollbar { display: none; }
   .adm-mob-tab {
-    flex: 1; padding: 8px 4px 10px; border: none; background: none;
+    flex: 1 0 auto; min-width: 64px; padding: 8px 6px 10px; border: none; background: none;
     font-family: inherit; font-size: 9.5px; color: var(--t3);
     cursor: pointer; line-height: 1.4; transition: color .15s;
+    white-space: nowrap;
   }
   .adm-mob-tab.on { color: var(--brand); }
   .adm-mob-tab br { display: block; }
@@ -1717,7 +1722,11 @@
       <div style="font-size:64px;margin-bottom:1.25rem">🎉</div>
       <h2 class="title">¡Cuenta cerrada!</h2>
       <p class="subtitle" style="max-width:280px;margin:.5rem auto 2rem">Sin deudas, sin incómodos recordatorios. Que aproveche.</p>
-      <button class="btn btn-primary" onclick="go('s0');resetState()" style="max-width:260px">Nueva mesa</button>
+      <button id="btn-download-ticket" onclick="downloadDinerTicket()" style="max-width:280px;width:100%;margin-bottom:.65rem;padding:13px 18px;border-radius:var(--r);border:1.5px solid var(--brand);background:var(--card);color:var(--brand-d);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Descargar ticket
+      </button>
+      <button class="btn btn-primary" onclick="go('s0');resetState()" style="max-width:280px">Nueva mesa</button>
     </div>
   </div>
 
@@ -2350,11 +2359,15 @@
         </div>
 
         <!-- Mobile bottom tabs — only shown on small screens (<900px), sidebar handles desktop -->
+        <!-- Scroll horizontal: caben las 8 pestañas igual que el sidebar de desktop -->
         <div class="admin-mobile-tabs">
           <button class="adm-mob-tab on" data-tab="encurso" onclick="showAdminTab('encurso')">🏠<br><span>Sala</span></button>
-          <button class="adm-mob-tab" data-tab="cocina" onclick="showAdminTab('cocina')">KDS<br><span>Cocina</span></button>
-          <button class="adm-mob-tab" data-tab="facturas" onclick="showAdminTab('facturas')">📄<br><span>Facturas</span></button>
+          <button class="adm-mob-tab" data-tab="reservas" onclick="showAdminTab('reservas')">📅<br><span>Reservas</span></button>
+          <button class="adm-mob-tab" data-tab="calleat" onclick="showAdminTab('calleat')">🪑<br><span>Espera</span></button>
+          <button class="adm-mob-tab" data-tab="cocina" onclick="showAdminTab('cocina')">🍳<br><span>Cocina</span></button>
           <button class="adm-mob-tab" data-tab="reportes" onclick="showAdminTab('reportes')">📊<br><span>Dashboard</span></button>
+          <button class="adm-mob-tab" data-tab="facturas" onclick="showAdminTab('facturas')">📄<br><span>Facturas</span></button>
+          <button class="adm-mob-tab" data-tab="stockeat" onclick="showAdminTab('stockeat')">📦<br><span>Stock</span></button>
           <button class="adm-mob-tab" data-tab="gestion" onclick="showAdminTab('gestion')">⚙️<br><span>Ajustes</span></button>
         </div>
 
@@ -6127,13 +6140,13 @@ function showSendToKitchenConfirm() {
   sections.forEach(({ label, dishes }) => {
     html += `<div style="font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;padding:6px 0 2px">${label}</div>`;
 
-    // Agrupar por firma (nombre + precio + reparto). N items idénticos → "N×".
+    // Agrupar por firma (nombre + variante + precio + reparto). N items idénticos → "N×".
     const sigKey = d => {
       const isShared = d.type === 'shared';
       const parts = isShared
         ? (state.participants[d.id] || []).slice().sort().join(',')
         : (d.assignee_id || '');
-      return `${d.name}|${parseFloat(d.price||0).toFixed(2)}|${isShared?'S':'I'}|${parts}`;
+      return `${d.name}|${d.variant_name || ''}|${parseFloat(d.price||0).toFixed(2)}|${isShared?'S':'I'}|${parts}`;
     };
     const groups = [];
     const seen = {};
@@ -6176,9 +6189,12 @@ function showSendToKitchenConfirm() {
       }
 
       const qtyPrefix = qty > 1 ? `<span style="color:var(--t3);font-weight:600">${qty}×</span> ` : '';
+      const variantBadge = d.variant_name
+        ? ` <span style="display:inline-block;font-size:10px;font-weight:700;color:var(--brand-d);background:var(--brand-l);border:1px solid var(--brand);border-radius:99px;padding:1px 7px;margin-left:4px;letter-spacing:.02em;vertical-align:middle">${escHtml(d.variant_name)}</span>`
+        : '';
       html += `<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--bd)">
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${qtyPrefix}${escHtml(d.name)}</div>
+          <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${qtyPrefix}${escHtml(d.name)}${variantBadge}</div>
           ${d.notes ? `<div style="font-size:11px;color:var(--t2);font-style:italic">📝 ${escHtml(d.notes)}</div>` : ''}
         </div>
         <div style="display:flex;align-items:center;gap:3px;flex-shrink:0">
@@ -6293,7 +6309,7 @@ async function sendToKitchen() {
         course_label: 'Bebidas',
         table_label: tableLabel,
         is_bebidas: true,
-        dishes: bebidasSent.map(d => ({ id: d.id, name: d.name, course: 0, category: 'bebidas', cooking_point: d.cooking_point || null })),
+        dishes: bebidasSent.map(d => ({ id: d.id, name: d.name, course: 0, category: 'bebidas', cooking_point: d.cooking_point || null, variant_name: d.variant_name || null })),
         assigned_waiter_id: room.assigned_waiter_id || null,
         waiter_id: room.waiter_id || null,
       });
@@ -8259,7 +8275,7 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
       // Cache dish data for this room+course so fireNextCourse doesn't need a DB query
       window._kdsCache = window._kdsCache || {};
       window._kdsCache[roomId + '_' + course] = makingDishes.map(d => ({
-        id: d.id, name: d.name, course: d.course, category: d.category, cooking_point: d.cooking_point || null
+        id: d.id, name: d.name, course: d.course, category: d.category, cooking_point: d.cooking_point || null, variant_name: d.variant_name || null
       }));
 
       const maxPrep = Math.max(...cDishes.map(d => prepByItem[d.menu_item_id] || 0));
@@ -8666,6 +8682,59 @@ async function downloadInvoiceHtml(invoiceId) {
   document.body.appendChild(a);
   a.click();
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+}
+
+// Wrapper para el comensal: genera/recupera la factura y la abre en nueva pestaña
+// (mejor UX que descargar HTML — el usuario lo ve, lo guarda en PDF si quiere, lo cierra).
+async function downloadDinerTicket() {
+  const roomId = state.roomId;
+  if (!roomId) { notify('No hay mesa activa'); return; }
+
+  const btn = document.getElementById('btn-download-ticket');
+  const originalHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '.6';
+    btn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite"></span> Generando...';
+  }
+
+  try {
+    const res = await generateInvoiceFromRoom(roomId);
+    if (res.error) {
+      notify(res.error);
+      return;
+    }
+    if (!res.invoice) {
+      notify('No se pudo generar el ticket');
+      return;
+    }
+    // Abrir en nueva pestaña — el usuario decide si guardar/imprimir
+    const html = _renderInvoiceHtml(res.invoice);
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank');
+    if (!w) {
+      // Bloqueado por popup blocker → fallback a descarga
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ticket_${res.invoice.display_number}.html`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+    } else {
+      // Liberar el blob URL después de un rato (la pestaña ya lo cargó)
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }
+  } catch (err) {
+    console.error('[downloadDinerTicket]', err);
+    notify('Error generando ticket: ' + (err.message || ''));
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.innerHTML = originalHtml;
+    }
+  }
 }
 
 // Helper: imprime la factura directamente (abre print dialog).
@@ -9201,7 +9270,7 @@ function _renderNotifModal(modal, n) {
   const grouped = [];
   const seenNames = {};
   n.dishes.forEach(d => {
-    const key = (d.name||'') + '|' + (d.cooking_point||'');
+    const key = (d.name||'') + '|' + (d.cooking_point||'') + '|' + (d.variant_name||'');
     if (seenNames[key] !== undefined) {
       grouped[seenNames[key]].count = (grouped[seenNames[key]].count||1) + 1;
     } else {
@@ -9221,7 +9290,7 @@ function _renderNotifModal(modal, n) {
       </div>
       <div style="flex:1;min-width:0">
         <div style="font-size:14px;font-weight:${isChecked?'400':'500'};${isChecked?'text-decoration:line-through;color:var(--t3);':'color:var(--t1)'}">
-          ${escHtml(d.name)}${(d.count||1) > 1 ? ` <strong style="color:${color}">×${d.count}</strong>` : ''}
+          ${escHtml(d.name)}${d.variant_name ? ` <span style="font-size:11px;color:var(--brand-d);background:var(--brand-l);border:1px solid var(--brand);border-radius:99px;padding:1px 7px;margin-left:3px;font-weight:600">${escHtml(d.variant_name)}</span>` : ''}${(d.count||1) > 1 ? ` <strong style="color:${color}">×${d.count}</strong>` : ''}
         </div>
         ${cp ? `<div style="display:inline-flex;align-items:center;gap:4px;margin-top:3px;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;background:${cpColors[cp]||'#666'};color:#fff">${cp}</div>` : ''}
       </div>
@@ -9750,7 +9819,7 @@ async function waiterLogin() {
     // si el camarero sigue conectado, incluso si cierran navegador sin gracia.
     if (window._waiterHeartbeat) clearInterval(window._waiterHeartbeat);
     const _doHeartbeat = async () => {
-      if (!_waiterId || document.hidden) return;
+      if (!_waiterId) return;
       try {
         await sb.from('waiters').update({
           last_seen_at: new Date().toISOString(),
@@ -9760,6 +9829,12 @@ async function waiterLogin() {
     };
     _doHeartbeat();  // primer pulso inmediato
     window._waiterHeartbeat = setInterval(_doHeartbeat, 60000);
+    // Cuando la pestaña vuelve a estar visible, refrescar last_seen_at inmediatamente
+    // (los browsers pausan setInterval en background — sin esto el camarero aparece
+    // como "Reciente" durante unos segundos hasta el siguiente tick).
+    if (window._waiterVisibilityHandler) document.removeEventListener('visibilitychange', window._waiterVisibilityHandler);
+    window._waiterVisibilityHandler = () => { if (!document.hidden) _doHeartbeat(); };
+    document.addEventListener('visibilitychange', window._waiterVisibilityHandler);
     const { data: rest } = await sb.from('restaurants')
       .select('name').eq('id', w.restaurant_id).maybeSingle();
     _waiterRestaurantName = rest?.name || '';
@@ -9923,6 +9998,10 @@ async function waiterLogout() {
   }
   if (window._waiterAutoLogoutTimer) clearTimeout(window._waiterAutoLogoutTimer);
   if (window._waiterHeartbeat) { clearInterval(window._waiterHeartbeat); window._waiterHeartbeat = null; }
+  if (window._waiterVisibilityHandler) {
+    document.removeEventListener('visibilitychange', window._waiterVisibilityHandler);
+    window._waiterVisibilityHandler = null;
+  }
   if (_waiterNotifPollTimer) { clearInterval(_waiterNotifPollTimer); _waiterNotifPollTimer = null; }
   _waiterId = null; _waiterName = null;
   _waiterRestaurantId = null; _waiterCart = [];
@@ -10546,12 +10625,15 @@ function refreshDrawerCart() {
   // Mostrar línea por entrada de _waiterCart (no agrupar por id porque el cookingPoint puede diferir)
   itemsEl.innerHTML = cart.map(it => {
     const q = it.qty || 1;
-    const cp = it.cookingPoint
-      ? `<span style="font-size:10px;color:#8B5E3C;background:#FFF3E0;border-radius:99px;padding:1px 6px;margin-left:4px">${it.cookingPoint}</span>`
+    const variantBadge = it.variantName
+      ? `<span style="font-size:10px;color:var(--brand-d);background:var(--brand-l);border:1px solid var(--brand);border-radius:99px;padding:1px 6px;margin-left:4px;font-weight:500">${escHtml(it.variantName)}</span>`
       : '';
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px">
-      <span>${q > 1 ? `<strong>${q}× </strong>` : ''}${escHtml(it.name)}${cp}</span>
-      <span style="color:var(--brand-d);font-weight:600">${(parseFloat(it.price)*q).toFixed(2)}€</span>
+    const cp = it.cookingPoint
+      ? `<span style="font-size:10px;color:#8B5E3C;background:#FFF3E0;border-radius:99px;padding:1px 6px;margin-left:4px">${escHtml(it.cookingPoint)}</span>`
+      : '';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13px;gap:8px">
+      <span style="flex:1;min-width:0"><strong style="color:var(--brand-d)">${q}×</strong> ${escHtml(it.name)}${variantBadge}${cp}</span>
+      <span style="color:var(--brand-d);font-weight:600;flex-shrink:0">${(parseFloat(it.price)*q).toFixed(2)}€</span>
     </div>`;
   }).join('');
 }
@@ -11047,11 +11129,15 @@ async function loadWaiterCarta() {
 function waiterCartAdd(id, name, price, isShared, requiresCookingPoint, variantId, variantName) {
   if (requiresCookingPoint) {
     // Show cooking point modal before adding
-    showWaiterCookingPointModal(id, name, price, isShared);
+    showWaiterCookingPointModal(id, name, price, isShared, variantId, variantName);
     return;
   }
-  // Las variantes nunca se mergean con items existentes (copa ≠ botella ≠ base)
-  const existing = !variantId ? _waiterCart.find(i => i.id === id && !i.cookingPoint && !i.variantId) : null;
+  // Mergear items idénticos: mismo id + misma variante + mismo punto de cocción → qty++
+  const existing = _waiterCart.find(i =>
+    i.id === id &&
+    (i.variantId || null) === (variantId || null) &&
+    !i.cookingPoint
+  );
   if (existing) { existing.qty++; }
   else { _waiterCart.push({ id, name, price: parseFloat(price), isShared: !!isShared, qty: 1, cookingPoint: null, variantId: variantId || null, variantName: variantName || null }); }
   updateWaiterCart();
@@ -11090,7 +11176,7 @@ async function waiterTryAddItem(itemId, refreshCb) {
   if (typeof refreshCb === 'function') refreshCb();
 }
 
-function showWaiterCookingPointModal(id, name, price, isShared) {
+function showWaiterCookingPointModal(id, name, price, isShared, variantId, variantName) {
   const existing = document.getElementById('waiter-cooking-point-modal');
   if (existing) existing.remove();
   const modal = document.createElement('div');
@@ -11102,14 +11188,18 @@ function showWaiterCookingPointModal(id, name, price, isShared) {
     {pt:'Al punto',       emoji:'🟡', desc:'Centro rosado, jugoso'},
     {pt:'Hecho',          emoji:'🟤', desc:'Poco rosado por dentro'},
     {pt:'Muy hecho',      emoji:'⚫', desc:'Sin rosa, bien cocinado'},
-  ].map(({pt, emoji, desc}) => `
-    <button onclick="addWaiterDishWithPoint('${id}','${name}',${price},${isShared},'${pt}')"
+  ].map(({pt, emoji, desc}) => {
+    const vId = variantId ? `'${variantId}'` : 'null';
+    const vName = variantName ? `'${escHtml(variantName).replace(/'/g, "\\'")}'` : 'null';
+    return `
+    <button onclick="addWaiterDishWithPoint('${id}','${escHtml(name).replace(/'/g, "\\'")}',${price},${isShared},'${pt}',${vId},${vName})"
       style="display:flex;align-items:center;gap:12px;width:100%;padding:.75rem 1rem;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;margin-bottom:.35rem;text-align:left;transition:all .15s"
       onmouseover="this.style.borderColor='var(--brand)';this.style.background='var(--brand-l)'"
       onmouseout="this.style.borderColor='var(--bd2)';this.style.background='var(--card)'">
       <span style="font-size:22px">${emoji}</span>
       <div><div style="font-size:14px;font-weight:500;color:var(--t1)">${pt}</div><div style="font-size:11px;color:var(--t3)">${desc}</div></div>
-    </button>`).join('');
+    </button>`;
+  }).join('');
   modal.innerHTML = `<div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:1.25rem;width:100%;max-width:430px;animation:slideUp .2s ease">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
       <div>
@@ -11123,11 +11213,27 @@ function showWaiterCookingPointModal(id, name, price, isShared) {
   document.body.appendChild(modal);
 }
 
-function addWaiterDishWithPoint(id, name, price, isShared, cookingPoint) {
+function addWaiterDishWithPoint(id, name, price, isShared, cookingPoint, variantId, variantName) {
   const modal = document.getElementById('waiter-cooking-point-modal');
   if (modal) modal.remove();
-  _waiterCart.push({ id, name, price: parseFloat(price), isShared: !!isShared, qty: 1, cookingPoint });
+  // Mergear si ya hay un item idéntico (mismo id + variante + punto de cocción)
+  const existing = _waiterCart.find(i =>
+    i.id === id &&
+    (i.variantId || null) === (variantId || null) &&
+    (i.cookingPoint || null) === (cookingPoint || null)
+  );
+  if (existing) {
+    existing.qty++;
+  } else {
+    _waiterCart.push({
+      id, name, price: parseFloat(price), isShared: !!isShared, qty: 1,
+      cookingPoint, variantId: variantId || null, variantName: variantName || null
+    });
+  }
   updateWaiterCart();
+  if (typeof refreshDrawerCart === 'function' && document.getElementById('drawer-cart')) {
+    refreshDrawerCart();
+  }
 }
 
 function waiterCartRemove(id) {
@@ -14593,7 +14699,7 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
       // Cache dish data for this room+course so fireNextCourse doesn't need a DB query
       window._kdsCache = window._kdsCache || {};
       window._kdsCache[roomId + '_' + course] = makingDishes.map(d => ({
-        id: d.id, name: d.name, course: d.course, category: d.category, cooking_point: d.cooking_point || null
+        id: d.id, name: d.name, course: d.course, category: d.category, cooking_point: d.cooking_point || null, variant_name: d.variant_name || null
       }));
 
       let courseAction = '';
@@ -20880,6 +20986,29 @@ const _stk = {
   activeSubtab: 'inventory'
 };
 
+// Categorías de ingredientes para conteo físico organizado.
+// Sirve para agrupar el conteo por zona física de cocina (cámara, congelador, alacena…).
+const _STK_CATEGORIES = [
+  { id: 'carnes',     label: 'Carnes',              emoji: '🥩' },
+  { id: 'pescados',   label: 'Pescados y mariscos', emoji: '🐟' },
+  { id: 'verduras',   label: 'Verduras y hortalizas', emoji: '🥬' },
+  { id: 'frutas',     label: 'Frutas',              emoji: '🍎' },
+  { id: 'lacteos',    label: 'Lácteos y huevos',    emoji: '🧀' },
+  { id: 'bebidas',    label: 'Bebidas',             emoji: '🍷' },
+  { id: 'cereales',   label: 'Cereales, pasta, arroz', emoji: '🌾' },
+  { id: 'legumbres',  label: 'Legumbres',           emoji: '🫘' },
+  { id: 'conservas',  label: 'Conservas',           emoji: '🥫' },
+  { id: 'especias',   label: 'Especias y condimentos', emoji: '🌶' },
+  { id: 'panaderia',  label: 'Panadería',           emoji: '🥖' },
+  { id: 'congelados', label: 'Congelados',          emoji: '❄️' },
+  { id: 'aceites',    label: 'Aceites y vinagres',  emoji: '🫒' },
+  { id: 'otros',      label: 'Otros',               emoji: '📦' }
+];
+function _stkCategoryLabel(id) {
+  const c = _STK_CATEGORIES.find(c => c.id === id);
+  return c ? `${c.emoji} ${c.label}` : '📦 Sin categoría';
+}
+
 async function initStockeat() {
   if (!state.adminRestaurantId) return;
   // Unidades hard-coded (deben coincidir con CHECK constraint en SQL)
@@ -21063,6 +21192,12 @@ async function loadStockIngredients() {
   const { data } = await sb.from('ingredients')
     .select('*').eq('restaurant_id', restId).eq('is_archived', false).order('name');
   _stk.ingredients = data || [];
+  // Cargar también inventory (donde vive alert_threshold) para que el modal pueda leerlo
+  if (!_stk.inventory || !_stk.inventory.length) {
+    const { data: inv } = await sb.from('inventory_with_alerts')
+      .select('*').eq('restaurant_id', restId);
+    _stk.inventory = inv || [];
+  }
   renderIngredientsList();
 }
 
@@ -21080,7 +21215,7 @@ function renderIngredientsList() {
       <div style="flex:1;min-width:0">
         <div style="font-size:14px;font-weight:500;color:var(--t1)">${escHtml(ing.name)}</div>
         <div style="font-size:11px;color:var(--t3);margin-top:2px">
-          ${ing.unit} · €${(parseFloat(ing.cost_per_unit) || 0).toFixed(3)}/${ing.unit}${ing.supplier_name ? ' · ' + escHtml(ing.supplier_name) : ''}
+          ${ing.category ? `<span style="display:inline-block;font-size:10px;background:var(--brand-l);color:var(--brand-d);border-radius:99px;padding:1px 7px;margin-right:5px;font-weight:500">${_stkCategoryLabel(ing.category)}</span>` : ''}${ing.unit} · €${(parseFloat(ing.cost_per_unit) || 0).toFixed(3)}/${ing.unit}${ing.supplier_name ? ' · ' + escHtml(ing.supplier_name) : ''}
         </div>
       </div>
       <button onclick="openIngredientModal('${ing.id}')" style="padding:6px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);font-size:12px;cursor:pointer;font-family:inherit;margin-left:.5rem">Editar</button>
@@ -21091,6 +21226,9 @@ function renderIngredientsList() {
 function openIngredientModal(ingId) {
   if (!_assertStockeatEditable()) return;
   const ing = ingId ? _stk.ingredients.find(i => i.id === ingId) : null;
+  // alert_threshold vive en la tabla inventory (no en ingredients), tomamos del cache cargado
+  const invRow = ing ? (_stk.inventory || []).find(r => r.ingredient_id === ing.id) : null;
+  const currentThreshold = invRow ? parseFloat(invRow.alert_threshold) || 0 : 0;
   const unitOpts = _stk.units.map(u => `<option value="${u.code}" ${ing && ing.unit === u.code ? 'selected' : ''}>${u.label} (${u.code})</option>`).join('');
   const modal = document.createElement('div');
   modal.id = 'ing-modal';
@@ -21102,6 +21240,13 @@ function openIngredientModal(ingId) {
         <button onclick="document.getElementById('ing-modal')?.remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
       </div>
       <div class="field"><label>Nombre</label><input id="ing-f-name" type="text" placeholder="Ej: Tomate, Aceite de oliva" value="${ing ? escHtml(ing.name) : ''}"></div>
+      <div class="field"><label>Categoría</label>
+        <select id="ing-f-category" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
+          <option value="">— Sin categoría —</option>
+          ${_STK_CATEGORIES.map(c => `<option value="${c.id}" ${ing && ing.category === c.id ? 'selected' : ''}>${c.emoji} ${c.label}</option>`).join('')}
+        </select>
+        <div style="font-size:11px;color:var(--t3);margin-top:3px">Sirve para organizar el conteo físico por zonas de cocina.</div>
+      </div>
       <div class="field"><label>Unidad</label>
         <select id="ing-f-unit" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">${unitOpts}</select>
       </div>
@@ -21111,7 +21256,7 @@ function openIngredientModal(ingId) {
       </div>
       <div class="field">
         <label>Stock mínimo (alerta)</label>
-        <input id="ing-f-threshold" type="number" step="0.01" min="0" value="${ing && ing.alert_threshold !== null && ing.alert_threshold !== undefined ? parseFloat(ing.alert_threshold) : ''}" placeholder="0 = sin alerta">
+        <input id="ing-f-threshold" type="number" step="0.01" min="0" value="${currentThreshold > 0 ? currentThreshold : ''}" placeholder="0 = sin alerta">
         <div style="font-size:11px;color:var(--t3);margin-top:3px">Cuando el stock baje de este nivel se mostrará una alerta. Deja vacío o 0 para desactivar.</div>
       </div>
       <div style="display:flex;gap:.5rem;margin-top:1rem">
@@ -21129,26 +21274,58 @@ async function saveIngredient(ingId) {
   const unit = document.getElementById('ing-f-unit').value;
   const cost_per_unit = parseFloat(document.getElementById('ing-f-cost').value) || null;
   const supplier_name = document.getElementById('ing-f-supplier').value.trim() || null;
+  const category = document.getElementById('ing-f-category')?.value || null;
   const thresholdRaw = document.getElementById('ing-f-threshold')?.value;
-  const alert_threshold = (thresholdRaw === '' || thresholdRaw == null) ? null : parseFloat(thresholdRaw);
+  const alert_threshold = (thresholdRaw === '' || thresholdRaw == null) ? 0 : (parseFloat(thresholdRaw) || 0);
   if (!name) { notify('Introduce un nombre'); return; }
   if (!unit) { notify('Selecciona una unidad'); return; }
 
+  // 1) Datos del ingrediente (sin alert_threshold — esa columna vive en inventory)
   const payload = {
     restaurant_id: state.adminRestaurantId,
     name, unit, cost_per_unit, supplier_name,
-    alert_threshold,
+    category,
     is_archived: false
   };
-  let error;
+  let error, savedId = ingId;
   if (ingId) {
     ({ error } = await sb.from('ingredients').update(payload).eq('id', ingId));
   } else {
-    ({ error } = await sb.from('ingredients').insert(payload));
+    const { data, error: insErr } = await sb.from('ingredients').insert(payload).select('id').maybeSingle();
+    error = insErr;
+    if (data) savedId = data.id;
   }
   if (error) { notify('Error: ' + error.message); return; }
+
+  // 2) Upsert del alert_threshold en la tabla inventory (por location_id + ingredient_id)
+  if (savedId) {
+    const { data: loc } = await sb.from('locations')
+      .select('id').eq('restaurant_id', state.adminRestaurantId).eq('is_default', true).maybeSingle();
+    if (loc) {
+      const { data: existingInv } = await sb.from('inventory')
+        .select('id').eq('location_id', loc.id).eq('ingredient_id', savedId).maybeSingle();
+      if (existingInv) {
+        const { error: invErr } = await sb.from('inventory')
+          .update({ alert_threshold }).eq('id', existingInv.id);
+        if (invErr) console.warn('[saveIngredient] inventory update:', invErr);
+      } else {
+        // Crear fila inventory con qty_on_hand=0 si todavía no existe
+        const { error: invErr } = await sb.from('inventory').insert({
+          location_id: loc.id,
+          ingredient_id: savedId,
+          qty_on_hand: 0,
+          alert_threshold
+        });
+        if (invErr) console.warn('[saveIngredient] inventory insert:', invErr);
+      }
+    } else {
+      console.warn('[saveIngredient] No default location → alert_threshold not saved');
+    }
+  }
+
   document.getElementById('ing-modal')?.remove();
   loadStockIngredients();
+  if (typeof loadStockInventory === 'function') loadStockInventory();
 }
 
 async function deleteIngredient(ingId) {
@@ -22121,31 +22298,110 @@ async function startStockCount() {
   if (!loc) { notify('No hay sucursal configurada'); return; }
   _stkCount.locationId = loc.id;
 
-  // Cargar inventario para conteo
+  // Cargar inventario completo para conteo (incluye category vía el join con ingredients)
   const { data: inv } = await sb.from('inventory_with_alerts')
     .select('*').eq('restaurant_id', restId).order('ingredient_name');
   if (!inv || !inv.length) {
     notify('Aún no hay inventario que contar');
     return;
   }
-  _stkCount.items = inv.map(i => ({
+  _stkCount.allItems = inv.map(i => ({
     ingredient_id: i.ingredient_id,
     ingredient_name: i.ingredient_name,
     unit: i.unit,
     qty_theoretical: parseFloat(i.qty_on_hand) || 0,
     qty_real: null,
-    cost_per_unit: parseFloat(i.cost_per_unit) || 0
+    cost_per_unit: parseFloat(i.cost_per_unit) || 0,
+    category: i.category || null
   }));
-  _stkCount.currentIdx = 0;
 
-  // Crear modal
+  // Crear modal con el picker de categoría primero
   const modal = document.createElement('div');
   modal.id = 'count-modal';
   modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;display:flex;align-items:center;justify-content:center;padding:1rem';
-  modal.innerHTML = '<div id="count-content" style="background:var(--card);border-radius:var(--r-lg);width:100%;max-width:480px;padding:1.5rem;max-height:90vh;overflow-y:auto"></div>';
+  modal.innerHTML = '<div id="count-content" style="background:var(--card);border-radius:var(--r-lg);width:100%;max-width:520px;padding:1.5rem;max-height:90vh;overflow-y:auto"></div>';
   document.body.appendChild(modal);
-  renderStockCountStep();
+  renderStockCountCategoryPicker();
 }
+
+// Picker inicial: el cocinero elige qué grupo contar primero (verduras, carnes…)
+function renderStockCountCategoryPicker() {
+  const el = document.getElementById('count-content');
+  if (!el) return;
+
+  // Agrupar items por categoría
+  const byCat = {};
+  _stkCount.allItems.forEach(it => {
+    const k = it.category || '__sin__';
+    if (!byCat[k]) byCat[k] = [];
+    byCat[k].push(it);
+  });
+
+  // Construir lista ordenada: categorías predefinidas con items + sin categoría al final
+  const cards = [];
+  _STK_CATEGORIES.forEach(c => {
+    const items = byCat[c.id];
+    if (items && items.length) cards.push({ id: c.id, emoji: c.emoji, label: c.label, count: items.length });
+  });
+  if (byCat['__sin__']) {
+    cards.push({ id: '__sin__', emoji: '📦', label: 'Sin categoría', count: byCat['__sin__'].length });
+  }
+
+  const total = _stkCount.allItems.length;
+  const allCard = `
+    <button onclick="_pickCountCategory('__all__')" style="display:flex;align-items:center;gap:14px;width:100%;padding:14px;border-radius:var(--r);border:1.5px solid var(--brand);background:var(--brand-l);cursor:pointer;font-family:inherit;text-align:left;margin-bottom:.65rem">
+      <div style="font-size:28px">📋</div>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:600;color:var(--brand-d)">Contar todo</div>
+        <div style="font-size:12px;color:var(--t2)">${total} ingredientes en total</div>
+      </div>
+      <div style="color:var(--brand-d);font-size:18px">→</div>
+    </button>`;
+
+  const catCards = cards.map(c => `
+    <button onclick="_pickCountCategory('${c.id}')" style="display:flex;align-items:center;gap:14px;width:100%;padding:12px 14px;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);cursor:pointer;font-family:inherit;text-align:left;margin-bottom:.4rem;transition:all .15s"
+      onmouseover="this.style.borderColor='var(--brand)';this.style.background='var(--brand-l)'"
+      onmouseout="this.style.borderColor='var(--bd2)';this.style.background='var(--card)'">
+      <div style="font-size:24px">${c.emoji}</div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:500;color:var(--t1)">${c.label}</div>
+        <div style="font-size:11px;color:var(--t3)">${c.count} ingrediente${c.count !== 1 ? 's' : ''}</div>
+      </div>
+      <div style="color:var(--t3);font-size:16px">→</div>
+    </button>`).join('');
+
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div>
+        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em">Conteo físico</div>
+        <div style="font-size:18px;font-weight:600;color:var(--t1);margin-top:2px">¿Qué grupo cuentas primero?</div>
+      </div>
+      <button onclick="cancelStockCount()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+    </div>
+    <div style="font-size:13px;color:var(--t2);line-height:1.45;margin-bottom:1.25rem">Elige el grupo que vas a recorrer ahora (cámara, congelador, alacena…). Puedes hacer varios grupos en sesiones distintas.</div>
+    ${allCard}
+    <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin:1rem 0 .5rem">Por categoría</div>
+    ${catCards || '<div style="font-size:13px;color:var(--t3);text-align:center;padding:1rem">Aún no has asignado categorías a tus ingredientes. Edítalos para organizarlos.</div>'}
+  `;
+}
+
+window._pickCountCategory = function(catId) {
+  // Filtrar items según categoría elegida
+  if (catId === '__all__') {
+    _stkCount.items = _stkCount.allItems.slice();
+  } else if (catId === '__sin__') {
+    _stkCount.items = _stkCount.allItems.filter(it => !it.category);
+  } else {
+    _stkCount.items = _stkCount.allItems.filter(it => it.category === catId);
+  }
+  _stkCount.selectedCategory = catId;
+  _stkCount.currentIdx = 0;
+  if (!_stkCount.items.length) {
+    notify('No hay ingredientes en ese grupo');
+    return;
+  }
+  renderStockCountStep();
+};
 
 function renderStockCountStep() {
   const el = document.getElementById('count-content');
@@ -22159,7 +22415,9 @@ function renderStockCountStep() {
   const done = _stkCount.currentIdx;
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-      <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em">Conteo físico · ${done + 1}/${total}</div>
+      <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em">
+        ${_stkCount.selectedCategory && _stkCount.selectedCategory !== '__all__' ? _stkCategoryLabel(_stkCount.selectedCategory === '__sin__' ? null : _stkCount.selectedCategory) + ' · ' : ''}Conteo físico · ${done + 1}/${total}
+      </div>
       <button onclick="cancelStockCount()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
     </div>
     <div style="background:var(--bg2);border-radius:var(--r);padding:.5rem;margin-bottom:1rem;height:6px;overflow:hidden">
@@ -22174,7 +22432,10 @@ function renderStockCountStep() {
       ${_stkCount.currentIdx > 0 ? '<button onclick="prevCountItem()" style="padding:10px 14px;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);font-family:inherit;cursor:pointer">← Anterior</button>' : ''}
       <button onclick="nextCountItem()" class="btn btn-primary" style="flex:1">${done + 1 === total ? 'Ver resumen →' : 'Siguiente →'}</button>
     </div>
-    <button onclick="window._skipCountItem()" style="width:100%;margin-top:.5rem;padding:8px;border-radius:var(--r);border:none;background:none;color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit">Saltar este</button>
+    <div style="display:flex;gap:.5rem;margin-top:.5rem">
+      <button onclick="renderStockCountCategoryPicker()" style="flex:1;padding:8px;border-radius:var(--r);border:none;background:none;color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit">↩ Cambiar grupo</button>
+      <button onclick="window._skipCountItem()" style="flex:1;padding:8px;border-radius:var(--r);border:none;background:none;color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit">Saltar este</button>
+    </div>
   `;
   setTimeout(() => document.getElementById('count-input')?.focus(), 50);
 }
