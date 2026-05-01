@@ -1612,35 +1612,6 @@
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem">
         <div class="sec-label" style="margin:0">Lo que debe cada uno</div>
-        <button onclick="showAddManualGuest()" id="btn-add-manual-guest"
-          style="font-size:13px;padding:10px 16px;border-radius:var(--r-sm);border:none;background:var(--brand-l);color:var(--brand-d);cursor:pointer;font-family:inherit;font-weight:500;width:100%;margin-top:.5rem;text-align:left;display:flex;align-items:center;gap:10px">
-          <span style="font-size:20px">👤</span>
-          <div>
-            <div style="font-weight:600">+ Añadir persona al reparto</div>
-            <div style="font-size:11px;color:var(--brand);font-weight:400;margin-top:1px">¿Falta alguien que no escaneó el QR? Añádela manualmente.</div>
-          </div>
-        </button>
-      </div>
-
-      <!-- Panel: añadir persona manual -->
-      <div id="add-manual-guest-panel" style="display:none;background:var(--bg2);border:1.5px solid var(--brand);border-radius:var(--r);padding:1rem;margin-bottom:.75rem">
-        <div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:.5rem">👤 Añadir persona que no escaneó el QR</div>
-        <div style="font-size:12px;color:var(--t2);margin-bottom:.75rem;line-height:1.5">
-          Añade a alguien de la mesa para asignarle sus platos y que quede reflejado en el reparto.
-        </div>
-        <div style="display:flex;gap:.5rem">
-          <input id="manual-guest-name" type="text" placeholder="Nombre de la persona"
-            style="flex:1;padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-size:14px;font-family:inherit;background:var(--card);outline:none"
-            onfocus="this.style.borderColor='var(--brand)'" onblur="this.style.borderColor='var(--bd2)'"
-            onkeydown="if(event.key==='Enter')addManualGuest()">
-          <button onclick="addManualGuest()" class="btn btn-primary btn-sm" style="flex-shrink:0;padding:10px 16px">
-            Añadir
-          </button>
-        </div>
-        <button onclick="document.getElementById('add-manual-guest-panel').style.display='none'"
-          style="margin-top:.5rem;background:none;border:none;font-size:12px;color:var(--t3);cursor:pointer;font-family:inherit;width:100%">
-          Cancelar
-        </button>
       </div>
 
       <div id="summary-list"></div>
@@ -6604,7 +6575,7 @@ function buildSummary() {
 
             const labelText = isShared
               ? (othersInShare.length ? `Compartido con ${othersInShare.join(', ')}` : `Compartido contigo`)
-              : `Solo · tú`;
+              : `Solo ${escHtml(t.g.name || 'tú')}`;
             const labelColor = isShared ? 'var(--blue)' : 'var(--brand-d)';
 
             // Badge ÷N (a la IZQUIERDA del precio) — solo si shared
@@ -17952,17 +17923,22 @@ function goToRevisarCuenta() {
 
 function openRevisarCuenta() {
   document.getElementById('revisar-cuenta-screen')?.remove();
+  _renderRevisarCuenta();
+}
+
+// Re-render the revisar-cuenta screen in place (for live updates after edits)
+function _renderRevisarCuenta() {
+  document.getElementById('revisar-cuenta-screen')?.remove();
+  const payLocked = state.payments && state.payments.filter(p => p.guest_id).length > 0;
   const COLORS = ['#D85A30','#185FA5','#7B3FA0','#C0392B','#117A65','#B7770D','#1A5276','#6E2C00'];
   const totals = calcTotals();
   const grand = totals.reduce((s,t) => s + t.total, 0);
   const myTotal = totals.find(t => t.g.id === state.myGuestId)?.total || 0;
 
-  // ── Construir lista por categorías ──
-  // Solo platos enviados (no drafts) y agrupados por categoría real
+  // Solo platos enviados (no drafts)
   const sentDishes = state.dishes.filter(d => d.kitchen_status && d.kitchen_status !== 'new');
 
-  // Resolver nombre de categoría desde state.menuItems → categories
-  // (state.menuItems tiene category_id; las categorías vienen en state.categories)
+  // Resolver categoría desde menu_items.category_id → categories
   const catById = {};
   (state.categories || []).forEach(c => { catById[c.id] = c; });
   const menuItemById = {};
@@ -17972,12 +17948,11 @@ function openRevisarCuenta() {
     const mi = menuItemById[d.menu_item_id];
     const cat = mi && catById[mi.category_id];
     if (cat) return { name: cat.name, order: typeof cat.course_order === 'number' ? cat.course_order : 99 };
-    // Fallback por course
     const fallback = { 0: 'Bebidas', 1: 'Entrantes', 2: 'Principales', 3: 'Postres' };
     return { name: fallback[d.course] || 'Otros', order: typeof d.course === 'number' ? d.course : 99 };
   }
 
-  // Agrupar (cat → [dishes]) y dentro de cada cat agrupar por (name + variant + price + participantes)
+  // Agrupar platos por categoría
   const byCat = new Map();
   sentDishes.forEach(d => {
     const cat = _catForDish(d);
@@ -17987,7 +17962,6 @@ function openRevisarCuenta() {
   });
   const sortedCats = Array.from(byCat.values()).sort((a,b) => a.order - b.order || a.name.localeCompare(b.name));
 
-  // Generar HTML por categoría
   const initialFor = name => (name || '?').trim().charAt(0).toUpperCase();
   const guestById = {};
   (state.guests || []).forEach(g => { guestById[g.id] = g; });
@@ -18000,9 +17974,8 @@ function openRevisarCuenta() {
       participantIds = state.participants[d.id] || [];
     }
     if (!participantIds.length) {
-      return '<span style=\"font-size:10px;color:var(--accent);background:#FCEBEB;border-radius:99px;padding:2px 8px;font-weight:600\">Sin asignar</span>';
+      return '<span style="font-size:10px;color:var(--accent);background:#FCEBEB;border-radius:99px;padding:2px 8px;font-weight:600">Sin asignar</span>';
     }
-    // pills con iniciales (mismo estilo que confirmar-pedido)
     const pillsHtml = participantIds.map(gid => {
       const g = guestById[gid];
       if (!g) return '';
@@ -18010,60 +17983,135 @@ function openRevisarCuenta() {
       const c = COLORS[origIdx % COLORS.length];
       const ini = initialFor(g.name);
       const isMe = gid === state.myGuestId;
-      const ring = isMe ? `box-shadow:0 0 0 2px ${c}33;border:1.5px solid ${c}` : 'border:1.5px solid transparent';
-      return '<span title=\"' + escHtml(g.name) + '\" style=\"display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:99px;background:' + c + ';color:#fff;font-size:10px;font-weight:700;font-family:inherit;' + ring + '\">' + escHtml(ini) + '</span>';
+      const ring = isMe ? 'box-shadow:0 0 0 2px ' + c + '33;border:1.5px solid ' + c : 'border:1.5px solid transparent';
+      return '<span title="' + escHtml(g.name) + '" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:99px;background:' + c + ';color:#fff;font-size:10px;font-weight:700;font-family:inherit;' + ring + '">' + escHtml(ini) + '</span>';
     }).join('');
-    return '<div style=\"display:inline-flex;gap:3px;flex-wrap:wrap\">' + pillsHtml + '</div>';
+    return '<div style="display:inline-flex;gap:3px;flex-wrap:wrap">' + pillsHtml + '</div>';
   }
 
-  // Agrupación dentro de categoría: misma combinación de (name+variant+price+participantes) → 1 fila ×N
+  // Picker inline: chips con TODAS las personas, con estado on/off según si participa
+  function _editPicker(d) {
+    let participantIds = [];
+    if (d.type === 'solo') {
+      if (d.assignee_id) participantIds = [d.assignee_id];
+    } else if (d.type === 'shared') {
+      participantIds = state.participants[d.id] || [];
+    }
+    const isShared = d.type === 'shared';
+    const pSet = new Set(participantIds);
+
+    const chips = (state.guests || []).map((g, idx) => {
+      const c = COLORS[idx % COLORS.length];
+      const ini = initialFor(g.name);
+      const isOn = pSet.has(g.id);
+      const isMeLabel = g.id === state.myGuestId ? ' (tú)' : '';
+      const styleOn = 'background:' + c + ';color:#fff;border:2px solid ' + c;
+      const styleOff = 'background:#fff;color:var(--t2);border:2px solid var(--bd2)';
+      return '<button onclick="_rcToggleParticipant(\'' + d.id + '\',\'' + g.id + '\')" ' +
+        'style="display:inline-flex;align-items:center;gap:5px;padding:6px 11px 6px 6px;border-radius:99px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;' + (isOn ? styleOn : styleOff) + '">' +
+        '<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:99px;background:' + (isOn ? '#fff' : c) + ';color:' + (isOn ? c : '#fff') + ';font-size:10px;font-weight:700">' + escHtml(ini) + '</span>' +
+        escHtml(g.name) + isMeLabel +
+        '</button>';
+    }).join('');
+
+    const help = isShared
+      ? 'Toca para añadir o quitar personas que comparten este plato'
+      : 'Toca a otra persona para reasignar este plato (o elige varias para convertirlo en compartido)';
+
+    return '<div id="picker-' + d.id + '" style="background:#F3F7F5;border:1.5px solid var(--brand);border-radius:var(--r);padding:.6rem .75rem;margin-top:.4rem">' +
+      '<div style="font-size:11px;color:var(--brand-d);margin-bottom:.4rem;font-weight:500">' + help + '</div>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:5px">' + chips + '</div>' +
+      '<button onclick="_rcCloseEditor(\'' + d.id + '\')" style="margin-top:.6rem;width:100%;padding:7px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">✓ Hecho</button>' +
+    '</div>';
+  }
+
+  // Agrupar dishes idénticos (mismo nombre+variante+precio+participantes) → una sola fila ×N
   function _groupDishes(dishes) {
     const map = new Map();
     dishes.forEach(d => {
       const partsKey = (d.type === 'solo' ? (d.assignee_id || '') : (state.participants[d.id] || []).slice().sort().join(','));
       const k = (d.name || '') + '|' + (d.variant_name || '') + '|' + parseFloat(d.price || 0).toFixed(2) + '|' + (d.type || '') + '|' + partsKey;
-      if (!map.has(k)) map.set(k, { sample: d, qty: 0 });
-      map.get(k).qty += 1;
+      if (!map.has(k)) map.set(k, { sample: d, qty: 0, allIds: [] });
+      const grp = map.get(k);
+      grp.qty += 1;
+      grp.allIds.push(d.id);
     });
     return Array.from(map.values());
   }
 
+  // Render filas por categoría
   const categoriesHtml = sortedCats.map(cat => {
     const groups = _groupDishes(cat.dishes);
-    const rows = groups.map(({ sample, qty }) => {
+    const rows = groups.map(({ sample, qty, allIds }) => {
       const lineTotal = parseFloat(sample.price || 0) * qty;
-      const qtyPrefix = qty > 1 ? '<span style=\"color:var(--brand-d);font-weight:700;margin-right:4px\">' + qty + '×</span>' : '';
+      const qtyPrefix = qty > 1 ? '<span style="color:var(--brand-d);font-weight:700;margin-right:4px">' + qty + '×</span>' : '';
       const variantBadge = sample.variant_name
-        ? ' <span style=\"display:inline-block;font-size:10px;font-weight:700;color:var(--brand-d);background:var(--brand-l);border:1px solid var(--brand);border-radius:99px;padding:1px 7px;margin-left:4px;letter-spacing:.02em;vertical-align:middle\">' + escHtml(sample.variant_name) + '</span>'
+        ? ' <span style="display:inline-block;font-size:10px;font-weight:700;color:var(--brand-d);background:var(--brand-l);border:1px solid var(--brand);border-radius:99px;padding:1px 7px;margin-left:4px;letter-spacing:.02em;vertical-align:middle">' + escHtml(sample.variant_name) + '</span>'
         : '';
       const cookingPoint = sample.cooking_point
-        ? '<div style=\"font-size:10px;color:#8B5E3C;font-weight:600;margin-top:2px\">' + escHtml(sample.cooking_point) + '</div>'
+        ? '<div style="font-size:10px;color:#8B5E3C;font-weight:600;margin-top:2px">' + escHtml(sample.cooking_point) + '</div>'
         : '';
-      return '<div style=\"display:flex;align-items:flex-start;gap:.5rem;padding:.6rem 0;border-bottom:1px solid var(--bd)\">' +
-        '<div style=\"flex:1;min-width:0\">' +
-          '<div style=\"font-size:13px;color:var(--t1);font-weight:500;line-height:1.35\">' + qtyPrefix + escHtml(sample.name) + variantBadge + '</div>' +
-          cookingPoint +
-          '<div style=\"margin-top:4px\">' + _participantPills(sample) + '</div>' +
+      // Si hay agrupamiento (qty > 1), el botón ✎ edita TODOS de golpe (mismo plato múltiple) — para simplificar usamos el primer ID
+      const editBtn = !payLocked
+        ? '<button onclick="event.stopPropagation();_rcOpenEditor(\'' + sample.id + '\')" style="background:none;border:1px solid var(--bd2);border-radius:99px;padding:1px 9px;font-size:11px;color:var(--t3);cursor:pointer;font-family:inherit;line-height:1.5;margin-right:6px">✎</button>'
+        : '';
+      // Glow verde fugaz cuando se acaba de editar
+      const justEdited = (window._rcJustEditedId === sample.id) ? 'animation:rcGlow 1.2s ease-out' : '';
+      return '<div id="rcrow-' + sample.id + '" style="padding:.6rem 0;border-bottom:1px solid var(--bd);' + justEdited + '">' +
+        '<div style="display:flex;align-items:flex-start;gap:.5rem">' +
+          '<div style="flex:1;min-width:0">' +
+            '<div style="font-size:13px;color:var(--t1);font-weight:500;line-height:1.35">' + qtyPrefix + escHtml(sample.name) + variantBadge + '</div>' +
+            cookingPoint +
+            '<div style="margin-top:4px">' + _participantPills(sample) + '</div>' +
+          '</div>' +
+          '<div style="display:flex;align-items:center;flex-shrink:0">' +
+            editBtn +
+            '<div style="font-family:\'Fraunces\',serif;font-size:14px;font-weight:700;color:var(--t1);padding-top:1px">' + fmt(lineTotal) + '</div>' +
+          '</div>' +
         '</div>' +
-        '<div style=\"font-family:\'Fraunces\',serif;font-size:14px;font-weight:700;color:var(--t1);flex-shrink:0;padding-top:1px\">' + fmt(lineTotal) + '</div>' +
+        // Picker se inyecta aquí cuando se abre
+        '<div id="picker-slot-' + sample.id + '"></div>' +
       '</div>';
     }).join('');
 
-    return '<div style=\"margin-bottom:1.1rem\">' +
-      '<div style=\"font-size:11px;font-weight:600;color:var(--brand-d);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.35rem\">' + escHtml(cat.name) + '</div>' +
-      '<div style=\"background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.25rem .85rem\">' + rows + '</div>' +
+    return '<div style="margin-bottom:1.1rem">' +
+      '<div style="font-size:11px;font-weight:600;color:var(--brand-d);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.35rem">' + escHtml(cat.name) + '</div>' +
+      '<div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.25rem .85rem">' + rows + '</div>' +
     '</div>';
   }).join('');
 
   const emptyMsg = sortedCats.length === 0
-    ? '<div style=\"text-align:center;padding:2.5rem 1rem;color:var(--t3)\"><div style=\"font-size:32px;margin-bottom:.5rem\">🍽</div><div style=\"font-size:13px\">Aún no hay platos en esta mesa</div></div>'
+    ? '<div style="text-align:center;padding:2.5rem 1rem;color:var(--t3)"><div style="font-size:32px;margin-bottom:.5rem">🍽</div><div style="font-size:13px">Aún no hay platos en esta mesa</div></div>'
     : '';
+
+  // Botón añadir persona arriba del listado
+  const addPersonHtml = !payLocked
+    ? '<div style="margin-bottom:.85rem">' +
+      '<button onclick="_rcToggleAddForm()" style="width:100%;padding:10px 12px;border-radius:var(--r-sm);border:1.5px dashed var(--brand);background:var(--brand-l);color:var(--brand-d);font-size:13px;cursor:pointer;font-family:inherit;font-weight:500;text-align:left">' +
+        '<span style="margin-right:6px">+</span>Añadir persona al reparto' +
+      '</button>' +
+      '<div id="rc-add-form" style="display:none;margin-top:.4rem">' +
+        '<div style="display:flex;gap:.4rem">' +
+          '<input id="rc-new-name" type="text" placeholder="Nombre de la persona" autocomplete="off" ' +
+            'style="flex:1;padding:9px 11px;border:1.5px solid var(--brand);border-radius:var(--r-sm);font-size:14px;font-family:inherit;background:var(--card)" ' +
+            'onkeydown="if(event.key===\'Enter\')_rcConfirmAddPerson()">' +
+          '<button onclick="_rcConfirmAddPerson()" style="padding:9px 14px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:13px;cursor:pointer;font-family:inherit;font-weight:500">Añadir</button>' +
+          '<button onclick="document.getElementById(\'rc-add-form\').style.display=\'none\'" style="padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);color:var(--t3);font-size:13px;cursor:pointer">✕</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>'
+    : '';
+
+  const lockBanner = payLocked
+    ? '<div style="font-size:12px;color:#854F0B;background:var(--amber-l);padding:6px 10px;border-radius:var(--r-sm);margin-bottom:.6rem">🔒 Pago iniciado — el reparto no se puede modificar</div>'
+    : '<div style="font-size:11px;color:var(--t3);margin-bottom:.6rem">Toda la cuenta de la mesa, ordenada por categorías. Toca ✎ junto a un plato para editar el reparto.</div>';
 
   const el = document.createElement('div');
   el.id = 'revisar-cuenta-screen';
   el.style.cssText = 'position:fixed;inset:0;z-index:450;background:var(--bg);display:flex;flex-direction:column;overflow:hidden';
   el.innerHTML =
-    '<!-- Header verde oscuro -->' +
+    '<style>@keyframes rcGlow { 0% { background: #B5E6CF } 100% { background: transparent } }</style>' +
+    // Header verde oscuro
     '<div style="background:var(--brand-d);padding:.8rem 1.1rem .85rem;flex-shrink:0">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">' +
         '<button onclick="document.getElementById(\'revisar-cuenta-screen\').remove()" style="background:rgba(255,255,255,.12);border:none;border-radius:99px;padding:5px 13px;font-size:12px;color:#fff;cursor:pointer;font-family:inherit">← Volver</button>' +
@@ -18081,24 +18129,163 @@ function openRevisarCuenta() {
         '</div>' +
       '</div>' +
     '</div>' +
-    '<!-- Lista por categorías -->' +
+    // Lista
     '<div style="flex:1;overflow-y:auto;padding:.85rem .9rem 1.5rem">' +
-      '<div style="font-size:11px;color:var(--t3);margin-bottom:.6rem">Toda la cuenta de la mesa, ordenada por categorías. Las iniciales indican con quién se comparte cada plato.</div>' +
+      lockBanner +
+      addPersonHtml +
       categoriesHtml +
       emptyMsg +
     '</div>' +
-    '<!-- CTA flotante -->' +
+    // CTA flotante (renombrado)
     '<div style="padding:.75rem .9rem calc(.75rem + env(safe-area-inset-bottom));background:var(--bg);border-top:1px solid var(--bd);flex-shrink:0">' +
       '<button onclick="document.getElementById(\'revisar-cuenta-screen\').remove();_doGoToSummary()" style="width:100%;padding:14px;border:none;border-radius:14px;background:linear-gradient(135deg,#1D9E75,#085041);color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer">' +
-        'Confirmar y elegir cómo pagar →' +
+        'Ver reparto →' +
       '</button>' +
     '</div>';
   document.body.appendChild(el);
+
+  // Limpiar flag de glow tras renderizar
+  if (window._rcJustEditedId) {
+    setTimeout(() => { window._rcJustEditedId = null; }, 1300);
+  }
+}
+
+// ── Helpers de edición inline ──
+function _rcToggleAddForm() {
+  const f = document.getElementById('rc-add-form');
+  if (!f) return;
+  const visible = f.style.display !== 'none';
+  f.style.display = visible ? 'none' : 'block';
+  if (!visible) setTimeout(() => document.getElementById('rc-new-name')?.focus(), 50);
+}
+
+async function _rcConfirmAddPerson() {
+  const name = document.getElementById('rc-new-name')?.value?.trim();
+  if (!name) return;
+  const { data: guest, error } = await sb.from('guests').insert({ room_id: state.roomId, name, is_manual: true }).select().single();
+  if (error) { notify('Error: ' + error.message); return; }
+  state.guests.push(guest);
+  notify('✓ ' + name + ' añadido', 'success');
+  _renderRevisarCuenta();
+}
+
+// Abre/cierra picker inline para editar reparto de un plato
+function _rcOpenEditor(dishId) {
+  // Cerrar otros pickers abiertos
+  document.querySelectorAll('[id^="picker-slot-"]').forEach(s => { s.innerHTML = ''; });
+  const slot = document.getElementById('picker-slot-' + dishId);
+  if (!slot) return;
+  const dish = state.dishes.find(d => d.id === dishId);
+  if (!dish) return;
+  // Construir picker (reutilizamos la función del scope superior reconstruyéndola)
+  // Como no podemos llamar a _editPicker desde fuera, reconstruimos aquí inline
+  const COLORS = ['#D85A30','#185FA5','#7B3FA0','#C0392B','#117A65','#B7770D','#1A5276','#6E2C00'];
+  const initialFor = name => (name || '?').trim().charAt(0).toUpperCase();
+  const participantIds = dish.type === 'solo'
+    ? (dish.assignee_id ? [dish.assignee_id] : [])
+    : (state.participants[dish.id] || []);
+  const pSet = new Set(participantIds);
+  const isShared = dish.type === 'shared';
+
+  const chips = (state.guests || []).map((g, idx) => {
+    const c = COLORS[idx % COLORS.length];
+    const ini = initialFor(g.name);
+    const isOn = pSet.has(g.id);
+    const isMeLabel = g.id === state.myGuestId ? ' (tú)' : '';
+    const styleOn = 'background:' + c + ';color:#fff;border:2px solid ' + c;
+    const styleOff = 'background:#fff;color:var(--t2);border:2px solid var(--bd2)';
+    return '<button onclick="_rcToggleParticipant(\'' + dish.id + '\',\'' + g.id + '\')" ' +
+      'style="display:inline-flex;align-items:center;gap:5px;padding:6px 11px 6px 6px;border-radius:99px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;' + (isOn ? styleOn : styleOff) + '">' +
+      '<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:99px;background:' + (isOn ? '#fff' : c) + ';color:' + (isOn ? c : '#fff') + ';font-size:10px;font-weight:700">' + escHtml(ini) + '</span>' +
+      escHtml(g.name) + isMeLabel +
+      '</button>';
+  }).join('');
+
+  const help = isShared
+    ? 'Toca para añadir o quitar personas que comparten este plato'
+    : 'Toca a otra persona para reasignar (o varias para convertirlo en compartido)';
+
+  slot.innerHTML = '<div style="background:#F3F7F5;border:1.5px solid var(--brand);border-radius:var(--r);padding:.6rem .75rem;margin-top:.4rem">' +
+    '<div style="font-size:11px;color:var(--brand-d);margin-bottom:.4rem;font-weight:500">' + help + '</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:5px">' + chips + '</div>' +
+    '<button onclick="_rcCloseEditor(\'' + dish.id + '\')" style="margin-top:.6rem;width:100%;padding:7px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">✓ Hecho</button>' +
+  '</div>';
+}
+
+function _rcCloseEditor(dishId) {
+  const slot = document.getElementById('picker-slot-' + dishId);
+  if (slot) slot.innerHTML = '';
+}
+
+// Toggle de participación con auto-save y feedback
+async function _rcToggleParticipant(dishId, guestId) {
+  const dish = state.dishes.find(d => d.id === dishId);
+  if (!dish) return;
+  const isShared = dish.type === 'shared';
+  let currentParts;
+  if (isShared) {
+    currentParts = (state.participants[dishId] || []).slice();
+  } else {
+    currentParts = dish.assignee_id ? [dish.assignee_id] : [];
+  }
+
+  const idx = currentParts.indexOf(guestId);
+  if (idx >= 0) {
+    currentParts.splice(idx, 1);
+  } else {
+    currentParts.push(guestId);
+  }
+
+  // Persistir
+  if (currentParts.length === 0) {
+    // Sin participantes: marcar como sin asignar (shared con 0 parts)
+    if (isShared) {
+      // borrar todos los registros de dish_participants
+      await sb.from('dish_participants').delete().eq('dish_id', dishId);
+      state.participants[dishId] = [];
+    } else {
+      // un plato solo sin assignee → lo dejamos como solo sin assignee
+      await sb.from('dishes').update({ assignee_id: null }).eq('id', dishId);
+      dish.assignee_id = null;
+    }
+  } else if (currentParts.length === 1) {
+    // Convertir a solo
+    const newAssignee = currentParts[0];
+    if (isShared) {
+      // borrar dish_participants y pasar a solo
+      await sb.from('dish_participants').delete().eq('dish_id', dishId);
+      await sb.from('dishes').update({ type: 'solo', assignee_id: newAssignee }).eq('id', dishId);
+      dish.type = 'solo';
+      dish.assignee_id = newAssignee;
+      state.participants[dishId] = [];
+    } else {
+      await sb.from('dishes').update({ assignee_id: newAssignee }).eq('id', dishId);
+      dish.assignee_id = newAssignee;
+    }
+  } else {
+    // Convertir a / mantener compartido con N participantes
+    if (!isShared) {
+      // Pasar de solo a shared
+      await sb.from('dishes').update({ type: 'shared', assignee_id: null }).eq('id', dishId);
+      dish.type = 'shared';
+      dish.assignee_id = null;
+    }
+    // Sincronizar dish_participants: borrar e insertar
+    await sb.from('dish_participants').delete().eq('dish_id', dishId);
+    const inserts = currentParts.map(gid => ({ dish_id: dishId, guest_id: gid }));
+    await sb.from('dish_participants').insert(inserts);
+    state.participants[dishId] = currentParts;
+  }
+
+  // Re-render con feedback visual
+  window._rcJustEditedId = dishId;
+  _renderRevisarCuenta();
 }
 
 function goToSummary() {
   openRevisarCuenta();
 }
+
 
 // #S7-7: Full reparto view for editing before payment
 function showEditRepartoModal() {
