@@ -6431,7 +6431,9 @@ function buildSummary() {
   const equalShare = isEqual ? grand / _equalPax : 0;
 
   const me = totals.find(t => t.g.id === state.myGuestId);
-  const myAmt = isEqual ? equalShare : (me ? me.total : 0);
+  // El header de "Ver reparto" SIEMPRE muestra la parte real del usuario.
+  // El modo "equal split" se aplica solo en la pantalla de pago, no aquí.
+  const myAmt = me ? me.total : 0;
   const myPreviewEl = document.getElementById('my-price-amount');
   const grandPreviewEl = document.getElementById('grand-total-preview');
   if (myPreviewEl) myPreviewEl.textContent = fmt(myAmt);
@@ -6566,8 +6568,25 @@ function buildSummary() {
             const qtyPrefix = qty > 1
               ? `<span style="color:var(--t3);font-weight:500">${qty}×</span> `
               : '';
-            const variantBadge = d.variant_name
-              ? ` <span style="display:inline-block;font-size:10px;font-weight:700;color:var(--brand-d);background:var(--brand-l);border:1px solid var(--brand);border-radius:99px;padding:1px 7px;margin-left:3px;letter-spacing:.02em;vertical-align:middle">${escHtml(d.variant_name)}</span>`
+            // Variante: si dish.variant_name está set, usarla. Si no, intentar fallback
+            // por menu_item_id + precio coincidente (datos legacy sin variant_name).
+            let variantLabel = d.variant_name;
+            if (!variantLabel && d.menu_item_id && d.variant_id) {
+              const mi = (state.menuItems || []).find(m => m.id === d.menu_item_id);
+              const matchedVariant = mi?.menu_item_variants?.find(v => v.id === d.variant_id);
+              if (matchedVariant) variantLabel = matchedVariant.name;
+            }
+            if (!variantLabel && d.menu_item_id) {
+              // Fallback final: si hay variantes y el precio coincide, asumir esa variante
+              const mi = (state.menuItems || []).find(m => m.id === d.menu_item_id);
+              const variants = mi?.menu_item_variants || [];
+              if (variants.length > 1) {
+                const matched = variants.find(v => Math.abs(parseFloat(v.price) - parseFloat(d.price)) < 0.01);
+                if (matched) variantLabel = matched.name;
+              }
+            }
+            const variantBadge = variantLabel
+              ? ` <span style="display:inline-block;font-size:10px;font-weight:700;color:var(--brand-d);background:var(--brand-l);border:1px solid var(--brand);border-radius:99px;padding:1px 7px;margin-left:3px;letter-spacing:.02em;vertical-align:middle">${escHtml(variantLabel)}</span>`
               : '';
 
             // ── Caso SOLO: una sola línea, sin etiqueta extra ──
@@ -6622,35 +6641,34 @@ function buildSummary() {
         <!-- Editar reparto -->
         ${!paymentStarted && dishCount > 0 ? `<button onclick="goToRevisarCuenta()" style="width:100%;text-align:center;background:none;border:1.5px dashed var(--brand);border-radius:99px;padding:9px;cursor:pointer;font-family:inherit;color:var(--brand-d);font-size:13px;font-weight:600;margin-top:.85rem">✎ Editar reparto</button>` : ''}
       </div>
-      ${meFirst.length > 1 ? `<div id="others-header" style="display:flex;align-items:center;justify-content:space-between;margin:.25rem 0 .4rem">
-        <div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em">Los demás (${meFirst.length-1})</div>
-        <button id="others-toggle-btn" onclick="(function(){var s=document.getElementById('others-section');var b=document.getElementById('others-toggle-btn');if(!s)return;var h=s.style.display==='none';s.style.display=h?'':'none';b.textContent=h?'Ocultar ▲':'Ver todos ▼';})()"
-          style="font-size:11px;color:var(--brand-d);background:var(--brand-l);border:none;border-radius:99px;padding:3px 11px;cursor:pointer;font-family:inherit;font-weight:500">Ver todos ▼</button>
-      </div>` : ''}`;
+      ${meFirst.length > 1 ? `<div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin:.25rem 0 .4rem">Los demás (${meFirst.length-1})</div>` : ''}`;
     }
 
-        // Other guests — compact card
+        // Other guests — card-resumen colapsada por defecto, expansible al click.
+    // Cada card lleva un id único `other-card-{guestId}` para alternar el detalle.
     const color = GUEST_COLORS[origIdx % GUEST_COLORS.length];
-    const _othersOnly = meFirst.filter(x => x.g.id !== state.myGuestId);
-    const _oIdx = _othersOnly.findIndex(x => x.g.id === t.g.id);
-    const _openDiv = (_oIdx === 0 && _othersOnly.length > 0) ? '<div id="others-section" style="display:none">' : '';
-    const _closeDiv = (_oIdx === _othersOnly.length - 1 && _othersOnly.length > 0) ? '</div>' : '';
-    return _openDiv + `<div class="sum-card" style="margin-bottom:.4rem;padding:.65rem .85rem;${isManual?'border-color:var(--amber);border-style:dashed':''}">
+    const cardId = `other-card-${t.g.id}`;
+    const detailId = `other-detail-${t.g.id}`;
+    return `<div id="${cardId}" class="sum-card" style="margin-bottom:.4rem;padding:.65rem .85rem;${isManual?'border-color:var(--amber);border-style:dashed':''};cursor:pointer;transition:background .15s"
+      onclick="(function(){var d=document.getElementById('${detailId}');var c=document.getElementById('chev-${t.g.id}');if(!d)return;var h=d.style.display==='none';d.style.display=h?'block':'none';if(c)c.style.transform=h?'rotate(180deg)':'rotate(0deg)';})()">
       <div class="sum-hdr">
         ${avEl(t.g.name, origIdx, 28)}
-        <div class="sum-name" style="font-size:13px">
+        <div class="sum-name" style="font-size:13px;flex:1">
           ${escHtml(t.g.name)}
           ${isManual ? '<span style="font-size:10px;color:var(--amber);background:var(--amber-l);padding:1px 6px;border-radius:99px;margin-left:4px">Manual</span>' : ''}
         </div>
-        <div class="sum-total" style="font-size:16px">${fmt(t.total)}</div>
+        <div class="sum-total" style="font-size:16px;margin-right:6px">${fmt(t.total)}</div>
+        <span id="chev-${t.g.id}" style="color:var(--t3);font-size:11px;transition:transform .2s;display:inline-block">▼</span>
       </div>
-      ${lines || '<div class="muted" style="font-size:12px;color:var(--t3)">Sin platos asignados</div>'}
-      ${isManual ? `
-        <button onclick="removeManualGuest('${t.g.id}')"
-          style="margin-top:.5rem;width:100%;padding:5px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:none;color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit">
-          Quitar persona
-        </button>` : ''}
-    </div>` + _closeDiv;
+      <div id="${detailId}" style="display:none;margin-top:.6rem;padding-top:.55rem;border-top:1px solid var(--bd)" onclick="event.stopPropagation()">
+        ${lines || '<div class="muted" style="font-size:12px;color:var(--t3)">Sin platos asignados</div>'}
+        ${isManual ? `
+          <button onclick="event.stopPropagation();removeManualGuest('${t.g.id}')"
+            style="margin-top:.5rem;width:100%;padding:5px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:none;color:var(--t3);font-size:11px;cursor:pointer;font-family:inherit">
+            Quitar persona
+          </button>` : ''}
+      </div>
+    </div>`;
   }).join('');
 
 
