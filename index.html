@@ -12692,15 +12692,29 @@ async function saveCostPrice(itemId, value) {
 // ══════════════════════════════════════════════════════
 async function loadMargenKPIs() {
   const el = document.getElementById('kpi-margen-list');
-  if (!el || !state.adminRestaurantId) return;
+  if (!el) return;
 
-  // Cargar TODOS los platos activos (no filtrar por cost_price). Los que no tienen coste
-  // configurado se muestran con un CTA inline para añadirlo.
-  const { data: items } = await sb.from('menu_items')
-    .select('id,name,price,cost_price,category')
-    .eq('restaurant_id', state.adminRestaurantId)
+  // Resolver restaurant_id robustamente: state.adminRestaurantId puede no estar seteado
+  // si el dashboard se cargó antes de la inicialización del módulo admin.
+  const restId = state.adminRestaurantId || state.kitchenRestaurantId || state.restaurantId;
+  if (!restId) {
+    el.innerHTML = '<div style="text-align:center;padding:1rem;font-size:12px;color:var(--t3)">No se pudo identificar el restaurante</div>';
+    return;
+  }
+
+  // Cargar TODOS los platos activos. Capturamos error explícitamente para no quedarnos
+  // con un mensaje engañoso si la query falla.
+  const { data: items, error } = await sb.from('menu_items')
+    .select('id,name,price,cost_price')
+    .eq('restaurant_id', restId)
     .eq('active', true)
     .order('name');
+
+  if (error) {
+    console.error('[loadMargenKPIs]', error);
+    el.innerHTML = '<div style="text-align:center;padding:1rem;font-size:12px;color:var(--accent)">Error cargando platos: ' + escHtml(error.message || '') + '</div>';
+    return;
+  }
 
   if (!items?.length) {
     el.innerHTML = '<div style="text-align:center;padding:1rem;font-size:12px;color:var(--t3)">No hay platos activos en la carta</div>';
