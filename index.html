@@ -6556,6 +6556,8 @@ function buildSummary() {
         groupedBill[seenKey[k]].qty++;
       });
 
+      const totalGuestsInRoom = (state.guests || []).length;
+
       const billRows = dishCount === 0
         ? `<div style="text-align:center;color:var(--t3);padding:1.5rem 0;font-size:13px">${totalDishCount === 0 ? 'No hay platos enviados todavía' : 'No tienes platos asignados — toca «Editar reparto» abajo'}</div>`
         : groupedBill.map(({ sample: d, qty }) => {
@@ -6567,41 +6569,44 @@ function buildSummary() {
             const nP = Math.max(participants.length, 1);
             const myShare = fullPrice / nP;
 
-            // Quién más comparte (excluyendo a mí)
-            const othersInShare = isShared
-              ? participants.filter(id => id !== state.myGuestId)
-                  .map(id => state.guests.find(g => g.id === id)?.name || '?')
-              : [];
-
-            const labelText = isShared
-              ? (othersInShare.length ? `Compartido con ${othersInShare.join(', ')}` : `Compartido contigo`)
-              : `Solo ${escHtml(t.g.name || 'tú')}`;
-            const labelColor = isShared ? 'var(--blue)' : 'var(--brand-d)';
-
-            // Badge ÷N (a la IZQUIERDA del precio) — solo si shared
-            const divBadge = isShared
-              ? `<span style="background:var(--blue-l);color:var(--blue);border-radius:99px;padding:2px 8px;font-size:10px;font-weight:700;line-height:1.2">÷${nP}</span>`
-              : '';
-
             const qtyPrefix = qty > 1
               ? `<span style="color:var(--t3);font-weight:500">${qty}×</span> `
               : '';
-
-            const myShareLabel = isShared
-              ? `<div style="font-size:11px;color:var(--blue);font-weight:600;margin-top:2px">tu parte: ${fmt(myShare)}</div>`
+            const variantBadge = d.variant_name
+              ? ` <span style="display:inline-block;font-size:10px;font-weight:700;color:var(--brand-d);background:var(--brand-l);border:1px solid var(--brand);border-radius:99px;padding:1px 7px;margin-left:3px;letter-spacing:.02em;vertical-align:middle">${escHtml(d.variant_name)}</span>`
               : '';
 
-            return `<div style="display:flex;align-items:center;gap:.65rem;padding:.55rem 0;border-bottom:1px solid var(--bd)">
-              <div style="flex:1;min-width:0">
-                <div style="font-size:13px;font-weight:500;color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${qtyPrefix}${escHtml(d.name)}${d.variant_name ? ` <span style="display:inline-block;font-size:10px;font-weight:700;color:var(--brand-d);background:var(--brand-l);border:1px solid var(--brand);border-radius:99px;padding:1px 7px;margin-left:3px;letter-spacing:.02em;vertical-align:middle">${escHtml(d.variant_name)}</span>` : ''}</div>
-                <div style="font-size:11px;color:${labelColor};margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${labelText}</div>
+            // ── Caso SOLO: una sola línea, sin etiqueta extra ──
+            if (!isShared) {
+              return `<div style="display:flex;align-items:center;gap:.65rem;padding:.55rem 0;border-bottom:1px solid var(--bd)">
+                <div style="flex:1;min-width:0;font-size:13px;font-weight:500;color:var(--t1)">${qtyPrefix}${escHtml(d.name)}${variantBadge}</div>
+                <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--t1);flex-shrink:0">${fmt(fullPrice)}</div>
+              </div>`;
+            }
+
+            // ── Caso SHARED: nombre + precio total arriba, línea azul debajo con etiqueta + ÷N + tu parte ──
+            // Determinar etiqueta según si están todos los comensales o solo algunos
+            const allInTable = totalGuestsInRoom > 0 && participants.length === totalGuestsInRoom;
+            let labelText;
+            if (allInTable) {
+              labelText = 'Compartido entre todos';
+            } else {
+              const othersInShare = participants.filter(id => id !== state.myGuestId)
+                .map(id => state.guests.find(g => g.id === id)?.name || '?');
+              labelText = othersInShare.length
+                ? `Compartido con ${othersInShare.join(', ')}`
+                : 'Compartido contigo';
+            }
+
+            return `<div style="padding:.55rem 0;border-bottom:1px solid var(--bd)">
+              <div style="display:flex;align-items:center;gap:.65rem">
+                <div style="flex:1;min-width:0;font-size:13px;font-weight:500;color:var(--t1)">${qtyPrefix}${escHtml(d.name)}${variantBadge}</div>
+                <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--t1);flex-shrink:0">${fmt(fullPrice)}</div>
               </div>
-              <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-                ${divBadge}
-                <div style="text-align:right">
-                  <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--t1);line-height:1.15">${fmt(fullPrice)}</div>
-                  ${myShareLabel}
-                </div>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
+                <div style="flex:1;min-width:0;font-size:11px;color:var(--blue);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${labelText}</div>
+                <span style="background:var(--blue-l);color:var(--blue);border-radius:99px;padding:1px 7px;font-size:10px;font-weight:700;line-height:1.3;flex-shrink:0">÷${nP}</span>
+                <div style="font-size:11px;color:var(--blue);font-weight:700;flex-shrink:0">tu parte: ${fmt(myShare)}</div>
               </div>
             </div>`;
           }).join('');
