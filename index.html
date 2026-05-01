@@ -18191,7 +18191,7 @@ function _renderRevisarCuenta() {
           : (state.participants[d.id] || []);
         const initialsHtml = _renderInitials(participantIds);
         const pickerHtml = (isExpanded && !payLocked) ? _renderPicker(d, participantIds) : '';
-        const rowBg = isExpanded ? 'background:var(--brand-l)' : 'background:transparent';
+        const rowBg = 'background:transparent';
         const clickHandler = !payLocked ? 'onclick="_rcToggleUnit(\'' + d.id + '\')"' : '';
         const cursor = !payLocked ? 'cursor:pointer' : '';
 
@@ -18251,7 +18251,7 @@ function _renderRevisarCuenta() {
             const initialsHtml = _renderInitials(participantIds);
             const pickerHtml = (isExpanded && !payLocked) ? _renderPicker(d, participantIds) : '';
             const rowBg = isExpanded
-              ? 'background:var(--brand-l);border-color:var(--brand)'
+              ? 'background:transparent;border-color:var(--brand)'
               : 'background:transparent;border-color:var(--bd2)';
             const clickHandler = !payLocked ? 'onclick="_rcToggleUnit(\'' + d.id + '\')"' : '';
             const cursor = !payLocked ? 'cursor:pointer' : '';
