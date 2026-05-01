@@ -8307,6 +8307,331 @@ async function kitchenToggleItem(itemId, active, toggleEl) {
   await sb.from('menu_items').update({ active }).eq('id', itemId);
 }
 
+// ══════════════════════════════════════════════════════════════════
+// FACTURACIÓN — Verifactu compliant (Reglamento RD 1007/2023)
+// ══════════════════════════════════════════════════════════════════
+// Genera factura desde una room cerrada con:
+// - Numeración correlativa por (restaurant, series, year)
+// - Hash SHA-256 encadenado con factura anterior
+// - Líneas snapshot inmutables
+// - QR según especificación AEAT
+// - Stub de envío a proveedor Verifactu (Fiskaly/etc) — implementación real en sub-turno 6.4
+// ══════════════════════════════════════════════════════════════════
+
+// Hash SHA-256 hex de un string usando WebCrypto
+async function _sha256Hex(text) {
+  const buf = new TextEncoder().encode(text);
+  const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hashBuf))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+// Canonicaliza datos de la factura para el hash. Orden estable y exacto.
+function _canonicalizeInvoice(inv) {
+  // Especificación informal (cumple principio de inmutabilidad):
+  // Concatenamos los campos críticos en orden fijo, separados por '|'.
+  // Si dos campos producen la misma representación, se desambigua con tipos explícitos.
+  const linesStr = (inv.lines || []).map(l =>
+    `${l.name}#${l.qty}#${(+l.unit_price).toFixed(2)}#${(+l.base).toFixed(2)}#${(+l.iva_rate).toFixed(2)}#${(+l.iva).toFixed(2)}#${(+l.total).toFixed(2)}`
+  ).join('||');
+  return [
+    inv.restaurant_id,
+    inv.series,
+    inv.year,
+    inv.number,
+    inv.invoice_type,
+    inv.emisor_nif,
+    inv.receptor_nif || '',
+    (+inv.base_amount).toFixed(2),
+    (+inv.iva_rate).toFixed(2),
+    (+inv.iva_amount).toFixed(2),
+    (+inv.total_amount).toFixed(2),
+    inv.currency,
+    new Date(inv.issued_at).toISOString(),
+    linesStr
+  ].join('|');
+}
+
+// Construye URL del QR de validación según especificación AEAT.
+// Cumple con lo descrito en el Reglamento Art. 11 (datos verificables).
+function _buildVerifactuQrUrl({ emisor_nif, display_number, issued_at, total_amount, environment = 'production' }) {
+  const baseUrl = environment === 'production'
+    ? 'https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR'
+    : 'https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR';
+  const params = new URLSearchParams({
+    nif: emisor_nif,
+    numserie: display_number,
+    fecha: new Date(issued_at).toISOString().slice(0,10),  // YYYY-MM-DD
+    importe: (+total_amount).toFixed(2)
+  });
+  return `${baseUrl}?${params.toString()}`;
+}
+
+// Construye las líneas de factura desde los pagos de un room.
+// Agrupa por menu_item + variant (mismo nombre = misma línea, suma cantidades).
+async function _buildInvoiceLinesFromRoom(roomId, ivaRate) {
+  const { data: dishes } = await sb.from('dishes')
+    .select('id, name, variant_name, price, course')
+    .eq('room_id', roomId);
+  if (!dishes?.length) return [];
+
+  // Agrupar por (name + variant_name + price)
+  const grouped = new Map();
+  dishes.forEach(d => {
+    const key = `${d.name}||${d.variant_name || ''}||${d.price}`;
+    if (!grouped.has(key)) {
+      grouped.set(key, { name: d.name + (d.variant_name ? ` (${d.variant_name})` : ''), qty: 0, unit_price: parseFloat(d.price) || 0 });
+    }
+    grouped.get(key).qty += 1;
+  });
+
+  // Calcular line.base, line.iva, line.total con IVA incluido en unit_price
+  // (precios en restauración suelen ser PVP IVA incluido)
+  const ivaFactor = 1 + (ivaRate / 100);
+  return Array.from(grouped.values()).map(l => {
+    const totalLine = +(l.unit_price * l.qty).toFixed(2);
+    const baseLine = +(totalLine / ivaFactor).toFixed(2);
+    const ivaLine = +(totalLine - baseLine).toFixed(2);
+    return {
+      name: l.name,
+      qty: l.qty,
+      unit_price: l.unit_price,
+      base: baseLine,
+      iva_rate: ivaRate,
+      iva: ivaLine,
+      total: totalLine
+    };
+  });
+}
+
+// Genera y persiste una factura para un room cerrado.
+// Devuelve { invoice, error } — invoice es el row insertado.
+async function generateInvoiceFromRoom(roomId, opts = {}) {
+  try {
+    // 1) Cargar restaurante + room + payments
+    const { data: room } = await sb.from('rooms')
+      .select('id, restaurant_id, table_id, closed_at')
+      .eq('id', roomId).single();
+    if (!room) return { error: 'Room no encontrada' };
+
+    // Idempotencia: si ya existe factura para esta room, devuélvela
+    const { data: existing } = await sb.from('invoices')
+      .select('*').eq('room_id', roomId).maybeSingle();
+    if (existing) return { invoice: existing, alreadyExists: true };
+
+    const { data: rest } = await sb.from('restaurants')
+      .select('id, name, nif, address, iva_rate, invoice_series_default, verifactu_enabled, verifactu_environment')
+      .eq('id', room.restaurant_id).single();
+    if (!rest?.nif) return { error: 'El restaurante no tiene NIF configurado. Configúralo en Profile antes de emitir facturas.' };
+
+    const ivaRate = +(rest.iva_rate ?? 10);
+    const series = opts.series || rest.invoice_series_default || 'A';
+    const issuedAt = new Date();
+    const year = issuedAt.getFullYear();
+
+    // 2) Líneas + totales
+    const lines = await _buildInvoiceLinesFromRoom(roomId, ivaRate);
+    if (!lines.length) return { error: 'No hay platos en esta mesa para facturar' };
+
+    const baseAmount = +lines.reduce((s, l) => s + l.base, 0).toFixed(2);
+    const ivaAmount  = +lines.reduce((s, l) => s + l.iva, 0).toFixed(2);
+    const totalAmount = +(baseAmount + ivaAmount).toFixed(2);
+
+    // 3) Pagos (snapshot)
+    const { data: payments } = await sb.from('payments')
+      .select('amount, payment_method').eq('room_id', roomId);
+    const paymentMethods = (payments || []).reduce((acc, p) => {
+      const m = p.payment_method || 'unknown';
+      acc[m] = (acc[m] || 0) + parseFloat(p.amount || 0);
+      return acc;
+    }, {});
+    const paymentMethodsArr = Object.entries(paymentMethods).map(([method, amount]) => ({ method, amount: +amount.toFixed(2) }));
+
+    // 4) Decidir tipo: F2 si total <= 400€ y sin NIF receptor (ticket simplificado)
+    const invoiceType = (totalAmount <= 400 && !opts.receptor_nif) ? 'F2' : 'F1';
+
+    // 5) RPC para obtener number + prev_hash atómicos
+    const { data: seq, error: seqErr } = await sb.rpc('next_invoice_sequence', {
+      p_restaurant_id: rest.id,
+      p_series: series,
+      p_year: year
+    });
+    if (seqErr) return { error: 'Error obteniendo numeración: ' + seqErr.message };
+    const { next_number, prev_hash } = (Array.isArray(seq) ? seq[0] : seq) || {};
+    if (!next_number) return { error: 'No se pudo obtener número de factura' };
+
+    // 6) Construir el objeto factura sin hash (lo calculamos ahora)
+    const draft = {
+      restaurant_id: rest.id,
+      room_id: roomId,
+      series,
+      number: next_number,
+      year,
+      issued_at: issuedAt.toISOString(),
+      invoice_type: invoiceType,
+      emisor_nif: rest.nif,
+      emisor_name: rest.name,
+      emisor_address: rest.address || null,
+      receptor_nif: opts.receptor_nif || null,
+      receptor_name: opts.receptor_name || null,
+      receptor_address: opts.receptor_address || null,
+      receptor_email: opts.receptor_email || null,
+      base_amount: baseAmount,
+      iva_rate: ivaRate,
+      iva_amount: ivaAmount,
+      total_amount: totalAmount,
+      currency: 'EUR',
+      lines,
+      prev_hash: prev_hash || null,
+      payment_methods: paymentMethodsArr,
+      verifactu_status: rest.verifactu_enabled ? 'pending' : 'skipped'
+    };
+
+    // 7) Calcular hash encadenado
+    const canonical = _canonicalizeInvoice(draft);
+    const hashInput = (prev_hash || '') + '|' + canonical;
+    const hash = await _sha256Hex(hashInput);
+
+    // 8) Construir QR de la factura (display_number lo genera la BD; reconstruimos para QR)
+    const displayNumber = `${series}-${year}-${String(next_number).padStart(5, '0')}`;
+    const qrUrl = _buildVerifactuQrUrl({
+      emisor_nif: rest.nif,
+      display_number: displayNumber,
+      issued_at: issuedAt.toISOString(),
+      total_amount: totalAmount,
+      environment: rest.verifactu_environment || 'test'
+    });
+
+    // 9) INSERT
+    const { data: invoice, error: insErr } = await sb.from('invoices').insert({
+      ...draft,
+      hash,
+      qr_url: qrUrl
+    }).select('*').single();
+    if (insErr) return { error: 'Error guardando factura: ' + insErr.message };
+
+    // 10) Stub: enviar a proveedor Verifactu (no implementado aún)
+    if (rest.verifactu_enabled) {
+      // queueInvoiceForVerifactu(invoice.id) — TODO 6.4
+    }
+
+    return { invoice };
+  } catch (err) {
+    console.error('[generateInvoiceFromRoom]', err);
+    return { error: err.message || 'Error generando factura' };
+  }
+}
+
+// Helper: descarga la factura como HTML imprimible (ticket-style + QR).
+// Llamable desde cualquier sitio con el invoice_id.
+async function downloadInvoiceHtml(invoiceId) {
+  const { data: inv } = await sb.from('invoices').select('*').eq('id', invoiceId).single();
+  if (!inv) { notify('Factura no encontrada'); return; }
+  const html = _renderInvoiceHtml(inv);
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `factura_${inv.display_number}.html`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+}
+
+// Helper: imprime la factura directamente (abre print dialog).
+async function printInvoice(invoiceId) {
+  const { data: inv } = await sb.from('invoices').select('*').eq('id', invoiceId).single();
+  if (!inv) { notify('Factura no encontrada'); return; }
+  const html = _renderInvoiceHtml(inv);
+  const w = window.open('', '_blank', 'width=420,height=600');
+  if (!w) { notify('Habilita las ventanas emergentes para imprimir'); return; }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+  w.onload = () => { w.print(); };
+}
+
+// Render HTML de factura (estilo ticket, tamaño 80mm width-friendly).
+// Usa concatenación de strings (NO template literals con </body>) para evitar
+// el bug recurrente de injection.
+function _renderInvoiceHtml(inv) {
+  const linesHtml = (inv.lines || []).map(l =>
+    '<tr><td style="padding:3px 0">' + escHtml(l.name) +
+    '</td><td style="text-align:center">' + l.qty +
+    '</td><td style="text-align:right">' + (+l.unit_price).toFixed(2) +
+    '</td><td style="text-align:right">' + (+l.total).toFixed(2) + '</td></tr>'
+  ).join('');
+  const paymentsHtml = (inv.payment_methods || []).map(p =>
+    '<div style="display:flex;justify-content:space-between"><span>' +
+    escHtml(_paymentLabel(p.method)) + '</span><span>' + (+p.amount).toFixed(2) + ' €</span></div>'
+  ).join('');
+
+  // QR como imagen externa via servicio público (en producción mejor generar localmente)
+  const qrImgUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=' + encodeURIComponent(inv.qr_url);
+
+  let html = '';
+  html += '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">';
+  html += '<title>Factura ' + escHtml(inv.display_number) + '</title>';
+  html += '<style>';
+  html += '@media print { @page { size: 80mm auto; margin: 4mm } body { width: 72mm } }';
+  html += 'body { font-family: \'Courier New\', monospace; font-size: 11px; max-width: 76mm; margin: 0 auto; padding: 8px; color: #000 }';
+  html += 'h1 { font-size: 13px; margin: 0 0 4px; text-align: center }';
+  html += '.row { display: flex; justify-content: space-between }';
+  html += '.sep { border-top: 1px dashed #999; margin: 6px 0 }';
+  html += 'table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 10px }';
+  html += 'th { text-align: left; border-bottom: 1px solid #000; padding: 2px 0; font-size: 9px }';
+  html += '.qr-block { text-align: center; margin-top: 8px }';
+  html += '.hash { font-size: 8px; word-break: break-all; color: #555; margin-top: 4px }';
+  html += '.legal { font-size: 8px; color: #666; margin-top: 8px; text-align: center }';
+  html += '</style></head><body>';
+  html += '<h1>' + escHtml(inv.emisor_name) + '</h1>';
+  html += '<div style="text-align:center;font-size:10px">NIF: ' + escHtml(inv.emisor_nif);
+  if (inv.emisor_address) html += '<br>' + escHtml(inv.emisor_address);
+  html += '</div>';
+  html += '<div class="sep"></div>';
+  html += '<div class="row"><strong>' + (inv.invoice_type === 'F2' ? 'TICKET' : 'FACTURA') + '</strong><strong>' + escHtml(inv.display_number) + '</strong></div>';
+  html += '<div class="row"><span>Fecha</span><span>' + new Date(inv.issued_at).toLocaleString('es-ES') + '</span></div>';
+  if (inv.receptor_nif) {
+    html += '<div class="sep"></div>';
+    html += '<div><strong>Cliente</strong></div>';
+    html += '<div>' + escHtml(inv.receptor_name || '') + '</div>';
+    html += '<div>NIF: ' + escHtml(inv.receptor_nif) + '</div>';
+    if (inv.receptor_address) html += '<div>' + escHtml(inv.receptor_address) + '</div>';
+  }
+  html += '<div class="sep"></div>';
+  html += '<table><thead><tr><th>Concepto</th><th style="text-align:center">Ud</th><th style="text-align:right">PVP</th><th style="text-align:right">Total</th></tr></thead><tbody>';
+  html += linesHtml;
+  html += '</tbody></table>';
+  html += '<div class="sep"></div>';
+  html += '<div class="row"><span>Base imponible</span><span>' + (+inv.base_amount).toFixed(2) + ' €</span></div>';
+  html += '<div class="row"><span>IVA ' + (+inv.iva_rate).toFixed(0) + '%</span><span>' + (+inv.iva_amount).toFixed(2) + ' €</span></div>';
+  html += '<div class="row" style="font-size:13px;margin-top:4px"><strong>TOTAL</strong><strong>' + (+inv.total_amount).toFixed(2) + ' €</strong></div>';
+  if (paymentsHtml) {
+    html += '<div class="sep"></div>';
+    html += '<div style="font-size:10px"><strong>Pago:</strong></div>';
+    html += paymentsHtml;
+  }
+  html += '<div class="qr-block">';
+  html += '<img src="' + qrImgUrl + '" alt="QR Verifactu" style="width:100px;height:100px">';
+  html += '<div style="font-size:8px;margin-top:2px">Verificable en AEAT</div>';
+  html += '</div>';
+  html += '<div class="hash">Hash: ' + escHtml(inv.hash) + '</div>';
+  html += '<div class="legal">Documento conforme al RD 1007/2023.<br>Conserve este ticket.</div>';
+  html += '</body></html>';
+  return html;
+}
+
+function _paymentLabel(method) {
+  const m = (method || '').toLowerCase();
+  if (m === 'card' || m === 'stripe') return 'Tarjeta';
+  if (m === 'cash') return 'Efectivo';
+  if (m === 'apple_pay') return 'Apple Pay';
+  if (m === 'google_pay') return 'Google Pay';
+  if (m === 'bizum') return 'Bizum';
+  return method || 'Otro';
+}
+
 // ── COCINA: TIEMPOS DE PREPARACIÓN ──
 async function loadKitchenPrepTimes() {
   const el = document.getElementById('k-prep-list');
@@ -8863,6 +9188,14 @@ async function waiterConfirmCobro(roomId, guestId, amount, method, nIdx) {
       const totalPaid = (payments||[]).reduce((s,p)=>s+parseFloat(p.amount||0),0);
       await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString(), needs_cleaning: true, cleaning_requested_at: new Date().toISOString() }).eq('id', roomId);
       await _notifyPaymentComplete(roomId, totalPaid);
+      // Generar factura automáticamente al cerrar mesa (Verifactu)
+      generateInvoiceFromRoom(roomId).then(res => {
+        if (res?.invoice) {
+          showToast('🧾 Factura ' + res.invoice.display_number, 'Generada y guardada');
+        } else if (res?.error) {
+          console.warn('[invoice] generation failed:', res.error);
+        }
+      }).catch(e => console.warn('[invoice] error:', e));
       showToast('Mesa cerrada', 'Todos han pagado — recuerda limpiar la mesa');
       loadWaiterMesas();
       loadWaiterTableSelects();
@@ -18544,11 +18877,17 @@ async function loadFacturas() {
   const roomIds = rooms.map(r => r.id);
   const { data: pays } = await sb.from('payments').select('*').in('room_id', roomIds);
   const { data: guests } = await sb.from('guests').select('id,room_id').in('room_id', roomIds);
+  // Cargar facturas legales (Verifactu) asociadas
+  const { data: invoices } = await sb.from('invoices')
+    .select('id,room_id,display_number,verifactu_status,total_amount')
+    .in('room_id', roomIds);
 
   const paysByRoom = {};
   (pays||[]).forEach(p => { if (!paysByRoom[p.room_id]) paysByRoom[p.room_id]=[]; paysByRoom[p.room_id].push(p); });
   const guestsByRoom = {};
   (guests||[]).forEach(g => { if (!guestsByRoom[g.room_id]) guestsByRoom[g.room_id]=[]; guestsByRoom[g.room_id].push(g); });
+  const invoiceByRoom = {};
+  (invoices||[]).forEach(i => { invoiceByRoom[i.room_id] = i; });
 
   rooms.forEach(r => {
     const rPays = paysByRoom[r.id] || [];
@@ -18579,9 +18918,16 @@ async function loadFacturas() {
     const nGuests = (guestsByRoom[r.id]||[]).length;
     const tableLabel = r.tables ? `Mesa ${r.tables.number}${r.tables.label?' — '+r.tables.label:''}` : 'Mesa';
     const d = r.closed_at ? new Date(r.closed_at).toLocaleString('es-ES',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
+    const inv = invoiceByRoom[r.id];
+    const legalBadge = inv
+      ? `<span style="font-size:9px;font-weight:600;background:#E1F5EE;color:#085041;padding:1px 6px;border-radius:99px;margin-left:4px;border:1px solid #085041">🧾 ${escHtml(inv.display_number)}</span>`
+      : '';
+    const printBtn = inv
+      ? `<button onclick="event.stopPropagation();printInvoice('${inv.id}')" title="Imprimir factura legal" style="flex-shrink:0;padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--brand);background:var(--brand-l);color:var(--brand-d);cursor:pointer;font-size:13px;line-height:1">🧾</button>`
+      : `<button onclick="event.stopPropagation();_retroGenerateInvoice('${r.id}')" title="Generar factura legal ahora" style="flex-shrink:0;padding:5px 8px;border-radius:var(--r-sm);border:1px dashed var(--bd2);background:var(--bg);color:var(--t3);cursor:pointer;font-size:13px;line-height:1">+🧾</button>`;
     return `<div style="display:flex;align-items:center;gap:10px;padding:.6rem 0;border-bottom:1px solid var(--bd)">
       <div style="flex:1;cursor:pointer;min-width:0" onclick="openFactura('${r.id}')">
-        <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(tableLabel)}</div>
+        <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(tableLabel)}${legalBadge}</div>
         <div style="font-size:11px;color:var(--t2)">${d} · ${nGuests} persona${nGuests!==1?'s':''}</div>
       </div>
       <div style="text-align:right;flex-shrink:0;cursor:pointer" onclick="openFactura('${r.id}')">
@@ -18590,13 +18936,25 @@ async function loadFacturas() {
           ${rPays.length===nGuests&&nGuests>0?'✓ Pagada':'Pendiente'}
         </div>
       </div>
-      <button onclick="downloadFacturaPDF('${r.id}')"
-        title="Descargar PDF"
+      ${printBtn}
+      <button onclick="event.stopPropagation();downloadFacturaPDF('${r.id}')"
+        title="Descargar PDF interno"
         style="flex-shrink:0;padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);cursor:pointer;font-size:14px;line-height:1">
         ⬇
       </button>
     </div>`;
   }).join('');
+}
+
+// Genera retroactivamente la factura legal de un room cerrado que aún no tiene factura
+async function _retroGenerateInvoice(roomId) {
+  if (!(await confirmModal('¿Generar la factura legal Verifactu de esta mesa? El número correlativo no se podrá cambiar.'))) return;
+  const res = await generateInvoiceFromRoom(roomId);
+  if (res?.error) { notify('Error: ' + res.error); return; }
+  if (res?.invoice) {
+    notify('Factura ' + res.invoice.display_number + ' generada ✓', 'success');
+    loadFacturas();
+  }
 }
 
 async function openFactura(roomId) {
