@@ -18133,7 +18133,8 @@ function _renderRevisarCuenta() {
       const groupKey = 'g' + Math.abs(((sample.name||'') + '|' + (sample.variant_name||'') + '|' + unitPrice.toFixed(2))
         .split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0));
       window._rcGroupCache[groupKey] = { dishIds: allDishes.map(d => d.id) };
-      const justEdited = (window._rcJustEditedGroup === groupKey) ? 'animation:rcGlow 1.2s ease-out' : '';
+      // (sin animación de fondo: causaba un flash verde poco agradable al editar)
+      const justEdited = '';
 
       // ── Helper: render de UN PICKER expandido (chips on/off) ──
       function _renderPicker(d, participantIds) {
@@ -18274,7 +18275,7 @@ function _renderRevisarCuenta() {
   el.id = 'revisar-cuenta-screen';
   el.style.cssText = 'position:fixed;inset:0;z-index:450;background:var(--bg);display:flex;flex-direction:column;overflow:hidden';
   el.innerHTML =
-    '<style>@keyframes rcGlow { 0% { background: #B5E6CF } 100% { background: transparent } }</style>' +
+    '<style>/* sin animación de glow — sustituido por update DOM directo */</style>' +
     // Header verde oscuro
     '<div style="background:var(--brand-d);padding:.8rem 1.1rem .85rem;flex-shrink:0">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">' +
@@ -18395,9 +18396,13 @@ function _rcOpenAddPersonPopup() {
           '<div style="font-family:\'Fraunces\',serif;font-size:16px;font-weight:700">+ Añadir persona</div>' +
           '<button onclick="document.getElementById(\'rc-add-popup\').remove()" style="background:rgba(255,255,255,.12);border:none;border-radius:99px;width:28px;height:28px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit">✕</button>' +
         '</div>' +
-        '<input id="rc-popup-name" type="text" placeholder="Nombre de la persona" autocomplete="off" ' +
-          'style="width:100%;padding:11px 13px;border:1.5px solid rgba(255,255,255,.25);border-radius:var(--r-sm);font-size:15px;font-family:inherit;background:rgba(255,255,255,.1);color:#fff;outline:none" ' +
-          'onkeydown="if(event.key===\'Enter\'){event.preventDefault();_rcConfirmAddPersonWithDishes();}">' +
+        '<div style="display:flex;gap:.4rem;align-items:stretch">' +
+          '<input id="rc-popup-name" type="text" placeholder="Nombre de la persona" autocomplete="off" ' +
+            'style="flex:1;padding:11px 13px;border:1.5px solid rgba(255,255,255,.25);border-radius:var(--r-sm);font-size:15px;font-family:inherit;background:rgba(255,255,255,.1);color:#fff;outline:none" ' +
+            'onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.blur();}">' +
+          '<button onclick="document.getElementById(\'rc-popup-name\')?.blur()" title="Confirmar nombre y cerrar teclado" ' +
+            'style="background:#1D9E75;border:none;border-radius:var(--r-sm);width:46px;flex-shrink:0;color:#fff;font-size:18px;cursor:pointer;font-family:inherit">✓</button>' +
+        '</div>' +
       '</div>' +
       // Body
       '<div style="flex:1;overflow-y:auto;padding:.9rem 1rem 1rem">' +
@@ -18515,7 +18520,6 @@ async function _rcUnitToggleParticipant(groupKey, dishId, guestId) {
   const idx = currentParts.indexOf(guestId);
   let nextParts;
   if (idx >= 0) {
-    // Quitar — pero antes validar que no deja la unidad vacía
     if (currentParts.length === 1) {
       notify('Cada plato debe tener al menos 1 persona. Toca primero a otro comensal para reasignar.', 'info');
       return;
@@ -18527,37 +18531,129 @@ async function _rcUnitToggleParticipant(groupKey, dishId, guestId) {
     nextParts.push(guestId);
   }
 
-  // Persistir según la nueva cardinalidad
+  // ── 1) MUTACIÓN OPTIMISTA: actualizar state inmediatamente ──
+  // Guardar estado anterior por si hay que revertir
+  const prevType = dish.type;
+  const prevAssignee = dish.assignee_id;
+  const prevParticipants = (state.participants[dishId] || []).slice();
+
   if (nextParts.length === 1) {
-    // Convertir a / mantener solo
-    const newAssignee = nextParts[0];
-    if (dish.type === 'shared') {
-      await sb.from('dish_participants').delete().eq('dish_id', dishId);
-      await sb.from('dishes').update({ type: 'solo', assignee_id: newAssignee }).eq('id', dishId);
-      dish.type = 'solo';
-      dish.assignee_id = newAssignee;
-      state.participants[dishId] = [];
-    } else {
-      await sb.from('dishes').update({ assignee_id: newAssignee }).eq('id', dishId);
-      dish.assignee_id = newAssignee;
-    }
+    dish.type = 'solo';
+    dish.assignee_id = nextParts[0];
+    state.participants[dishId] = [];
   } else {
-    // Convertir a / mantener shared
-    if (dish.type === 'solo') {
-      await sb.from('dishes').update({ type: 'shared', assignee_id: null }).eq('id', dishId);
-      dish.type = 'shared';
-      dish.assignee_id = null;
-    }
-    await sb.from('dish_participants').delete().eq('dish_id', dishId);
-    const inserts = nextParts.map(gid => ({ dish_id: dishId, guest_id: gid }));
-    await sb.from('dish_participants').insert(inserts);
+    dish.type = 'shared';
+    dish.assignee_id = null;
     state.participants[dishId] = nextParts;
   }
 
-  // Re-render con feedback visual + reabrir el editor
-  window._rcJustEditedGroup = groupKey;
-  _renderRevisarCuenta();
-  setTimeout(() => _rcRenderGroupPanel(groupKey), 50);
+  // ── 2) UI: actualizar solo lo necesario sin re-render completo ──
+  _rcUpdateLocalUI(dishId);
+
+  // ── 3) PERSISTIR ASÍNCRONO en BD ──
+  try {
+    if (nextParts.length === 1) {
+      const newAssignee = nextParts[0];
+      if (prevType === 'shared') {
+        await sb.from('dish_participants').delete().eq('dish_id', dishId);
+        await sb.from('dishes').update({ type: 'solo', assignee_id: newAssignee }).eq('id', dishId);
+      } else {
+        await sb.from('dishes').update({ assignee_id: newAssignee }).eq('id', dishId);
+      }
+    } else {
+      if (prevType === 'solo') {
+        await sb.from('dishes').update({ type: 'shared', assignee_id: null }).eq('id', dishId);
+      }
+      await sb.from('dish_participants').delete().eq('dish_id', dishId);
+      const inserts = nextParts.map(gid => ({ dish_id: dishId, guest_id: gid }));
+      await sb.from('dish_participants').insert(inserts);
+    }
+  } catch (e) {
+    // Revertir state si la BD falló
+    dish.type = prevType;
+    dish.assignee_id = prevAssignee;
+    state.participants[dishId] = prevParticipants;
+    _rcUpdateLocalUI(dishId);
+    notify('Error guardando cambio: ' + (e.message || e), 'error');
+  }
+}
+
+// Actualiza solo los elementos del DOM relacionados con un dish concreto, sin re-renderizar la pantalla
+function _rcUpdateLocalUI(dishId) {
+  const dish = state.dishes.find(d => d.id === dishId);
+  if (!dish) return;
+
+  const COLORS = ['#D85A30','#185FA5','#7B3FA0','#C0392B','#117A65','#B7770D','#1A5276','#6E2C00'];
+  const initialFor = name => (name || '?').trim().charAt(0).toUpperCase();
+  const guestById = {};
+  (state.guests || []).forEach(g => { guestById[g.id] = g; });
+
+  const participantIds = dish.type === 'solo'
+    ? (dish.assignee_id ? [dish.assignee_id] : [])
+    : (state.participants[dishId] || []);
+
+  // 1) Actualizar las iniciales de la fila correspondiente
+  // Las filas tienen estructura específica con onclick="_rcToggleUnit('<dishId>')"
+  // Buscamos por atributo onclick
+  const rows = document.querySelectorAll('[onclick*="_rcToggleUnit"]');
+  rows.forEach(row => {
+    const onclick = row.getAttribute('onclick') || '';
+    if (!onclick.includes(dishId)) return;
+
+    // Reemplazar el contenedor de iniciales (el primer flex con gap:3px dentro de la fila)
+    const initialsContainer = row.querySelector('div[style*="gap:3px"]');
+    if (initialsContainer) {
+      const html = participantIds.length === 0
+        ? '<span style="font-size:10px;color:var(--accent);background:#FCEBEB;border-radius:99px;padding:2px 8px;font-weight:600">Sin asignar</span>'
+        : participantIds.map(gid => {
+            const g = guestById[gid];
+            if (!g) return '';
+            const gIdx = (state.guests || []).findIndex(x => x.id === gid);
+            const c = COLORS[gIdx % COLORS.length];
+            const ini = initialFor(g.name);
+            const isMe = gid === state.myGuestId;
+            const ring = isMe ? 'box-shadow:0 0 0 2px ' + c + '33' : '';
+            return '<span title="' + escHtml(g.name) + '" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:99px;background:' + c + ';color:#fff;font-size:10px;font-weight:700;font-family:inherit;' + ring + '">' + escHtml(ini) + '</span>';
+          }).join('');
+      initialsContainer.innerHTML = html;
+    }
+
+    // Actualizar también los chips del picker si está expandido
+    const chipBtns = row.querySelectorAll('button[onclick*="_rcUnitToggleParticipant"]');
+    chipBtns.forEach(btn => {
+      const onc = btn.getAttribute('onclick') || '';
+      // Extraer el guestId del onclick: ...,'GUEST_ID')
+      const m = onc.match(/'([^']+)'\)$/);
+      if (!m) return;
+      const gid = m[1];
+      const isOn = participantIds.includes(gid);
+      const gIdx = (state.guests || []).findIndex(x => x.id === gid);
+      const c = COLORS[gIdx % COLORS.length];
+      const styleOn = 'display:inline-flex;align-items:center;gap:5px;padding:5px 10px 5px 5px;border-radius:99px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;background:' + c + ';color:#fff;border:2px solid ' + c;
+      const styleOff = 'display:inline-flex;align-items:center;gap:5px;padding:5px 10px 5px 5px;border-radius:99px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;background:#fff;color:var(--t2);border:2px solid var(--bd2)';
+      btn.style.cssText = isOn ? styleOn : styleOff;
+      // El círculo dentro del chip también cambia
+      const innerCircle = btn.querySelector('span');
+      if (innerCircle) {
+        innerCircle.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:99px;background:' + (isOn ? '#fff' : c) + ';color:' + (isOn ? c : '#fff') + ';font-size:10px;font-weight:700';
+      }
+    });
+  });
+
+  // 2) Actualizar los totales del header (Tu parte / Total mesa)
+  const totals = calcTotals();
+  const grand = totals.reduce((s,t) => s + t.total, 0);
+  const myTotal = totals.find(t => t.g.id === state.myGuestId)?.total || 0;
+  // Los totales están en spans con font-size:22px dentro del header verde — usamos selector específico
+  const headerTotals = document.querySelectorAll('#revisar-cuenta-screen [style*="font-size:22px"]');
+  if (headerTotals.length >= 2) {
+    headerTotals[0].textContent = fmt(myTotal);
+    headerTotals[1].textContent = fmt(grand);
+  }
+}
+
+function goToSummary() {
+  openRevisarCuenta();
 }
 
 function goToSummary() {
