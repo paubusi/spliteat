@@ -18025,52 +18025,145 @@ function _renderRevisarCuenta() {
     '</div>';
   }
 
-  // Agrupar dishes idénticos (mismo nombre+variante+precio+participantes) → una sola fila ×N
+  // Agrupar dishes IDÉNTICOS de plato (mismo nombre+variante+precio) en una sola fila.
+  // Cada unidad puede tener su propio assignee/participants — eso lo desglosamos
+  // dentro de la fila como "1× P · 1× J · 1× M".
   function _groupDishes(dishes) {
     const map = new Map();
     dishes.forEach(d => {
-      const partsKey = (d.type === 'solo' ? (d.assignee_id || '') : (state.participants[d.id] || []).slice().sort().join(','));
-      const k = (d.name || '') + '|' + (d.variant_name || '') + '|' + parseFloat(d.price || 0).toFixed(2) + '|' + (d.type || '') + '|' + partsKey;
-      if (!map.has(k)) map.set(k, { sample: d, qty: 0, allIds: [] });
+      const k = (d.name || '') + '|' + (d.variant_name || '') + '|' + parseFloat(d.price || 0).toFixed(2);
+      if (!map.has(k)) map.set(k, { sample: d, qty: 0, allDishes: [] });
       const grp = map.get(k);
       grp.qty += 1;
-      grp.allIds.push(d.id);
+      grp.allDishes.push(d);
     });
     return Array.from(map.values());
   }
 
+  // Para un grupo, calcula qué unidades tiene cada persona (full o fraccional).
+  // Devuelve Map<guestId, { qty, isShared }>
+  // - Para platos solo: 1 unidad entera por assignee
+  // - Para platos shared: cada unidad cuenta 1/N para cada participante
+  function _qtyByPerson(group) {
+    const result = new Map();
+    let unassignedCount = 0;
+    group.allDishes.forEach(d => {
+      if (d.type === 'solo') {
+        const gid = d.assignee_id;
+        if (!gid) { unassignedCount += 1; return; }
+        if (!result.has(gid)) result.set(gid, { qty: 0, hasShared: false, hasSolo: false });
+        result.get(gid).qty += 1;
+        result.get(gid).hasSolo = true;
+      } else if (d.type === 'shared') {
+        const parts = state.participants[d.id] || [];
+        if (!parts.length) { unassignedCount += 1; return; }
+        const share = 1 / parts.length;
+        parts.forEach(gid => {
+          if (!result.has(gid)) result.set(gid, { qty: 0, hasShared: false, hasSolo: false });
+          result.get(gid).qty += share;
+          result.get(gid).hasShared = true;
+        });
+      }
+    });
+    return { byGuest: result, unassignedCount };
+  }
+
+  // Render badges "1× P · 1× J · 1× M" (o "0,5× P" si comparte mitad)
+  function _personQtyBadges(group) {
+    const { byGuest, unassignedCount } = _qtyByPerson(group);
+    const badges = [];
+    // Ordenar: yo primero, luego resto en orden de state.guests
+    const sortedEntries = Array.from(byGuest.entries()).sort((a, b) => {
+      if (a[0] === state.myGuestId) return -1;
+      if (b[0] === state.myGuestId) return 1;
+      const ai = (state.guests || []).findIndex(g => g.id === a[0]);
+      const bi = (state.guests || []).findIndex(g => g.id === b[0]);
+      return ai - bi;
+    });
+
+    sortedEntries.forEach(([gid, info]) => {
+      const g = guestById[gid];
+      if (!g) return;
+      const origIdx = (state.guests || []).findIndex(x => x.id === gid);
+      const c = COLORS[origIdx % COLORS.length];
+      const ini = initialFor(g.name);
+      const isMe = gid === state.myGuestId;
+      // Formatear qty: 1, 2, 3, 0,5 (mitad), 0,33 (un tercio)…
+      const qStr = Number.isInteger(info.qty)
+        ? String(info.qty)
+        : info.qty.toFixed(2).replace(/0+$/,'').replace(/\\.$/,'').replace('.', ',');
+      const sharedHint = info.hasShared && !info.hasSolo ? ' style="opacity:.85"' : '';
+      const ring = isMe ? 'box-shadow:0 0 0 2px ' + c + '33;border:1.5px solid ' + c : 'border:1.5px solid ' + c + '33';
+      badges.push(
+        '<span title="' + escHtml(g.name) + (info.hasShared ? ' (parte compartida)' : '') + '"' + sharedHint +
+        ' style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px 2px 2px;border-radius:99px;background:' + c + '14;' + ring + ';font-size:11px;font-weight:600;color:' + c + '">' +
+          '<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:99px;background:' + c + ';color:#fff;font-size:9px;font-weight:700">' + escHtml(ini) + '</span>' +
+          qStr + '×' +
+          (info.hasShared ? '<span style="font-size:9px;color:var(--blue);margin-left:2px">↗</span>' : '') +
+        '</span>'
+      );
+    });
+
+    if (unassignedCount > 0) {
+      const qStr = String(unassignedCount);
+      badges.push(
+        '<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;background:#FCEBEB;color:#A32D2D;font-size:11px;font-weight:600;border:1.5px solid #E89C9C">' +
+          qStr + '× sin asignar' +
+        '</span>'
+      );
+    }
+
+    if (!badges.length) {
+      return '<span style="font-size:10px;color:var(--accent);background:#FCEBEB;border-radius:99px;padding:2px 8px;font-weight:600">Sin asignar</span>';
+    }
+    return '<div style="display:inline-flex;gap:4px;flex-wrap:wrap">' + badges.join('') + '</div>';
+  }
+
   // Render filas por categoría
+  // Cada plato (mismo nombre+variante+precio) agrupado en 1 fila con qty total + badges por persona.
+  window._rcGroupCache = {};
   const categoriesHtml = sortedCats.map(cat => {
     const groups = _groupDishes(cat.dishes);
-    const rows = groups.map(({ sample, qty, allIds }) => {
+    const rows = groups.map((group) => {
+      const { sample, qty, allDishes } = group;
       const lineTotal = parseFloat(sample.price || 0) * qty;
-      const qtyPrefix = qty > 1 ? '<span style="color:var(--brand-d);font-weight:700;margin-right:4px">' + qty + '×</span>' : '';
+      const qtyPrefix = '<span style="color:var(--brand-d);font-weight:700;margin-right:4px">' + qty + '×</span>';
       const variantBadge = sample.variant_name
         ? ' <span style="display:inline-block;font-size:10px;font-weight:700;color:var(--brand-d);background:var(--brand-l);border:1px solid var(--brand);border-radius:99px;padding:1px 7px;margin-left:4px;letter-spacing:.02em;vertical-align:middle">' + escHtml(sample.variant_name) + '</span>'
         : '';
       const cookingPoint = sample.cooking_point
         ? '<div style="font-size:10px;color:#8B5E3C;font-weight:600;margin-top:2px">' + escHtml(sample.cooking_point) + '</div>'
         : '';
-      // Si hay agrupamiento (qty > 1), el botón ✎ edita TODOS de golpe (mismo plato múltiple) — para simplificar usamos el primer ID
+      // groupKey: hash estable basado en nombre+variante+precio (sin caracteres especiales)
+      const groupKey = 'g' + Math.abs(((sample.name||'') + '|' + (sample.variant_name||'') + '|' + parseFloat(sample.price||0).toFixed(2))
+        .split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0));
+      window._rcGroupCache[groupKey] = {
+        sampleName: sample.name,
+        variantName: sample.variant_name,
+        price: parseFloat(sample.price || 0),
+        dishIds: allDishes.map(d => d.id)
+      };
+
+      // Botón ✎ → edita reparto a NIVEL GRUPO (afecta a todas las unidades del mismo plato)
       const editBtn = !payLocked
-        ? '<button onclick="event.stopPropagation();_rcOpenEditor(\'' + sample.id + '\')" style="background:none;border:1px solid var(--bd2);border-radius:99px;padding:1px 9px;font-size:11px;color:var(--t3);cursor:pointer;font-family:inherit;line-height:1.5;margin-right:6px">✎</button>'
+        ? '<button onclick="event.stopPropagation();_rcOpenGroupEditor(\'' + groupKey + '\')" title="Editar reparto" style="background:none;border:1px solid var(--bd2);border-radius:99px;padding:1px 9px;font-size:11px;color:var(--t3);cursor:pointer;font-family:inherit;line-height:1.5;margin-right:6px">✎</button>'
         : '';
-      // Glow verde fugaz cuando se acaba de editar
-      const justEdited = (window._rcJustEditedId === sample.id) ? 'animation:rcGlow 1.2s ease-out' : '';
-      return '<div id="rcrow-' + sample.id + '" style="padding:.6rem 0;border-bottom:1px solid var(--bd);' + justEdited + '">' +
+      const justEdited = (window._rcJustEditedGroup === groupKey) ? 'animation:rcGlow 1.2s ease-out' : '';
+
+      return '<div id="rcrow-' + groupKey + '" style="padding:.6rem 0;border-bottom:1px solid var(--bd);' + justEdited + '">' +
         '<div style="display:flex;align-items:flex-start;gap:.5rem">' +
           '<div style="flex:1;min-width:0">' +
             '<div style="font-size:13px;color:var(--t1);font-weight:500;line-height:1.35">' + qtyPrefix + escHtml(sample.name) + variantBadge + '</div>' +
             cookingPoint +
-            '<div style="margin-top:4px">' + _participantPills(sample) + '</div>' +
+            '<div style="margin-top:5px">' + _personQtyBadges(group) + '</div>' +
           '</div>' +
           '<div style="display:flex;align-items:center;flex-shrink:0">' +
             editBtn +
             '<div style="font-family:\'Fraunces\',serif;font-size:14px;font-weight:700;color:var(--t1);padding-top:1px">' + fmt(lineTotal) + '</div>' +
           '</div>' +
         '</div>' +
-        // Picker se inyecta aquí cuando se abre
-        '<div id="picker-slot-' + sample.id + '"></div>' +
+        // Picker (✎) o panel +/- se inyecta aquí cuando se abre
+        '<div id="picker-slot-' + groupKey + '"></div>' +
       '</div>';
     }).join('');
 
@@ -18169,122 +18262,184 @@ async function _rcConfirmAddPerson() {
   _renderRevisarCuenta();
 }
 
-// Abre/cierra picker inline para editar reparto de un plato
-function _rcOpenEditor(dishId) {
+// ── Editor de grupo: opera sobre TODAS las unidades del mismo plato a la vez ──
+// + Permite ajustar cuántas unidades tiene cada persona con +/-
+function _rcOpenGroupEditor(groupKey) {
   // Cerrar otros pickers abiertos
   document.querySelectorAll('[id^="picker-slot-"]').forEach(s => { s.innerHTML = ''; });
-  const slot = document.getElementById('picker-slot-' + dishId);
+  const slot = document.getElementById('picker-slot-' + groupKey);
   if (!slot) return;
-  const dish = state.dishes.find(d => d.id === dishId);
-  if (!dish) return;
-  // Construir picker (reutilizamos la función del scope superior reconstruyéndola)
-  // Como no podemos llamar a _editPicker desde fuera, reconstruimos aquí inline
+  const grp = (window._rcGroupCache || {})[groupKey];
+  if (!grp) return;
+
+  // Construir el panel con dos secciones: (a) reparto general (b) cuántas unidades cada uno
+  _rcRenderGroupPanel(groupKey);
+}
+
+function _rcRenderGroupPanel(groupKey) {
+  const slot = document.getElementById('picker-slot-' + groupKey);
+  if (!slot) return;
+  const grp = (window._rcGroupCache || {})[groupKey];
+  if (!grp) return;
   const COLORS = ['#D85A30','#185FA5','#7B3FA0','#C0392B','#117A65','#B7770D','#1A5276','#6E2C00'];
   const initialFor = name => (name || '?').trim().charAt(0).toUpperCase();
-  const participantIds = dish.type === 'solo'
-    ? (dish.assignee_id ? [dish.assignee_id] : [])
-    : (state.participants[dish.id] || []);
-  const pSet = new Set(participantIds);
-  const isShared = dish.type === 'shared';
 
-  const chips = (state.guests || []).map((g, idx) => {
+  // Cuántas unidades tiene asignadas cada persona como SOLO actualmente
+  // (las shared no se muestran como qty individual aquí — se muestran como info adicional)
+  const soloByGuest = {};
+  let sharedCount = 0;
+  let unassignedCount = 0;
+  grp.dishIds.forEach(did => {
+    const d = state.dishes.find(x => x.id === did);
+    if (!d) return;
+    if (d.type === 'solo') {
+      if (d.assignee_id) {
+        soloByGuest[d.assignee_id] = (soloByGuest[d.assignee_id] || 0) + 1;
+      } else {
+        unassignedCount += 1;
+      }
+    } else {
+      sharedCount += 1;
+    }
+  });
+
+  // Sección 1: ajuste por persona (solo platos)
+  const personRows = (state.guests || []).map((g, idx) => {
     const c = COLORS[idx % COLORS.length];
     const ini = initialFor(g.name);
-    const isOn = pSet.has(g.id);
-    const isMeLabel = g.id === state.myGuestId ? ' (tú)' : '';
-    const styleOn = 'background:' + c + ';color:#fff;border:2px solid ' + c;
-    const styleOff = 'background:#fff;color:var(--t2);border:2px solid var(--bd2)';
-    return '<button onclick="_rcToggleParticipant(\'' + dish.id + '\',\'' + g.id + '\')" ' +
-      'style="display:inline-flex;align-items:center;gap:5px;padding:6px 11px 6px 6px;border-radius:99px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;' + (isOn ? styleOn : styleOff) + '">' +
-      '<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:99px;background:' + (isOn ? '#fff' : c) + ';color:' + (isOn ? c : '#fff') + ';font-size:10px;font-weight:700">' + escHtml(ini) + '</span>' +
-      escHtml(g.name) + isMeLabel +
-      '</button>';
+    const myCount = soloByGuest[g.id] || 0;
+    const isMe = g.id === state.myGuestId;
+    const meLabel = isMe ? ' (tú)' : '';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:6px 0">' +
+      '<span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:99px;background:' + c + ';color:#fff;font-size:11px;font-weight:700;flex-shrink:0">' + escHtml(ini) + '</span>' +
+      '<span style="flex:1;font-size:13px;color:var(--t1);font-weight:500">' + escHtml(g.name) + meLabel + '</span>' +
+      '<button onclick="_rcGroupRemoveOne(\'' + groupKey + '\',\'' + g.id + '\')" ' + (myCount === 0 ? 'disabled' : '') +
+        ' style="width:30px;height:30px;border-radius:99px;border:1.5px solid ' + (myCount > 0 ? c : 'var(--bd2)') + ';background:#fff;color:' + (myCount > 0 ? c : 'var(--t3)') + ';font-size:14px;font-weight:700;cursor:' + (myCount > 0 ? 'pointer' : 'not-allowed') + ';font-family:inherit">−</button>' +
+      '<span style="min-width:24px;text-align:center;font-size:14px;font-weight:700;color:var(--t1)">' + myCount + '</span>' +
+      '<button onclick="_rcGroupAddOne(\'' + groupKey + '\',\'' + g.id + '\')" ' +
+        ' style="width:30px;height:30px;border-radius:99px;border:1.5px solid ' + c + ';background:' + c + ';color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">+</button>' +
+    '</div>';
   }).join('');
 
-  const help = isShared
-    ? 'Toca para añadir o quitar personas que comparten este plato'
-    : 'Toca a otra persona para reasignar (o varias para convertirlo en compartido)';
+  const extraInfo = (sharedCount > 0 || unassignedCount > 0)
+    ? '<div style="font-size:11px;color:var(--t3);margin-top:8px;padding:6px 8px;background:var(--bg);border-radius:var(--r-sm)">' +
+        (sharedCount > 0 ? '<div>· ' + sharedCount + ' unidad' + (sharedCount > 1 ? 'es' : '') + ' compartida' + (sharedCount > 1 ? 's' : '') + ' (no contadas arriba)</div>' : '') +
+        (unassignedCount > 0 ? '<div>· ' + unassignedCount + ' sin asignar</div>' : '') +
+      '</div>'
+    : '';
 
-  slot.innerHTML = '<div style="background:#F3F7F5;border:1.5px solid var(--brand);border-radius:var(--r);padding:.6rem .75rem;margin-top:.4rem">' +
-    '<div style="font-size:11px;color:var(--brand-d);margin-bottom:.4rem;font-weight:500">' + help + '</div>' +
-    '<div style="display:flex;flex-wrap:wrap;gap:5px">' + chips + '</div>' +
-    '<button onclick="_rcCloseEditor(\'' + dish.id + '\')" style="margin-top:.6rem;width:100%;padding:7px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">✓ Hecho</button>' +
+  const totalSolos = Object.values(soloByGuest).reduce((a, b) => a + b, 0);
+  const totalAll = grp.dishIds.length;
+
+  slot.innerHTML = '<div style="background:#F3F7F5;border:1.5px solid var(--brand);border-radius:var(--r);padding:.7rem .85rem;margin-top:.4rem">' +
+    '<div style="font-size:11px;color:var(--brand-d);margin-bottom:.5rem;font-weight:500">¿Quién toma cada unidad? (' + totalSolos + ' / ' + totalAll + ' asignadas individualmente)</div>' +
+    personRows +
+    extraInfo +
+    '<div style="display:flex;gap:6px;margin-top:.7rem">' +
+      '<button onclick="_rcGroupSetAllShared(\'' + groupKey + '\')" style="flex:1;padding:8px;border-radius:var(--r-sm);border:1.5px solid var(--blue);background:var(--blue-l);color:var(--blue);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">🤝 Compartir todo entre todos</button>' +
+      '<button onclick="_rcCloseGroupEditor(\'' + groupKey + '\')" style="flex:1;padding:8px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">✓ Hecho</button>' +
+    '</div>' +
   '</div>';
 }
 
-function _rcCloseEditor(dishId) {
-  const slot = document.getElementById('picker-slot-' + dishId);
+function _rcCloseGroupEditor(groupKey) {
+  const slot = document.getElementById('picker-slot-' + groupKey);
   if (slot) slot.innerHTML = '';
 }
 
-// Toggle de participación con auto-save y feedback
-async function _rcToggleParticipant(dishId, guestId) {
-  const dish = state.dishes.find(d => d.id === dishId);
-  if (!dish) return;
-  const isShared = dish.type === 'shared';
-  let currentParts;
-  if (isShared) {
-    currentParts = (state.participants[dishId] || []).slice();
-  } else {
-    currentParts = dish.assignee_id ? [dish.assignee_id] : [];
+// Convierte UNA unidad del grupo en SOLO de la persona dada.
+// Estrategia: si hay unidad sin asignar / shared, la convierte. Si no, crea nada (avisa).
+async function _rcGroupAddOne(groupKey, guestId) {
+  const grp = (window._rcGroupCache || {})[groupKey];
+  if (!grp) return;
+  // Buscar primera unidad disponible: prioridad: sin asignar > shared > solo de OTRO
+  let target = null;
+  for (const did of grp.dishIds) {
+    const d = state.dishes.find(x => x.id === did);
+    if (!d) continue;
+    if (d.type === 'solo' && !d.assignee_id) { target = d; break; }
   }
-
-  const idx = currentParts.indexOf(guestId);
-  if (idx >= 0) {
-    currentParts.splice(idx, 1);
-  } else {
-    currentParts.push(guestId);
+  if (!target) {
+    for (const did of grp.dishIds) {
+      const d = state.dishes.find(x => x.id === did);
+      if (!d) continue;
+      if (d.type === 'shared') { target = d; break; }
+    }
   }
-
-  // Persistir
-  if (currentParts.length === 0) {
-    // Sin participantes: marcar como sin asignar (shared con 0 parts)
-    if (isShared) {
-      // borrar todos los registros de dish_participants
-      await sb.from('dish_participants').delete().eq('dish_id', dishId);
-      state.participants[dishId] = [];
-    } else {
-      // un plato solo sin assignee → lo dejamos como solo sin assignee
-      await sb.from('dishes').update({ assignee_id: null }).eq('id', dishId);
-      dish.assignee_id = null;
+  if (!target) {
+    // Si no hay disponibles, robar de un solo asignado a otro
+    for (const did of grp.dishIds) {
+      const d = state.dishes.find(x => x.id === did);
+      if (!d) continue;
+      if (d.type === 'solo' && d.assignee_id !== guestId) { target = d; break; }
     }
-  } else if (currentParts.length === 1) {
-    // Convertir a solo
-    const newAssignee = currentParts[0];
-    if (isShared) {
-      // borrar dish_participants y pasar a solo
-      await sb.from('dish_participants').delete().eq('dish_id', dishId);
-      await sb.from('dishes').update({ type: 'solo', assignee_id: newAssignee }).eq('id', dishId);
-      dish.type = 'solo';
-      dish.assignee_id = newAssignee;
-      state.participants[dishId] = [];
-    } else {
-      await sb.from('dishes').update({ assignee_id: newAssignee }).eq('id', dishId);
-      dish.assignee_id = newAssignee;
-    }
-  } else {
-    // Convertir a / mantener compartido con N participantes
-    if (!isShared) {
-      // Pasar de solo a shared
-      await sb.from('dishes').update({ type: 'shared', assignee_id: null }).eq('id', dishId);
-      dish.type = 'shared';
-      dish.assignee_id = null;
-    }
-    // Sincronizar dish_participants: borrar e insertar
-    await sb.from('dish_participants').delete().eq('dish_id', dishId);
-    const inserts = currentParts.map(gid => ({ dish_id: dishId, guest_id: gid }));
-    await sb.from('dish_participants').insert(inserts);
-    state.participants[dishId] = currentParts;
   }
-
-  // Re-render con feedback visual
-  window._rcJustEditedId = dishId;
+  if (!target) {
+    notify('Todas las unidades ya están asignadas a esta persona', 'info');
+    return;
+  }
+  // Aplicar el cambio
+  if (target.type === 'shared') {
+    await sb.from('dish_participants').delete().eq('dish_id', target.id);
+    await sb.from('dishes').update({ type: 'solo', assignee_id: guestId }).eq('id', target.id);
+    target.type = 'solo';
+    target.assignee_id = guestId;
+    state.participants[target.id] = [];
+  } else {
+    await sb.from('dishes').update({ assignee_id: guestId }).eq('id', target.id);
+    target.assignee_id = guestId;
+  }
+  window._rcJustEditedGroup = groupKey;
   _renderRevisarCuenta();
+  // Reabrir el panel para seguir editando
+  setTimeout(() => _rcRenderGroupPanel(groupKey), 50);
+}
+
+// Quita una unidad SOLO del guest (la deja sin asignar — luego puede asignarse a otro o hacerse shared)
+async function _rcGroupRemoveOne(groupKey, guestId) {
+  const grp = (window._rcGroupCache || {})[groupKey];
+  if (!grp) return;
+  const target = grp.dishIds
+    .map(did => state.dishes.find(x => x.id === did))
+    .find(d => d && d.type === 'solo' && d.assignee_id === guestId);
+  if (!target) return;
+  await sb.from('dishes').update({ assignee_id: null }).eq('id', target.id);
+  target.assignee_id = null;
+  window._rcJustEditedGroup = groupKey;
+  _renderRevisarCuenta();
+  setTimeout(() => _rcRenderGroupPanel(groupKey), 50);
+}
+
+// Atajo: convertir TODAS las unidades del grupo en compartidas entre todos los guests
+async function _rcGroupSetAllShared(groupKey) {
+  const grp = (window._rcGroupCache || {})[groupKey];
+  if (!grp) return;
+  const allGuestIds = (state.guests || []).map(g => g.id);
+  if (!allGuestIds.length) return;
+
+  for (const did of grp.dishIds) {
+    const d = state.dishes.find(x => x.id === did);
+    if (!d) continue;
+    // Convertir a shared con todos los guests
+    if (d.type === 'solo') {
+      await sb.from('dishes').update({ type: 'shared', assignee_id: null }).eq('id', d.id);
+      d.type = 'shared';
+      d.assignee_id = null;
+    }
+    await sb.from('dish_participants').delete().eq('dish_id', d.id);
+    const inserts = allGuestIds.map(gid => ({ dish_id: d.id, guest_id: gid }));
+    await sb.from('dish_participants').insert(inserts);
+    state.participants[d.id] = allGuestIds.slice();
+  }
+  window._rcJustEditedGroup = groupKey;
+  _renderRevisarCuenta();
+  setTimeout(() => _rcRenderGroupPanel(groupKey), 50);
 }
 
 function goToSummary() {
   openRevisarCuenta();
 }
+
 
 
 // #S7-7: Full reparto view for editing before payment
