@@ -17928,6 +17928,8 @@ function openRevisarCuenta() {
 
 // Re-render the revisar-cuenta screen in place (for live updates after edits)
 function _renderRevisarCuenta() {
+  // Guardar posición de scroll antes de recrear el DOM
+  const prevScroll = document.getElementById('rc-scroll')?.scrollTop || 0;
   document.getElementById('revisar-cuenta-screen')?.remove();
   const payLocked = state.payments && state.payments.filter(p => p.guest_id).length > 0;
   const COLORS = ['#D85A30','#185FA5','#7B3FA0','#C0392B','#117A65','#B7770D','#1A5276','#6E2C00'];
@@ -18209,30 +18211,80 @@ function _renderRevisarCuenta() {
         '</div>';
       }
 
-      // ── CASO 2: plato con 2+ unidades → cabecera + N filas ──
+      // ── CASO 2: plato con 2+ unidades → cabecera + N sub-grupos ──
+      // Agrupar unidades con reparto idéntico: si Lucas pidió 3 cervezas, una sola fila "3× [L]"
+      // Si alguna del sub-grupo está expandida, mostramos las unidades individuales separadas.
       const qtyPrefix = '<span style="color:var(--brand-d);font-weight:700;margin-right:4px">' + qty + '×</span>';
 
-      const unitRows = allDishes.map((d, idx) => {
-        const isExpanded = window._rcExpandedUnitId === d.id;
-        const participantIds = d.type === 'solo'
+      // Construir sub-grupos: clave = participantes ordenados (string)
+      const subGroups = [];
+      const subGroupIdx = {};
+      allDishes.forEach(d => {
+        const partsArr = d.type === 'solo'
           ? (d.assignee_id ? [d.assignee_id] : [])
-          : (state.participants[d.id] || []);
-        const initialsHtml = _renderInitials(participantIds);
-        const pickerHtml = (isExpanded && !payLocked) ? _renderPicker(d, participantIds) : '';
-        const rowBg = isExpanded
-          ? 'background:var(--brand-l);border-color:var(--brand)'
-          : 'background:transparent;border-color:var(--bd2)';
-        const clickHandler = !payLocked ? 'onclick="_rcToggleUnit(\'' + d.id + '\')"' : '';
-        const cursor = !payLocked ? 'cursor:pointer' : '';
+          : (state.participants[d.id] || []).slice().sort();
+        const key = d.type === 'solo'
+          ? 'solo:' + (d.assignee_id || '_none')
+          : 'shared:' + partsArr.slice().sort().join(',');
+        if (subGroupIdx[key] === undefined) {
+          subGroupIdx[key] = subGroups.length;
+          subGroups.push({ key, participantIds: d.type === 'solo' ? partsArr : partsArr.slice().sort(), dishes: [] });
+        }
+        subGroups[subGroupIdx[key]].dishes.push(d);
+      });
 
-        return '<div ' + clickHandler + ' style="' + rowBg + ';border:1.5px solid;border-radius:var(--r-sm);padding:.45rem .65rem;margin-top:' + (idx === 0 ? '0' : '.3rem') + ';' + cursor + ';transition:background .15s">' +
+      // ¿Algún sub-grupo está actualmente expandido? Si una unidad expandida pertenece a este plato,
+      // ese sub-grupo se muestra en modo "expandido" (filas individuales)
+      const expandedDishId = window._rcExpandedUnitId;
+
+      const unitRows = subGroups.map((sub, sgIdx) => {
+        const subQty = sub.dishes.length;
+        const containsExpanded = expandedDishId && sub.dishes.some(d => d.id === expandedDishId);
+
+        // Si está expandido el sub-grupo, mostramos cada unidad individualmente
+        if (containsExpanded) {
+          return sub.dishes.map((d, dIdx) => {
+            const isExpanded = window._rcExpandedUnitId === d.id;
+            const participantIds = d.type === 'solo'
+              ? (d.assignee_id ? [d.assignee_id] : [])
+              : (state.participants[d.id] || []);
+            const initialsHtml = _renderInitials(participantIds);
+            const pickerHtml = (isExpanded && !payLocked) ? _renderPicker(d, participantIds) : '';
+            const rowBg = isExpanded
+              ? 'background:var(--brand-l);border-color:var(--brand)'
+              : 'background:transparent;border-color:var(--bd2)';
+            const clickHandler = !payLocked ? 'onclick="_rcToggleUnit(\'' + d.id + '\')"' : '';
+            const cursor = !payLocked ? 'cursor:pointer' : '';
+            const marginTop = (sgIdx === 0 && dIdx === 0) ? '0' : '.3rem';
+
+            return '<div ' + clickHandler + ' style="' + rowBg + ';border:1.5px solid;border-radius:var(--r-sm);padding:.45rem .65rem;margin-top:' + marginTop + ';' + cursor + ';transition:background .15s">' +
+              '<div style="display:flex;align-items:center;gap:.5rem">' +
+                '<span style="font-size:12px;color:var(--t2);font-weight:600;flex-shrink:0">1×</span>' +
+                '<div style="display:inline-flex;gap:3px;flex:1;flex-wrap:wrap">' + initialsHtml + '</div>' +
+                editIcon +
+                '<span style="font-family:\'Fraunces\',serif;font-size:13px;font-weight:600;color:var(--t2);flex-shrink:0">' + fmt(unitPrice) + '</span>' +
+              '</div>' +
+              pickerHtml +
+            '</div>';
+          }).join('');
+        }
+
+        // Estado normal: una sola fila para el sub-grupo "Nx [participantes]"
+        const initialsHtml = _renderInitials(sub.participantIds);
+        const subTotal = unitPrice * subQty;
+        // Click sobre el sub-grupo: si tiene 1 unidad → expandir esa unidad. Si tiene N>1 → expandir la primera (lo que pasará es que se mostrarán las N filas individuales)
+        const firstDishId = sub.dishes[0].id;
+        const clickHandler = !payLocked ? 'onclick="_rcToggleUnit(\'' + firstDishId + '\')"' : '';
+        const cursor = !payLocked ? 'cursor:pointer' : '';
+        const marginTop = sgIdx === 0 ? '0' : '.3rem';
+
+        return '<div ' + clickHandler + ' style="background:transparent;border:1.5px solid var(--bd2);border-radius:var(--r-sm);padding:.45rem .65rem;margin-top:' + marginTop + ';' + cursor + ';transition:background .15s">' +
           '<div style="display:flex;align-items:center;gap:.5rem">' +
-            '<span style="font-size:12px;color:var(--t2);font-weight:600;flex-shrink:0">1×</span>' +
+            '<span style="font-size:12px;color:var(--t2);font-weight:600;flex-shrink:0">' + subQty + '×</span>' +
             '<div style="display:inline-flex;gap:3px;flex:1;flex-wrap:wrap">' + initialsHtml + '</div>' +
             editIcon +
-            '<span style="font-family:\'Fraunces\',serif;font-size:13px;font-weight:600;color:var(--t2);flex-shrink:0">' + fmt(unitPrice) + '</span>' +
+            '<span style="font-family:\'Fraunces\',serif;font-size:13px;font-weight:600;color:var(--t2);flex-shrink:0">' + fmt(subTotal) + '</span>' +
           '</div>' +
-          pickerHtml +
         '</div>';
       }).join('');
 
@@ -18295,7 +18347,7 @@ function _renderRevisarCuenta() {
       '</div>' +
     '</div>' +
     // Lista
-    '<div style="flex:1;overflow-y:auto;padding:.85rem .9rem 1.5rem">' +
+    '<div id="rc-scroll" style="flex:1;overflow-y:auto;padding:.85rem .9rem 1.5rem">' +
       lockBanner +
       addPersonHtml +
       categoriesHtml +
@@ -18308,6 +18360,12 @@ function _renderRevisarCuenta() {
       '</button>' +
     '</div>';
   document.body.appendChild(el);
+
+  // Restaurar posición de scroll si la había
+  if (prevScroll > 0) {
+    const sc = document.getElementById('rc-scroll');
+    if (sc) sc.scrollTop = prevScroll;
+  }
 
   // Limpiar flag de glow tras renderizar
   if (window._rcJustEditedId) {
