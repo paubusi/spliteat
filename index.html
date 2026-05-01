@@ -11185,30 +11185,25 @@ async function waiterSendOrder() {
   // Get guests for shared dishes
   const { data: guests } = await sb.from('guests').select('id').eq('room_id', _waiterActiveRoomId);
 
-  // Cargar category de los menu_items en bloque y mapear a course numérico.
-  // En menu_items NO existe course → existe category (texto: entrantes/principales/postres/bebidas).
-  // Cookeat agrupa por dishes.course (entero), así que lo mapeamos aquí.
-  const CATEGORY_TO_COURSE = {
-    'entrantes': 1, 'entrante': 1, 'starter': 1, 'starters': 1,
-    'principales': 2, 'principal': 2, 'main': 2, 'mains': 2,
-    'postres': 3, 'postre': 3, 'dessert': 3, 'desserts': 3,
-    'bebidas': 4, 'bebida': 4, 'drink': 4, 'drinks': 4,
-    'cafes': 5, 'cafés': 5, 'cafe': 5, 'café': 5
-  };
+  // Mapear cada item a course (0=bar/bebidas, 1+=cocina) usando categories.course_order
+  // (sistema actual). El campo legacy item.category está vacío en muchos restaurantes.
   const itemIds = [...new Set(_waiterCart.map(i => i.id).filter(Boolean))];
   const itemsMeta = {};
   if (itemIds.length) {
     const { data: items } = await sb.from('menu_items')
-      .select('id,category')
+      .select('id,category_id,categories(course_order,routing_target)')
       .in('id', itemIds);
     (items || []).forEach(it => {
-      const cat = (it.category || '').toLowerCase().trim();
-      itemsMeta[it.id] = { course: CATEGORY_TO_COURSE[cat] || 0 };
+      const cat = it.categories;
+      // course_order de la categoría → curso del dish. Bar → 0.
+      let course = (cat && typeof cat.course_order === 'number') ? cat.course_order : 1;
+      if (cat?.routing_target === 'bar') course = 0;
+      itemsMeta[it.id] = { course };
     });
   }
 
   for (const item of _waiterCart) {
-    const meta = itemsMeta[item.id] || { course: 0 };
+    const meta = itemsMeta[item.id] || { course: 1 };
     for (let q = 0; q < item.qty; q++) {
       const wDishPayload = {
         restaurant_id: _waiterRestaurantId,
@@ -21114,6 +21109,11 @@ function openIngredientModal(ingId) {
         <div class="field"><label>Coste (€/unidad)</label><input id="ing-f-cost" type="number" step="0.001" min="0" value="${ing ? (parseFloat(ing.cost_per_unit) || 0) : ''}" placeholder="0.00"></div>
         <div class="field"><label>Proveedor</label><input id="ing-f-supplier" type="text" value="${ing && ing.supplier_name ? escHtml(ing.supplier_name) : ''}" placeholder="Opcional"></div>
       </div>
+      <div class="field">
+        <label>Stock mínimo (alerta)</label>
+        <input id="ing-f-threshold" type="number" step="0.01" min="0" value="${ing && ing.alert_threshold !== null && ing.alert_threshold !== undefined ? parseFloat(ing.alert_threshold) : ''}" placeholder="0 = sin alerta">
+        <div style="font-size:11px;color:var(--t3);margin-top:3px">Cuando el stock baje de este nivel se mostrará una alerta. Deja vacío o 0 para desactivar.</div>
+      </div>
       <div style="display:flex;gap:.5rem;margin-top:1rem">
         <button onclick="saveIngredient('${ing ? ing.id : ''}')" class="btn btn-primary" style="flex:1">Guardar</button>
         ${ing ? `<button onclick="deleteIngredient('${ing.id}')" style="padding:10px 14px;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);color:var(--accent);font-family:inherit;cursor:pointer;font-size:13px">Archivar</button>` : ''}
@@ -21129,12 +21129,15 @@ async function saveIngredient(ingId) {
   const unit = document.getElementById('ing-f-unit').value;
   const cost_per_unit = parseFloat(document.getElementById('ing-f-cost').value) || null;
   const supplier_name = document.getElementById('ing-f-supplier').value.trim() || null;
+  const thresholdRaw = document.getElementById('ing-f-threshold')?.value;
+  const alert_threshold = (thresholdRaw === '' || thresholdRaw == null) ? null : parseFloat(thresholdRaw);
   if (!name) { notify('Introduce un nombre'); return; }
   if (!unit) { notify('Selecciona una unidad'); return; }
 
   const payload = {
     restaurant_id: state.adminRestaurantId,
     name, unit, cost_per_unit, supplier_name,
+    alert_threshold,
     is_archived: false
   };
   let error;
