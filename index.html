@@ -6552,6 +6552,14 @@ function buildSummary() {
         groupedBill[seenKey[k]].qty++;
       });
 
+      // Ordenar: platos individuales (solo) primero, compartidos al final.
+      // Dentro de cada grupo: bebidas/platos en su orden original (preserva inserción).
+      groupedBill.sort((a, b) => {
+        const aShared = a.sample.type === 'shared' ? 1 : 0;
+        const bShared = b.sample.type === 'shared' ? 1 : 0;
+        return aShared - bShared;
+      });
+
       const totalGuestsInRoom = (state.guests || []).length;
 
       const billRows = dishCount === 0
@@ -12645,31 +12653,79 @@ async function saveCostPrice(itemId, value) {
 async function loadMargenKPIs() {
   const el = document.getElementById('kpi-margen-list');
   if (!el || !state.adminRestaurantId) return;
+
+  // Cargar TODOS los platos activos (no filtrar por cost_price). Los que no tienen coste
+  // configurado se muestran con un CTA inline para añadirlo.
   const { data: items } = await sb.from('menu_items')
-    .select('name,price,cost_price,category')
+    .select('id,name,price,cost_price,category')
     .eq('restaurant_id', state.adminRestaurantId)
     .eq('active', true)
-    .not('cost_price', 'is', null)
-    .order('category');
+    .order('name');
+
   if (!items?.length) {
-    el.innerHTML = '<div style="text-align:center;padding:1rem;font-size:12px;color:var(--t3)">Añade costes en Ajustes → Costes por plato</div>';
+    el.innerHTML = '<div style="text-align:center;padding:1rem;font-size:12px;color:var(--t3)">No hay platos activos en la carta</div>';
     return;
   }
-  const withMargin = items.map(i => ({ ...i, margin: Math.round((1 - i.cost_price/i.price)*100) }))
-    .sort((a,b) => b.margin - a.margin);
-  el.innerHTML = withMargin.map(item => {
-    const c = item.margin > 60 ? 'var(--brand)' : item.margin > 30 ? 'var(--amber)' : '#A32D2D';
-    return `<div style="display:flex;align-items:center;gap:10px;padding:.5rem 0;border-bottom:1px solid var(--bd)">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:500">${escHtml(item.name)}</div>
-        <div style="height:4px;background:var(--bg2);border-radius:2px;margin-top:4px;overflow:hidden">
-          <div style="height:100%;background:${c};width:${Math.max(4,Math.min(100,item.margin))}%"></div>
+
+  // Calcular margen y partir en dos grupos: con coste / sin coste
+  const withCost = [];
+  const withoutCost = [];
+  items.forEach(i => {
+    const price = parseFloat(i.price) || 0;
+    const cost = parseFloat(i.cost_price);
+    if (cost > 0 && price > 0) {
+      withCost.push({ ...i, margin: Math.round((1 - cost/price)*100) });
+    } else {
+      withoutCost.push(i);
+    }
+  });
+  withCost.sort((a,b) => b.margin - a.margin);
+  withoutCost.sort((a,b) => (a.name || '').localeCompare(b.name || ''));
+
+  let html = '';
+
+  if (withCost.length) {
+    html += withCost.map(item => {
+      const c = item.margin > 60 ? 'var(--brand)' : item.margin > 30 ? 'var(--amber)' : '#A32D2D';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:.5rem 0;border-bottom:1px solid var(--bd)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500">${escHtml(item.name)}</div>
+          <div style="height:4px;background:var(--bg2);border-radius:2px;margin-top:4px;overflow:hidden">
+            <div style="height:100%;background:${c};width:${Math.max(4,Math.min(100,item.margin))}%"></div>
+          </div>
         </div>
-      </div>
-      <span style="font-size:13px;font-weight:600;color:${c}">${item.margin}%</span>
-      <span style="font-size:11px;color:var(--t3)">${fmt(parseFloat(item.price))}</span>
-    </div>`;
-  }).join('');
+        <span style="font-size:13px;font-weight:600;color:${c};min-width:38px;text-align:right">${item.margin}%</span>
+        <span style="font-size:11px;color:var(--t3);min-width:48px;text-align:right">${fmt(parseFloat(item.price))}</span>
+      </div>`;
+    }).join('');
+  }
+
+  if (withoutCost.length) {
+    if (withCost.length) {
+      html += `<div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin:.85rem 0 .35rem">Sin coste configurado (${withoutCost.length})</div>`;
+    }
+    html += withoutCost.map(item => {
+      return `<div style="display:flex;align-items:center;gap:10px;padding:.5rem 0;border-bottom:1px solid var(--bd)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500">${escHtml(item.name)}</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px">PV ${fmt(parseFloat(item.price))} · sin coste</div>
+        </div>
+        <input type="number" min="0" step="0.01" placeholder="€ coste"
+          onchange="saveCostPriceFromKpi('${item.id}', this.value)"
+          style="width:78px;padding:5px 7px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-size:12px;font-family:inherit;text-align:right">
+      </div>`;
+    }).join('');
+  }
+
+  el.innerHTML = html || '<div style="text-align:center;padding:1rem;font-size:12px;color:var(--t3)">No hay platos activos</div>';
+}
+
+// Guarda el coste de un plato desde el input inline del KPI y recarga la sección
+async function saveCostPriceFromKpi(itemId, value) {
+  const cost = parseFloat(value);
+  if (!isFinite(cost) || cost < 0) return;
+  await sb.from('menu_items').update({ cost_price: cost }).eq('id', itemId);
+  loadMargenKPIs();
 }
 
 async function loadWaiterPropinas() {
@@ -18251,9 +18307,15 @@ function _renderRevisarCuenta() {
       }
 
       // ── Helper: render de iniciales (con color, ring si soy yo) ──
+      // Si participantIds incluye a TODOS los comensales de la mesa, en lugar de listar
+      // todas las iniciales se muestra una etiqueta compacta "Compartido entre todos".
+      const _totalGuests = (state.guests || []).length;
       function _renderInitials(participantIds) {
         if (!participantIds.length) {
           return '<span style="font-size:10px;color:var(--accent);background:#FCEBEB;border-radius:99px;padding:2px 8px;font-weight:600">Sin asignar</span>';
+        }
+        if (_totalGuests > 1 && participantIds.length === _totalGuests) {
+          return '<span style="font-size:11px;color:var(--blue);background:var(--blue-l);border:1px solid var(--blue);border-radius:99px;padding:2px 9px;font-weight:600;white-space:nowrap">Compartido entre todos</span>';
         }
         return participantIds.map(gid => {
           const g = guestById[gid];
