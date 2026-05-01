@@ -18111,7 +18111,10 @@ function _renderRevisarCuenta() {
     return '<div style="display:inline-flex;gap:4px;flex-wrap:wrap">' + badges.join('') + '</div>';
   }
 
-  // Render filas por categoría — cada plato como cabecera + N unidades clickables debajo
+  // Render filas por categoría
+  // - Si plato tiene 1 sola unidad: fila simple "Botella de agua [P] ✎ 2,50€" (sin desglose)
+  // - Si plato tiene 2+ unidades: cabecera "2× Cerveza  7,00€" + N filas debajo con su iniciales y precio
+  // - Cada unidad clickeable; ✎ a la derecha como affordance visual
   window._rcGroupCache = {};
   const categoriesHtml = sortedCats.map(cat => {
     const groups = _groupDishes(cat.dishes);
@@ -18119,9 +18122,6 @@ function _renderRevisarCuenta() {
       const { sample, qty, allDishes } = group;
       const unitPrice = parseFloat(sample.price || 0);
       const lineTotal = unitPrice * qty;
-      const qtyPrefix = qty > 1
-        ? '<span style="color:var(--brand-d);font-weight:700;margin-right:4px">' + qty + '×</span>'
-        : '';
       const variantBadge = sample.variant_name
         ? ' <span style="display:inline-block;font-size:10px;font-weight:700;color:var(--brand-d);background:var(--brand-l);border:1px solid var(--brand);border-radius:99px;padding:1px 7px;margin-left:4px;letter-spacing:.02em;vertical-align:middle">' + escHtml(sample.variant_name) + '</span>'
         : '';
@@ -18129,84 +18129,120 @@ function _renderRevisarCuenta() {
         ? '<div style="font-size:10px;color:#8B5E3C;font-weight:600;margin-top:2px">' + escHtml(sample.cooking_point) + '</div>'
         : '';
 
-      // groupKey solo se usa para flag de glow (animación post-edit)
+      // groupKey solo se usa para flag de glow
       const groupKey = 'g' + Math.abs(((sample.name||'') + '|' + (sample.variant_name||'') + '|' + unitPrice.toFixed(2))
         .split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0));
       window._rcGroupCache[groupKey] = { dishIds: allDishes.map(d => d.id) };
-
       const justEdited = (window._rcJustEditedGroup === groupKey) ? 'animation:rcGlow 1.2s ease-out' : '';
 
-      // Una fila por unidad, clickeable para expandir picker
+      // ── Helper: render de UN PICKER expandido (chips on/off) ──
+      function _renderPicker(d, participantIds) {
+        const pSet = new Set(participantIds);
+        const chips = (state.guests || []).map((g, gIdx) => {
+          const c = COLORS[gIdx % COLORS.length];
+          const ini = initialFor(g.name);
+          const isOn = pSet.has(g.id);
+          const meLabel = g.id === state.myGuestId ? ' (tú)' : '';
+          const styleOn = 'background:' + c + ';color:#fff;border:2px solid ' + c;
+          const styleOff = 'background:#fff;color:var(--t2);border:2px solid var(--bd2)';
+          return '<button onclick="event.stopPropagation();_rcUnitToggleParticipant(\'' + groupKey + '\',\'' + d.id + '\',\'' + g.id + '\')" ' +
+            'style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px 5px 5px;border-radius:99px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;' + (isOn ? styleOn : styleOff) + '">' +
+            '<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:99px;background:' + (isOn ? '#fff' : c) + ';color:' + (isOn ? c : '#fff') + ';font-size:10px;font-weight:700">' + escHtml(ini) + '</span>' +
+            escHtml(g.name) + meLabel +
+            '</button>';
+        }).join('');
+        return '<div style="margin-top:.45rem;padding-top:.5rem;border-top:1px dashed var(--bd2)">' +
+          '<div style="font-size:11px;color:var(--brand-d);margin-bottom:.4rem;font-weight:500">Toca para añadir o quitar personas. Cada unidad debe tener al menos 1.</div>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:5px">' + chips + '</div>' +
+        '</div>';
+      }
+
+      // ── Helper: render de iniciales (con color, ring si soy yo) ──
+      function _renderInitials(participantIds) {
+        if (!participantIds.length) {
+          return '<span style="font-size:10px;color:var(--accent);background:#FCEBEB;border-radius:99px;padding:2px 8px;font-weight:600">Sin asignar</span>';
+        }
+        return participantIds.map(gid => {
+          const g = guestById[gid];
+          if (!g) return '';
+          const gIdx = (state.guests || []).findIndex(x => x.id === gid);
+          const c = COLORS[gIdx % COLORS.length];
+          const ini = initialFor(g.name);
+          const isMe = gid === state.myGuestId;
+          const ring = isMe ? 'box-shadow:0 0 0 2px ' + c + '33' : '';
+          return '<span title="' + escHtml(g.name) + '" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:99px;background:' + c + ';color:#fff;font-size:10px;font-weight:700;font-family:inherit;' + ring + '">' + escHtml(ini) + '</span>';
+        }).join('');
+      }
+
+      // ── Helper: ícono ✎ suave (affordance) ──
+      const editIcon = !payLocked
+        ? '<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:99px;background:transparent;color:var(--t3);font-size:11px;flex-shrink:0">✎</span>'
+        : '';
+
+      // ── CASO 1: plato con 1 sola unidad → fila simple sin desglose ──
+      if (qty === 1) {
+        const d = allDishes[0];
+        const isExpanded = window._rcExpandedUnitId === d.id;
+        const participantIds = d.type === 'solo'
+          ? (d.assignee_id ? [d.assignee_id] : [])
+          : (state.participants[d.id] || []);
+        const initialsHtml = _renderInitials(participantIds);
+        const pickerHtml = (isExpanded && !payLocked) ? _renderPicker(d, participantIds) : '';
+        const rowBg = isExpanded ? 'background:var(--brand-l)' : 'background:transparent';
+        const clickHandler = !payLocked ? 'onclick="_rcToggleUnit(\'' + d.id + '\')"' : '';
+        const cursor = !payLocked ? 'cursor:pointer' : '';
+
+        return '<div ' + clickHandler + ' style="' + rowBg + ';padding:.6rem 0;border-bottom:1px solid var(--bd);' + cursor + ';transition:background .15s;' + justEdited + '">' +
+          '<div style="display:flex;align-items:flex-start;gap:.5rem">' +
+            '<div style="flex:1;min-width:0">' +
+              '<div style="font-size:13px;color:var(--t1);font-weight:600;line-height:1.35">' + escHtml(sample.name) + variantBadge + '</div>' +
+              cookingPoint +
+              '<div style="display:inline-flex;gap:3px;flex-wrap:wrap;margin-top:5px">' + initialsHtml + '</div>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:6px;flex-shrink:0;padding-top:1px">' +
+              editIcon +
+              '<span style="font-family:\'Fraunces\',serif;font-size:14px;font-weight:700;color:var(--t1)">' + fmt(lineTotal) + '</span>' +
+            '</div>' +
+          '</div>' +
+          pickerHtml +
+        '</div>';
+      }
+
+      // ── CASO 2: plato con 2+ unidades → cabecera + N filas ──
+      const qtyPrefix = '<span style="color:var(--brand-d);font-weight:700;margin-right:4px">' + qty + '×</span>';
+
       const unitRows = allDishes.map((d, idx) => {
         const isExpanded = window._rcExpandedUnitId === d.id;
         const participantIds = d.type === 'solo'
           ? (d.assignee_id ? [d.assignee_id] : [])
           : (state.participants[d.id] || []);
-
-        // Iniciales con color
-        const initialsHtml = participantIds.length === 0
-          ? '<span style="font-size:10px;color:var(--accent);background:#FCEBEB;border-radius:99px;padding:2px 8px;font-weight:600">Sin asignar</span>'
-          : participantIds.map(gid => {
-              const g = guestById[gid];
-              if (!g) return '';
-              const gIdx = (state.guests || []).findIndex(x => x.id === gid);
-              const c = COLORS[gIdx % COLORS.length];
-              const ini = initialFor(g.name);
-              const isMe = gid === state.myGuestId;
-              const ring = isMe ? 'box-shadow:0 0 0 2px ' + c + '33' : '';
-              return '<span title="' + escHtml(g.name) + '" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:99px;background:' + c + ';color:#fff;font-size:10px;font-weight:700;font-family:inherit;' + ring + '">' + escHtml(ini) + '</span>';
-            }).join('');
-
-        // Picker expandido (chips on/off)
-        let pickerHtml = '';
-        if (isExpanded && !payLocked) {
-          const pSet = new Set(participantIds);
-          const chips = (state.guests || []).map((g, gIdx) => {
-            const c = COLORS[gIdx % COLORS.length];
-            const ini = initialFor(g.name);
-            const isOn = pSet.has(g.id);
-            const meLabel = g.id === state.myGuestId ? ' (tú)' : '';
-            const styleOn = 'background:' + c + ';color:#fff;border:2px solid ' + c;
-            const styleOff = 'background:#fff;color:var(--t2);border:2px solid var(--bd2)';
-            return '<button onclick="event.stopPropagation();_rcUnitToggleParticipant(\'' + groupKey + '\',\'' + d.id + '\',\'' + g.id + '\')" ' +
-              'style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px 5px 5px;border-radius:99px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;' + (isOn ? styleOn : styleOff) + '">' +
-              '<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:99px;background:' + (isOn ? '#fff' : c) + ';color:' + (isOn ? c : '#fff') + ';font-size:10px;font-weight:700">' + escHtml(ini) + '</span>' +
-              escHtml(g.name) + meLabel +
-              '</button>';
-          }).join('');
-          pickerHtml =
-            '<div style="margin-top:.45rem;padding-top:.5rem;border-top:1px dashed var(--bd2)">' +
-              '<div style="font-size:11px;color:var(--brand-d);margin-bottom:.4rem;font-weight:500">Toca para añadir o quitar personas. Cada unidad debe tener al menos 1.</div>' +
-              '<div style="display:flex;flex-wrap:wrap;gap:5px">' + chips + '</div>' +
-            '</div>';
-        }
-
+        const initialsHtml = _renderInitials(participantIds);
+        const pickerHtml = (isExpanded && !payLocked) ? _renderPicker(d, participantIds) : '';
         const rowBg = isExpanded
           ? 'background:var(--brand-l);border-color:var(--brand)'
-          : 'background:transparent;border-color:transparent';
+          : 'background:transparent;border-color:var(--bd2)';
         const clickHandler = !payLocked ? 'onclick="_rcToggleUnit(\'' + d.id + '\')"' : '';
         const cursor = !payLocked ? 'cursor:pointer' : '';
 
-        return '<div ' + clickHandler + ' style="' + rowBg + ';border:1.5px solid;border-radius:var(--r-sm);padding:.45rem .55rem;margin-top:' + (idx === 0 ? '0' : '.25rem') + ';' + cursor + ';transition:background .15s">' +
+        return '<div ' + clickHandler + ' style="' + rowBg + ';border:1.5px solid;border-radius:var(--r-sm);padding:.45rem .65rem;margin-top:' + (idx === 0 ? '0' : '.3rem') + ';' + cursor + ';transition:background .15s">' +
           '<div style="display:flex;align-items:center;gap:.5rem">' +
             '<span style="font-size:12px;color:var(--t2);font-weight:600;flex-shrink:0">1×</span>' +
             '<div style="display:inline-flex;gap:3px;flex:1;flex-wrap:wrap">' + initialsHtml + '</div>' +
+            editIcon +
             '<span style="font-family:\'Fraunces\',serif;font-size:13px;font-weight:600;color:var(--t2);flex-shrink:0">' + fmt(unitPrice) + '</span>' +
           '</div>' +
           pickerHtml +
         '</div>';
       }).join('');
 
-      // Cabecera del plato (nombre + total)
       return '<div style="padding:.6rem 0;border-bottom:1px solid var(--bd);' + justEdited + '">' +
-        '<div style="display:flex;align-items:flex-start;gap:.5rem;margin-bottom:.35rem">' +
+        '<div style="display:flex;align-items:flex-start;gap:.5rem;margin-bottom:.45rem">' +
           '<div style="flex:1;min-width:0">' +
             '<div style="font-size:13px;color:var(--t1);font-weight:600;line-height:1.35">' + qtyPrefix + escHtml(sample.name) + variantBadge + '</div>' +
             cookingPoint +
           '</div>' +
           '<div style="font-family:\'Fraunces\',serif;font-size:14px;font-weight:700;color:var(--t1);flex-shrink:0;padding-top:1px">' + fmt(lineTotal) + '</div>' +
         '</div>' +
-        // Unidades debajo
         unitRows +
       '</div>';
     }).join('');
