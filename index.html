@@ -18404,6 +18404,8 @@ async function _rcConfirmAddPersonWithDishes() {
 function _rcOpenGroupEditor(groupKey) {
   // Cerrar otros pickers abiertos
   document.querySelectorAll('[id^="picker-slot-"]').forEach(s => { s.innerHTML = ''; });
+  // Empezar sin nada expandido (lista compacta)
+  window._rcExpandedUnitId = null;
   _rcRenderGroupPanel(groupKey);
 }
 
@@ -18415,58 +18417,91 @@ function _rcRenderGroupPanel(groupKey) {
 
   const COLORS = ['#D85A30','#185FA5','#7B3FA0','#C0392B','#117A65','#B7770D','#1A5276','#6E2C00'];
   const initialFor = name => (name || '?').trim().charAt(0).toUpperCase();
+  const guestById = {};
+  (state.guests || []).forEach(g => { guestById[g.id] = g; });
+  const price = grp.price;
 
-  // Una sección por unidad (en el orden en que vienen los dishIds)
-  const unitSections = grp.dishIds.map((dishId, idx) => {
+  // Render una iniciales con su color: "[P][J][M]"
+  function _initialsHtml(participantIds) {
+    if (!participantIds.length) {
+      return '<span style="font-size:10px;color:var(--accent);background:#FCEBEB;border-radius:99px;padding:2px 8px;font-weight:600">Sin asignar</span>';
+    }
+    return participantIds.map(gid => {
+      const g = guestById[gid];
+      if (!g) return '';
+      const idx = (state.guests || []).findIndex(x => x.id === gid);
+      const c = COLORS[idx % COLORS.length];
+      const ini = initialFor(g.name);
+      const isMe = gid === state.myGuestId;
+      const ring = isMe ? 'box-shadow:0 0 0 2px ' + c + '33' : '';
+      return '<span title="' + escHtml(g.name) + '" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:99px;background:' + c + ';color:#fff;font-size:10px;font-weight:700;font-family:inherit;' + ring + '">' + escHtml(ini) + '</span>';
+    }).join('');
+  }
+
+  // Render fila por unidad: "1× [iniciales]    precio"
+  const unitRows = grp.dishIds.map((dishId, idx) => {
     const d = state.dishes.find(x => x.id === dishId);
     if (!d) return '';
-
-    // Participantes actuales de esta unidad
     const participantIds = d.type === 'solo'
       ? (d.assignee_id ? [d.assignee_id] : [])
       : (state.participants[d.id] || []);
-    const pSet = new Set(participantIds);
-    const isShared = participantIds.length > 1;
+    const isExpanded = window._rcExpandedUnitId === dishId;
+    const rowBg = isExpanded ? 'background:var(--brand-l);border-color:var(--brand)' : 'background:#fff;border-color:var(--bd)';
 
-    // Chips para todos los comensales de la mesa
-    const chips = (state.guests || []).map((g, gIdx) => {
-      const c = COLORS[gIdx % COLORS.length];
-      const ini = initialFor(g.name);
-      const isOn = pSet.has(g.id);
-      const isMeLabel = g.id === state.myGuestId ? ' (tú)' : '';
-      const styleOn = 'background:' + c + ';color:#fff;border:2px solid ' + c;
-      const styleOff = 'background:#fff;color:var(--t2);border:2px solid var(--bd2)';
-      return '<button onclick="_rcUnitToggleParticipant(\'' + groupKey + '\',\'' + dishId + '\',\'' + g.id + '\')" ' +
-        'style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px 5px 5px;border-radius:99px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;' + (isOn ? styleOn : styleOff) + '">' +
-        '<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:99px;background:' + (isOn ? '#fff' : c) + ';color:' + (isOn ? c : '#fff') + ';font-size:10px;font-weight:700">' + escHtml(ini) + '</span>' +
-        escHtml(g.name) + isMeLabel +
-        '</button>';
-    }).join('');
+    // Si está expandida, mostramos chips para reasignar; si no, solo la fila resumen
+    let pickerHtml = '';
+    if (isExpanded) {
+      const pSet = new Set(participantIds);
+      const chips = (state.guests || []).map((g, gIdx) => {
+        const c = COLORS[gIdx % COLORS.length];
+        const ini = initialFor(g.name);
+        const isOn = pSet.has(g.id);
+        const meLabel = g.id === state.myGuestId ? ' (tú)' : '';
+        const styleOn = 'background:' + c + ';color:#fff;border:2px solid ' + c;
+        const styleOff = 'background:#fff;color:var(--t2);border:2px solid var(--bd2)';
+        return '<button onclick="event.stopPropagation();_rcUnitToggleParticipant(\'' + groupKey + '\',\'' + dishId + '\',\'' + g.id + '\')" ' +
+          'style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px 5px 5px;border-radius:99px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;' + (isOn ? styleOn : styleOff) + '">' +
+          '<span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:99px;background:' + (isOn ? '#fff' : c) + ';color:' + (isOn ? c : '#fff') + ';font-size:10px;font-weight:700">' + escHtml(ini) + '</span>' +
+          escHtml(g.name) + meLabel +
+          '</button>';
+      }).join('');
+      pickerHtml =
+        '<div style="margin-top:.5rem;padding-top:.55rem;border-top:1px dashed var(--bd2)">' +
+          '<div style="font-size:11px;color:var(--brand-d);margin-bottom:.4rem;font-weight:500">Toca para añadir o quitar personas. Cada unidad debe tener al menos 1.</div>' +
+          '<div style="display:flex;flex-wrap:wrap;gap:5px">' + chips + '</div>' +
+        '</div>';
+    }
 
-    // Etiqueta del estado de la unidad
-    const stateLabel = participantIds.length === 0
-      ? '<span style="font-size:11px;color:var(--accent);font-weight:600">⚠ Sin asignar</span>'
-      : isShared
-        ? '<span style="font-size:11px;color:var(--blue);font-weight:600">Compartido entre ' + participantIds.length + '</span>'
-        : '<span style="font-size:11px;color:var(--brand-d);font-weight:600">Solo</span>';
-
-    return '<div style="background:#fff;border:1px solid var(--bd);border-radius:var(--r-sm);padding:.55rem .7rem;margin-bottom:.4rem">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.45rem">' +
-        '<span style="font-size:12px;color:var(--t2);font-weight:500">Unidad ' + (idx + 1) + ' de ' + grp.dishIds.length + '</span>' +
-        stateLabel +
+    return '<div onclick="_rcToggleUnit(\'' + groupKey + '\',\'' + dishId + '\')" ' +
+      'style="' + rowBg + ';border:1.5px solid;border-radius:var(--r-sm);padding:.5rem .7rem;margin-bottom:.35rem;cursor:pointer;transition:background .15s">' +
+      '<div style="display:flex;align-items:center;gap:.5rem">' +
+        '<span style="font-size:13px;color:var(--t1);font-weight:600;flex-shrink:0">1×</span>' +
+        '<div style="display:inline-flex;gap:3px;flex:1;flex-wrap:wrap">' + _initialsHtml(participantIds) + '</div>' +
+        '<span style="font-family:\'Fraunces\',serif;font-size:13px;font-weight:700;color:var(--t1);flex-shrink:0">' + fmt(price) + '</span>' +
       '</div>' +
-      '<div style="display:flex;flex-wrap:wrap;gap:5px">' + chips + '</div>' +
+      pickerHtml +
     '</div>';
   }).join('');
 
-  slot.innerHTML = '<div style="background:#F3F7F5;border:1.5px solid var(--brand);border-radius:var(--r);padding:.7rem .8rem;margin-top:.4rem">' +
-    '<div style="font-size:11px;color:var(--brand-d);margin-bottom:.55rem;font-weight:500">Toca una inicial para añadir o quitar a esa persona de la unidad. Cada unidad debe tener al menos 1 persona.</div>' +
-    unitSections +
-    '<button onclick="_rcCloseGroupEditor(\'' + groupKey + '\')" style="margin-top:.3rem;width:100%;padding:9px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">✓ Hecho</button>' +
+  slot.innerHTML = '<div style="background:#F3F7F5;border:1.5px solid var(--brand);border-radius:var(--r);padding:.6rem .65rem;margin-top:.4rem">' +
+    '<div style="font-size:11px;color:var(--brand-d);margin-bottom:.5rem;font-weight:500">Toca una unidad para reasignarla. Cada unidad debe tener al menos 1 persona.</div>' +
+    unitRows +
+    '<button onclick="_rcCloseGroupEditor(\'' + groupKey + '\')" style="margin-top:.4rem;width:100%;padding:9px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">✓ Hecho</button>' +
   '</div>';
 }
 
+// Toggle expand/collapse de una unidad (solo una expandida a la vez por grupo)
+function _rcToggleUnit(groupKey, dishId) {
+  if (window._rcExpandedUnitId === dishId) {
+    window._rcExpandedUnitId = null;
+  } else {
+    window._rcExpandedUnitId = dishId;
+  }
+  _rcRenderGroupPanel(groupKey);
+}
+
 function _rcCloseGroupEditor(groupKey) {
+  window._rcExpandedUnitId = null;
   const slot = document.getElementById('picker-slot-' + groupKey);
   if (slot) slot.innerHTML = '';
 }
