@@ -3,7 +3,40 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
-<title>spliteat · manageat · cookeat · serveat</title>
+<title>spliteat — La cuenta, resuelta</title>
+<meta name="description" content="Sistema de pedidos QR + división de cuenta + cocina (KDS) + reservas para restaurantes. Sin app, sin descargas, sin comisión por transacción.">
+<meta name="theme-color" content="#085041">
+<meta name="application-name" content="spliteat">
+<meta name="apple-mobile-web-app-title" content="spliteat">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="format-detection" content="telephone=no">
+
+<!-- Open Graph (compartir en WhatsApp, Facebook, LinkedIn) -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://spliteat.es/">
+<meta property="og:site_name" content="spliteat">
+<meta property="og:title" content="spliteat — La cuenta, resuelta">
+<meta property="og:description" content="Pide, divide y paga desde el móvil. Sistema completo para restaurantes: comensales, cocina, sala y dirección.">
+<meta property="og:image" content="https://spliteat.es/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="es_ES">
+
+<!-- Twitter card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="spliteat — La cuenta, resuelta">
+<meta name="twitter:description" content="Pide, divide y paga desde el móvil.">
+<meta name="twitter:image" content="https://spliteat.es/og-image.png">
+
+<!-- Favicon (SVG inline con la "e" naranja del logo) -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23085041'/><text x='50%25' y='52%25' font-family='Georgia,serif' font-weight='900' font-size='68' text-anchor='middle' dominant-baseline='central' fill='%23D85A30'>e</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='40' fill='%23085041'/><text x='50%25' y='52%25' font-family='Georgia,serif' font-weight='900' font-size='120' text-anchor='middle' dominant-baseline='central' fill='%23D85A30'>e</text></svg>">
+
+<!-- PWA manifest (inline data URI: no requiere fichero externo) -->
+<link rel="manifest" href='data:application/manifest+json,{"name":"spliteat","short_name":"spliteat","description":"La cuenta, resuelta","start_url":"/","scope":"/","display":"standalone","orientation":"any","background_color":"%23FAFAF8","theme_color":"%23085041","categories":["food","business","productivity"],"lang":"es","icons":[{"src":"data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 192 192\"><rect width=\"192\" height=\"192\" rx=\"42\" fill=\"%23085041\"/><text x=\"50%25\" y=\"52%25\" font-family=\"Georgia,serif\" font-weight=\"900\" font-size=\"130\" text-anchor=\"middle\" dominant-baseline=\"central\" fill=\"%23D85A30\">e</text></svg>","sizes":"192x192","type":"image/svg+xml","purpose":"any"},{"src":"data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 512 512\"><rect width=\"512\" height=\"512\" rx=\"112\" fill=\"%23085041\"/><text x=\"50%25\" y=\"52%25\" font-family=\"Georgia,serif\" font-weight=\"900\" font-size=\"340\" text-anchor=\"middle\" dominant-baseline=\"central\" fill=\"%23D85A30\">e</text></svg>","sizes":"512x512","type":"image/svg+xml","purpose":"any maskable"}]}'>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -3249,6 +3282,98 @@ function haptic(pattern = [100]) {
 }
 
 // ── SECURITY: HTML sanitizer — usar en todo innerHTML con datos de usuario ──
+// ── Validación NIF/DNI/CIF/NIE española (Ley 7/2012 + Orden EHA/451/2008) ──
+// Devuelve { valid: boolean, type: 'DNI'|'NIE'|'CIF'|null, normalized: string, error: string|null }
+function validateSpanishTaxId(input) {
+  const raw = String(input || '').trim().toUpperCase().replace(/[\s-]/g, '');
+  if (!raw) return { valid: false, type: null, normalized: '', error: 'Campo vacío' };
+  if (raw.length !== 9) return { valid: false, type: null, normalized: raw, error: 'Debe tener 9 caracteres' };
+
+  const dniLetters = 'TRWAGMYFPDXBNJZSQVHLCKE';
+
+  // DNI: 8 dígitos + letra
+  if (/^[0-9]{8}[A-Z]$/.test(raw)) {
+    const num = parseInt(raw.slice(0, 8), 10);
+    const expectedLetter = dniLetters[num % 23];
+    if (expectedLetter !== raw[8]) return { valid: false, type: 'DNI', normalized: raw, error: `Letra incorrecta (esperada: ${expectedLetter})` };
+    return { valid: true, type: 'DNI', normalized: raw, error: null };
+  }
+
+  // NIE: X/Y/Z + 7 dígitos + letra
+  if (/^[XYZ][0-9]{7}[A-Z]$/.test(raw)) {
+    const map = { X: '0', Y: '1', Z: '2' };
+    const num = parseInt(map[raw[0]] + raw.slice(1, 8), 10);
+    const expectedLetter = dniLetters[num % 23];
+    if (expectedLetter !== raw[8]) return { valid: false, type: 'NIE', normalized: raw, error: `Letra incorrecta (esperada: ${expectedLetter})` };
+    return { valid: true, type: 'NIE', normalized: raw, error: null };
+  }
+
+  // CIF: letra + 7 dígitos + dígito o letra de control
+  if (/^[ABCDEFGHJKLMNPQRSUVW][0-9]{7}[0-9A-J]$/.test(raw)) {
+    const digits = raw.slice(1, 8);
+    let evenSum = 0, oddSum = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = parseInt(digits[i], 10);
+      if (i % 2 === 0) {
+        // posiciones impares (1,3,5,7) → multiplicar por 2
+        const p = d * 2;
+        oddSum += Math.floor(p / 10) + (p % 10);
+      } else {
+        evenSum += d;
+      }
+    }
+    const total = oddSum + evenSum;
+    const controlNum = (10 - (total % 10)) % 10;
+    const lastChar = raw[8];
+    // Algunos CIFs requieren letra de control en vez de dígito (P, Q, R, S, W, etc.)
+    const orgsRequireLetter = 'PQRSNW';
+    const controlLetter = 'JABCDEFGHI'[controlNum];
+    if (orgsRequireLetter.includes(raw[0])) {
+      if (lastChar !== controlLetter) return { valid: false, type: 'CIF', normalized: raw, error: `Dígito control incorrecto (esperado: ${controlLetter})` };
+    } else if ('ABEH'.includes(raw[0])) {
+      if (lastChar !== String(controlNum)) return { valid: false, type: 'CIF', normalized: raw, error: `Dígito control incorrecto (esperado: ${controlNum})` };
+    } else {
+      // Otros: aceptar tanto número como letra
+      if (lastChar !== String(controlNum) && lastChar !== controlLetter) {
+        return { valid: false, type: 'CIF', normalized: raw, error: `Dígito control incorrecto (esperado: ${controlNum} o ${controlLetter})` };
+      }
+    }
+    return { valid: true, type: 'CIF', normalized: raw, error: null };
+  }
+
+  return { valid: false, type: null, normalized: raw, error: 'Formato no reconocido (DNI/NIE/CIF)' };
+}
+
+// Helper UI: aplica validación a un input al perder el foco. Marca borde rojo + mensaje.
+function attachNifValidator(inputEl, msgEl) {
+  if (!inputEl) return;
+  const validate = () => {
+    const val = inputEl.value;
+    if (!val.trim()) {
+      inputEl.style.borderColor = '';
+      if (msgEl) msgEl.textContent = '';
+      return;
+    }
+    const res = validateSpanishTaxId(val);
+    if (res.valid) {
+      inputEl.style.borderColor = 'var(--brand)';
+      inputEl.value = res.normalized;  // auto-normaliza (mayúsculas, sin espacios)
+      if (msgEl) {
+        msgEl.style.color = 'var(--brand-d)';
+        msgEl.textContent = '✓ ' + res.type + ' válido';
+      }
+    } else {
+      inputEl.style.borderColor = 'var(--accent)';
+      if (msgEl) {
+        msgEl.style.color = 'var(--accent)';
+        msgEl.textContent = '✗ ' + res.error;
+      }
+    }
+  };
+  inputEl.addEventListener('blur', validate);
+  inputEl.addEventListener('change', validate);
+}
+
 function escHtml(str) {
   return String(str ?? '')
     .replace(/&/g,'&amp;')
@@ -12386,7 +12511,8 @@ function renderPerfilContent() {
     <div class="field"><label>Nombre del restaurante / razón social *</label>
       <input id="prf-name" type="text" placeholder="Taberna El Marino" autocomplete="organization"></div>
     <div class="field"><label>NIF / CIF *</label>
-      <input id="prf-nif" type="text" placeholder="B12345678"></div>
+      <input id="prf-nif" type="text" placeholder="B12345678" autocomplete="off" maxlength="9" style="text-transform:uppercase">
+      <div id="prf-nif-msg" style="font-size:11px;margin-top:3px;min-height:14px"></div></div>
     <div class="field"><label>Dirección *</label>
       <input id="prf-dir" type="text" placeholder="Calle Mayor 1, Madrid"></div>
     <div class="field"><label>Teléfono</label>
@@ -15949,14 +16075,29 @@ async function loadRestaurantProfile() {
   if (waToggle) waToggle.checked = !!data.whatsapp_reminders_enabled;
   const waPhone = document.getElementById('prf-whatsapp-phone');
   if (waPhone) waPhone.value = data.whatsapp_callback_phone || '';
+  // Attach NIF validator (idempotente: solo se ata una vez)
+  const nifEl = document.getElementById('prf-nif');
+  if (nifEl && !nifEl.dataset.validatorAttached) {
+    attachNifValidator(nifEl, document.getElementById('prf-nif-msg'));
+    nifEl.dataset.validatorAttached = '1';
+  }
   updateBookingUrlDisplay(data.booking_slug);
 }
 
 async function saveRestaurantProfile() {
   const slug = document.getElementById('prf-slug')?.value?.trim().toLowerCase().replace(/[^a-z0-9-]/g,'') || null;
+  const nifInput = document.getElementById('prf-nif')?.value?.trim() || '';
+  if (nifInput) {
+    const nifCheck = validateSpanishTaxId(nifInput);
+    if (!nifCheck.valid) {
+      notify('NIF/CIF inválido: ' + nifCheck.error);
+      document.getElementById('prf-nif')?.focus();
+      return;
+    }
+  }
   const payload = {
     name: document.getElementById('prf-nombre')?.value?.trim(),
-    nif: document.getElementById('prf-nif')?.value?.trim(),
+    nif: nifInput ? validateSpanishTaxId(nifInput).normalized : null,
     address: document.getElementById('prf-dir')?.value?.trim(),
     phone: document.getElementById('prf-tel')?.value?.trim(),
     contact_email: document.getElementById('prf-email')?.value?.trim(),
