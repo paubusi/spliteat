@@ -21841,7 +21841,7 @@ async function suggestPurchases() {
             <div style="font-size:14px;font-weight:500;color:var(--t1)">${escHtml(i.ingredient_name)}</div>
             <div style="font-size:11px;color:var(--t3);margin-top:2px">Hay ${i.qty_on_hand} ${i.unit} · Mín ${i.alert_threshold}</div>
           </div>
-          <button onclick="document.getElementById('sug-modal').remove();openPurchaseModal({ingredient_id:'${i.ingredient_id}'})" class="btn btn-primary" style="padding:8px 14px;font-size:12px">Reponer</button>
+          <button onclick="document.getElementById('sug-modal').remove();openPurchaseModal({ingredient_id:'${i.ingredient_id}'})" style="padding:8px 14px;font-size:12px;background:var(--brand);color:#fff;border:none;border-radius:var(--r-sm);font-family:inherit;font-weight:500;cursor:pointer;flex-shrink:0;white-space:nowrap">Reponer</button>
         </div>
       `).join('')}
       <button onclick="document.getElementById('sug-modal')?.remove()" style="width:100%;margin-top:1rem;padding:10px;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);font-family:inherit;cursor:pointer">Cerrar</button>
