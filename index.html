@@ -4862,6 +4862,7 @@ let modalItemId = null;
 let modalType = 'solo'; // default: individual
 let modalCourse = 1; // 1=entrante, 2=principal, 3=postre
 let modalCookingPoint = null; // punto de cocción seleccionado
+let modalSelectedVariant = null; // {id, name, price} si el plato tiene variantes — null si no
 
 function setCourse(n, auto = false) {
   modalCourse = n;
@@ -5295,6 +5296,9 @@ function showVariantPicker(item, variants, onPick) {
 function _openModalFor(itemId, item) {
   modalItemId = itemId;
   modalType = 'solo';
+  // Guardar la variante elegida en el picker (si hubo) en estado global del modal,
+  // porque confirmAddDish vuelve a buscar el item desde state.menuItems y perdería _selectedVariant.
+  modalSelectedVariant = item._selectedVariant || null;
 
   // Auto-assign course from category (turno 3.1.5: usa course_order de categories)
   const cat = (state.categories || []).find(c => c.id === item.category_id);
@@ -5467,6 +5471,7 @@ function _selectAllSharedGuests() {
 function closeModal() {
   document.getElementById('dish-modal').style.display = 'none';
   modalItemId = null;
+  modalSelectedVariant = null;
 }
 
 async function confirmAddDish() {
@@ -5480,10 +5485,10 @@ async function confirmAddDish() {
     return;
   }
   closeModal();
-  // Variant: si se eligió, usa su precio. El nombre BASE se guarda limpio en
-  // dish.name; la variante se guarda en dish.variant_name → cocina/serveat la
-  // muestran como BADGE (legibilidad), evitamos parens que se truncan.
-  const v = item._selectedVariant;
+  // Variant: leer desde el estado global del modal (modalSelectedVariant), NO desde
+  // state.menuItems[item]._selectedVariant porque ese flag no se persiste en state.
+  // El nombre BASE se guarda limpio en dish.name; la variante se guarda en dish.variant_name.
+  const v = modalSelectedVariant;
   const finalName = item.name;
   const finalPrice = v ? parseFloat(v.price) : parseFloat(item.price);
   // Snapshot del nombre de categoría para legibilidad histórica
