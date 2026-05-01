@@ -10453,37 +10453,46 @@ async function renderDrawerCarta() {
     </div>
   `;
 
-  // Cargar items directamente
-  const { data: items } = await sb.from('menu_items')
-    .select('*, menu_item_variants(id,name,price,sort_order,is_default)')
-    .eq('restaurant_id', _waiterRestaurantId).eq('active', true).order('sort_order');
-  _waiterMenuItemsCache = items || [];
+  // Cargar items con variantes Y categorías reales
+  const [itemsRes, catsRes] = await Promise.all([
+    sb.from('menu_items')
+      .select('*, menu_item_variants(id,name,price,sort_order,is_default)')
+      .eq('restaurant_id', _waiterRestaurantId).eq('active', true).order('sort_order'),
+    sb.from('categories')
+      .select('id,name,course_order,sort_order').eq('restaurant_id', _waiterRestaurantId)
+      .eq('is_visible', true).order('course_order').order('sort_order')
+  ]);
+  const items = itemsRes.data || [];
+  const categories = catsRes.data || [];
+  _waiterMenuItemsCache = items;
 
   const cartaEl = document.getElementById('drawer-carta-list');
   if (!cartaEl) {
     console.warn('[renderDrawerCarta] drawer-carta-list no existe — drawer cerrado o tab cambiada');
     return;
   }
-  if (!items?.length) {
+  if (!items.length) {
     cartaEl.innerHTML = `<div class="empty" style="padding:1.5rem;text-align:center;color:var(--t3)">No hay platos en la carta</div>`;
     return;
   }
 
-  // Agrupar por categoría
-  const cats = ['entrantes','principales','postres','bebidas','otros'];
-  const labels = {entrantes:'🥗 Entrantes',principales:'🍽 Principales',postres:'🍰 Postres',bebidas:'🍷 Bebidas',otros:'Otros'};
+  // Agrupar por category_id real
   const grouped = {};
   items.forEach(it => {
-    const c = it.category || 'otros';
-    if (!grouped[c]) grouped[c] = [];
-    grouped[c].push(it);
+    const key = it.category_id || '__otros__';
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(it);
   });
 
+  const orderedCats = categories.filter(c => grouped[c.id]);
+  if (grouped['__otros__']) orderedCats.push({ id: '__otros__', name: 'Otros' });
+
   let html = '';
-  cats.forEach(cat => {
-    if (!grouped[cat]) return;
-    html += `<div class="sec-label" style="margin:1rem 0 .5rem">${labels[cat] || cat}</div>`;
-    grouped[cat].forEach(item => {
+  orderedCats.forEach(cat => {
+    const list = grouped[cat.id];
+    if (!list || !list.length) return;
+    html += `<div class="sec-label" style="margin:1rem 0 .5rem">${escHtml(cat.name)}</div>`;
+    list.forEach(item => {
       const escName = escHtml(item.name).replace(/'/g, "\\'");
       html += `<div class="drawer-carta-item" data-name="${escHtml(item.name).toLowerCase()}"
           style="display:flex;align-items:center;padding:.7rem .85rem;border-radius:var(--r-sm);margin-bottom:.35rem;border:1px solid var(--bd);background:var(--card);gap:10px">
@@ -10980,27 +10989,43 @@ async function loadWaiterCarta() {
   _waiterCart = [];
   updateWaiterCart();
 
-  const { data: items } = await sb.from('menu_items')
-    .select('*, menu_item_variants(id,name,price,sort_order,is_default)')
-    .eq('restaurant_id', _waiterRestaurantId).eq('active', true).order('sort_order');
-  _waiterMenuItemsCache = items || [];
+  // Cargar items con variantes Y categorías (agrupar por category_id + course_order, no por
+  // el campo texto legacy item.category que puede estar vacío)
+  const [itemsRes, catsRes] = await Promise.all([
+    sb.from('menu_items')
+      .select('*, menu_item_variants(id,name,price,sort_order,is_default)')
+      .eq('restaurant_id', _waiterRestaurantId).eq('active', true).order('sort_order'),
+    sb.from('categories')
+      .select('id,name,course_order,sort_order').eq('restaurant_id', _waiterRestaurantId)
+      .eq('is_visible', true).order('course_order').order('sort_order')
+  ]);
+  const items = itemsRes.data || [];
+  const categories = catsRes.data || [];
+  _waiterMenuItemsCache = items;
 
   const cartaEl = document.getElementById('waiter-carta-list');
   document.getElementById('waiter-carta-area').style.display = 'block';
 
-  const cats = ['entrantes','principales','postres','bebidas','otros'];
+  // Agrupar items por category_id (con fallback a "otros")
   const grouped = {};
-  (items || []).forEach(item => {
-    const cat = item.category || 'otros';
-    if (!grouped[cat]) grouped[cat] = [];
-    grouped[cat].push(item);
+  items.forEach(item => {
+    const key = item.category_id || '__otros__';
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push(item);
   });
 
+  // Ordenar las categorías visibles primero (course_order), luego "otros" al final
+  const orderedCats = categories.filter(c => grouped[c.id]);
+  if (grouped['__otros__']) {
+    orderedCats.push({ id: '__otros__', name: 'Otros' });
+  }
+
   let html = '';
-  cats.forEach(cat => {
-    if (!grouped[cat]) return;
-    html += `<div class="sec-label" style="text-transform:capitalize">${cat}</div>`;
-    grouped[cat].forEach(item => {
+  orderedCats.forEach(cat => {
+    const list = grouped[cat.id];
+    if (!list || !list.length) return;
+    html += `<div class="sec-label">${escHtml(cat.name)}</div>`;
+    list.forEach(item => {
       html += `<div style="display:flex;align-items:center;padding:.65rem .85rem;border-radius:var(--r-sm);margin-bottom:.35rem;border:1px solid var(--bd);background:var(--card);gap:10px">
         <div style="flex:1">
           <div style="font-size:14px;font-weight:400">${escHtml(item.name)}</div>
@@ -11034,9 +11059,25 @@ function waiterCartAdd(id, name, price, isShared, requiresCookingPoint, variantI
 
 // Wrapper: si el item tiene variantes (copa/botella, media/entera) muestra el picker antes de
 // añadirlo al cart. Si no, añade directamente.
-function waiterTryAddItem(itemId, refreshCb) {
-  const item = (_waiterMenuItemsCache || []).find(i => i.id === itemId);
+async function waiterTryAddItem(itemId, refreshCb) {
+  let item = (_waiterMenuItemsCache || []).find(i => i.id === itemId);
+
+  // Si no está en cache o no trae variantes, intentar refetch dirigido (un solo item).
+  // Esto cubre el caso en que la query inicial falló por RLS o vino sin variantes.
+  if (!item || !Array.isArray(item.menu_item_variants)) {
+    const { data: fresh, error } = await sb.from('menu_items')
+      .select('id,name,price,is_shared,requires_cooking_point,menu_item_variants(id,name,price,sort_order,is_default)')
+      .eq('id', itemId).maybeSingle();
+    if (error) console.warn('[waiterTryAddItem] refetch error:', error);
+    if (fresh) {
+      item = fresh;
+      // Actualizar cache
+      const idx = (_waiterMenuItemsCache || []).findIndex(i => i.id === itemId);
+      if (idx >= 0) _waiterMenuItemsCache[idx] = { ..._waiterMenuItemsCache[idx], ...fresh };
+    }
+  }
   if (!item) return;
+
   const variants = (item.menu_item_variants || []).slice().sort((a,b) => (a.sort_order||0) - (b.sort_order||0));
   if (variants.length > 0) {
     showVariantPicker(item, variants, (chosen) => {
