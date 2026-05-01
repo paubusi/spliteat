@@ -15881,6 +15881,7 @@ async function loadKPIs() {
   document.getElementById('kpi-plato-top').textContent = platoTop ? `${platoTop[0]} (×${platoTop[1]})` : '—';
   document.getElementById('kpi-spliteat-rate').textContent = adoptionRate + '%';
   renderCustomKPIs();
+  loadMargenKPIs(); // poblar la sección "💹 Margen por plato"
 }
 
 // ── CUSTOM KPIs ──
