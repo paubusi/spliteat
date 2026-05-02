@@ -21656,46 +21656,207 @@ function _doGoToSummary() {
     notify('Esperando confirmación de cocina para ' + stillCooking.length + ' plato' + (stillCooking.length > 1 ? 's' : ''), 'info');
     return;
   }
-  // #1 + #18: Block if there are unassigned dishes — navigate to them and highlight
+  // Bug fix cross-app serveat→spliteat:
+  // Si hay dishes sin asignar (típico al entrar por QR a mesa creada en serveat),
+  // mostrar modal para que el comensal decida cómo asignarlos.
   const unassigned = sentDishes.filter(d => {
     if (d.type === 'solo' && !d.assignee_id) return true;
     if (d.type === 'shared') {
       const parts = state.participants[d.id] || [];
       return parts.length === 0;
     }
+    // Sin type definido (caso serveat antiguo) — tratar como solo sin asignar
+    if (!d.type && !d.assignee_id) return true;
     return false;
   });
   if (unassigned.length > 0) {
-    // Navigate back to mesa view and highlight the unassigned dishes
-    go('s3-dishes');
-    showDishTab('mesa');
-    setTimeout(() => {
-      // Scroll to and highlight each unassigned dish card
-      unassigned.forEach((d, idx) => {
-        const card = document.getElementById('dc-' + d.id);
-        if (!card) return;
-        if (idx === 0) {
-          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-        // Flash red border to draw attention
-        card.style.transition = 'border .2s, background .2s';
-        card.style.border = '2px solid var(--accent)';
-        card.style.background = '#FFF0F0';
-        // Also open the edit dropdown so they can assign
-        const dd = document.getElementById('edit-dd-' + d.id);
-        if (dd && idx === 0) dd.style.display = 'block';
-        // Reset after 4 seconds
-        setTimeout(() => {
-          card.style.border = '';
-          card.style.background = '';
-          card.style.transition = '';
-        }, 4000);
-      });
-      notify(`${unassigned.length} plato${unassigned.length > 1 ? 's' : ''} sin asignar — asígnalos antes de pagar.`, 'info');
-    }, 350);
+    _showUnassignedDishesModal(unassigned);
     return;
   }
   go('s4-summary');
+}
+
+// Modal para resolver dishes sin asignar (típicamente cuando comensal entra
+// por QR a mesa creada por camarero en serveat)
+function _showUnassignedDishesModal(unassigned) {
+  document.getElementById('unassigned-modal')?.remove();
+  const me = (state.guests || []).find(g => g.id === state.myGuestId);
+  const otherGuests = (state.guests || []).filter(g => g.id !== state.myGuestId);
+  const unassignedTotal = unassigned.reduce((s, d) => s + parseFloat(d.unit_price || d.total || 0), 0);
+
+  const el = document.createElement('div');
+  el.id = 'unassigned-modal';
+  el.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.65);display:flex;align-items:flex-end;justify-content:center;padding:0';
+
+  el.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;padding:1.5rem 1.25rem 1.75rem;animation:slideUp .22s ease;max-height:90vh;overflow-y:auto">
+
+      <div style="font-size:13px;color:var(--accent);font-weight:600;text-align:center;margin-bottom:.35rem">
+        ⚠️ ${unassigned.length} plato${unassigned.length > 1 ? 's' : ''} sin asignar
+      </div>
+      <div style="font-family:'Fraunces',serif;font-size:19px;font-weight:700;color:var(--t1);text-align:center;margin-bottom:.4rem">
+        ¿Cómo lo${unassigned.length > 1 ? 's' : ''} reparto?
+      </div>
+      <div style="font-size:12px;color:var(--t2);text-align:center;margin-bottom:1.25rem;line-height:1.4">
+        El camarero tomó nota antes de que llegaras. Total sin asignar: <strong style="color:var(--brand-d)">${fmt(unassignedTotal)}</strong>
+      </div>
+
+      <!-- Opción 1: Asignarlos a mí (RECOMENDADO) -->
+      <button onclick="_assignUnassignedToMe()"
+        style="width:100%;text-align:left;padding:1rem 1.1rem;border-radius:var(--r);border:2px solid var(--brand);background:var(--brand-l);cursor:pointer;font-family:inherit;margin-bottom:.65rem;display:flex;align-items:center;gap:.85rem;position:relative">
+        <div style="width:40px;height:40px;border-radius:var(--r-sm);background:var(--brand);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🙋</div>
+        <div style="flex:1;text-align:left">
+          <div style="font-size:15px;font-weight:700;color:var(--brand-d)">Asignármelo${unassigned.length > 1 ? 's' : ''} a mí</div>
+          <div style="font-size:12px;color:var(--brand);margin-top:2px">Pagaré ${fmt(unassignedTotal)}</div>
+        </div>
+        <div style="position:absolute;top:-8px;right:12px;background:var(--brand);color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:99px">RECOMENDADO</div>
+      </button>
+
+      ${otherGuests.length > 0 ? `
+      <!-- Opción 2: Repartir entre todos -->
+      <button onclick="_assignUnassignedShared()"
+        style="width:100%;text-align:left;padding:.9rem 1.1rem;border-radius:var(--r);border:1px solid var(--bd2);background:var(--bg);cursor:pointer;font-family:inherit;margin-bottom:.65rem;display:flex;align-items:center;gap:.85rem">
+        <div style="width:36px;height:36px;border-radius:var(--r-sm);background:#FFF3E0;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">👥</div>
+        <div style="flex:1;text-align:left">
+          <div style="font-size:14px;font-weight:600;color:var(--t1)">Repartir entre todos</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px">${state.guests.length} comensales · ${fmt(unassignedTotal / state.guests.length)} cada uno</div>
+        </div>
+      </button>
+      ` : ''}
+
+      <!-- Opción 3: Asignar manualmente -->
+      <button onclick="_assignUnassignedManually()"
+        style="width:100%;text-align:left;padding:.9rem 1.1rem;border-radius:var(--r);border:1px solid var(--bd2);background:var(--bg);cursor:pointer;font-family:inherit;margin-bottom:.65rem;display:flex;align-items:center;gap:.85rem">
+        <div style="width:36px;height:36px;border-radius:var(--r-sm);background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🛠</div>
+        <div style="flex:1;text-align:left">
+          <div style="font-size:14px;font-weight:600;color:var(--t1)">Asignar manualmente</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px">Vuelvo a la carta y los asigno yo</div>
+        </div>
+      </button>
+
+      <button onclick="document.getElementById('unassigned-modal').remove()"
+        style="width:100%;padding:11px;border:none;background:transparent;color:var(--t3);font-size:13px;font-family:inherit;cursor:pointer;margin-top:.4rem">
+        Cancelar
+      </button>
+    </div>
+  `;
+  document.body.appendChild(el);
+}
+
+async function _assignUnassignedToMe() {
+  document.getElementById('unassigned-modal')?.remove();
+  notify('Asignando platos...', 'info');
+  const sentDishes = state.dishes.filter(d => d.kitchen_status && d.kitchen_status !== 'new');
+  const unassigned = sentDishes.filter(d => {
+    if (d.type === 'solo' && !d.assignee_id) return true;
+    if (d.type === 'shared') {
+      const parts = state.participants[d.id] || [];
+      return parts.length === 0;
+    }
+    if (!d.type && !d.assignee_id) return true;
+    return false;
+  });
+  // UPDATE: poner type=solo + assignee_id = state.myGuestId
+  const updates = unassigned.map(d =>
+    sb.from('dishes').update({ type: 'solo', assignee_id: state.myGuestId }).eq('id', d.id)
+  );
+  const results = await Promise.all(updates);
+  const errs = results.filter(r => r.error);
+  if (errs.length) {
+    notify('Error asignando ' + errs.length + ' plato(s)', 'error');
+    return;
+  }
+  // Refrescar state
+  const { data: freshDishes } = await sb.from('dishes').select('*').eq('room_id', state.roomId);
+  if (freshDishes) state.dishes = freshDishes;
+  // Continuar al pago
+  go('s4-summary');
+}
+
+async function _assignUnassignedShared() {
+  document.getElementById('unassigned-modal')?.remove();
+  notify('Repartiendo entre todos...', 'info');
+  const sentDishes = state.dishes.filter(d => d.kitchen_status && d.kitchen_status !== 'new');
+  const unassigned = sentDishes.filter(d => {
+    if (d.type === 'solo' && !d.assignee_id) return true;
+    if (d.type === 'shared') {
+      const parts = state.participants[d.id] || [];
+      return parts.length === 0;
+    }
+    if (!d.type && !d.assignee_id) return true;
+    return false;
+  });
+  const allGuestIds = (state.guests || []).map(g => g.id);
+  if (allGuestIds.length === 0) {
+    notify('No hay comensales registrados', 'error');
+    return;
+  }
+  // UPDATE: type=shared + insert dish_participants para todos
+  const updateOps = unassigned.map(d =>
+    sb.from('dishes').update({ type: 'shared', assignee_id: null }).eq('id', d.id)
+  );
+  const updateResults = await Promise.all(updateOps);
+  const updateErrs = updateResults.filter(r => r.error);
+  if (updateErrs.length) {
+    notify('Error: ' + updateErrs[0].error.message, 'error');
+    return;
+  }
+  // Insertar participantes (uno por dish × guest)
+  const partRows = [];
+  for (const d of unassigned) {
+    for (const gid of allGuestIds) {
+      partRows.push({ dish_id: d.id, guest_id: gid });
+    }
+  }
+  // Limpiar participantes anteriores y reinsertar
+  await sb.from('dish_participants').delete().in('dish_id', unassigned.map(d => d.id));
+  if (partRows.length) {
+    const { error: partErr } = await sb.from('dish_participants').insert(partRows);
+    if (partErr) {
+      notify('Error con participantes: ' + partErr.message, 'error');
+      return;
+    }
+  }
+  // Refrescar state
+  const { data: freshDishes } = await sb.from('dishes').select('*').eq('room_id', state.roomId);
+  if (freshDishes) state.dishes = freshDishes;
+  if (typeof loadParticipants === 'function') await loadParticipants();
+  // Continuar al pago
+  go('s4-summary');
+}
+
+function _assignUnassignedManually() {
+  document.getElementById('unassigned-modal')?.remove();
+  // Comportamiento original: ir a la carta y resaltar dishes sin asignar
+  const sentDishes = state.dishes.filter(d => d.kitchen_status && d.kitchen_status !== 'new');
+  const unassigned = sentDishes.filter(d => {
+    if (d.type === 'solo' && !d.assignee_id) return true;
+    if (d.type === 'shared') {
+      const parts = state.participants[d.id] || [];
+      return parts.length === 0;
+    }
+    if (!d.type && !d.assignee_id) return true;
+    return false;
+  });
+  go('s3-dishes');
+  showDishTab('mesa');
+  setTimeout(() => {
+    unassigned.forEach((d, idx) => {
+      const card = document.getElementById('dc-' + d.id);
+      if (!card) return;
+      if (idx === 0) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card.style.transition = 'border .2s, background .2s';
+      card.style.border = '2px solid var(--accent)';
+      card.style.background = '#FFF0F0';
+      const dd = document.getElementById('edit-dd-' + d.id);
+      if (dd && idx === 0) dd.style.display = 'block';
+      setTimeout(() => {
+        card.style.border = '';
+        card.style.background = '';
+        card.style.transition = '';
+      }, 4000);
+    });
+  }, 350);
 }
 
 // P3: Show locked payment modal when payments already started
