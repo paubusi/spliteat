@@ -89,8 +89,16 @@
     /* Excepción: pantallas internas post-login usan todo el ancho */
     #s-admin, #s-kitchen, #s-waiter, #s-stockeat,
     #s-admin-login, #s-admin-login-form,
-    #s-kitchen-login, #s-stockeat-login, #s-waiter-select {
+    #s-kitchen-login, #s-stockeat-login, #s-waiter-select,
+    #s-cookeat-staff, #s-cookeat-zones {
       max-width: 100% !important; width: 100% !important; margin: 0 !important;
+    }
+    /* Sub-Sprint A.4+A.6: en desktop, centrar el contenido pero dejar la .hdr full-width */
+    #s-cookeat-staff .body,
+    #s-cookeat-zones .body {
+      max-width: 720px !important;
+      margin: 0 auto !important;
+      padding: 2.5rem 2rem !important;
     }
     #atab-cocina { width: 100% !important; }
     /* Gestión: 3 columnas en desktop */
@@ -2395,6 +2403,10 @@
 
         <div style="padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,.08)">
           <div id="admin-user-info" style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:.65rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+          <button onclick="openNotifHistory()" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:rgba(255,255,255,.6);font-size:12px;cursor:pointer;font-family:inherit;text-align:left;display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;position:relative">
+            🔔 <span>Notificaciones</span>
+            <span class="notif-bell-badge" style="display:none;position:absolute;top:-3px;right:8px;background:var(--accent);color:#fff;border-radius:99px;font-size:9px;font-weight:700;min-width:14px;height:14px;text-align:center;line-height:14px;padding:0 3px">0</span>
+          </button>
           <button onclick="adminLogout()" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:rgba(255,255,255,.6);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">
             ← Cerrar sesión
           </button>
@@ -2411,7 +2423,13 @@
             ☰
           </button>
           <div class="logo" style="font-size:17px">manag<em style="color:#D85A30;font-style:normal">eat</em></div>
-          <button onclick="adminLogout()" style="background:none;border:none;font-size:12px;color:var(--t2);cursor:pointer;font-family:inherit">Salir</button>
+          <div style="display:flex;align-items:center;gap:.4rem">
+            <button onclick="openNotifHistory()" style="position:relative;background:none;border:none;font-size:16px;color:var(--t2);cursor:pointer;padding:4px 6px;line-height:1">
+              🔔
+              <span class="notif-bell-badge" style="display:none;position:absolute;top:0;right:0;background:var(--accent);color:#fff;border-radius:99px;font-size:9px;font-weight:700;min-width:14px;height:14px;text-align:center;line-height:14px;padding:0 3px">0</span>
+            </button>
+            <button onclick="adminLogout()" style="background:none;border:none;font-size:12px;color:var(--t2);cursor:pointer;font-family:inherit">Salir</button>
+          </div>
         </div>
 
         <!-- Mobile bottom tabs — only shown on small screens (<900px), sidebar handles desktop -->
@@ -3004,8 +3022,8 @@
           <div class="settings-row" onclick="openAjustesSection('camareros')">
             <span class="settings-row-icon">🧑‍🍳</span>
             <div class="settings-row-content">
-              <div class="settings-row-title">Camareros</div>
-              <div class="settings-row-desc">Añadir accesos, gestionar turnos y contraseñas</div>
+              <div class="settings-row-title">Personal</div>
+              <div class="settings-row-desc">Camareros, cocineros, jefe de sala, jefe de cocina · accesos, PIN y roles</div>
             </div>
             <span class="settings-row-arrow">›</span>
           </div>
@@ -8124,13 +8142,16 @@ function _restoreStockeatNodeToManageat() {
 
 async function openKitchen(restaurantId, restaurantName) {
   state.kitchenRestaurantId = restaurantId;
+  state.kitchenRestaurantName = restaurantName || '';
   state.adminRole = 'cocina'; // cookeat always has full kitchen write access
 
   // Sprint A: cargar flags de configuración del restaurante (modo KDS)
+  let cfg = null;
   try {
-    const { data: cfg } = await sb.from('restaurants')
+    const { data } = await sb.from('restaurants')
       .select('kds_one_click_mode,auto_deliver_enabled,kitchen_chief_required,kitchen_zones_enabled,kds_card_hide_after_seconds')
       .eq('id', restaurantId).maybeSingle();
+    cfg = data;
     if (cfg) {
       state.kitchenConfig = {
         kds_one_click_mode: !!cfg.kds_one_click_mode,
@@ -8142,6 +8163,23 @@ async function openKitchen(restaurantId, restaurantName) {
     }
   } catch (e) {
     console.warn('[openKitchen] No pude cargar config, uso defaults', e);
+  }
+
+  // Sub-Sprint A.4+A.6 bug-fix: si el flag "modo cocina pro" se desactivó
+  // mientras el cocinero estaba dentro (o si nunca llegó a hacer el flujo PIN),
+  // el state debe estar limpio. Si está ON sin user → mandar al grid. Si está OFF → entrar directo.
+  if (state.kitchenConfig?.kitchen_zones_enabled) {
+    if (!state.kitchenUserId) {
+      // Modo pro activo pero sin cocinero identificado → al grid
+      await loadCookeatStaffGrid();
+      return;
+    }
+  } else {
+    // Modo simple: limpiar cualquier identificación previa de cocinero (si la había)
+    state.kitchenUserId = null;
+    state.kitchenUserName = '';
+    state.kitchenActiveZoneIds = [];
+    state.kitchenUserRole = 'chef';
   }
 
   document.getElementById('k-rest-name').textContent = restaurantName || 'Cocina';
@@ -13057,7 +13095,7 @@ function openAjustesSection(section) {
 
   const titles = {
     carta: 'Gestionar carta',
-    mesas: 'Gestionar mesas', camareros: 'Camareros',
+    mesas: 'Gestionar mesas', camareros: 'Personal',
     perfil: 'Perfil del restaurante', 'reservas-config': 'Configuración de reservas',
     'metodos-pago': 'Métodos de pago aceptados',
     'zonas': 'Zonas de cocina',
@@ -13124,13 +13162,25 @@ function openAjustesSection(section) {
   } else if (section === 'camareros') {
     content.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
-        <div style="font-size:14px;font-weight:600">Equipo</div>
-        <button class="btn btn-primary btn-sm" onclick="showAddWaiterFormAjustes()">+ Camarero</button>
+        <div style="font-size:14px;font-weight:600">Personal del restaurante</div>
+        <button class="btn btn-primary btn-sm" onclick="showAddWaiterFormAjustes()">+ Añadir miembro</button>
+      </div>
+      <div style="font-size:12px;color:var(--t3);margin-bottom:.85rem;line-height:1.5">
+        Crea perfiles para todo el equipo: camareros (sala), cocineros y jefe de cocina.
+        Cada rol tiene su propia app de acceso: <strong>serveat</strong> para camareros, <strong>cookeat</strong> para cocina.
       </div>
       <div id="add-waiter-form-ajustes" style="display:none" class="card">
         <div class="field"><label>Nombre</label><input id="awf-name" type="text" placeholder="ej. Carlos" autocomplete="off"></div>
-        <div class="field"><label>Email</label><input id="awf-email" type="email" placeholder="carlos@restaurante.com" autocomplete="off"></div>
-        <div class="field"><label>Contraseña temporal</label><input id="awf-password" type="password" placeholder="mín. 6 caracteres" autocomplete="new-password"></div>
+        <div class="field"><label>Rol</label>
+          <select id="awf-role" onchange="_onRoleChangeAwf()" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
+            <option value="waiter">Camarero / Jefe de sala (serveat)</option>
+            <option value="chef">Cocinero (cookeat)</option>
+            <option value="kitchen_chief">Jefe de cocina (cookeat)</option>
+          </select>
+          <div style="font-size:11px;color:var(--t3);margin-top:.35rem;line-height:1.4" id="awf-role-hint">Camarero: gestiona mesas y cobros desde serveat. Jefe de sala: mismo rol con responsabilidad de turno.</div>
+        </div>
+        <div class="field" id="awf-email-field"><label>Email</label><input id="awf-email" type="email" placeholder="carlos@restaurante.com" autocomplete="off"></div>
+        <div class="field" id="awf-password-field"><label id="awf-password-label">Contraseña temporal</label><input id="awf-password" type="password" placeholder="mín. 6 caracteres" autocomplete="new-password" inputmode="text"></div>
         <div style="display:flex;gap:.5rem;margin-top:.5rem">
           <button class="btn btn-primary btn-sm" onclick="saveWaiterAjustes()">Guardar</button>
           <button class="btn btn-secondary btn-sm" onclick="document.getElementById('add-waiter-form-ajustes').style.display='none'">Cancelar</button>
@@ -13445,9 +13495,27 @@ async function saveKitchenModos() {
     return;
   }
   try {
+    // Sub-Sprint A.4+A.6 bug-fix: si vamos a desactivar el modo pro, primero
+    // saber el estado anterior para invalidar sesiones de cocineros activos.
+    const { data: prev } = await sb.from('restaurants')
+      .select('kitchen_zones_enabled').eq('id', state.adminRestaurantId).maybeSingle();
+    const wasOn = !!prev?.kitchen_zones_enabled;
+    const willBeOff = !updates.kitchen_zones_enabled;
+
     const { error } = await sb.from('restaurants').update(updates).eq('id', state.adminRestaurantId);
     if (error) throw error;
-    notify('Configuración guardada', 'success');
+
+    // Si pasamos de ON → OFF, limpiamos waiter_active_zones para que ningún cocinero
+    // quede "fantasmagóricamente identificado". Cookeat re-leerá flags al próximo openKitchen.
+    if (wasOn && willBeOff) {
+      await sb.from('waiter_active_zones').delete()
+        .in('waiter_id', (
+          await sb.from('waiters').select('id').eq('restaurant_id', state.adminRestaurantId)
+        ).data?.map(w => w.id) || []);
+      notify('Configuración guardada. Modo cocina pro desactivado: los cocineros activos volverán al modo simple en el próximo turno.', 'success');
+    } else {
+      notify('Configuración guardada', 'success');
+    }
   } catch (e) {
     notify('Error: ' + (e.message || e), 'error');
   }
@@ -14959,21 +15027,47 @@ async function deleteTable(tableId) {
 async function loadAdminWaitersInline() {
   const el = document.getElementById('ajustes-waiters-list');
   if (!el) return;
-  const { data: waiters } = await sb.from('waiters').select('*').eq('restaurant_id', state.adminRestaurantId).eq('active', true).order('name');
-  if (!waiters?.length) { el.innerHTML = '<div class="notice">No hay camareros. Añade el primero.</div>'; return; }
-  el.innerHTML = waiters.map(w => `
-    <div class="card" style="margin-bottom:.4rem;padding:.65rem .85rem">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <div style="font-size:14px;font-weight:500">${escHtml(w.name)}</div>
-          <div style="font-size:12px;color:var(--t2)">${escHtml(w.email||'')}</div>
-        </div>
-        <div style="display:flex;gap:4px">
-          <button onclick="promptResetWaiterPwd('${w.id}','${escHtml(w.name)}')" style="padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit">🔑 Contraseña</button>
-          <button onclick="deleteWaiterInline('${w.id}')" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer">✕</button>
-        </div>
-      </div>
-    </div>`).join('');
+  const { data: waiters } = await sb.from('waiters').select('*').eq('restaurant_id', state.adminRestaurantId).eq('active', true).order('role').order('name');
+  if (!waiters?.length) { el.innerHTML = '<div class="notice">No hay miembros del equipo. Añade el primero.</div>'; return; }
+
+  // Sub-Sprint A.4+A.6: agrupar por rol y mostrar badge
+  const roleLabels = {
+    'manager':       { label: 'Manager',         color: '#444441' },
+    'kitchen_chief': { label: 'Jefe de cocina',  color: '#854F0B' },
+    'chef':          { label: 'Cocinero',        color: '#C2563D' },
+    'waiter':        { label: 'Camarero',        color: '#085041' }
+  };
+  const order = ['manager', 'kitchen_chief', 'chef', 'waiter'];
+  const grouped = {};
+  waiters.forEach(w => { const r = w.role || 'waiter'; if (!grouped[r]) grouped[r] = []; grouped[r].push(w); });
+
+  let html = '';
+  order.forEach(role => {
+    if (!grouped[role]) return;
+    const info = roleLabels[role] || { label: role, color: 'var(--t2)' };
+    html += '<div class="sec-label" style="margin-top:.6rem;display:flex;align-items:center;gap:6px">'
+      + '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + info.color + '"></span>'
+      + info.label + ' <span style="color:var(--t3);font-weight:400">(' + grouped[role].length + ')</span>'
+      + '</div>';
+    grouped[role].forEach(w => {
+      const isCook = role === 'chef' || role === 'kitchen_chief';
+      const accessLabel = isCook ? 'PIN' : 'Contraseña';
+      const credEmail = w.email ? '<div style="font-size:12px;color:var(--t2)">' + escHtml(w.email) + '</div>' : (isCook ? '<div style="font-size:11px;color:var(--t3);font-style:italic">Acceso solo por PIN</div>' : '');
+      html += '<div class="card" style="margin-bottom:.4rem;padding:.65rem .85rem">'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem">'
+        +   '<div style="flex:1;min-width:0">'
+        +     '<div style="font-size:14px;font-weight:500">' + escHtml(w.name) + '</div>'
+        +     credEmail
+        +   '</div>'
+        +   '<div style="display:flex;gap:4px;flex-shrink:0">'
+        +     '<button onclick="promptResetWaiterPwd(\'' + w.id + '\',\'' + escHtml(w.name).replace(/'/g, '&#39;') + '\',\'' + role + '\')" style="padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit">🔑 ' + accessLabel + '</button>'
+        +     '<button onclick="deleteWaiterInline(\'' + w.id + '\')" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer">✕</button>'
+        +   '</div>'
+        + '</div>'
+        + '</div>';
+    });
+  });
+  el.innerHTML = html;
 }
 
 function showAddWaiterFormAjustes() {
@@ -14981,31 +15075,108 @@ function showAddWaiterFormAjustes() {
   if (f) f.style.display = f.style.display === 'none' ? 'block' : 'none';
 }
 
+// Sub-Sprint A.4+A.6: cambia el form según el rol seleccionado
+function _onRoleChangeAwf() {
+  const role = document.getElementById('awf-role')?.value || 'waiter';
+  const hint = document.getElementById('awf-role-hint');
+  const passLbl = document.getElementById('awf-password-label');
+  const passInp = document.getElementById('awf-password');
+  const emailField = document.getElementById('awf-email-field');
+
+  if (role === 'chef' || role === 'kitchen_chief') {
+    if (hint) hint.textContent = role === 'kitchen_chief'
+      ? 'Jefe de cocina: confirma pases listos, gestiona platos del KDS y supervisa la cocina.'
+      : 'Cocinero: marca platos como listos en cookeat, filtrado por sus zonas activas.';
+    if (passLbl) passLbl.textContent = 'PIN (4 dígitos)';
+    if (passInp) {
+      passInp.type = 'tel';
+      passInp.placeholder = '4 dígitos';
+      passInp.maxLength = 4;
+      passInp.inputMode = 'numeric';
+      passInp.pattern = '[0-9]{4}';
+      passInp.value = '';
+    }
+    if (emailField) emailField.style.display = 'none'; // los cocineros no necesitan email para login PIN
+  } else {
+    if (hint) hint.textContent = 'Camarero / Jefe de sala: gestiona mesas, cobros y atención desde serveat. El "jefe de sala" es el camarero con responsabilidad de turno (mismo rol técnicamente).';
+    if (passLbl) passLbl.textContent = 'Contraseña temporal';
+    if (passInp) {
+      passInp.type = 'password';
+      passInp.placeholder = 'mín. 6 caracteres';
+      passInp.maxLength = '';
+      passInp.inputMode = 'text';
+      passInp.pattern = '';
+      passInp.value = '';
+    }
+    if (emailField) emailField.style.display = '';
+  }
+}
+
 async function saveWaiterAjustes() {
   const name = document.getElementById('awf-name')?.value?.trim();
   const email = document.getElementById('awf-email')?.value?.trim();
   const password = document.getElementById('awf-password')?.value;
-  if (!name) { notify('Escribe el nombre del camarero'); return; }
-  if (!email || !email.includes('@')) { notify('Introduce un email válido'); return; }
-  if (!password || password.length < 6) { notify('La contraseña debe tener mínimo 6 caracteres'); return; }
-  const { data: existing } = await sb.from('waiters').select('id').eq('email', email).eq('active', true).maybeSingle();
-  if (existing) { notify('Ya existe un empleado activo con ese email'); return; }
-  const { error } = await sb.from('waiters').insert({
-    restaurant_id: state.adminRestaurantId, name, email, password, active: true, is_active: false
-  });
+  const role = document.getElementById('awf-role')?.value || 'waiter';
+  const isCook = role === 'chef' || role === 'kitchen_chief';
+
+  if (!name) { notify('Escribe el nombre del miembro'); return; }
+
+  if (isCook) {
+    // Cocineros: PIN de 4 dígitos
+    if (!password || !/^\d{4}$/.test(password)) { notify('El PIN debe tener exactamente 4 dígitos'); return; }
+  } else {
+    // Camareros: email + password >= 6
+    if (!email || !email.includes('@')) { notify('Introduce un email válido'); return; }
+    if (!password || password.length < 6) { notify('La contraseña debe tener mínimo 6 caracteres'); return; }
+  }
+
+  // Comprobar duplicados (solo si hay email)
+  if (email) {
+    const { data: existing } = await sb.from('waiters').select('id').eq('email', email).eq('active', true).maybeSingle();
+    if (existing) { notify('Ya existe un miembro activo con ese email'); return; }
+  }
+
+  // Avatar color aleatorio
+  const palette = ['#085041','#3D7BC2','#C2563D','#854F0B','#7A4F8C','#27500A','#A32D2D'];
+  const avatar_color = palette[Math.floor(Math.random() * palette.length)];
+
+  // Insert: para cocineros guardamos el PIN en password (plaintext temporal)
+  // Una edge function bcrypt lo migrará a pin_hash en el primer login (ver Turno 5/5).
+  const insertPayload = {
+    restaurant_id: state.adminRestaurantId,
+    name,
+    email: email || null,
+    password,
+    role,
+    avatar_color,
+    active: true,
+    is_active: false
+  };
+
+  const { error } = await sb.from('waiters').insert(insertPayload);
   if (error) { notify('Error al guardar: ' + error.message); return; }
   document.getElementById('add-waiter-form-ajustes').style.display = 'none';
   loadAdminWaitersInline();
-  track('waiter_created', { restaurant_id: state.adminRestaurantId });
+  notify(isCook ? 'Cocinero creado. Comunícale el PIN.' : 'Miembro creado. Comunícale las credenciales.', 'success');
+  track('waiter_created', { restaurant_id: state.adminRestaurantId, role });
 }
 
-async function promptResetWaiterPwd(waiterId, waiterName) {
-  const newPwd = prompt(`Nueva contraseña para ${waiterName} (mín. 6 caracteres):`);
+async function promptResetWaiterPwd(waiterId, waiterName, role) {
+  // Sub-Sprint A.4+A.6: PIN para cocineros, password para camareros
+  const isCook = role === 'chef' || role === 'kitchen_chief';
+  const promptMsg = isCook
+    ? 'Nuevo PIN (4 dígitos) para ' + waiterName + ':'
+    : 'Nueva contraseña para ' + waiterName + ' (mín. 6 caracteres):';
+  const newPwd = prompt(promptMsg);
   if (!newPwd) return;
-  if (newPwd.length < 6) { notify('La contraseña debe tener mínimo 6 caracteres'); return; }
-  const { error } = await sb.from('waiters').update({ password: newPwd, password_hash: null }).eq('id', waiterId);
+  if (isCook) {
+    if (!/^\d{4}$/.test(newPwd)) { notify('El PIN debe tener exactamente 4 dígitos'); return; }
+  } else {
+    if (newPwd.length < 6) { notify('La contraseña debe tener mínimo 6 caracteres'); return; }
+  }
+  const { error } = await sb.from('waiters').update({ password: newPwd, password_hash: null, pin_hash: null }).eq('id', waiterId);
   if (error) { notify('Error al actualizar: ' + error.message); return; }
-  showToast('✓ Contraseña actualizada', `Comunícasela a ${waiterName}`);
+  showToast('✓ ' + (isCook ? 'PIN' : 'Contraseña') + ' actualizada', 'Comunícasela a ' + waiterName);
 }
 
 async function deleteWaiterInline(waiterId) {
