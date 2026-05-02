@@ -12389,7 +12389,12 @@ function showCookeatPinModal() {
   overlay.id = 'cookeat-pin-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:700;display:flex;align-items:center;justify-content:center;padding:1rem';
   overlay.innerHTML =
-      '<div style="background:var(--card);border-radius:var(--r-lg);width:100%;max-width:340px;padding:1.5rem 1.25rem;text-align:center">'
+      '<div style="background:var(--card);border-radius:var(--r-lg);width:100%;max-width:340px;padding:1.5rem 1.25rem;text-align:center;position:relative">'
+
+    +   '<button onclick="document.getElementById(\'cookeat-pin-overlay\').remove();_cookeatStaffSelected=null" '
+    +     'aria-label="Cerrar" '
+    +     'style="position:absolute;top:.65rem;right:.65rem;width:32px;height:32px;border-radius:50%;border:none;background:var(--bg2);color:var(--t2);font-size:16px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;line-height:1">✕</button>'
+
     +   '<div style="position:relative;width:64px;height:64px;border-radius:50%;background:' + color + ';display:inline-flex;align-items:center;justify-content:center;color:#fff;font-family:\'Fraunces\',serif;font-weight:700;font-size:24px;margin-bottom:.65rem">'
     +     initials
     +     (isChief ? '<span style="position:absolute;top:-4px;right:-4px;font-size:18px;background:#FFC93C;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid var(--card)">👑</span>' : '')
@@ -12416,8 +12421,6 @@ function showCookeatPinModal() {
     +   '<button onclick="_showPinForgotModal()" '
     +     'style="margin-top:1rem;background:none;border:none;color:var(--brand-d);font-size:13px;cursor:pointer;font-family:inherit;text-decoration:underline">He olvidado mi PIN</button>'
 
-    +   '<button onclick="document.getElementById(\'cookeat-pin-overlay\').remove();_cookeatStaffSelected=null" '
-    +     'style="margin-top:.4rem;background:none;border:none;color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit">Cancelar</button>'
     + '</div>';
   document.body.appendChild(overlay);
 
@@ -12711,11 +12714,6 @@ async function adminLogin() {
   state.adminRestaurantId = data.id;
   state.adminRestaurantName = data.name;
   state.adminRole = 'admin';
-  // Sub-Sprint A.4+A.6 Turno 5: guardar credenciales en memoria (NO localStorage)
-  // para que la edge function set-pin pueda re-validar al admin sin re-login.
-  // Se borran al hacer adminLogout().
-  state.adminEmail = email;
-  state.adminPassword = pass;
   // Bug fix: NO resetear is_active de TODOS los camareros — eso mata sesiones reales
   // de camareros conectados en serveat. Solo resetear sesiones realmente stale (>13h).
   try { resetStaleWaiterSessions(data.id); } catch(e) {}
@@ -12733,9 +12731,6 @@ function adminLogout() {
   state.adminRestaurantId = null;
   state.adminRestaurantName = '';
   state.adminRole = 'admin';
-  // Sub-Sprint A.4+A.6 Turno 5: limpiar credenciales en memoria
-  state.adminEmail = null;
-  state.adminPassword = null;
   const tabBar = document.querySelector('#s-admin .tab-bar');
   if (tabBar) tabBar.style.display = '';
   const logo = document.querySelector('#s-admin .hdr .logo');
@@ -15622,8 +15617,7 @@ async function _doResetPwd(waiterId, waiterName, isCook) {
         body: JSON.stringify({
           waiterId,
           newPin: newCred,
-          adminEmail: state.adminEmail,
-          adminPassword: state.adminPassword
+          restaurantId: state.adminRestaurantId
         })
       });
       const data = await res.json();
