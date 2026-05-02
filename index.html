@@ -16762,7 +16762,12 @@ function markAllAdminNotifSeen() {
 }
 
 function renderAdminNotifList() {
-  const el = document.getElementById('admin-notif-list');
+  // Sub-Sprint A.4+A.6 fix DEFINITIVO #2: usar el SEGUNDO elemento si hay duplicados
+  // (algunas versiones del HTML antiguas tienen un atab-notificaciones legacy con el mismo ID)
+  // El elemento correcto siempre es el que está dentro de #admin-notif-panel.
+  const panel = document.getElementById('admin-notif-panel');
+  let el = panel ? panel.querySelector('#admin-notif-list, [id="admin-notif-list"]') : null;
+  if (!el) el = document.getElementById('admin-notif-list');
   if (!el) return;
 
   // Sub-Sprint A.4+A.6 fix DEFINITIVO: leer SIEMPRE desde localStorage,
