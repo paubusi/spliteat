@@ -12463,24 +12463,46 @@ async function _validatePin() {
   const errEl = document.getElementById('cookeat-pin-err');
   if (errEl) errEl.style.display = 'none';
 
-  // Validación:
-  //  1) Si tiene pin_hash: usar edge function (TODO en este turno) o fallback plaintext check con password
-  //  2) Si tiene password en plaintext (legacy): comparar directamente
-  //  3) Si no tiene ni una ni otra: error de configuración
-  let valid = false;
-
-  if (w.pin_hash) {
-    // TODO: edge function de bcrypt validation
-    // Por ahora, fallback: si pin_hash es el plaintext del PIN (compatibilidad temporal), comparar
-    valid = (w.pin_hash === pin);
-  } else if (w.password) {
-    // Fallback legacy — el SQL del sub-sprint metió "1234" en password como demo
-    valid = (w.password === pin);
+  // Sub-Sprint A.4+A.6 Turno 5: validación con bcrypt vía edge function
+  // (con bloqueo tras 5 intentos fallidos + migración automática de PINs legacy)
+  let result;
+  try {
+    const res = await fetch(`${SUPA_URL}/functions/v1/validate-pin`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPA_KEY}`,
+        'apikey': SUPA_KEY
+      },
+      body: JSON.stringify({ waiterId: w.id, pin })
+    });
+    result = await res.json();
+  } catch (e) {
+    console.error('[validate-pin] error de red:', e);
+    if (errEl) {
+      errEl.textContent = 'Error de conexión. Inténtalo de nuevo.';
+      errEl.style.display = 'block';
+    }
+    window._pinBuffer = '';
+    _updatePinDots();
+    return;
   }
 
-  if (!valid) {
+  // Cuenta bloqueada
+  if (result.locked) {
     if (errEl) {
-      errEl.textContent = 'PIN incorrecto. Vuelve a intentarlo.';
+      errEl.textContent = result.message || 'Cuenta bloqueada temporalmente. Espera unos minutos.';
+      errEl.style.display = 'block';
+    }
+    window._pinBuffer = '';
+    _updatePinDots();
+    return;
+  }
+
+  // PIN incorrecto
+  if (!result.valid) {
+    if (errEl) {
+      errEl.textContent = result.message || 'PIN incorrecto. Vuelve a intentarlo.';
       errEl.style.display = 'block';
     }
     window._pinBuffer = '';
@@ -12490,6 +12512,11 @@ async function _validatePin() {
 
   // ✓ PIN OK — actualizar last_kitchen_login_at
   await sb.from('waiters').update({ last_kitchen_login_at: new Date().toISOString() }).eq('id', w.id);
+
+  // Si la edge function migró el PIN a bcrypt, lo notificamos en consola (no bloqueante)
+  if (result.migrated) {
+    console.log('[validate-pin] PIN migrado a bcrypt para waiter', w.id);
+  }
 
   // Cerrar modal y pasar al selector de zonas
   document.getElementById('cookeat-pin-overlay')?.remove();
@@ -17095,12 +17122,15 @@ function _resolveKdsName(dish) {
 
 // Sub-Sprint A.4+A.6: abreviatura para nombres largos en KDS
 //
-// Algoritmo determinista (sin IA por ahora):
+// Algoritmo determinista de fallback. Cuando la edge function `suggest-kds-name`
+// no está disponible (red, IA caída, etc.) o cuando se renderiza un dish cuyo
+// menu_item no tiene `kds_short_name` configurado, este algoritmo trunca el
+// nombre del plato:
 //   1. Si nombre <= 22 chars → tal cual
 //   2. Quitar conectores ("de", "con", "al", "la", "el", "sin", "en", "y", "o", "del", "los", "las")
 //   3. Reemplazar "con" intermedio por "+"
 //   4. Si todavía > 22 chars → truncar palabras > 8 chars a 7 + "."
-//   5. Si todavía > 28 chars → cortar y añadir "…"
+//   5. Si todavía > 28 chars → cortar por palabra completa y añadir "…"
 //
 // Ejemplos:
 //   "Solomillo de ternera al pimentón con patatas" → "Solomillo ternera pimentón + patatas"
