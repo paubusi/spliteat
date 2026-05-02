@@ -16699,8 +16699,7 @@ let _adminNotifs = []; // { id, type, title, body, time, seen, tableLabel }
 let _adminNotifSub = null;
 
 function openAdminNotifPanel() {
-  // Sub-Sprint A.4+A.6 fix definitivo: recargar el historial desde localStorage
-  // antes de renderizar, por si algún render parcial dejó memoria desincronizada
+  // Recarga desde localStorage (fuente de verdad)
   try {
     const saved = localStorage.getItem(_NOTIF_STORAGE_KEY);
     if (saved) {
@@ -16710,7 +16709,11 @@ function openAdminNotifPanel() {
   } catch (e) { /* non-blocking */ }
 
   renderAdminNotifList();
-  markAllAdminNotifSeen();
+  // Sub-Sprint A.4+A.6: marcar como "vistas" para badge (sin borrar historial — eso lo hace "Todo visto")
+  localStorage.setItem('_notifLastSeenTs', String(Date.now()));
+  _adminNotifs.forEach(n => n.seen = true);
+  _updateAdminNotifBadge();
+
   document.getElementById('admin-notif-panel').style.display = 'flex';
   document.getElementById('admin-notif-overlay').style.display = 'block';
 }
@@ -16755,10 +16758,16 @@ function _updateAdminNotifBadge() {
 }
 
 function markAllAdminNotifSeen() {
-  _adminNotifs.forEach(n => n.seen = true);
-  // Sub-Sprint A.4+A.6: marcar también los toasts del sistema como vistos (timestamp)
-  localStorage.setItem('_notifLastSeenTs', String(Date.now()));
+  // Sub-Sprint A.4+A.6: "Todo visto" ahora LIMPIA el panel (comportamiento estándar)
+  // Antes solo marcaba seen=true sin diferencia visible para el usuario
+  _adminNotifs = [];
+  _notifHistory = [];
+  try {
+    localStorage.setItem('_spliteatNotifHistory', '[]');
+    localStorage.setItem('_notifLastSeenTs', String(Date.now()));
+  } catch (e) { /* non-blocking */ }
   _updateAdminNotifBadge();
+  renderAdminNotifList();
 }
 
 function renderAdminNotifList() {
