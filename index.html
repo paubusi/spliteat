@@ -1990,6 +1990,62 @@
   </div>
 
   <!-- ════════════════════════════════════════
+       COOKEAT — Sub-Sprint A.4+A.6
+       Pantalla: selector de cocinero (grid)
+       Solo se muestra si kitchen_zones_enabled=true
+  ════════════════════════════════════════ -->
+  <div class="screen" id="s-cookeat-staff">
+    <div class="hdr">
+      <button class="back-btn" onclick="go('s-kitchen-login');state.kitchenRestaurantId=null">← Salir</button>
+      <div class="logo">cook<em style="color:var(--accent);font-style:normal">eat</em></div>
+      <button onclick="loadCookeatStaffGrid()" title="Refrescar"
+        style="background:none;border:none;font-size:18px;color:var(--t2);cursor:pointer;padding:4px 12px">↻</button>
+    </div>
+    <div class="body" style="padding:1.5rem 1rem">
+      <div style="text-align:center;margin-bottom:1.25rem">
+        <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--t1);margin-bottom:.25rem">¿Quién entra?</div>
+        <div id="cookeat-staff-restname" style="font-size:13px;color:var(--t3)"></div>
+      </div>
+      <div id="cookeat-staff-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.75rem">
+        <div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--t3)">Cargando...</div>
+      </div>
+      <div id="cookeat-staff-empty" style="display:none;text-align:center;padding:2rem 1rem;color:var(--t3);font-size:13px">
+        Aún no hay cocineros configurados.<br>
+        <span style="font-size:12px">Crea uno desde manageat → Ajustes → Camareros con rol "chef" o "kitchen_chief".</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       COOKEAT — Selector de zonas (multi-select)
+       Aparece tras validar PIN exitoso
+  ════════════════════════════════════════ -->
+  <div class="screen" id="s-cookeat-zones">
+    <div class="hdr">
+      <button class="back-btn" onclick="cookeatBackToStaff()">← Cambiar usuario</button>
+      <div class="logo">cook<em style="color:var(--accent);font-style:normal">eat</em></div>
+      <div style="width:60px"></div>
+    </div>
+    <div class="body" style="padding:1.5rem 1rem">
+      <div style="text-align:center;margin-bottom:1.25rem">
+        <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--t1);margin-bottom:.25rem">¿En qué zonas trabajas?</div>
+        <div id="cookeat-zones-username" style="font-size:13px;color:var(--t3)"></div>
+        <div style="font-size:12px;color:var(--t3);margin-top:.4rem;line-height:1.4">Selecciona una o varias zonas. Verás solo los platos de esas partidas.</div>
+      </div>
+      <div id="cookeat-zones-list" style="display:flex;flex-direction:column;gap:.5rem"></div>
+      <div style="margin-top:1.5rem;display:flex;flex-direction:column;gap:.5rem">
+        <button class="btn btn-primary" onclick="confirmCookeatZones()" id="cookeat-zones-confirm">Empezar turno</button>
+        <button class="btn btn-secondary" onclick="cookeatBackToStaff()">Cancelar</button>
+      </div>
+      <div id="cookeat-zones-err" class="notice notice-err" style="display:none;margin-top:.75rem"></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       PIN MODAL (overlay, no es screen completo)
+  ════════════════════════════════════════ -->
+
+  <!-- ════════════════════════════════════════
        STOCKEAT LOGIN — Sprint B
   ════════════════════════════════════════ -->
   <div class="screen" id="s-stockeat-login">
@@ -3692,6 +3748,11 @@ let state = {
   adminRestaurantId: null, adminRestaurantName: '',
   adminRole: 'admin', // 'admin' | 'cocina'
   kitchenRestaurantId: null,
+  kitchenRestaurantName: '',
+  // Sub-Sprint A.4+A.6: identificación del cocinero logueado y sus zonas activas
+  kitchenUserId: null,
+  kitchenUserName: '',
+  kitchenActiveZoneIds: [],
   // Sprint A: config del restaurante para modos KDS (poblado en openKitchen)
   kitchenConfig: {
     kds_one_click_mode: false,
@@ -8089,8 +8150,19 @@ async function openKitchen(restaurantId, restaurantName) {
   subscribeKitchenRealtime();
 }
 
-function kitchenLogout() {
+async function kitchenLogout() {
+  // Sub-Sprint A.4+A.6: si había cocinero logueado, limpiar sus zonas activas en BD
+  if (state.kitchenUserId) {
+    try {
+      await sb.from('waiter_active_zones').delete().eq('waiter_id', state.kitchenUserId);
+    } catch (e) { /* non-blocking */ }
+  }
   state.kitchenRestaurantId = null;
+  state.kitchenRestaurantName = '';
+  state.kitchenUserId = null;
+  state.kitchenUserName = '';
+  state.kitchenUserRole = 'chef';
+  state.kitchenActiveZoneIds = [];
   state.adminRole = 'admin'; // reset to default
   go('s0');
 }
@@ -11990,9 +12062,313 @@ async function kitchenLogin() {
   if (!_hashMatch && !_plainMatch && !_noPass) {
     errEl.textContent = 'Contraseña incorrecta.'; errEl.style.display = 'block'; return;
   }
-  // Go to standalone cookeat screen with all 3 tabs
+
+  // Sub-Sprint A.4+A.6: si el restaurante tiene "modo cocina pro" activo,
+  // pedimos identificación individual + zonas antes de entrar al KDS.
+  if (data.kitchen_zones_enabled) {
+    state.kitchenRestaurantId = data.id;
+    state.kitchenRestaurantName = data.name;
+    // Cargar grid de cocineros
+    await loadCookeatStaffGrid();
+    return;
+  }
+
+  // Modo simple (sin zonas): entrada directa
   openKitchen(data.id, data.name);
 }
+
+// ══════════════════════════════════════════════════════════════════
+// SUB-SPRINT A.4+A.6 — COOKEAT STAFF LOGIN FLOW
+// ══════════════════════════════════════════════════════════════════
+
+// Estado temporal mientras el cocinero se loguea
+let _cookeatStaffSelected = null;     // waiter elegido en el grid
+let _cookeatSelectedZoneIds = [];     // zonas marcadas en el selector
+
+async function loadCookeatStaffGrid() {
+  go('s-cookeat-staff');
+  const restName = state.kitchenRestaurantName || 'Cocina';
+  const nameEl = document.getElementById('cookeat-staff-restname');
+  if (nameEl) nameEl.textContent = restName;
+
+  const grid = document.getElementById('cookeat-staff-grid');
+  const empty = document.getElementById('cookeat-staff-empty');
+  if (!grid) return;
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--t3)">Cargando...</div>';
+  if (empty) empty.style.display = 'none';
+
+  // Solo cocineros (chef + kitchen_chief), activos
+  const { data: staff, error } = await sb.from('waiters')
+    .select('id,name,role,avatar_color,active,last_kitchen_login_at')
+    .eq('restaurant_id', state.kitchenRestaurantId)
+    .in('role', ['chef', 'kitchen_chief'])
+    .eq('active', true)
+    .order('name');
+
+  if (error) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:#A32D2D;font-size:13px">Error cargando cocineros: ' + escHtml(error.message) + '</div>';
+    return;
+  }
+
+  if (!staff || staff.length === 0) {
+    grid.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+
+  grid.innerHTML = staff.map(w => {
+    const isChief = w.role === 'kitchen_chief';
+    const safeName = escHtml(w.name || '?');
+    const initials = (w.name || '?').trim().split(/\s+/).map(s => s[0] || '').join('').slice(0, 2).toUpperCase();
+    const color = w.avatar_color || '#085041';
+    return ''
+      + '<button onclick="cookeatPickStaff(\'' + w.id + '\')" '
+      +   'style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:1rem .75rem;border-radius:var(--r);border:2px solid var(--bd);background:var(--card);cursor:pointer;font-family:inherit;transition:transform .12s,border-color .12s" '
+      +   'onmouseover="this.style.borderColor=\'' + color + '\'" '
+      +   'onmouseout="this.style.borderColor=\'var(--bd)\'">'
+      +   '<div style="position:relative;width:64px;height:64px;border-radius:50%;background:' + color + ';display:flex;align-items:center;justify-content:center;color:#fff;font-family:\'Fraunces\',serif;font-weight:700;font-size:24px">'
+      +     initials
+      +     (isChief ? '<span style="position:absolute;top:-4px;right:-4px;font-size:18px;background:#FFC93C;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid var(--card)" title="Jefe de cocina">👑</span>' : '')
+      +   '</div>'
+      +   '<div style="font-size:13px;font-weight:600;color:var(--t1);text-align:center;line-height:1.2">' + safeName + '</div>'
+      +   '<div style="font-size:10px;color:' + (isChief ? '#854F0B' : 'var(--t3)') + ';font-weight:500;text-transform:uppercase;letter-spacing:.05em">'
+      +     (isChief ? 'Jefe de cocina' : 'Cocinero')
+      +   '</div>'
+      + '</button>';
+  }).join('');
+}
+
+// Click en un cocinero → mostrar modal PIN
+async function cookeatPickStaff(waiterId) {
+  const { data: waiter } = await sb.from('waiters')
+    .select('id,name,role,avatar_color,pin_hash,password')
+    .eq('id', waiterId).maybeSingle();
+  if (!waiter) { notify('Error: cocinero no encontrado', 'error'); return; }
+  _cookeatStaffSelected = waiter;
+  showCookeatPinModal();
+}
+
+function showCookeatPinModal() {
+  const w = _cookeatStaffSelected;
+  if (!w) return;
+  document.getElementById('cookeat-pin-overlay')?.remove();
+
+  const isChief = w.role === 'kitchen_chief';
+  const color = w.avatar_color || '#085041';
+  const initials = (w.name || '?').trim().split(/\s+/).map(s => s[0] || '').join('').slice(0, 2).toUpperCase();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'cookeat-pin-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:700;display:flex;align-items:center;justify-content:center;padding:1rem';
+  overlay.innerHTML =
+      '<div style="background:var(--card);border-radius:var(--r-lg);width:100%;max-width:340px;padding:1.5rem 1.25rem;text-align:center">'
+    +   '<div style="position:relative;width:64px;height:64px;border-radius:50%;background:' + color + ';display:inline-flex;align-items:center;justify-content:center;color:#fff;font-family:\'Fraunces\',serif;font-weight:700;font-size:24px;margin-bottom:.65rem">'
+    +     initials
+    +     (isChief ? '<span style="position:absolute;top:-4px;right:-4px;font-size:18px;background:#FFC93C;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid var(--card)">👑</span>' : '')
+    +   '</div>'
+    +   '<div style="font-size:16px;font-weight:700;color:var(--t1);margin-bottom:.15rem">' + escHtml(w.name) + '</div>'
+    +   '<div style="font-size:12px;color:var(--t3);margin-bottom:1rem">' + (isChief ? 'Jefe de cocina' : 'Cocinero') + '</div>'
+
+    +   '<div id="cookeat-pin-display" style="display:flex;justify-content:center;gap:8px;margin-bottom:1rem">'
+    +     '<div class="pin-dot" style="width:14px;height:14px;border-radius:50%;border:2px solid var(--bd2);background:var(--card)"></div>'
+    +     '<div class="pin-dot" style="width:14px;height:14px;border-radius:50%;border:2px solid var(--bd2);background:var(--card)"></div>'
+    +     '<div class="pin-dot" style="width:14px;height:14px;border-radius:50%;border:2px solid var(--bd2);background:var(--card)"></div>'
+    +     '<div class="pin-dot" style="width:14px;height:14px;border-radius:50%;border:2px solid var(--bd2);background:var(--card)"></div>'
+    +   '</div>'
+
+    +   '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;max-width:240px;margin:0 auto">'
+    +     [1,2,3,4,5,6,7,8,9].map(n => '<button onclick="_pinPress(' + n + ')" style="padding:14px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--card);font-size:18px;font-weight:600;color:var(--t1);cursor:pointer;font-family:inherit">' + n + '</button>').join('')
+    +     '<button onclick="_pinClear()" style="padding:14px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--card);font-size:11px;color:var(--t2);cursor:pointer;font-family:inherit">borrar</button>'
+    +     '<button onclick="_pinPress(0)" style="padding:14px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--card);font-size:18px;font-weight:600;color:var(--t1);cursor:pointer;font-family:inherit">0</button>'
+    +     '<button onclick="_pinBackspace()" style="padding:14px;border-radius:var(--r-sm);border:1.5px solid var(--bd2);background:var(--card);font-size:14px;color:var(--t2);cursor:pointer;font-family:inherit">←</button>'
+    +   '</div>'
+
+    +   '<div id="cookeat-pin-err" style="display:none;margin-top:.85rem;font-size:12px;color:#A32D2D;background:#FCEBEB;padding:6px 10px;border-radius:var(--r-sm)"></div>'
+
+    +   '<button onclick="document.getElementById(\'cookeat-pin-overlay\').remove();_cookeatStaffSelected=null" '
+    +     'style="margin-top:1rem;background:none;border:none;color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit">Cancelar</button>'
+    + '</div>';
+  document.body.appendChild(overlay);
+
+  // Reset PIN buffer
+  window._pinBuffer = '';
+  _updatePinDots();
+}
+
+window._pinBuffer = '';
+
+function _pinPress(n) {
+  if ((window._pinBuffer || '').length >= 4) return;
+  window._pinBuffer = (window._pinBuffer || '') + String(n);
+  _updatePinDots();
+  if (window._pinBuffer.length === 4) {
+    setTimeout(_validatePin, 150);
+  }
+}
+function _pinBackspace() {
+  window._pinBuffer = (window._pinBuffer || '').slice(0, -1);
+  _updatePinDots();
+}
+function _pinClear() {
+  window._pinBuffer = '';
+  _updatePinDots();
+}
+function _updatePinDots() {
+  const dots = document.querySelectorAll('#cookeat-pin-display .pin-dot');
+  const len = (window._pinBuffer || '').length;
+  dots.forEach((d, i) => {
+    if (i < len) {
+      d.style.background = 'var(--brand)';
+      d.style.borderColor = 'var(--brand)';
+    } else {
+      d.style.background = 'var(--card)';
+      d.style.borderColor = 'var(--bd2)';
+    }
+  });
+}
+
+async function _validatePin() {
+  const pin = window._pinBuffer || '';
+  const w = _cookeatStaffSelected;
+  if (!w || pin.length !== 4) return;
+
+  const errEl = document.getElementById('cookeat-pin-err');
+  if (errEl) errEl.style.display = 'none';
+
+  // Validación:
+  //  1) Si tiene pin_hash: usar edge function (TODO en este turno) o fallback plaintext check con password
+  //  2) Si tiene password en plaintext (legacy): comparar directamente
+  //  3) Si no tiene ni una ni otra: error de configuración
+  let valid = false;
+
+  if (w.pin_hash) {
+    // TODO: edge function de bcrypt validation
+    // Por ahora, fallback: si pin_hash es el plaintext del PIN (compatibilidad temporal), comparar
+    valid = (w.pin_hash === pin);
+  } else if (w.password) {
+    // Fallback legacy — el SQL del sub-sprint metió "1234" en password como demo
+    valid = (w.password === pin);
+  }
+
+  if (!valid) {
+    if (errEl) {
+      errEl.textContent = 'PIN incorrecto. Vuelve a intentarlo.';
+      errEl.style.display = 'block';
+    }
+    window._pinBuffer = '';
+    _updatePinDots();
+    return;
+  }
+
+  // ✓ PIN OK — actualizar last_kitchen_login_at
+  await sb.from('waiters').update({ last_kitchen_login_at: new Date().toISOString() }).eq('id', w.id);
+
+  // Cerrar modal y pasar al selector de zonas
+  document.getElementById('cookeat-pin-overlay')?.remove();
+  await loadCookeatZonesSelector();
+}
+
+async function loadCookeatZonesSelector() {
+  go('s-cookeat-zones');
+  const w = _cookeatStaffSelected;
+  if (!w) return;
+  const userEl = document.getElementById('cookeat-zones-username');
+  if (userEl) userEl.textContent = w.name + (w.role === 'kitchen_chief' ? ' · Jefe de cocina' : ' · Cocinero');
+
+  const list = document.getElementById('cookeat-zones-list');
+  list.innerHTML = '<div style="text-align:center;color:var(--t3);font-size:13px;padding:1rem">Cargando zonas...</div>';
+
+  const zones = await loadKitchenZones(state.kitchenRestaurantId, true);
+
+  // Cargar zonas previamente activas (si las había de un turno anterior)
+  const { data: prevZones } = await sb.from('waiter_active_zones')
+    .select('zone_id').eq('waiter_id', w.id);
+  const prevSet = new Set((prevZones || []).map(z => z.zone_id));
+  // Si no había zonas previas, marcamos todas por defecto para kitchen_chief, ninguna para chef
+  if (prevSet.size === 0 && w.role === 'kitchen_chief') {
+    zones.forEach(z => prevSet.add(z.id));
+  }
+  _cookeatSelectedZoneIds = Array.from(prevSet);
+
+  if (zones.length === 0) {
+    list.innerHTML = '<div style="text-align:center;color:var(--t3);font-size:13px;padding:1rem">No hay zonas configuradas. Crea zonas desde manageat → Ajustes → Cocina.</div>';
+    return;
+  }
+
+  list.innerHTML = zones.map(z => {
+    const checked = _cookeatSelectedZoneIds.includes(z.id);
+    const safeName = escHtml(z.name);
+    return ''
+      + '<label data-zone-id="' + z.id + '" style="display:flex;align-items:center;gap:12px;padding:.85rem 1rem;background:var(--card);border:2px solid ' + (checked ? z.color : 'var(--bd)') + ';border-radius:var(--r);cursor:pointer;transition:border-color .12s">'
+      +   '<input type="checkbox" ' + (checked ? 'checked' : '') + ' data-zone-id="' + z.id + '" '
+      +     'onchange="_toggleCookeatZone(\'' + z.id + '\',this.checked,\'' + z.color + '\')" '
+      +     'style="width:20px;height:20px;accent-color:' + z.color + ';flex-shrink:0;cursor:pointer">'
+      +   '<div style="width:6px;height:30px;border-radius:3px;background:' + z.color + ';flex-shrink:0"></div>'
+      +   '<div style="flex:1;font-size:14px;font-weight:600;color:var(--t1)">' + safeName + (z.is_default ? '<span style="font-size:10px;font-weight:500;color:var(--t3);margin-left:8px">(por defecto)</span>' : '') + '</div>'
+      + '</label>';
+  }).join('');
+}
+
+function _toggleCookeatZone(zoneId, checked, color) {
+  const idx = _cookeatSelectedZoneIds.indexOf(zoneId);
+  if (checked && idx === -1) _cookeatSelectedZoneIds.push(zoneId);
+  if (!checked && idx !== -1) _cookeatSelectedZoneIds.splice(idx, 1);
+  // Update border color of the label
+  const lbl = document.querySelector('label[data-zone-id="' + zoneId + '"]');
+  if (lbl) lbl.style.borderColor = checked ? color : 'var(--bd)';
+}
+
+async function confirmCookeatZones() {
+  const w = _cookeatStaffSelected;
+  if (!w) return;
+  const errEl = document.getElementById('cookeat-zones-err');
+  if (errEl) errEl.style.display = 'none';
+
+  if (_cookeatSelectedZoneIds.length === 0) {
+    if (errEl) {
+      errEl.textContent = 'Selecciona al menos una zona para continuar.';
+      errEl.style.display = 'block';
+    }
+    return;
+  }
+
+  // Persistir zonas activas en BD: borrar todas las anteriores e insertar las nuevas
+  try {
+    await sb.from('waiter_active_zones').delete().eq('waiter_id', w.id);
+    if (_cookeatSelectedZoneIds.length > 0) {
+      const inserts = _cookeatSelectedZoneIds.map(zid => ({ waiter_id: w.id, zone_id: zid }));
+      const { error } = await sb.from('waiter_active_zones').insert(inserts);
+      if (error) throw error;
+    }
+  } catch (e) {
+    if (errEl) {
+      errEl.textContent = 'Error guardando zonas: ' + (e.message || e);
+      errEl.style.display = 'block';
+    }
+    return;
+  }
+
+  // Guardar info del cocinero en el state
+  state.kitchenUserId = w.id;
+  state.kitchenUserName = w.name;
+  state.kitchenUserRole = w.role;
+  state.kitchenActiveZoneIds = [..._cookeatSelectedZoneIds];
+
+  // Entrada al KDS (ya con state.kitchenRestaurantId del paso anterior)
+  openKitchen(state.kitchenRestaurantId, state.kitchenRestaurantName);
+}
+
+function cookeatBackToStaff() {
+  // Reset selección parcial pero conservar el restaurantId
+  _cookeatStaffSelected = null;
+  _cookeatSelectedZoneIds = [];
+  loadCookeatStaffGrid();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// END SUB-SPRINT A.4+A.6 — Staff login flow
+// ══════════════════════════════════════════════════════════════════
+
 
 // ══════════════════════════════════════════════════════
 // RENDER ADMIN TABS según rol
@@ -12975,7 +13351,26 @@ async function saveZone(zoneId) {
 }
 
 async function deleteZone(zoneId, zoneName) {
-  if (!confirm('¿Eliminar la zona "' + zoneName + '"?\n\nLos platos que la tenían asignada pasarán a "General".')) return;
+  // Sub-Sprint A.4+A.6: contar usos antes de borrar
+  const [{ count: catCount }, { count: itemCount }] = await Promise.all([
+    sb.from('categories').select('id', { count: 'exact', head: true })
+      .eq('restaurant_id', state.adminRestaurantId).eq('kitchen_zone_id', zoneId),
+    sb.from('menu_items').select('id', { count: 'exact', head: true })
+      .eq('restaurant_id', state.adminRestaurantId).eq('kitchen_zone_id', zoneId)
+  ]);
+  const cats = catCount || 0;
+  const items = itemCount || 0;
+
+  let msg = '¿Eliminar la zona "' + zoneName + '"?';
+  if (cats > 0 || items > 0) {
+    msg += '\n\nEsta zona está asignada a:';
+    if (cats > 0)  msg += '\n  • ' + cats  + ' categoría' + (cats === 1 ? '' : 's');
+    if (items > 0) msg += '\n  • ' + items + ' plato'     + (items === 1 ? '' : 's') + ' (override individual)';
+    msg += '\n\nAl eliminarla, esos platos se moverán a la zona "General" automáticamente.';
+  }
+  msg += '\n\n¿Continuar?';
+
+  if (!confirm(msg)) return;
   try {
     const { error } = await sb.from('kitchen_zones').delete().eq('id', zoneId);
     if (error) throw error;
@@ -14262,6 +14657,14 @@ async function loadAdminCartaInline() {
   const el = document.getElementById('ajustes-carta-list');
   if (!el) { loadAdminCarta(); return; }
   const cats = await loadAdminCategories(true);
+  // Sub-Sprint A.4+A.6: traer también zonas para mostrar zona efectiva por plato
+  const zones = await loadKitchenZones(state.adminRestaurantId);
+  const zonesById = {};
+  let defaultZone = null;
+  zones.forEach(z => { zonesById[z.id] = z; if (z.is_default) defaultZone = z; });
+  const catsById = {};
+  cats.forEach(c => { catsById[c.id] = c; });
+
   const { data } = await sb.from('menu_items')
     .select('*, menu_item_variants(id,name,price,cost_price,sort_order,is_default)')
     .eq('restaurant_id', state.adminRestaurantId).order('sort_order').order('name');
@@ -14276,11 +14679,35 @@ async function loadAdminCartaInline() {
     html += `<div style="background:#FAEEDA;border:1px solid #E5A85A;border-radius:var(--r-sm);padding:.65rem .85rem;font-size:12px;color:#854F0B;margin-bottom:.75rem">
       ⚠️ ${disabled} plato${disabled>1?'s':''} desactivado${disabled>1?'s':''}. Reactívalos cuando tengas disponibilidad.</div>`;
   }
+  // Helper: zona efectiva del plato (override > categoría > General)
+  const _effectiveZone = (item) => {
+    if (item.kitchen_zone_id && zonesById[item.kitchen_zone_id]) {
+      return { zone: zonesById[item.kitchen_zone_id], source: 'override' };
+    }
+    const cat = item.category_id ? catsById[item.category_id] : null;
+    if (cat?.kitchen_zone_id && zonesById[cat.kitchen_zone_id]) {
+      return { zone: zonesById[cat.kitchen_zone_id], source: 'category' };
+    }
+    return { zone: defaultZone, source: 'default' };
+  };
   const renderItem = (item) => {
     const marginStr = item.cost_price ? ` · 💹 ${Math.round((1-item.cost_price/item.price)*100)}%` : '';
     const variantsHtml = (item.menu_item_variants && item.menu_item_variants.length)
       ? `<div style="font-size:11px;color:var(--blue);margin-top:2px">↳ ${item.menu_item_variants.sort((a,b)=>a.sort_order-b.sort_order).map(v => escHtml(v.name)+' '+fmt(parseFloat(v.price))).join(' · ')}</div>`
       : '';
+    // Sub-Sprint A.4+A.6: badge de zona (con tooltip indicando origen)
+    const ez = _effectiveZone(item);
+    let zoneBadge = '';
+    if (ez.zone) {
+      const tooltip = ez.source === 'override' ? 'Zona específica de este plato (sobrescribe la categoría)'
+                    : ez.source === 'category' ? 'Heredada de la categoría'
+                    : 'Sin asignar — cae en zona por defecto (General)';
+      const icon = ez.source === 'override' ? '📌' : ez.source === 'category' ? '🗂' : '📍';
+      zoneBadge = `<span title="${tooltip}" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:500;background:${ez.zone.color}1A;color:${ez.zone.color};border:1px solid ${ez.zone.color}66;border-radius:99px;padding:1px 7px;margin-top:2px">${icon} ${escHtml(ez.zone.name)}</span>`;
+    } else {
+      // Sin zona y sin General configurada (caso muy raro: BD inconsistente)
+      zoneBadge = `<span title="Esta zona no existe — configura una zona General en Ajustes → Cocina" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:500;background:#FCEBEB;color:#A32D2D;border:1px solid #E89C9C;border-radius:99px;padding:1px 7px;margin-top:2px">⚠️ Sin zona</span>`;
+    }
     const allergenHtml = item.allergens?.length ? `<details style="margin-top:.35rem"><summary style="font-size:11px;color:var(--t3);cursor:pointer">Alérgenos (${item.allergens.length})</summary><div style="margin-top:.35rem;line-height:2">${renderAllergenPicker(item.allergens,'${item.id}')}</div></details>` : `<details style="margin-top:.35rem"><summary style="font-size:11px;color:var(--t3);cursor:pointer">+ Añadir alérgenos</summary><div style="margin-top:.35rem;line-height:2">${renderAllergenPicker([],'${item.id}')}</div></details>`;
     return `<div class="card" style="margin-bottom:.4rem;padding:.65rem .75rem;${!item.active?'opacity:.6':''}">
       <div style="display:flex;align-items:center;gap:8px">
@@ -14289,7 +14716,10 @@ async function loadAdminCartaInline() {
           <div style="font-size:13px;font-weight:500">${escHtml(item.name)}${item.requires_cooking_point?'<span style="font-size:10px;background:#FFF3E0;color:#8B5E3C;border-radius:99px;padding:1px 6px;margin-left:4px;border:1px solid #E8C9A0">Punto</span>':''}</div>
           <div style="font-size:11px;color:var(--t2)">${fmt(parseFloat(item.price))}${item.prep_time_minutes?' · ⏱'+item.prep_time_minutes+'m':''}${marginStr}${!item.active?' · <span style="color:var(--accent)">Inactivo</span>':''}</div>
           ${variantsHtml}
-          ${item.allergens?.length ? getAllergenIcons(item.allergens) : ''}
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px">
+            ${zoneBadge}
+            ${item.allergens?.length ? getAllergenIcons(item.allergens) : ''}
+          </div>
         </div>
         <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
           <button onclick="openEditItem('${item.id}')" title="Editar plato"
@@ -14302,7 +14732,13 @@ async function loadAdminCartaInline() {
   };
   cats.forEach(cat => {
     if (!grouped[cat.id]) return;
-    html += `<div class="sec-label" style="text-transform:capitalize;margin-top:.5rem">${escHtml(cat.name)}</div>`;
+    // Sub-Sprint A.4+A.6: header de categoría con zona default si la tiene
+    let catZoneInfo = '';
+    if (cat.kitchen_zone_id && zonesById[cat.kitchen_zone_id]) {
+      const z = zonesById[cat.kitchen_zone_id];
+      catZoneInfo = `<span style="font-size:10px;font-weight:400;color:${z.color};background:${z.color}1A;border:1px solid ${z.color}66;border-radius:99px;padding:1px 7px;margin-left:6px;text-transform:none">🗂 ${escHtml(z.name)}</span>`;
+    }
+    html += `<div class="sec-label" style="text-transform:capitalize;margin-top:.5rem">${escHtml(cat.name)}${catZoneInfo}</div>`;
     grouped[cat.id].forEach(item => { html += renderItem(item); });
   });
   if (grouped['__sin__']?.length) {
@@ -21349,19 +21785,30 @@ async function saveEditItem() {
   // Sincronizar variantes: borrar todas y reinsertar (suficiente para volumen esperado)
   // Solo si NO es nuevo necesitamos borrar (en nuevo no hay nada que borrar)
   if (!isNew) {
-    await sb.from('menu_item_variants').delete().eq('menu_item_id', savedItemId);
+    const { error: delErr } = await sb.from('menu_item_variants').delete().eq('menu_item_id', savedItemId);
+    if (delErr) { errEl.textContent = 'Error limpiando variantes anteriores: ' + delErr.message; errEl.style.display = 'block'; return; }
   }
   if (variantsData.length > 0) {
-    const inserts = variantsData.map((v, idx) => ({
+    // Estrategia 2 pasos para evitar choque con idx_variants_one_default:
+    // 1) INSERT todas con is_default=false → no puede chocar el constraint
+    // 2) UPDATE solo la primera (sort_order=0) con is_default=true
+    const inserts = variantsData.map((v) => ({
       menu_item_id: savedItemId,
       name: v.name,
       price: v.price,
       cost_price: v.cost_price,
       sort_order: v.sort_order,
-      is_default: idx === 0
+      is_default: false  // todas empiezan como NO default
     }));
-    const { error: vErr } = await sb.from('menu_item_variants').insert(inserts);
+    const { data: insertedVariants, error: vErr } = await sb.from('menu_item_variants').insert(inserts).select('id,sort_order');
     if (vErr) { errEl.textContent = 'Error guardando variantes: ' + vErr.message; errEl.style.display = 'block'; return; }
+    // Marcar la primera (menor sort_order) como default
+    if (insertedVariants && insertedVariants.length) {
+      const sortedIns = [...insertedVariants].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      const defaultId = sortedIns[0].id;
+      const { error: updErr } = await sb.from('menu_item_variants').update({ is_default: true }).eq('id', defaultId);
+      if (updErr) { errEl.textContent = 'Error marcando variante por defecto: ' + updErr.message; errEl.style.display = 'block'; return; }
+    }
   }
 
   closeEditItem();
