@@ -9107,9 +9107,16 @@ async function generateInvoiceFromRoom(roomId, opts = {}) {
     }).select('*').single();
     if (insErr) return { error: 'Error guardando factura: ' + insErr.message };
 
-    // 10) Stub: enviar a proveedor Verifactu (no implementado aún)
+    // 10) Sprint H Turno 3b: enviar a AEAT en background (fire-and-forget).
+    // El cliente NO espera respuesta — la factura se emite con status='pending'
+    // y la edge function actualizará el status cuando AEAT responda.
     if (rest.verifactu_enabled) {
-      // queueInvoiceForVerifactu(invoice.id) — TODO 6.4
+      // No await: queremos respuesta inmediata para no bloquear el cierre de mesa
+      fetch(`${SUPA_URL}/functions/v1/sign-and-send-invoice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPA_KEY}` },
+        body: JSON.stringify({ invoiceId: invoice.id }),
+      }).catch(e => console.warn('[sign-and-send-invoice] fire-and-forget error:', e));
     }
 
     return { invoice };
@@ -13864,42 +13871,73 @@ const VAT_RATES = [
 ];
 
 async function renderFiscalSection(container) {
-  container.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando configuración fiscal...</div>`;
+  container.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando...</div>`;
   if (!state.adminRestaurantId) return;
 
-  const { data: cfg } = await sb.from('restaurant_fiscal_config')
-    .select('*').eq('restaurant_id', state.adminRestaurantId).maybeSingle();
+  // Sprint H Turno 3a: usamos los campos que YA existen en `restaurants`
+  // + el certificado en `restaurant_fiscal_config` (única razón de que exista esa tabla)
+  const [{ data: rest }, { data: certCfg }] = await Promise.all([
+    sb.from('restaurants').select('nif, address, name, iva_rate, invoice_series_default, invoice_series, verifactu_enabled, verifactu_environment, iae_code, vat_regime')
+      .eq('id', state.adminRestaurantId).maybeSingle(),
+    sb.from('restaurant_fiscal_config').select('cert_subject, cert_issuer, cert_valid_from, cert_valid_until, cert_uploaded_at')
+      .eq('restaurant_id', state.adminRestaurantId).maybeSingle(),
+  ]);
 
-  const c = cfg || {};
-  const addr = c.fiscal_address || {};
+  const r = rest || {};
+  const c = certCfg || {};
   const certUploaded = !!c.cert_uploaded_at;
-  const isComplete = !!(c.legal_name && c.tax_id && addr.city && c.iae_code && certUploaded);
+  const profileComplete = !!(r.nif && r.address && r.name);
+  const fiscalComplete = !!(r.iae_code && r.vat_regime);
+  const isComplete = profileComplete && fiscalComplete && certUploaded;
 
-  // Status banner
+  // Banner de estado global
   let statusBanner = '';
   if (isComplete) {
     statusBanner = `<div style="background:#E1F5EE;border:1px solid #2E7D2E;border-radius:var(--r-sm);padding:.85rem 1rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:.65rem">
       <span style="font-size:18px">✓</span>
       <div style="flex:1">
         <div style="font-size:13px;font-weight:600;color:#1F5E1F">Configuración completa</div>
-        <div style="font-size:11px;color:#3B6D3B">Tu restaurante puede emitir facturas legalmente.</div>
+        <div style="font-size:11px;color:#3B6D3B">Tu restaurante puede emitir facturas legalmente con sello Verifactu.</div>
       </div>
     </div>`;
   } else {
-    statusBanner = `<div style="background:#FFF3E0;border:1px solid #C26B0A;border-radius:var(--r-sm);padding:.85rem 1rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:.65rem">
-      <span style="font-size:18px">⚠️</span>
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:600;color:#854F0B">Configuración incompleta</div>
-        <div style="font-size:11px;color:#854F0B">Para emitir facturas legalmente necesitas completar todos los campos obligatorios y subir el certificado digital.</div>
+    const missing = [];
+    if (!profileComplete) missing.push('datos del restaurante (Perfil)');
+    if (!fiscalComplete) missing.push('código IAE y régimen IVA');
+    if (!certUploaded) missing.push('certificado digital');
+    statusBanner = `<div style="background:#FFF3E0;border:1px solid #C26B0A;border-radius:var(--r-sm);padding:.85rem 1rem;margin-bottom:1.25rem">
+      <div style="display:flex;align-items:center;gap:.65rem;margin-bottom:.4rem">
+        <span style="font-size:18px">⚠️</span>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600;color:#854F0B">Configuración incompleta</div>
+        </div>
       </div>
+      <div style="font-size:12px;color:#854F0B;line-height:1.5">Falta: ${missing.join(', ')}.</div>
     </div>`;
   }
 
-  // Cert info card
+  // Card del perfil — link a sección "Perfil"
+  const profileCard = profileComplete
+    ? `<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r-sm);padding:.85rem 1rem;margin-bottom:.65rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;color:var(--t1)">${escHtml(r.name || '')}</div>
+            <div style="font-size:11px;color:var(--t3);margin-top:2px">NIF: <strong style="color:var(--t1)">${escHtml(r.nif || '')}</strong> · ${escHtml(r.address || '')}</div>
+          </div>
+          <button onclick="openAjustesSection('perfil')" style="padding:5px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--brand-d);font-size:11px;cursor:pointer;font-family:inherit">Editar →</button>
+        </div>
+      </div>`
+    : `<div style="background:#FFF5F5;border:1.5px dashed #FCCACA;border-radius:var(--r-sm);padding:1rem;text-align:center;margin-bottom:.65rem">
+        <div style="font-size:13px;color:var(--t2);margin-bottom:.65rem">Datos del restaurante incompletos (nombre, NIF, dirección)</div>
+        <button class="btn btn-primary btn-sm" onclick="openAjustesSection('perfil')">Ir a Perfil →</button>
+      </div>`;
+
+  // Card del certificado
   let certCard = '';
   if (certUploaded) {
     const validUntil = c.cert_valid_until ? new Date(c.cert_valid_until).toLocaleDateString('es-ES') : '—';
-    const subject = c.cert_subject || '(sin información extraída aún)';
+    const subject = c.cert_subject || '(pendiente de verificación)';
+    const needsParse = !c.cert_valid_until;
     certCard = `<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r-sm);padding:.85rem 1rem;margin-bottom:.65rem">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.4rem">
         <div style="display:flex;align-items:center;gap:.5rem;flex:1;min-width:0">
@@ -13909,7 +13947,10 @@ async function renderFiscalSection(container) {
             <div style="font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(subject)}</div>
           </div>
         </div>
-        <button onclick="removeFiscalCert()" style="padding:5px 10px;border-radius:var(--r-sm);border:1px solid #FCCACA;background:#FFF5F5;color:#A32D2D;font-size:11px;cursor:pointer;font-family:inherit">Eliminar</button>
+        <div style="display:flex;gap:4px">
+          ${needsParse ? `<button onclick="parseFiscalCert()" style="padding:5px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--brand-d);font-size:11px;cursor:pointer;font-family:inherit" title="Verifica y extrae datos del certificado">🔍 Verificar</button>` : ''}
+          <button onclick="removeFiscalCert()" style="padding:5px 10px;border-radius:var(--r-sm);border:1px solid #FCCACA;background:#FFF5F5;color:#A32D2D;font-size:11px;cursor:pointer;font-family:inherit">Eliminar</button>
+        </div>
       </div>
       <div style="font-size:11px;color:var(--t3)">Válido hasta: <strong style="color:var(--t1)">${validUntil}</strong></div>
     </div>`;
@@ -13925,95 +13966,96 @@ async function renderFiscalSection(container) {
   container.innerHTML = `
     ${statusBanner}
 
-    <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:.5rem">Identidad fiscal</div>
+    <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:.5rem">Datos del restaurante</div>
+    ${profileCard}
 
-    <div class="field">
-      <label>Razón social <span style="color:var(--accent)">*</span></label>
-      <input id="fiscal-legal-name" type="text" placeholder="Restauración El Marino S.L." value="${escHtml(c.legal_name || '')}">
-    </div>
+    <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin:1.25rem 0 .5rem">Certificado digital</div>
 
-    <div class="field">
-      <label>NIF / CIF <span style="color:var(--accent)">*</span></label>
-      <input id="fiscal-tax-id" type="text" placeholder="B12345678" value="${escHtml(c.tax_id || '')}" style="text-transform:uppercase">
-      <div style="font-size:11px;color:var(--t3);margin-top:3px">Persona física: 8 dígitos + letra · Sociedad: letra + 7 dígitos + control</div>
-    </div>
+    <details style="margin-bottom:1rem;border:1px solid var(--bd);border-radius:var(--r-sm);overflow:hidden">
+      <summary style="padding:.75rem 1rem;cursor:pointer;font-size:13px;font-weight:600;color:var(--brand-d);background:var(--bg2);display:flex;align-items:center;gap:.5rem;list-style:none">
+        <span style="display:inline-block;transition:transform .15s">▶</span>
+        <span>¿Qué es esto y cómo obtengo mi certificado?</span>
+      </summary>
+      <div style="padding:1rem;background:var(--card);font-size:13px;color:var(--t1);line-height:1.55">
 
-    <div class="field">
-      <label>Domicilio fiscal <span style="color:var(--accent)">*</span></label>
-      <div style="display:flex;gap:.5rem">
-        <input id="fiscal-addr-street" type="text" placeholder="Calle, avenida..." value="${escHtml(addr.street || '')}" style="flex:2">
-        <input id="fiscal-addr-number" type="text" placeholder="Nº" value="${escHtml(addr.number || '')}" style="flex:0 0 70px">
+        <div style="font-weight:600;color:var(--brand-d);margin-bottom:.4rem">📜 ¿Qué es un certificado digital?</div>
+        <p style="margin-bottom:.85rem;color:var(--t2)">
+          Es un archivo (<code style="background:var(--bg2);padding:1px 5px;border-radius:3px;font-size:11px">.pfx</code> o <code style="background:var(--bg2);padding:1px 5px;border-radius:3px;font-size:11px">.p12</code>) que actúa como tu DNI electrónico ante Hacienda. Permite firmar las facturas que emite tu negocio para que tengan validez legal y se puedan enviar a la Agencia Tributaria (Verifactu).
+        </p>
+        <p style="margin-bottom:1rem;color:var(--t2)">
+          <strong style="color:var(--t1)">Sin certificado no puedes emitir facturas legalmente con spliteat.</strong> El certificado debe estar emitido a nombre del titular del NIF/CIF del restaurante (autónomo o sociedad).
+        </p>
+
+        <div style="font-weight:600;color:var(--brand-d);margin-bottom:.4rem">📥 ¿Dónde lo consigo?</div>
+        <p style="margin-bottom:.4rem;color:var(--t2)">Los emisores oficiales en España son:</p>
+        <ul style="margin:0 0 .85rem 1.25rem;padding:0;color:var(--t2)">
+          <li style="margin-bottom:.3rem"><strong>FNMT-RCM</strong> (Fábrica Nacional de Moneda y Timbre) — gratuito, el más usado · <a href="https://www.sede.fnmt.gob.es/certificados" target="_blank" rel="noopener" style="color:var(--brand-d);text-decoration:underline">sede.fnmt.gob.es</a></li>
+          <li style="margin-bottom:.3rem"><strong>Camerfirma</strong> — de pago, más rápido · <a href="https://www.camerfirma.com" target="_blank" rel="noopener" style="color:var(--brand-d);text-decoration:underline">camerfirma.com</a></li>
+          <li style="margin-bottom:.3rem"><strong>ANCERT</strong>, <strong>AC FNMT-Usuarios</strong>, <strong>Firmaprofesional</strong>... también válidos</li>
+        </ul>
+        <p style="margin-bottom:1rem;color:var(--t2);font-size:12px;font-style:italic">
+          Si tu gestor o asesoría ya te lleva los impuestos, probablemente ya tienen el certificado y pueden enviártelo.
+        </p>
+
+        <div style="font-weight:600;color:var(--brand-d);margin-bottom:.4rem">💾 Cómo exportar el certificado a .pfx</div>
+        <p style="margin-bottom:.4rem;color:var(--t2);font-size:12px">El certificado se descarga al navegador como instalado, pero spliteat necesita el archivo en formato <code style="background:var(--bg2);padding:1px 5px;border-radius:3px;font-size:11px">.pfx</code>:</p>
+
+        <div style="background:var(--bg2);padding:.65rem .85rem;border-radius:var(--r-sm);margin-bottom:.5rem">
+          <div style="font-weight:600;font-size:12px;color:var(--t1);margin-bottom:.25rem">Chrome / Edge (Windows)</div>
+          <div style="font-size:12px;color:var(--t2)">Configuración → Privacidad y seguridad → Seguridad → Gestionar certificados → pestaña Personal → selecciona el certificado → <strong>Exportar</strong> → marca "Exportar la clave privada" → formato PFX → asigna contraseña.</div>
+        </div>
+        <div style="background:var(--bg2);padding:.65rem .85rem;border-radius:var(--r-sm);margin-bottom:.5rem">
+          <div style="font-weight:600;font-size:12px;color:var(--t1);margin-bottom:.25rem">Firefox</div>
+          <div style="font-size:12px;color:var(--t2)">Ajustes → Privacidad → Certificados → Ver certificados → Sus certificados → <strong>Hacer copia de seguridad</strong> → guarda como .p12 → asigna contraseña.</div>
+        </div>
+        <div style="background:var(--bg2);padding:.65rem .85rem;border-radius:var(--r-sm);margin-bottom:1rem">
+          <div style="font-weight:600;font-size:12px;color:var(--t1);margin-bottom:.25rem">Safari / Mac (Llavero)</div>
+          <div style="font-size:12px;color:var(--t2)">"Acceso a Llaveros" → busca tu certificado → click derecho → Exportar → formato PKCS #12 (.p12) → asigna contraseña.</div>
+        </div>
+
+        <div style="font-weight:600;color:var(--brand-d);margin-bottom:.4rem">🔒 ¿Es seguro subirlo a spliteat?</div>
+        <p style="color:var(--t2);font-size:12px">
+          Sí. El archivo se cifra con AES-256-GCM al subirlo y se guarda cifrado. La clave de cifrado está separada del archivo. Solo se descifra durante los milisegundos en que se firma cada factura.
+        </p>
       </div>
-      <div style="display:flex;gap:.5rem;margin-top:.4rem">
-        <input id="fiscal-addr-cp" type="text" placeholder="CP" value="${escHtml(addr.postal_code || '')}" style="flex:0 0 80px" maxlength="5">
-        <input id="fiscal-addr-city" type="text" placeholder="Ciudad" value="${escHtml(addr.city || '')}" style="flex:1">
-        <input id="fiscal-addr-province" type="text" placeholder="Provincia" value="${escHtml(addr.province || '')}" style="flex:1">
-      </div>
-    </div>
+    </details>
+
+    ${certCard}
+
+    <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin:1.25rem 0 .5rem">Cumplimiento fiscal</div>
 
     <div class="field">
       <label>Código IAE (actividad económica) <span style="color:var(--accent)">*</span></label>
       <select id="fiscal-iae-code">
         <option value="">— Selecciona —</option>
-        ${IAE_OPTIONS.map(o => `<option value="${o.code}" ${c.iae_code === o.code ? 'selected' : ''}>${o.label}</option>`).join('')}
+        ${IAE_OPTIONS.map(o => `<option value="${o.code}" ${r.iae_code === o.code ? 'selected' : ''}>${o.label}</option>`).join('')}
       </select>
     </div>
-
-    <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin:1.25rem 0 .5rem">Certificado digital</div>
-
-    ${certCard}
-
-    <div style="font-size:11px;color:var(--t3);line-height:1.4;background:var(--bg2);padding:8px 10px;border-radius:var(--r-sm);margin-bottom:1rem">
-      💡 El certificado debe estar emitido a nombre del titular del NIF/CIF (FNMT, Camerfirma, etc.). Se almacena cifrado con AES-256-GCM y solo se descifra en el momento de firmar cada factura.
-    </div>
-
-    <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin:1.25rem 0 .5rem">IVA y numeración</div>
 
     <div class="field">
       <label>Régimen de IVA</label>
       <select id="fiscal-vat-regime">
-        ${VAT_REGIME_OPTIONS.map(o => `<option value="${o.value}" ${(c.vat_regime || 'general') === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
+        ${VAT_REGIME_OPTIONS.map(o => `<option value="${o.value}" ${(r.vat_regime || 'general') === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
       </select>
-    </div>
-
-    <div class="field">
-      <label>IVA por defecto</label>
-      <select id="fiscal-default-vat">
-        ${VAT_RATES.map(r => `<option value="${r.value}" ${parseFloat(c.default_vat_rate || 10) === r.value ? 'selected' : ''}>${r.label}</option>`).join('')}
-      </select>
-      <div style="font-size:11px;color:var(--t3);margin-top:3px">Cada plato puede tener su propio IVA en su ficha (ej: bebidas al 21%).</div>
-    </div>
-
-    <div style="display:flex;gap:.5rem">
-      <div class="field" style="flex:1">
-        <label>Serie de facturas</label>
-        <input id="fiscal-series" type="text" placeholder="A" value="${escHtml(c.invoice_series || 'A')}" maxlength="3" style="text-transform:uppercase">
-      </div>
-      <div class="field" style="flex:1">
-        <label>Última factura emitida</label>
-        <input id="fiscal-number" type="number" placeholder="0" value="${c.invoice_number_current || 0}" min="0">
-        <div style="font-size:11px;color:var(--t3);margin-top:3px">Si vienes de otro sistema</div>
-      </div>
     </div>
 
     <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin:1.25rem 0 .5rem">Modalidad y entorno</div>
 
     <div class="field">
       <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
-        <input type="checkbox" id="fiscal-verifactu-enabled" ${c.verifactu_enabled !== false ? 'checked' : ''}>
+        <input type="checkbox" id="fiscal-verifactu-enabled" ${r.verifactu_enabled !== false ? 'checked' : ''}>
         <span>Enviar facturas a Hacienda en tiempo real (Verifactu)</span>
       </label>
-      <div style="font-size:11px;color:var(--t3);margin-top:3px;margin-left:1.5rem">Recomendado. Las facturas llevan sello "Verifactu" + QR. Sin esto, las facturas quedan firmadas pero solo se envían a AEAT bajo demanda.</div>
+      <div style="font-size:11px;color:var(--t3);margin-top:3px;margin-left:1.5rem">Recomendado. Las facturas llevan sello "Verifactu" + QR.</div>
     </div>
 
     <div class="field">
-      <label>Entorno de pruebas</label>
+      <label>Entorno de envío</label>
       <select id="fiscal-environment">
-        <option value="mock"       ${(c.environment || 'mock') === 'mock' ? 'selected' : ''}>🧪 Mock — sin red, simulación local (desarrollo)</option>
-        <option value="sandbox"    ${c.environment === 'sandbox' ? 'selected' : ''}>🛠 Sandbox AEAT — pre-producción real</option>
-        <option value="production" ${c.environment === 'production' ? 'selected' : ''}>🏛 Producción — facturas reales a Hacienda</option>
+        <option value="test"        ${(r.verifactu_environment || 'test') === 'test' ? 'selected' : ''}>🧪 Test — sandbox AEAT pre-producción</option>
+        <option value="production"  ${r.verifactu_environment === 'production' ? 'selected' : ''}>🏛 Producción — facturas reales a Hacienda</option>
       </select>
-      <div style="font-size:11px;color:#A32D2D;margin-top:3px">⚠️ Cambiar a "Producción" sólo cuando hayas validado en Sandbox.</div>
+      <div style="font-size:11px;color:#A32D2D;margin-top:3px">⚠️ Cambiar a "Producción" sólo cuando hayas validado en Test.</div>
     </div>
 
     <div style="display:flex;gap:.5rem;margin-top:1.5rem">
@@ -14024,68 +14066,26 @@ async function renderFiscalSection(container) {
 }
 
 async function saveFiscalConfig() {
-  const legal_name = document.getElementById('fiscal-legal-name')?.value?.trim();
-  const tax_id     = document.getElementById('fiscal-tax-id')?.value?.trim()?.toUpperCase();
-  const street     = document.getElementById('fiscal-addr-street')?.value?.trim();
-  const number     = document.getElementById('fiscal-addr-number')?.value?.trim();
-  const cp         = document.getElementById('fiscal-addr-cp')?.value?.trim();
-  const city       = document.getElementById('fiscal-addr-city')?.value?.trim();
-  const province   = document.getElementById('fiscal-addr-province')?.value?.trim();
-  const iae_code   = document.getElementById('fiscal-iae-code')?.value;
-  const vat_regime = document.getElementById('fiscal-vat-regime')?.value;
-  const default_vat_rate = parseFloat(document.getElementById('fiscal-default-vat')?.value || 10);
-  const invoice_series = document.getElementById('fiscal-series')?.value?.trim()?.toUpperCase() || 'A';
-  const invoice_number_current = parseInt(document.getElementById('fiscal-number')?.value || '0', 10);
-  const verifactu_enabled = !!document.getElementById('fiscal-verifactu-enabled')?.checked;
-  const environment = document.getElementById('fiscal-environment')?.value || 'mock';
-
-  // Validaciones mínimas
-  if (legal_name && tax_id && !/^[A-Z0-9]{9}$/.test(tax_id)) {
-    notify('NIF/CIF debe tener 9 caracteres alfanuméricos', 'error');
-    return;
-  }
-  if (cp && !/^\d{5}$/.test(cp)) {
-    notify('Código postal debe tener 5 dígitos', 'error');
-    return;
-  }
-
-  const fiscal_address = (street || number || cp || city || province)
-    ? { street, number, postal_code: cp, city, province, country: 'ES' }
-    : null;
-
+  // Sprint H Turno 3a: solo guardamos los campos NUEVOS que no gestiona "Perfil"
+  // (IAE, régimen IVA, verifactu enabled, environment) en `restaurants`.
   const payload = {
-    restaurant_id: state.adminRestaurantId,
-    legal_name: legal_name || null,
-    tax_id: tax_id || null,
-    fiscal_address,
-    iae_code: iae_code || null,
-    vat_regime: vat_regime || 'general',
-    default_vat_rate,
-    invoice_series,
-    invoice_number_current,
-    verifactu_enabled,
-    environment,
+    iae_code: document.getElementById('fiscal-iae-code')?.value || null,
+    vat_regime: document.getElementById('fiscal-vat-regime')?.value || 'general',
+    verifactu_enabled: !!document.getElementById('fiscal-verifactu-enabled')?.checked,
+    verifactu_environment: document.getElementById('fiscal-environment')?.value || 'test',
   };
 
-  // Si todos los obligatorios están + cert subido → marcar configured_at
-  const { data: existing } = await sb.from('restaurant_fiscal_config')
-    .select('cert_uploaded_at, configured_at').eq('restaurant_id', state.adminRestaurantId).maybeSingle();
-  const certUp = !!existing?.cert_uploaded_at;
-  const isComplete = !!(legal_name && tax_id && city && iae_code && certUp);
-  if (isComplete && !existing?.configured_at) {
-    payload.configured_at = new Date().toISOString();
-  }
-
-  const { error } = await sb.from('restaurant_fiscal_config').upsert(payload, { onConflict: 'restaurant_id' });
+  const { error } = await sb.from('restaurants').update(payload).eq('id', state.adminRestaurantId);
   if (error) { notify('Error al guardar: ' + error.message, 'error'); return; }
   notify('Configuración fiscal guardada', 'success');
-  // Re-render para refrescar el banner de estado
+
   const content = document.getElementById('ajustes-panel-content');
   if (content) renderFiscalSection(content);
-  // Actualizar badge en el sidebar
   updateFiscalStatusBadge();
 }
 
+
+// Sprint H Turno 3a: subir certificado (sigue igual que antes — usa edge function encrypt-cert)
 async function onFiscalPfxSelected(event) {
   const file = event.target.files?.[0];
   if (!file) return;
@@ -14097,19 +14097,15 @@ async function onFiscalPfxSelected(event) {
     notify('El certificado supera 1 MB. Debe haber un error.', 'error');
     return;
   }
-
-  // Pedir contraseña con un modal sencillo
   const password = await _promptCertPassword();
   if (password === null) { event.target.value = ''; return; }
 
-  // Convertir a base64
   const arrayBuffer = await file.arrayBuffer();
   const bytes = new Uint8Array(arrayBuffer);
   let binary = '';
   for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
   const pfxBase64 = btoa(binary);
 
-  // Llamar a edge function encrypt-cert
   notify('Subiendo y cifrando certificado...', 'info');
   try {
     const res = await fetch(`${SUPA_URL}/functions/v1/encrypt-cert`, {
@@ -14129,7 +14125,6 @@ async function onFiscalPfxSelected(event) {
       return;
     }
     notify('✓ Certificado guardado de forma segura', 'success');
-    // Re-render
     const content = document.getElementById('ajustes-panel-content');
     if (content) renderFiscalSection(content);
     updateFiscalStatusBadge();
@@ -14153,6 +14148,28 @@ async function removeFiscalCert() {
     const content = document.getElementById('ajustes-panel-content');
     if (content) renderFiscalSection(content);
     updateFiscalStatusBadge();
+  } catch (e) {
+    notify('Error: ' + e.message, 'error');
+  }
+}
+
+async function parseFiscalCert() {
+  notify('Verificando certificado...', 'info');
+  try {
+    const res = await fetch(`${SUPA_URL}/functions/v1/parse-cert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPA_KEY}` },
+      body: JSON.stringify({ restaurantId: state.adminRestaurantId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      notify('Error: ' + (data.error || 'No se pudo parsear el certificado'), 'error');
+      return;
+    }
+    const validUntil = data.validUntil ? new Date(data.validUntil).toLocaleDateString('es-ES') : '—';
+    notify(`✓ Certificado válido. Válido hasta: ${validUntil}`, 'success');
+    const content = document.getElementById('ajustes-panel-content');
+    if (content) renderFiscalSection(content);
   } catch (e) {
     notify('Error: ' + e.message, 'error');
   }
@@ -14192,16 +14209,18 @@ function _promptCertPassword() {
 async function updateFiscalStatusBadge() {
   const badge = document.getElementById('fiscal-status-badge');
   if (!badge || !state.adminRestaurantId) return;
-  const { data: cfg } = await sb.from('restaurant_fiscal_config')
-    .select('legal_name,tax_id,fiscal_address,iae_code,cert_uploaded_at,configured_at')
-    .eq('restaurant_id', state.adminRestaurantId).maybeSingle();
-  if (!cfg) {
-    badge.textContent = '● No configurado';
-    badge.style.color = 'var(--accent)';
-    return;
-  }
-  const addr = cfg.fiscal_address || {};
-  const isComplete = !!(cfg.legal_name && cfg.tax_id && addr.city && cfg.iae_code && cfg.cert_uploaded_at);
+  // Sprint H Turno 3a: completitud = perfil (NIF, address, name) + IAE/régimen + certificado
+  const [{ data: rest }, { data: cfg }] = await Promise.all([
+    sb.from('restaurants').select('nif, address, name, iae_code, vat_regime')
+      .eq('id', state.adminRestaurantId).maybeSingle(),
+    sb.from('restaurant_fiscal_config').select('cert_uploaded_at')
+      .eq('restaurant_id', state.adminRestaurantId).maybeSingle(),
+  ]);
+  const r = rest || {};
+  const profileComplete = !!(r.nif && r.address && r.name);
+  const fiscalComplete = !!(r.iae_code && r.vat_regime);
+  const certUploaded = !!cfg?.cert_uploaded_at;
+  const isComplete = profileComplete && fiscalComplete && certUploaded;
   if (isComplete) {
     badge.textContent = '✓';
     badge.style.color = '#2E7D2E';
@@ -22273,7 +22292,7 @@ async function loadFacturas() {
   const { data: guests } = await sb.from('guests').select('id,room_id').in('room_id', roomIds);
   // Cargar facturas legales (Verifactu) asociadas
   const { data: invoices } = await sb.from('invoices')
-    .select('id,room_id,display_number,verifactu_status,total_amount')
+    .select('id,room_id,display_number,verifactu_status,verifactu_csv,verifactu_error_msg,verifactu_retry_count,total_amount')
     .in('room_id', roomIds);
 
   const paysByRoom = {};
@@ -22313,8 +22332,22 @@ async function loadFacturas() {
     const tableLabel = r.tables ? `Mesa ${r.tables.number}${r.tables.label?' — '+r.tables.label:''}` : 'Mesa';
     const d = r.closed_at ? new Date(r.closed_at).toLocaleString('es-ES',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
     const inv = invoiceByRoom[r.id];
+    // Sprint H Turno 3b: badge de estado Verifactu visible
+    const _vfStatusInfo = inv ? (() => {
+      switch (inv.verifactu_status) {
+        case 'accepted': return { color: '#085041', bg: '#E1F5EE', icon: '✓', label: 'CSV: ' + (inv.verifactu_csv || '?').substring(0, 10) };
+        case 'pending':  return { color: '#854F0B', bg: '#FFF3E0', icon: '⏳', label: 'Pendiente envío' };
+        case 'sending':  return { color: '#185FA5', bg: '#E5F0FA', icon: '↻', label: 'Enviando...' };
+        case 'error':    return { color: '#A32D2D', bg: '#FCEBEB', icon: '⚠', label: `Error (${inv.verifactu_retry_count || 0})` };
+        case 'skipped':  return { color: '#444',    bg: '#EEE',    icon: '–', label: 'No-Verifactu' };
+        default:         return { color: '#444',    bg: '#EEE',    icon: '?', label: inv.verifactu_status };
+      }
+    })() : null;
     const legalBadge = inv
-      ? `<span style="font-size:9px;font-weight:600;background:#E1F5EE;color:#085041;padding:1px 6px;border-radius:99px;margin-left:4px;border:1px solid #085041">🧾 ${escHtml(inv.display_number)}</span>`
+      ? `<span style="font-size:9px;font-weight:600;background:#E1F5EE;color:#085041;padding:1px 6px;border-radius:99px;margin-left:4px;border:1px solid #085041">🧾 ${escHtml(inv.display_number)}</span>${_vfStatusInfo ? `<span title="${escHtml(inv.verifactu_error_msg || _vfStatusInfo.label)}" style="font-size:9px;font-weight:600;background:${_vfStatusInfo.bg};color:${_vfStatusInfo.color};padding:1px 6px;border-radius:99px;margin-left:3px">${_vfStatusInfo.icon} ${escHtml(_vfStatusInfo.label)}</span>` : ''}`
+      : '';
+    const retryBtn = (inv && inv.verifactu_status === 'error')
+      ? `<button onclick="event.stopPropagation();_retryVerifactuSend('${inv.id}')" title="Reintentar envío a AEAT" style="flex-shrink:0;padding:5px 8px;border-radius:var(--r-sm);border:1px solid #C26B0A;background:#FFF3E0;color:#854F0B;cursor:pointer;font-size:13px;line-height:1">↻</button>`
       : '';
     const printBtn = inv
       ? `<button onclick="event.stopPropagation();printInvoice('${inv.id}')" title="Imprimir factura legal" style="flex-shrink:0;padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--brand);background:var(--brand-l);color:var(--brand-d);cursor:pointer;font-size:13px;line-height:1">🧾</button>`
@@ -22330,6 +22363,7 @@ async function loadFacturas() {
           ${rPays.length===nGuests&&nGuests>0?'✓ Pagada':'Pendiente'}
         </div>
       </div>
+      ${retryBtn}
       ${printBtn}
       <button onclick="event.stopPropagation();downloadFacturaPDF('${r.id}')"
         title="Descargar PDF interno"
@@ -22338,6 +22372,33 @@ async function loadFacturas() {
       </button>
     </div>`;
   }).join('');
+}
+
+// Sprint H Turno 3b: reintentar envío de factura a AEAT (manual)
+async function _retryVerifactuSend(invoiceId) {
+  notify('Reintentando envío a AEAT...', 'info');
+  try {
+    const res = await fetch(`${SUPA_URL}/functions/v1/sign-and-send-invoice`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPA_KEY}` },
+      body: JSON.stringify({ invoiceId }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      notify('Error: ' + (data.error || 'No se pudo reintentar'), 'error');
+      return;
+    }
+    if (data.success) {
+      notify(`✓ Factura aceptada por AEAT. CSV: ${data.csv}`, 'success');
+    } else if (data.skipped) {
+      notify(`Saltado: ${data.skipped}`, 'info');
+    } else {
+      notify(`Reintento fallido: ${data.errorMsg || data.errorCode || 'desconocido'}`, 'error');
+    }
+    loadFacturas();
+  } catch (e) {
+    notify('Error: ' + e.message, 'error');
+  }
 }
 
 // Genera retroactivamente la factura legal de un room cerrado que aún no tiene factura
