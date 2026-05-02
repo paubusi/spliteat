@@ -443,6 +443,12 @@
     background: var(--card);
     flex-shrink: 0;
   }
+  /* Mobile: ocultar texto de leyenda y label del toggle (solo iconos para no ocupar) */
+  @media (max-width: 599px) {
+    .floor-legend-text { display: none; }
+    .floor-toggle-label { display: none; }
+    #floor-view-toggle { padding: 4px 8px !important; }
+  }
   .admin-mobile-tabs {
     display: flex; background: var(--card); border-top: 1px solid var(--bd);
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
@@ -2465,34 +2471,42 @@
 
     <!-- TAB EN CURSO — Mesas activas con estado de pago -->
     <div id="atab-encurso" style="display:none;flex-direction:column;height:calc(100dvh - 110px);overflow:hidden">
-      <!-- Header bar -->
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:.6rem 1.25rem;border-bottom:1px solid var(--bd);background:var(--card);flex-shrink:0">
-        <div style="display:flex;align-items:center;gap:.75rem">
-          <div class="live-badge"><div class="live-dot"></div><span>Tiempo real</span></div>
-          <span style="color:var(--bd2);font-size:14px;line-height:1">|</span>
-          <div style="display:flex;gap:.4rem;font-size:11px;flex-wrap:wrap">
-            <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:#E24B4A;display:inline-block"></span>Con pedidos</span>
-            <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:#EF9F27;display:inline-block"></span>Pagando</span>
-            <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:#854F0B;display:inline-block"></span>Pendiente limpieza</span>
-            <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:50%;background:#22C55E;display:inline-block"></span>Libre y limpia</span>
+      <!-- Header bar — Sub-Sprint A.4+A.6: compactado para móvil -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:.5rem .85rem;border-bottom:1px solid var(--bd);background:var(--card);flex-shrink:0;gap:.5rem;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:.5rem;flex:1;min-width:0">
+          <div class="live-badge" style="flex-shrink:0"><div class="live-dot"></div><span>En vivo</span></div>
+          <!-- Leyenda compacta: solo dots con tooltip -->
+          <div style="display:flex;gap:6px;font-size:10px;align-items:center;flex-wrap:wrap" title="Estados de mesa">
+            <span style="display:flex;align-items:center;gap:3px" title="Con pedidos"><span style="width:9px;height:9px;border-radius:50%;background:#E24B4A;display:inline-block"></span><span class="floor-legend-text">Con pedidos</span></span>
+            <span style="display:flex;align-items:center;gap:3px" title="Pagando"><span style="width:9px;height:9px;border-radius:50%;background:#EF9F27;display:inline-block"></span><span class="floor-legend-text">Pagando</span></span>
+            <span style="display:flex;align-items:center;gap:3px" title="Pendiente limpieza"><span style="width:9px;height:9px;border-radius:50%;background:#854F0B;display:inline-block"></span><span class="floor-legend-text">Limpieza</span></span>
+            <span style="display:flex;align-items:center;gap:3px" title="Libre y limpia"><span style="width:9px;height:9px;border-radius:50%;background:#22C55E;display:inline-block"></span><span class="floor-legend-text">Libre</span></span>
           </div>
         </div>
-        <div style="display:flex;gap:.5rem;align-items:center">
-          <select id="floor-view" onchange="loadFloorPlan()" style="font-size:12px;padding:3px 6px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-family:inherit">
+        <div style="display:flex;gap:.4rem;align-items:center;flex-shrink:0">
+          <!-- Toggle vista plano / cuadrícula -->
+          <button id="floor-view-toggle" onclick="toggleFloorViewMode()" title="Cambiar vista" style="font-size:11px;padding:3px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-family:inherit;color:var(--t2);cursor:pointer;display:flex;align-items:center;gap:4px">
+            <span id="floor-view-toggle-icon">⊞</span><span id="floor-view-toggle-label" class="floor-toggle-label">Cuadrícula</span>
+          </button>
+          <select id="floor-view" onchange="loadFloorPlan()" style="font-size:11px;padding:3px 6px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-family:inherit">
             <option value="all">Todas</option>
             <option value="interior">Interior</option>
             <option value="terraza">Terraza</option>
           </select>
-          <button onclick="loadFloorPlan()" style="font-size:12px;color:var(--t2);background:none;border:none;cursor:pointer;font-family:inherit;padding:3px 8px;border:1px solid var(--bd);border-radius:var(--r-sm)">↻</button>
+          <button onclick="loadFloorPlan()" title="Refrescar" style="font-size:12px;color:var(--t2);background:var(--bg);border:1px solid var(--bd2);border-radius:var(--r-sm);cursor:pointer;font-family:inherit;padding:3px 8px">↻</button>
         </div>
       </div>
 
-      <!-- Floor plan canvas — draggable tables -->
-      <!-- Sub-Sprint A.4+A.6: scroll horizontal y ancho mínimo en mobile para evitar solape -->
+      <!-- Floor plan canvas — draggable tables (vista plano detallada) -->
       <div id="floor-plan-wrap" style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch">
         <div id="floor-plan" style="position:relative;width:100%;min-width:600px;height:100%;min-height:400px;background:repeating-linear-gradient(0deg,transparent,transparent 39px,var(--bd) 39px,var(--bd) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,var(--bd) 39px,var(--bd) 40px);background-color:var(--bg2)">
           <div id="floor-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:14px">Cargando plano...</div>
         </div>
+      </div>
+
+      <!-- Floor grid (vista cuadrícula compacta) — Sub-Sprint A.4+A.6 -->
+      <div id="floor-grid-wrap" style="display:none;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:.85rem .85rem 1.25rem;background:var(--bg2)">
+        <div id="floor-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:.5rem"></div>
       </div>
 
       <!-- Click-to-manage panel (slides in from right) -->
@@ -2549,14 +2563,16 @@
     </div>
 
     <!-- CALLEAT QR MODAL -->
-    <div id="calleat-qr-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9100;align-items:center;justify-content:center;padding:1rem">
-      <div style="background:var(--card);border-radius:var(--r-lg);max-width:400px;width:100%;padding:0;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)">
-        <!-- Close -->
-        <div style="display:flex;justify-content:flex-end;padding:.75rem .75rem 0">
-          <button onclick="document.getElementById('calleat-qr-modal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2);line-height:1">✕</button>
+    <div id="calleat-qr-modal" onclick="if(event.target===this)this.style.display='none'" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9100;align-items:center;justify-content:center;padding:1rem;overflow-y:auto">
+      <div onclick="event.stopPropagation()" style="background:var(--card);border-radius:var(--r-lg);max-width:400px;width:100%;max-height:calc(100dvh - 2rem);padding:0;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3);display:flex;flex-direction:column">
+        <!-- Close (sticky top) -->
+        <div style="display:flex;justify-content:flex-end;padding:.75rem .75rem 0;flex-shrink:0;background:var(--card);position:sticky;top:0;z-index:2">
+          <button onclick="document.getElementById('calleat-qr-modal').style.display='none'" aria-label="Cerrar" style="background:var(--bg2);border:1px solid var(--bd);border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;color:var(--t1);line-height:1;display:flex;align-items:center;justify-content:center">✕</button>
         </div>
-        <!-- Printable card -->
-        <div id="calleat-qr-card" style="padding:1.5rem 2rem 2rem;text-align:center">
+        <!-- Scrollable content area -->
+        <div style="overflow-y:auto;flex:1;min-height:0">
+          <!-- Printable card -->
+          <div id="calleat-qr-card" style="padding:.5rem 2rem 2rem;text-align:center">
           <!-- Logo calleat -->
           <div style="font-family:'Fraunces',serif;font-size:32px;font-weight:700;color:var(--brand-d);letter-spacing:-.5px;margin-bottom:.25rem">
             call<span style="color:#D85A30">eat</span>
@@ -2595,8 +2611,10 @@
             </div>
           </div>
         </div>
-        <!-- Actions -->
-        <div style="padding:.75rem 1.25rem 1.25rem;display:flex;gap:.5rem">
+        <!-- /scrollable -->
+        </div>
+        <!-- Actions (sticky bottom) -->
+        <div style="padding:.75rem 1.25rem 1.25rem;display:flex;gap:.5rem;flex-shrink:0;border-top:1px solid var(--bd);background:var(--card)">
           <button onclick="printCalleatQR()" class="btn btn-primary" style="flex:1">🖨️ Imprimir</button>
           <button onclick="downloadCalleatQR()" class="btn btn-secondary" style="flex:1">⬇ Descargar</button>
         </div>
@@ -3486,20 +3504,45 @@ function escHtml(str) {
 
 // ── UI: notify() reemplaza alert() — no bloquea el UI thread ──
 // ── #5: Notification history ──
-const _notifHistory = []; // { msg, type, ts }
+// Sub-Sprint A.4+A.6: historial persistente en localStorage
+// Sobrevive a recargas de página y navegaciones internas
+let _notifHistory = [];
 const _MAX_NOTIF = 50;
+const _NOTIF_STORAGE_KEY = '_spliteatNotifHistory';
+
+// Cargar al inicio
+try {
+  const saved = localStorage.getItem(_NOTIF_STORAGE_KEY);
+  if (saved) {
+    _notifHistory = JSON.parse(saved);
+    if (!Array.isArray(_notifHistory)) _notifHistory = [];
+  }
+} catch (e) { _notifHistory = []; }
+
+function _saveNotifHistory() {
+  try {
+    localStorage.setItem(_NOTIF_STORAGE_KEY, JSON.stringify(_notifHistory));
+  } catch (e) { /* non-blocking */ }
+}
+
+// Re-renderiza el panel de manageat si está abierto (para que las nuevas notificaciones aparezcan en directo)
+function _refreshAdminNotifPanelIfOpen() {
+  const panel = document.getElementById('admin-notif-panel');
+  if (panel && panel.style.display !== 'none' && typeof renderAdminNotifList === 'function') {
+    renderAdminNotifList();
+  }
+}
 
 function notify(msg, type = 'error') {
   const icons = { error: '⚠️', success: '✓', info: 'ℹ️', warning: '⚠️' };
-  // Sub-Sprint A.4+A.6: showToast ahora se encarga del push al historial.
-  // Evitamos el doble push manual (antes notify hacía push aparte y era duplicado).
-  // Para preservar el "type", guardamos en historial ANTES de showToast con el msg limpio.
+  // Guardamos antes de showToast con el msg limpio (sin icono)
   _notifHistory.unshift({ msg, type, ts: Date.now() });
   if (_notifHistory.length > _MAX_NOTIF) _notifHistory.pop();
-  // Truco: marcar para que showToast no haga su propio push (el msg lleva el icono → distinto al que metimos)
+  _saveNotifHistory();
   _suppressNextToastHistory = true;
   showToast(icons[type] + ' ' + msg, type);
-  _updateAdminNotifBadge && _updateAdminNotifBadge();
+  if (typeof _updateAdminNotifBadge === 'function') _updateAdminNotifBadge();
+  _refreshAdminNotifPanelIfOpen();
 }
 let _suppressNextToastHistory = false;
 
@@ -4492,7 +4535,9 @@ function showToast(title, body) {
     const fullMsg = body ? (title + ' — ' + body) : title;
     _notifHistory.unshift({ msg: fullMsg, type: 'info', ts: Date.now() });
     if (_notifHistory.length > _MAX_NOTIF) _notifHistory.pop();
+    if (typeof _saveNotifHistory === 'function') _saveNotifHistory();
     if (typeof _updateAdminNotifBadge === 'function') _updateAdminNotifBadge();
+    if (typeof _refreshAdminNotifPanelIfOpen === 'function') _refreshAdminNotifPanelIfOpen();
   }
 
   const existing = document.getElementById('spliteat-toast');
@@ -16852,6 +16897,100 @@ async function loadWaiterStatusBar() {
   }).join('');
 }
 
+// Sub-Sprint A.4+A.6: vista cuadrícula compacta para móviles con muchas mesas
+let _floorViewMode = 'plano';  // 'plano' | 'grid'
+
+function toggleFloorViewMode() {
+  _floorViewMode = (_floorViewMode === 'plano') ? 'grid' : 'plano';
+  // Recordar preferencia
+  try { localStorage.setItem('_floorViewMode', _floorViewMode); } catch (e) {}
+  applyFloorViewMode();
+  loadFloorPlan(); // re-render según modo
+}
+
+function applyFloorViewMode() {
+  const planoWrap = document.getElementById('floor-plan-wrap');
+  const gridWrap = document.getElementById('floor-grid-wrap');
+  const tIcon = document.getElementById('floor-view-toggle-icon');
+  const tLabel = document.getElementById('floor-view-toggle-label');
+  if (_floorViewMode === 'grid') {
+    if (planoWrap) planoWrap.style.display = 'none';
+    if (gridWrap) gridWrap.style.display = 'block';
+    if (tIcon) tIcon.textContent = '⛶';
+    if (tLabel) tLabel.textContent = 'Plano';
+  } else {
+    if (planoWrap) planoWrap.style.display = '';
+    if (gridWrap) gridWrap.style.display = 'none';
+    if (tIcon) tIcon.textContent = '⊞';
+    if (tLabel) tLabel.textContent = 'Cuadrícula';
+  }
+}
+
+// Cargar preferencia al iniciar
+try {
+  const saved = localStorage.getItem('_floorViewMode');
+  if (saved === 'grid' || saved === 'plano') _floorViewMode = saved;
+} catch (e) {}
+
+// Render del grid compacto — usa los mismos datos que loadFloorPlan
+function renderFloorGrid(tables, openRoomsByTable, dirtyByTable, paysByRoom, guestsByRoom, waiterById) {
+  const gridEl = document.getElementById('floor-grid');
+  if (!gridEl) return;
+  if (!tables || tables.length === 0) {
+    gridEl.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--t3);font-size:13px">No hay mesas</div>';
+    return;
+  }
+  // Ordenar por número
+  const sorted = [...tables].sort((a, b) => (parseInt(a.number) || 0) - (parseInt(b.number) || 0));
+
+  gridEl.innerHTML = sorted.map(t => {
+    const room = openRoomsByTable[t.id];
+    const dirty = dirtyByTable[t.id];
+    const guestCount = room ? (guestsByRoom[room.id] || 0) : 0;
+    const paidCount = room ? (paysByRoom[room.id] || 0) : 0;
+    const allPaid = room && guestCount > 0 && paidCount >= guestCount;
+    const paying = room && paidCount > 0 && !allPaid;
+
+    let bg = '#22C55E', fg = '#fff', label = '', emoji = '';
+    if (dirty)                                 { bg = '#854F0B'; emoji = '🧹'; label = 'Limpieza'; }
+    else if (allPaid && room && !room.closed)  { bg = '#854F0B'; emoji = '✅'; label = 'Pagada'; }
+    else if (paying)                            { bg = '#EF9F27'; emoji = '💳'; label = 'Pagando'; }
+    else if (room && !room.closed)              { bg = '#E24B4A'; emoji = '🍽'; label = 'Activa'; }
+    else                                        { bg = '#22C55E'; emoji = '';  label = 'Libre'; }
+
+    const safeNum = escHtml(String(t.number || '?'));
+    const safeLabel = escHtml(t.label || '');
+
+    // El click sigue abriendo el mismo panel de detalle
+    return ''
+      + '<button onclick="_gridTableClick(\'' + t.id + '\')" style="position:relative;background:' + bg + ';color:' + fg + ';border:none;border-radius:10px;padding:.65rem .25rem;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;aspect-ratio:1;min-height:64px;box-shadow:0 1px 3px rgba(0,0,0,.1)" '
+      +   'title="Mesa ' + safeNum + (safeLabel ? ' — ' + safeLabel : '') + ' · ' + label + '">'
+      +   (emoji ? '<div style="font-size:13px;line-height:1;margin-bottom:2px;opacity:.9">' + emoji + '</div>' : '')
+      +   '<div style="font-size:18px;font-weight:700;line-height:1">' + safeNum + '</div>'
+      +   (safeLabel ? '<div style="font-size:9px;opacity:.85;margin-top:1px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 4px">' + safeLabel + '</div>' : '')
+      +   (guestCount > 0 ? '<div style="font-size:10px;opacity:.85;margin-top:2px">' + guestCount + 'p</div>' : '')
+      + '</button>';
+  }).join('');
+}
+
+// Click handler en el grid: encontrar la table + room y llamar al mismo panel
+async function _gridTableClick(tableId) {
+  const { data: table } = await sb.from('tables').select('*').eq('id', tableId).maybeSingle();
+  if (!table) return;
+  const { data: rooms } = await sb.from('rooms').select('*').eq('table_id', tableId).eq('closed', false);
+  const room = (rooms && rooms[0]) || null;
+  let paidCount = 0, guestCount = 0;
+  if (room) {
+    const [{ count: pc }, { count: gc }] = await Promise.all([
+      sb.from('payments').select('id', { count: 'exact', head: true }).eq('room_id', room.id),
+      sb.from('guests').select('id', { count: 'exact', head: true }).eq('room_id', room.id)
+    ]);
+    paidCount = pc || 0;
+    guestCount = gc || 0;
+  }
+  if (typeof showTableDetail === 'function') showTableDetail(table, room, paidCount, guestCount);
+}
+
 async function loadFloorPlan() {
   const plan = document.getElementById('floor-plan');
   const loading = document.getElementById('floor-loading');
@@ -16914,6 +17053,14 @@ async function loadFloorPlan() {
   // Filter by zone
   const filteredTables = floorFilter === 'all' ? tables :
     tables.filter(t => (t.label || '').toLowerCase().includes(floorFilter.toLowerCase()));
+
+  // Sub-Sprint A.4+A.6: si estamos en modo cuadrícula, render alternativo y salir
+  applyFloorViewMode();
+  if (_floorViewMode === 'grid') {
+    if (loading) loading.style.display = 'none';
+    renderFloorGrid(filteredTables, activeRoomsByTable, dirtyClosedByTable, paysByRoom, guestsByRoom, waiterById);
+    return;
+  }
 
   // Render tables on plan
   const planW = plan.offsetWidth || 800;
