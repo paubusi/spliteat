@@ -3664,6 +3664,17 @@ let state = {
   adminRestaurantId: null, adminRestaurantName: '',
   adminRole: 'admin', // 'admin' | 'cocina'
   kitchenRestaurantId: null,
+  // Sprint A: config del restaurante para modos KDS (poblado en openKitchen)
+  kitchenConfig: {
+    kds_one_click_mode: false,
+    auto_deliver_enabled: false,
+    kitchen_chief_required: false,
+    kitchen_zones_enabled: false,
+    kds_card_hide_after_seconds: 30
+  },
+  // Sprint A.4: rol del cocinero logueado en cookeat ('chef' | 'kitchen_chief' | etc.)
+  // Por ahora 'chef' por defecto — futuro turno: pedir login con waiter para identificarse
+  kitchenUserRole: 'chef',
   realtimeSubs: [],
   payments: []
 };
@@ -8025,6 +8036,25 @@ function _restoreStockeatNodeToManageat() {
 async function openKitchen(restaurantId, restaurantName) {
   state.kitchenRestaurantId = restaurantId;
   state.adminRole = 'cocina'; // cookeat always has full kitchen write access
+
+  // Sprint A: cargar flags de configuración del restaurante (modo KDS)
+  try {
+    const { data: cfg } = await sb.from('restaurants')
+      .select('kds_one_click_mode,auto_deliver_enabled,kitchen_chief_required,kitchen_zones_enabled,kds_card_hide_after_seconds')
+      .eq('id', restaurantId).maybeSingle();
+    if (cfg) {
+      state.kitchenConfig = {
+        kds_one_click_mode: !!cfg.kds_one_click_mode,
+        auto_deliver_enabled: !!cfg.auto_deliver_enabled,
+        kitchen_chief_required: !!cfg.kitchen_chief_required,
+        kitchen_zones_enabled: !!cfg.kitchen_zones_enabled,
+        kds_card_hide_after_seconds: cfg.kds_card_hide_after_seconds || 30
+      };
+    }
+  } catch (e) {
+    console.warn('[openKitchen] No pude cargar config, uso defaults', e);
+  }
+
   document.getElementById('k-rest-name').textContent = restaurantName || 'Cocina';
   go('s-kitchen');
   showKitchenTab('pedidos');
@@ -8305,10 +8335,31 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
         let btn = '';
         if (!isDone && !isWaiting && state.adminRole !== 'admin') {
           const ids = grp.items.map(x => `'${x.id}'`).join(',');
-          if (ks === 'sent') btn = `<button onclick="[${ids}].forEach(id=>setOrderStatus(id,'making'))"
-            style="padding:4px 12px;border-radius:99px;border:none;background:var(--brand);color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">→ Prep.</button>`;
-          else if (ks === 'making') btn = `<button onclick="[${ids}].forEach(id=>setOrderStatus(id,'ready'))"
-            style="padding:4px 12px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">✓ Listo</button>`;
+
+          // Sprint A.4: kitchen_chief gate — si está activo, bloquear botón "listo"
+          // si el usuario actual no es kitchen_chief
+          const chiefRequired = !!state.kitchenConfig?.kitchen_chief_required;
+          const userIsChief   = state.kitchenUserRole === 'kitchen_chief';
+          const chiefBlocks   = chiefRequired && !userIsChief;
+          const disabledStyle = chiefBlocks
+            ? 'opacity:.5;cursor:not-allowed;' : 'cursor:pointer;';
+          const disabledAttr  = chiefBlocks
+            ? 'disabled title="Requiere jefe de cocina"' : '';
+
+          // Sprint A.1: kds_one_click_mode — un solo click "✓ Listo" desde 'sent'
+          // (saltando 'making'). En auto-deliver irá a 'delivered' directamente.
+          if (state.kitchenConfig?.kds_one_click_mode) {
+            if (ks === 'sent' || ks === 'making') {
+              btn = `<button ${disabledAttr} onclick="[${ids}].forEach(id=>setOrderStatus(id,'ready'))"
+                style="padding:4px 12px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;${disabledStyle}font-family:inherit;flex-shrink:0">✓ Listo</button>`;
+            }
+          } else {
+            // Modo clásico: 2 clicks (Prep → Listo)
+            if (ks === 'sent') btn = `<button onclick="[${ids}].forEach(id=>setOrderStatus(id,'making'))"
+              style="padding:4px 12px;border-radius:99px;border:none;background:var(--brand);color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">→ Prep.</button>`;
+            else if (ks === 'making') btn = `<button ${disabledAttr} onclick="[${ids}].forEach(id=>setOrderStatus(id,'ready'))"
+              style="padding:4px 12px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;${disabledStyle}font-family:inherit;flex-shrink:0">✓ Listo</button>`;
+          }
         }
 
         const allIds = grp.items.map(x => x.id).join(',');
@@ -8349,14 +8400,50 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
       let action = '';
       // #4: manageat read-only
       if (!isDone && !isWaiting && state.adminRole !== 'admin') {
-        if (sentIds) action = `<button onclick="setAllOrderStatus([${sentIds}],'making')"
-          style="width:100%;margin-top:.4rem;padding:8px;border-radius:6px;border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
-          → Todos a preparación
-        </button>`;
-        else if (makingIds) action = `<button onclick="fireNextCourse('${roomId}',${course},[${makingIds}])"
-          style="width:100%;margin-top:.4rem;padding:8px;border-radius:6px;border:none;background:#3B6D11;color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
-          Pase listo — avisar camarero
-        </button>`;
+
+        // Sprint A.4: kitchen_chief gate — el botón de "Pase listo" requiere jefe de cocina
+        const chiefRequired = !!state.kitchenConfig?.kitchen_chief_required;
+        const userIsChief   = state.kitchenUserRole === 'kitchen_chief';
+        const chiefBlocks   = chiefRequired && !userIsChief;
+        const dStyle        = chiefBlocks ? 'opacity:.5;cursor:not-allowed;' : 'cursor:pointer;';
+        const dAttr         = chiefBlocks ? 'disabled title="Requiere jefe de cocina"' : '';
+
+        // Sprint A.1: kds_one_click_mode — un único botón "Pase listo" sin paso intermedio.
+        // Importante: usa fireNextCourse() (no setAllOrderStatus directo) para PRESERVAR
+        // las notificaciones al camarero y al comensal. La diferencia con modo clásico es
+        // que aquí permitimos disparar el pase aunque haya platos en 'sent' (sin pasar por 'making').
+        if (state.kitchenConfig?.kds_one_click_mode) {
+          // Combinar todos los IDs activos (sent + making)
+          const activeDishes = cDishes.filter(d => d.kitchen_status === 'sent' || d.kitchen_status === 'making');
+          const allActiveIds = activeDishes.map(d => `'${d.id}'`).join(',');
+          if (allActiveIds) {
+            // Cachear estos platos para que fireNextCourse los pueda leer sin DB query extra
+            // (replica el comportamiento del modo clásico que cachea solo making)
+            window._kdsCache = window._kdsCache || {};
+            window._kdsCache[roomId + '_' + course] = activeDishes.map(d => ({
+              id: d.id, name: d.name, course: d.course, category: d.category,
+              cooking_point: d.cooking_point || null, variant_name: d.variant_name || null
+            }));
+            // Etiqueta del botón cambia según auto_deliver
+            const label = state.kitchenConfig?.auto_deliver_enabled
+              ? '✓ Pase servido — avisar camarero'
+              : '✓ Pase listo — avisar camarero';
+            action = `<button ${dAttr} onclick="fireNextCourse('${roomId}',${course},[${allActiveIds}])"
+              style="width:100%;margin-top:.4rem;padding:8px;border-radius:6px;border:none;background:#3B6D11;color:#fff;font-size:12px;font-weight:500;${dStyle}font-family:inherit">
+              ${label}
+            </button>`;
+          }
+        } else {
+          // Modo clásico: 2 botones (Todos a prep → Pase listo)
+          if (sentIds) action = `<button onclick="setAllOrderStatus([${sentIds}],'making')"
+            style="width:100%;margin-top:.4rem;padding:8px;border-radius:6px;border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
+            → Todos a preparación
+          </button>`;
+          else if (makingIds) action = `<button ${dAttr} onclick="fireNextCourse('${roomId}',${course},[${makingIds}])"
+            style="width:100%;margin-top:.4rem;padding:8px;border-radius:6px;border:none;background:#3B6D11;color:#fff;font-size:12px;font-weight:500;${dStyle}font-family:inherit">
+            Pase listo — avisar camarero
+          </button>`;
+        }
       }
 
       const statusLabel = isDone ? 'Servido'
@@ -8918,10 +9005,19 @@ async function setOrderStatus(dishId, status) {
     return;
   }
 
+  // Sprint A.3: auto_deliver — si el modo está activo y se pide 'ready',
+  // saltamos directo a 'delivered' (el camarero no recibe alerta interrumpiendo,
+  // ve el plato como entregado en el histórico de su mesa).
+  let effectiveStatus = status;
+  if (state.kitchenConfig?.auto_deliver_enabled && status === 'ready') {
+    effectiveStatus = 'delivered';
+  }
+
   // Record timestamps for KPI tracking
-  const updates = { kitchen_status: status };
-  if (status === 'making') updates.making_at = new Date().toISOString();
-  if (status === 'ready') updates.ready_at = new Date().toISOString();
+  const updates = { kitchen_status: effectiveStatus };
+  if (effectiveStatus === 'making')    updates.making_at    = new Date().toISOString();
+  if (effectiveStatus === 'ready')     updates.ready_at     = new Date().toISOString();
+  if (effectiveStatus === 'delivered') updates.delivered_at = new Date().toISOString();
 
   // ── 1) UPDATE OPTIMISTA del DOM: marcar la card como pendiente ──
   // Las filas del KDS tienen data-dish-ids="id1,id2,..." (grupos de platos idénticos).
@@ -15045,9 +15141,18 @@ function renderKDSKanban(dishes, roomTableMap, tablesById, prepTimeByItem) {
 async function setAllOrderStatus(dishIds, status) {
   // #4: manageat read-only guard
   if (state.adminRole === 'admin') return;
-  const updates = { kitchen_status: status };
-  if (status === 'making') updates.making_at = new Date().toISOString();
-  if (status === 'ready') updates.ready_at = new Date().toISOString();
+
+  // Sprint A.3: auto_deliver — si el modo está activo y se pide 'ready',
+  // saltamos directo a 'delivered' para el camarero
+  let effectiveStatus = status;
+  if (state.kitchenConfig?.auto_deliver_enabled && status === 'ready') {
+    effectiveStatus = 'delivered';
+  }
+
+  const updates = { kitchen_status: effectiveStatus };
+  if (effectiveStatus === 'making')    updates.making_at    = new Date().toISOString();
+  if (effectiveStatus === 'ready')     updates.ready_at     = new Date().toISOString();
+  if (effectiveStatus === 'delivered') updates.delivered_at = new Date().toISOString();
 
   // Update óptimista del DOM
   const _matchAllRows = (id) => Array.from(document.querySelectorAll('[data-dish-ids]'))
