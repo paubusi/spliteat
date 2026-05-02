@@ -3879,24 +3879,42 @@ const AV_COLORS = [
   ['#FBEAF0','#72243E'],['#F1EFE8','#444441']
 ];
 const fmt = v => v.toFixed(2) + ' €';
-// #2: Smart initials — disambiguates guests with same starting letters
-// Computes display label for each guest relative to all guests in state
+// Sprint Cleanup v2: 1 char + subíndice numérico si hay colisión
+// "Juan" + "Pedro" → "J" + "P"     (sin subíndice)
+// "Juan" + "Julia" → "J¹" + "J²"   (misma inicial)
+// "Juan" + "Juan"  → "J¹" + "J²"   (nombre exacto duplicado)
+// El subíndice se renderiza con <sup> para mantener la inicial principal limpia.
 function getGuestLabel(guestId) {
   const guests = state.guests || [];
   const me = guests.find(g => g.id === guestId);
-  if (!me) return '??';
-  const name = me.name.trim();
+  if (!me) return { main: '?', sub: '' };
+  const myInitial = (me.name.trim()[0] || '?').toUpperCase();
+  // Comensales con la misma inicial, ordenados por orden de creación (índice en state.guests)
+  const sameInitial = guests.filter(g => (g.name.trim()[0] || '?').toUpperCase() === myInitial);
+  if (sameInitial.length <= 1) return { main: myInitial, sub: '' };
+  const myOrderIdx = sameInitial.findIndex(g => g.id === guestId);
+  return { main: myInitial, sub: String(myOrderIdx + 1) };
+}
 
-  // Find how many chars needed to distinguish from all others
-  for (let len = 1; len <= name.length; len++) {
-    const prefix = name.substring(0, len).toUpperCase();
-    const others = guests.filter(g => g.id !== guestId && g.name.trim().toUpperCase().startsWith(prefix));
-    if (others.length === 0) return prefix;
-  }
-  // Exact duplicate: use initial name + . + initial surname (first two words)
-  const parts = name.split(' ');
-  if (parts.length >= 2) return (parts[0][0] + '.' + parts[1][0]).toUpperCase();
-  return name.substring(0, 3).toUpperCase();
+// Helper: HTML de un avatar (círculo) con inicial + subíndice opcional
+// Se usa en TODOS los renders de avatares de comensales (consistencia)
+function guestAvatarHtml(guestId, opts = {}) {
+  const { size = 20, palette = null, showSub = true, extraStyle = '' } = opts;
+  const guests = state.guests || [];
+  const guest = guests.find(g => g.id === guestId);
+  if (!guest) return '';
+  const gIdx = guests.findIndex(g => g.id === guestId);
+  // Default palette = la "vívida" usada en revisar cuenta
+  const defaultPalette = [['#D85A30','#fff'],['#185FA5','#fff'],['#7B3FA0','#fff'],['#C0392B','#fff'],['#117A65','#fff'],['#B7770D','#fff'],['#1A5276','#fff'],['#6E2C00','#fff']];
+  const pal = palette || defaultPalette;
+  const [bg, tc] = pal[gIdx % pal.length];
+  const lbl = getGuestLabel(guestId);
+  const fontSize = Math.round(size * 0.45);
+  const subSize = Math.max(7, Math.round(size * 0.35));
+  const subHtml = (showSub && lbl.sub)
+    ? `<sup style="font-size:${subSize}px;font-weight:700;line-height:1;margin-left:1px;opacity:.85">${lbl.sub}</sup>`
+    : '';
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${bg};color:${tc};font-size:${fontSize}px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.2);${extraStyle}" title="${escHtml(guest.name)}">${lbl.main}${subHtml}</div>`;
 }
 
 const initials = n => n.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '??';
@@ -4948,12 +4966,8 @@ function renderCarta() {
     ['#6E2C00','#fff'], // marrón
   ];
   const getInitial = (guestId) => {
-    const gIdx = state.guests.findIndex(g => g.id === guestId);
-    const guest = state.guests.find(g => g.id === guestId);
-    if (!guest) return '';
-    const [bg, tc] = VIVID_COLORS[gIdx % VIVID_COLORS.length];
-    const initial = guest.name.trim()[0]?.toUpperCase() || '?';
-    return `<div style="width:20px;height:20px;border-radius:50%;background:${bg};color:${tc};font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.2)">${initial}</div>`;
+    // Sprint Cleanup v2: usa guestAvatarHtml con paleta vívida (mismo render en todos lados)
+    return guestAvatarHtml(guestId, { size: 20, palette: VIVID_COLORS });
   };
 
   let html = '';
@@ -5003,22 +5017,33 @@ function renderCarta() {
               <span>👥</span><span>Todos${allCount > 1 ? ' ×' + allCount : ''}</span>
             </div>`
           : '';
-        // Mostrar máx 4 personas; resto agrupado en "+N"
-        const MAX_VISIBLE = allPill ? 3 : 4;  // si ya hay "Todos", deja 1 hueco menos
-        const visible = entries.slice(0, MAX_VISIBLE);
-        const overflow = entries.length - MAX_VISIBLE;
-        const pills = visible.map(([gid, n]) => {
-          const gIdx = state.guests.findIndex(g => g.id === gid);
+        // Sprint Cleanup v2: con 8+ comensales en la mesa, mostrar pill compacta
+        // "👥 N" en lugar de 4 bolitas + "+N" (saturación visual). El detalle
+        // sigue accesible al abrir el plato.
+        const totalParticipating = entries.reduce((sum, [, n]) => sum + n, 0);
+        const distinctParticipants = entries.length;
+        if (state.guests.length >= 8 && distinctParticipants >= 4) {
+          const compactPill = `<div style="display:flex;align-items:center;gap:3px;background:var(--bg2);color:var(--t2);border:1px solid var(--bd);border-radius:99px;padding:2px 8px;font-size:10px;font-weight:700;flex-shrink:0" title="Toca el plato para ver el reparto"><span>👥</span><span>${distinctParticipants}${totalParticipating > distinctParticipants ? ' · ×'+totalParticipating : ''}</span></div>`;
+          initialsHtml = `<div style="display:flex;align-items:center;gap:3px;margin-right:6px;flex-wrap:wrap;max-width:160px;justify-content:flex-end">${allPill}${compactPill}</div>`;
+        } else {
+          // Render normal: máx 4 pills individuales + overflow
+          const MAX_VISIBLE = allPill ? 3 : 4;  // si ya hay "Todos", deja 1 hueco menos
+          const visible = entries.slice(0, MAX_VISIBLE);
+          const overflow = entries.length - MAX_VISIBLE;
+          const pills = visible.map(([gid, n]) => {
           const guest = state.guests.find(g => g.id === gid);
           if (!guest) return '';
+          const gIdx = state.guests.findIndex(g => g.id === gid);
           const [bg, tc] = VIVID_COLORS[gIdx % VIVID_COLORS.length];
-          const initial = guest.name.trim()[0]?.toUpperCase() || '?';
-          // Si solo 1 → bolita simple; si N>1 → bolita con contador a la derecha
+          // Sprint Cleanup v2: usar guestAvatarHtml para inicial + subíndice consistente
+          // Si N == 1 → solo el avatar; si N > 1 → avatar + ×N en pill
           if (n === 1) {
-            return `<div style="width:20px;height:20px;border-radius:50%;background:${bg};color:${tc};font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.2)">${initial}</div>`;
+            return guestAvatarHtml(gid, { size: 20, palette: VIVID_COLORS });
           }
-          return `<div style="display:flex;align-items:center;gap:2px;background:${bg};border-radius:99px;padding:1px 6px 1px 1px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.2)">
-            <div style="width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,0.25);color:${tc};font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center">${initial}</div>
+          const lbl = getGuestLabel(gid);
+          const subHtml = lbl.sub ? `<sup style="font-size:7px;font-weight:700;line-height:1;margin-left:1px;opacity:.85">${lbl.sub}</sup>` : '';
+          return `<div style="display:flex;align-items:center;gap:2px;background:${bg};border-radius:99px;padding:1px 6px 1px 1px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.2)" title="${escHtml(guest.name)}">
+            <div style="width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,0.25);color:${tc};font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center">${lbl.main}${subHtml}</div>
             <span style="color:${tc};font-size:10px;font-weight:700;line-height:1">×${n}</span>
           </div>`;
         }).join('');
@@ -5026,6 +5051,7 @@ function renderCarta() {
           ? `<div style="font-size:10px;color:var(--t3);font-weight:600;padding:2px 5px;background:var(--bg2);border-radius:99px;flex-shrink:0">+${overflow}</div>`
           : '';
         initialsHtml = `<div style="display:flex;align-items:center;gap:3px;margin-right:6px;flex-wrap:wrap;max-width:160px;justify-content:flex-end">${allPill}${pills}${overflowPill}</div>`;
+        }
       }
 
       html += `<div onclick="${onTable ? `openCartaItemEdit('${item.id}')` : `openModal('${item.id}')`}"
@@ -6108,23 +6134,20 @@ function renderDishCard(dish) {
   // Consistent guest colors (same palette as carta initials)
   const GUEST_COLORS = ['#D85A30','#185FA5','#7B3FA0','#C0392B','#117A65','#B7770D','#1A5276','#6E2C00'];
   const guestColorEl = (guestId, size = 20) => {
-    const gIdx = state.guests.findIndex(g => g.id === guestId);
-    const guest = state.guests.find(g => g.id === guestId);
-    if (!guest) return '';
-    const bg = GUEST_COLORS[gIdx % GUEST_COLORS.length];
-    const initial = guest.name.trim()[0]?.toUpperCase() || '?';
-    return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${bg};color:#fff;font-size:${Math.round(size*0.45)}px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initial}</div>`;
+    // Sprint Cleanup v2: paleta GUEST_COLORS (5 colores) → mapping a formato palette
+    const pal = GUEST_COLORS.map(c => [c, '#fff']);
+    return guestAvatarHtml(guestId, { size, palette: pal });
   };
 
   let bodyHtml = '';
   const paymentsExist = state.payments.length > 0;
 
   if (isShared) {
+    const palMapped = GUEST_COLORS.map(c => [c, '#fff']);
     const chips = state.guests.map((g, i) => {
       const inPart = parts.includes(g.id);
-      const bg = GUEST_COLORS[i % GUEST_COLORS.length];
-      const initial = g.name.trim()[0]?.toUpperCase() || '?';
-      const avatar = `<div style="width:20px;height:20px;border-radius:50%;background:${bg};color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initial}</div>`;
+      // Sprint Cleanup v2: avatar consistente con subíndice si hay colisión
+      const avatar = guestAvatarHtml(g.id, { size: 20, palette: palMapped });
       if (paymentsExist) {
         return `<span class="part-chip ${inPart ? 'in' : 'out'}" style="cursor:not-allowed;opacity:${inPart ? '1' : '.45'}">${avatar}${escHtml(g.name)}</span>`;
       }
@@ -6142,21 +6165,21 @@ function renderDishCard(dish) {
     if (paymentsExist || dish.assignee_id) {
       // Show only the assigned person
       if (assignedGuest) {
-        const bg = GUEST_COLORS[assignedIdx % GUEST_COLORS.length];
-        const initial = assignedGuest.name.trim()[0]?.toUpperCase() || '?';
-        const avatar = `<div style="width:20px;height:20px;border-radius:50%;background:${bg};color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initial}</div>`;
-        const label = isMyDish ? 'Mío' : escHtml(assignedGuest.name);
-        bodyHtml = `<div class="participants"><span class="part-chip in" style="cursor:${paymentsExist?'not-allowed':'default'}">${avatar}${label}</span></div>`;
+        const palMapped = GUEST_COLORS.map(c => [c, '#fff']);
+        // Sprint Cleanup v2: avatar consistente con subíndice si hay colisión
+        const avatar = guestAvatarHtml(dish.assignee_id, { size: 20, palette: palMapped });
+        const labelTxt = isMyDish ? 'Mío' : escHtml(assignedGuest.name);
+        bodyHtml = `<div class="participants"><span class="part-chip in" style="cursor:${paymentsExist?'not-allowed':'default'}">${avatar}${labelTxt}</span></div>`;
       } else {
         bodyHtml = `<div style="font-size:11px;color:var(--t3)">Sin asignar</div>`;
       }
     } else {
       // No one assigned yet — show all guests to pick
+      const palMapped = GUEST_COLORS.map(c => [c, '#fff']);
       const soloChips = state.guests.map((g, i) => {
         const isSel = dish.assignee_id === g.id;
-        const bg = GUEST_COLORS[i % GUEST_COLORS.length];
-        const initial = g.name.trim()[0]?.toUpperCase() || '?';
-        const avatar = `<div style="width:20px;height:20px;border-radius:50%;background:${bg};color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initial}</div>`;
+        // Sprint Cleanup v2: avatar consistente con subíndice si hay colisión
+        const avatar = guestAvatarHtml(g.id, { size: 20, palette: palMapped });
         return `<span class="part-chip ${isSel ? 'in' : ''}" onclick="assignSolo('${dish.id}','${g.id}')" style="cursor:pointer;">${avatar}${escHtml(g.name)}</span>`;
       }).join('');
       bodyHtml = `<div class="participants">${soloChips}</div>`;
@@ -16697,6 +16720,7 @@ async function loadReservas() {
           <button onclick="deleteReserva('${r.id}')"
             style="padding:4px 10px;border-radius:99px;border:1px solid #FCCACA;background:#FFF5F5;color:#A32D2D;font-size:11px;cursor:pointer;font-family:inherit">✕</button>
           ${r.phone ? `<a href="tel:${r.phone}" style="padding:4px 10px;border-radius:99px;border:1px solid var(--bd);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit;text-decoration:none">📞 Llamar</a>` : ''}
+          ${r.phone ? `<a href="https://wa.me/${r.phone.replace(/[^\d]/g,'')}" target="_blank" rel="noopener" style="padding:4px 10px;border-radius:99px;border:1px solid var(--bd);background:var(--bg);color:#25D366;font-size:11px;cursor:pointer;font-family:inherit;text-decoration:none">💬 WhatsApp</a>` : ''}
           ${r.email ? `<a href="mailto:${r.email}?subject=Reserva ${timeStr} ${escHtml(r.name)}" style="padding:4px 10px;border-radius:99px;border:1px solid var(--bd);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit;text-decoration:none">✉️ Email</a>` : ''}
         </div>
       </div>
@@ -19737,10 +19761,14 @@ async function loadCalleatQueueMain() {
         </div>
         ${!isReady
           ? `<div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+              ${entry.phone ? `<a href="https://wa.me/${entry.phone.replace(/[^\d]/g,'')}" target="_blank" rel="noopener" title="WhatsApp directo" style="padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:#25D366;font-size:13px;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-flex;align-items:center">💬</a>` : ''}
               <button onclick="callCalleatEntry('${entry.id}')" style="padding:8px 14px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">Llamar</button>
               <button onclick="cancelCalleatEntry('${entry.id}')" title="Cancelar y eliminar de la cola" style="padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:13px;cursor:pointer;font-family:inherit">✕</button>
             </div>`
-          : `<button onclick="cancelCalleatEntry('${entry.id}')" style="padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit" title="Cancelar">✕</button>`}
+          : `<div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+              ${entry.phone ? `<a href="https://wa.me/${entry.phone.replace(/[^\d]/g,'')}" target="_blank" rel="noopener" title="WhatsApp directo" style="padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:#25D366;font-size:13px;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-flex;align-items:center">💬</a>` : ''}
+              <button onclick="cancelCalleatEntry('${entry.id}')" style="padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit" title="Cancelar">✕</button>
+            </div>`}
       </div>
       ${isReady ? `
         <div>
@@ -19791,6 +19819,7 @@ async function loadCalleatQueue() {
         <div style="font-size:12px;color:var(--t2)">${isReady ? '🔔 Llamado — esperando confirmación' : `Esperando ${mins} min`}</div>
       </div>
       <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+        ${entry.phone ? `<a href="https://wa.me/${entry.phone.replace(/[^\d]/g,'')}" target="_blank" rel="noopener" title="WhatsApp directo" style="padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:#25D366;font-size:13px;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-flex;align-items:center">💬</a>` : ''}
         ${!isReady ? `<button onclick="callCalleatEntry('${entry.id}')"
           style="padding:7px 14px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">Llamar 🔔</button>` : ''}
         <button onclick="cancelCalleatEntry('${entry.id}')" title="Cancelar y eliminar de la cola"
