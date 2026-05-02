@@ -2433,6 +2433,11 @@
         <!-- Solo visible en desktop; en mobile se reemplaza por admin-mobile-bar -->
         <div class="admin-desktop-topbar">
           <div style="flex:1"></div>
+          <!-- Test button (temporary) - dispara una notify de prueba para verificar el flujo -->
+          <button onclick="notify('Notificación de prueba ' + new Date().toLocaleTimeString('es-ES'), 'info')" title="Test notify"
+            style="background:none;border:1px dashed var(--bd2);border-radius:6px;cursor:pointer;padding:5px 9px;color:var(--t3);font-size:11px;font-family:inherit;margin-right:.4rem">
+            🧪 Test
+          </button>
           <button onclick="openAdminNotifPanel()" title="Notificaciones"
             style="position:relative;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;cursor:pointer;padding:6px 10px;color:var(--t2);font-size:14px;line-height:1;display:flex;align-items:center;gap:6px">
             🔔
@@ -2521,10 +2526,10 @@
       <!-- #4: Waiter active/inactive status — Sala tab only -->
       <div id="waiter-status-bar" style="padding:.65rem 1.25rem;border-top:1px solid var(--bd);flex-shrink:0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
-          <div style="font-size:12px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.05em">Camareros</div>
+          <div style="font-size:12px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.05em">Personal</div>
           <button onclick="loadWaiterStatusBar()" style="font-size:11px;color:var(--t3);background:none;border:none;cursor:pointer;font-family:inherit">↻</button>
         </div>
-        <div id="waiter-status-list" style="display:flex;flex-wrap:wrap;gap:.4rem"></div>
+        <div id="waiter-status-list"></div>
       </div>
 
       <!-- calleat: cola de espera -->
@@ -16699,6 +16704,16 @@ let _adminNotifs = []; // { id, type, title, body, time, seen, tableLabel }
 let _adminNotifSub = null;
 
 function openAdminNotifPanel() {
+  // Sub-Sprint A.4+A.6 fix definitivo: recargar el historial desde localStorage
+  // antes de renderizar, por si algún render parcial dejó memoria desincronizada
+  try {
+    const saved = localStorage.getItem(_NOTIF_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) _notifHistory = parsed;
+    }
+  } catch (e) { /* non-blocking */ }
+
   renderAdminNotifList();
   markAllAdminNotifSeen();
   document.getElementById('admin-notif-panel').style.display = 'flex';
@@ -16858,23 +16873,42 @@ async function loadWaiterStatusBar() {
   const el = document.getElementById('waiter-status-list');
   if (!el || !state.adminRestaurantId) return;
   const { data: waiters } = await sb.from('waiters')
-    .select('id,name,is_active,active,last_seen_at')
+    .select('id,name,role,is_active,active,last_seen_at')
     .eq('restaurant_id', state.adminRestaurantId)
     .eq('active', true)
     .order('name');
   if (!waiters || !waiters.length) {
-    el.innerHTML = '<div style="font-size:12px;color:var(--t3)">Sin camareros configurados</div>';
+    el.innerHTML = '<div style="font-size:12px;color:var(--t3)">Sin personal configurado</div>';
     const warningEl = document.getElementById('no-waiter-warning');
     if (warningEl) warningEl.style.display = 'flex';
     return;
   }
-  const anyActive = waiters.some(w => isWaiterOnline(w));
-  // #BG7: Show prominent warning if no active waiter sessions
+  // Sub-Sprint A.4+A.6 — el warning "sin camareros activos" solo aplica a roles de SALA
+  // (un cocinero loggeado no es suficiente para que las mesas reciban notificaciones)
+  const salaWaiters = waiters.filter(w => !w.role || w.role === 'waiter' || w.role === 'floor_chief' || w.role === 'manager');
+  const anySalaActive = salaWaiters.some(w => isWaiterOnline(w));
   const warningEl = document.getElementById('no-waiter-warning');
   if (warningEl) {
-    warningEl.style.display = anyActive ? 'none' : 'flex';
+    warningEl.style.display = anySalaActive ? 'none' : 'flex';
   }
-  el.innerHTML = waiters.map(w => {
+
+  // Sub-Sprint A.4+A.6: agrupar por rol
+  const roleConfig = {
+    'manager':       { label: 'Manager',     order: 1 },
+    'kitchen_chief': { label: 'Cocina',      order: 2 },
+    'chef':          { label: 'Cocina',      order: 2 },
+    'floor_chief':   { label: 'Sala',        order: 3 },
+    'waiter':        { label: 'Sala',        order: 3 }
+  };
+  const groups = {};
+  waiters.forEach(w => {
+    const cfg = roleConfig[w.role || 'waiter'] || { label: 'Otros', order: 99 };
+    if (!groups[cfg.label]) groups[cfg.label] = { order: cfg.order, items: [] };
+    groups[cfg.label].items.push(w);
+  });
+  const sortedGroups = Object.entries(groups).sort((a, b) => a[1].order - b[1].order);
+
+  const renderChip = (w) => {
     const st = getWaiterStatus(w);
     let borderColor, bgColor, dotColor, txtColor, label;
     if (st === 'online') {
@@ -16894,7 +16928,16 @@ async function loadWaiterStatusBar() {
       <div style="width:7px;height:7px;border-radius:50%;background:${dotColor};flex-shrink:0"></div>
       <span style="font-size:12px;font-weight:500;color:${txtColor}">${label}</span>
     </div>`;
-  }).join('');
+  };
+
+  el.innerHTML = sortedGroups.map(([label, group]) => `
+    <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;width:100%;margin-bottom:.35rem">
+      <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;min-width:60px;flex-shrink:0">${escHtml(label)}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:.35rem;flex:1">
+        ${group.items.map(renderChip).join('')}
+      </div>
+    </div>
+  `).join('');
 }
 
 // Sub-Sprint A.4+A.6: vista cuadrícula compacta para móviles con muchas mesas
