@@ -16762,16 +16762,13 @@ function markAllAdminNotifSeen() {
 }
 
 function renderAdminNotifList() {
-  // Sub-Sprint A.4+A.6 fix DEFINITIVO #2: usar el SEGUNDO elemento si hay duplicados
-  // (algunas versiones del HTML antiguas tienen un atab-notificaciones legacy con el mismo ID)
-  // El elemento correcto siempre es el que está dentro de #admin-notif-panel.
+  // Buscar el elemento dentro del panel (más específico — evita IDs duplicados que pudiera haber)
   const panel = document.getElementById('admin-notif-panel');
   let el = panel ? panel.querySelector('#admin-notif-list, [id="admin-notif-list"]') : null;
   if (!el) el = document.getElementById('admin-notif-list');
   if (!el) return;
 
-  // Sub-Sprint A.4+A.6 fix DEFINITIVO: leer SIEMPRE desde localStorage,
-  // no desde la variable en memoria. Si está persistido, se muestra.
+  // Leer SIEMPRE desde localStorage (fuente de verdad), no de variable en memoria
   let sysHistory = [];
   try {
     const raw = localStorage.getItem('_spliteatNotifHistory');
@@ -16781,7 +16778,7 @@ function renderAdminNotifList() {
     }
   } catch (e) { sysHistory = []; }
 
-  // Mantener la variable en memoria sincronizada (por si algún caller la lee)
+  // Mantener variable en memoria sincronizada
   if (typeof _notifHistory !== 'undefined') _notifHistory = sysHistory;
 
   // Panel unificado — eventos operativos arriba, avisos del sistema (toasts) abajo
