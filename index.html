@@ -1896,6 +1896,13 @@
         <span id="k-disabled-warning-text"></span>
         <button onclick="showKitchenTab('carta')" style="background:none;border:none;color:#854F0B;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600;flex-shrink:0">Gestionar →</button>
       </div>
+
+      <!-- Sub-Sprint A.4+A.6 Turno 4: barra de zonas activas (solo modo cocina pro) -->
+      <div id="k-active-zones-bar" style="display:none;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r-sm);padding:.55rem .85rem;margin-bottom:.65rem;flex-wrap:wrap">
+        <span style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;flex-shrink:0">Trabajando en</span>
+        <div id="k-active-zones-chips" style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0"></div>
+        <button onclick="openCookeatZonesChange()" title="Cambiar zonas" style="font-size:11px;padding:4px 10px;border-radius:99px;border:1px solid var(--bd2);background:var(--card);color:var(--t2);cursor:pointer;font-family:inherit;flex-shrink:0">⚙ Cambiar</button>
+      </div>
       <div id="k-mesas-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:.65rem;align-items:start">
         <div style="text-align:center;padding:3rem 1rem;color:var(--t3);font-size:14px;grid-column:1/-1">Cargando pedidos...</div>
       </div>
@@ -8265,8 +8272,87 @@ async function openKitchen(restaurantId, restaurantName) {
 
   document.getElementById('k-rest-name').textContent = restaurantName || 'Cocina';
   go('s-kitchen');
+
+  // Sub-Sprint A.4+A.6 Turno 4: precargar mapas de zonas para filtrar el KDS
+  await _loadKitchenZoneMaps();
+
   showKitchenTab('pedidos');
   subscribeKitchenRealtime();
+}
+
+// Sub-Sprint A.4+A.6 Turno 4: caché de mapas para resolver la zona efectiva de cada dish
+//
+// Reglas (mismo orden de prioridad que en manageat):
+//   1. menu_items.kitchen_zone_id (override por plato)
+//   2. categories.kitchen_zone_id (asignación por categoría)
+//   3. zona "General" del restaurante (red de seguridad)
+async function _loadKitchenZoneMaps() {
+  if (!state.kitchenRestaurantId) return;
+  try {
+    const [{ data: zones }, { data: cats }, { data: items }] = await Promise.all([
+      sb.from('kitchen_zones').select('id,name,color,is_default').eq('restaurant_id', state.kitchenRestaurantId),
+      sb.from('categories').select('id,name,kitchen_zone_id').eq('restaurant_id', state.kitchenRestaurantId),
+      sb.from('menu_items').select('id,name,kitchen_zone_id,category_id').eq('restaurant_id', state.kitchenRestaurantId)
+    ]);
+
+    const zonesById = {};
+    let defaultZoneId = null;
+    (zones || []).forEach(z => {
+      zonesById[z.id] = z;
+      if (z.is_default) defaultZoneId = z.id;
+    });
+
+    // Mapa por nombre de categoría (porque dish.category es texto, no ID)
+    const catZoneByName = {};
+    const catZoneById = {};
+    (cats || []).forEach(c => {
+      if (c.kitchen_zone_id) {
+        catZoneById[c.id] = c.kitchen_zone_id;
+        catZoneByName[(c.name || '').toLowerCase()] = c.kitchen_zone_id;
+      }
+    });
+
+    // Mapa por menu_item_id (override individual)
+    const itemZoneById = {};
+    const itemCategoryById = {};
+    (items || []).forEach(i => {
+      if (i.kitchen_zone_id) itemZoneById[i.id] = i.kitchen_zone_id;
+      if (i.category_id) itemCategoryById[i.id] = i.category_id;
+    });
+
+    state.kitchenZoneMaps = {
+      zonesById,
+      defaultZoneId,
+      catZoneByName,
+      catZoneById,
+      itemZoneById,
+      itemCategoryById
+    };
+  } catch (e) {
+    console.warn('[kitchen zones] no pude cargar mapas:', e);
+    state.kitchenZoneMaps = null;
+  }
+}
+
+// Resolver zona efectiva de un dish — devuelve zone_id o null si no hay info
+function _resolveDishZone(dish) {
+  const m = state.kitchenZoneMaps;
+  if (!m) return null;
+  // 1. Override por plato (menu_item.kitchen_zone_id)
+  if (dish.menu_item_id && m.itemZoneById[dish.menu_item_id]) {
+    return m.itemZoneById[dish.menu_item_id];
+  }
+  // 2. Categoría del plato vía menu_item_id
+  if (dish.menu_item_id && m.itemCategoryById[dish.menu_item_id]) {
+    const catId = m.itemCategoryById[dish.menu_item_id];
+    if (m.catZoneById[catId]) return m.catZoneById[catId];
+  }
+  // 3. Por nombre de categoría (legacy / cuando no hay menu_item_id)
+  if (dish.category && m.catZoneByName[dish.category.toLowerCase()]) {
+    return m.catZoneByName[dish.category.toLowerCase()];
+  }
+  // 4. Sin zona explícita → default ("General")
+  return m.defaultZoneId;
 }
 
 async function kitchenLogout() {
@@ -8289,6 +8375,9 @@ async function kitchenLogout() {
 async function loadKitchenOrders() {
   const el = document.getElementById('k-mesas-list');
   if (!el) return;
+
+  // Sub-Sprint A.4+A.6 Turno 4: refrescar barra de zonas activas en cada render
+  _renderActiveZonesBar();
 
   const [{ data: rooms }, { data: disabledItems }] = await Promise.all([
     sb.from('rooms').select('id, table_id').eq('restaurant_id', state.kitchenRestaurantId).eq('closed', false),
@@ -8326,6 +8415,23 @@ async function loadKitchenOrders() {
     sb.from('recipes').select('id,menu_item_id,variant_id,recipe_items(ingredient_id,quantity)'),
     sb.from('inventory_with_alerts').select('ingredient_id,ingredient_name,unit,qty_on_hand,alert_threshold,is_low_stock,is_out_of_stock').eq('restaurant_id', state.kitchenRestaurantId)
   ]);
+
+  // Sub-Sprint A.4+A.6 Turno 4: filtrar dishes por zonas activas del cocinero (modo cocina pro)
+  // Si el modo está OFF o no hay zonas seleccionadas → mostrar todos los platos (sin filtrar)
+  let filteredDishes = dishes || [];
+  const zonesEnabled = state.kitchenConfig?.kitchen_zones_enabled;
+  const activeZones = state.kitchenActiveZoneIds || [];
+  if (zonesEnabled && activeZones.length > 0) {
+    if (!state.kitchenZoneMaps) await _loadKitchenZoneMaps();
+    const activeSet = new Set(activeZones);
+    filteredDishes = (dishes || []).filter(d => {
+      const zoneId = _resolveDishZone(d);
+      // Si el plato no tiene zona resoluble (ni override ni categoría ni default), siempre se muestra
+      // — red de seguridad para evitar que pases queden invisibles por mala configuración
+      if (!zoneId) return true;
+      return activeSet.has(zoneId);
+    });
+  }
 
   const tablesById = {};
   (tables || []).forEach(t => { tablesById[t.id] = t; });
@@ -8386,7 +8492,7 @@ async function loadKitchenOrders() {
 
   // Bebidas excluidas del KDS — las gestiona el camarero directamente desde serveat
   // También excluir bebidas "con el postre" (with_postre=true) aunque tengan otra categoría
-  const activeDishes = (dishes || []).filter(d =>
+  const activeDishes = filteredDishes.filter(d =>
     d.kitchen_status !== 'delivered' &&
     d.category !== 'bebidas' &&
     d.course !== 0 &&
@@ -8401,7 +8507,7 @@ async function loadKitchenOrders() {
 
   // Separate: active rooms vs fully-delivered rooms
   const dishesByRoom = {};
-  (dishes || []).forEach(d => { if (!dishesByRoom[d.room_id]) dishesByRoom[d.room_id] = []; dishesByRoom[d.room_id].push(d); });
+  filteredDishes.forEach(d => { if (!dishesByRoom[d.room_id]) dishesByRoom[d.room_id] = []; dishesByRoom[d.room_id].push(d); });
 
   const activeRooms = roomIds.filter(rid => {
     const rd = dishesByRoom[rid] || [];
@@ -16969,7 +17075,49 @@ async function loadWaiterStatusBar() {
   `).join('');
 }
 
-// Sub-Sprint A.4+A.6: vista cuadrícula compacta para móviles con muchas mesas
+// Sub-Sprint A.4+A.6 Turno 4: render de la barra de zonas activas en el KDS
+function _renderActiveZonesBar() {
+  const bar = document.getElementById('k-active-zones-bar');
+  const chips = document.getElementById('k-active-zones-chips');
+  if (!bar || !chips) return;
+
+  const zonesEnabled = state.kitchenConfig?.kitchen_zones_enabled;
+  const activeIds = state.kitchenActiveZoneIds || [];
+  const zonesById = state.kitchenZoneMaps?.zonesById || {};
+
+  // Solo mostrar la barra en modo cocina pro CON zonas activas
+  if (!zonesEnabled || activeIds.length === 0) {
+    bar.style.display = 'none';
+    return;
+  }
+
+  bar.style.display = 'flex';
+  chips.innerHTML = activeIds.map(zid => {
+    const z = zonesById[zid];
+    if (!z) return '';
+    const safeName = escHtml(z.name || '?');
+    const color = z.color || '#085041';
+    return '<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;background:' + color + '20;border:1px solid ' + color + ';color:' + color + ';font-size:12px;font-weight:600">'
+      + '<span style="width:6px;height:6px;border-radius:50%;background:' + color + '"></span>'
+      + safeName
+      + '</span>';
+  }).join('');
+}
+
+// Cambiar zonas sin re-loguear (vuelve al selector de zonas con el cocinero ya identificado)
+async function openCookeatZonesChange() {
+  if (!state.kitchenUserId) {
+    notify('Sesión no identificada — cierra sesión y vuelve a entrar', 'error');
+    return;
+  }
+  // Reconstruir el "cocinero seleccionado" para reutilizar el selector
+  const { data: w } = await sb.from('waiters')
+    .select('id,name,role,avatar_color,pin_hash,password')
+    .eq('id', state.kitchenUserId).maybeSingle();
+  if (!w) { notify('Cocinero no encontrado', 'error'); return; }
+  _cookeatStaffSelected = w;
+  await loadCookeatZonesSelector();
+}
 let _floorViewMode = 'plano';  // 'plano' | 'grid'
 
 function toggleFloorViewMode() {
