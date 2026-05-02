@@ -2433,11 +2433,6 @@
         <!-- Solo visible en desktop; en mobile se reemplaza por admin-mobile-bar -->
         <div class="admin-desktop-topbar">
           <div style="flex:1"></div>
-          <!-- Test button (temporary) - dispara una notify de prueba para verificar el flujo -->
-          <button onclick="notify('Notificación de prueba ' + new Date().toLocaleTimeString('es-ES'), 'info')" title="Test notify"
-            style="background:none;border:1px dashed var(--bd2);border-radius:6px;cursor:pointer;padding:5px 9px;color:var(--t3);font-size:11px;font-family:inherit;margin-right:.4rem">
-            🧪 Test
-          </button>
           <button onclick="openAdminNotifPanel()" title="Notificaciones"
             style="position:relative;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;cursor:pointer;padding:6px 10px;color:var(--t2);font-size:14px;line-height:1;display:flex;align-items:center;gap:6px">
             🔔
@@ -3015,13 +3010,13 @@
     </div>
 
     <!-- ═══════════════ AJUSTES (old: Gestión + Perfil merged) ═══════════════ -->
-    <!-- TAB NOTIFICACIONES -->
+    <!-- TAB NOTIFICACIONES (legacy — ya no se usa, mantener IDs únicos) -->
     <div id="atab-notificaciones" style="display:none;flex-direction:column;height:calc(100dvh - 57px);overflow-y:auto">
       <div style="padding:1rem 1.5rem;border-bottom:1px solid var(--bd);background:var(--card);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
         <div style="font-size:16px;font-weight:600">Notificaciones</div>
         <button onclick="markAllAdminNotifSeen()" style="font-size:12px;padding:4px 10px;border-radius:99px;border:1px solid var(--bd);background:none;color:var(--t2);cursor:pointer;font-family:inherit">Todo visto</button>
       </div>
-      <div id="admin-notif-list" style="padding:1rem 1.5rem;flex:1">
+      <div id="admin-notif-list-legacy" style="padding:1rem 1.5rem;flex:1">
         <div style="text-align:center;padding:3rem 1rem;color:var(--t3);font-size:13px">Sin notificaciones aún</div>
       </div>
     </div>
@@ -16783,9 +16778,6 @@ function renderAdminNotifList() {
 
   // Mantener la variable en memoria sincronizada (por si algún caller la lee)
   if (typeof _notifHistory !== 'undefined') _notifHistory = sysHistory;
-
-  // Diagnóstico temporal
-  console.log('[NOTIF] render → ops:', _adminNotifs.length, '· sys:', sysHistory.length);
 
   // Panel unificado — eventos operativos arriba, avisos del sistema (toasts) abajo
   const hasOps = _adminNotifs.length > 0;
