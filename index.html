@@ -12413,8 +12413,11 @@ function showCookeatPinModal() {
 
     +   '<div id="cookeat-pin-err" style="display:none;margin-top:.85rem;font-size:12px;color:#A32D2D;background:#FCEBEB;padding:6px 10px;border-radius:var(--r-sm)"></div>'
 
+    +   '<button onclick="_showPinForgotModal()" '
+    +     'style="margin-top:1rem;background:none;border:none;color:var(--brand-d);font-size:13px;cursor:pointer;font-family:inherit;text-decoration:underline">He olvidado mi PIN</button>'
+
     +   '<button onclick="document.getElementById(\'cookeat-pin-overlay\').remove();_cookeatStaffSelected=null" '
-    +     'style="margin-top:1rem;background:none;border:none;color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit">Cancelar</button>'
+    +     'style="margin-top:.4rem;background:none;border:none;color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit">Cancelar</button>'
     + '</div>';
   document.body.appendChild(overlay);
 
@@ -12521,6 +12524,47 @@ async function _validatePin() {
   // Cerrar modal y pasar al selector de zonas
   document.getElementById('cookeat-pin-overlay')?.remove();
   await loadCookeatZonesSelector();
+}
+
+// Sub-Sprint A.4+A.6 Turno 5: modal informativo "He olvidado mi PIN"
+// (No reseteamos automáticamente — el flujo correcto es que el manager lo cambie
+// desde manageat con su credencial. Esto evita ataques de reset masivo.)
+function _showPinForgotModal() {
+  // Cerrar el keypad para no solapar
+  document.getElementById('cookeat-pin-overlay')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'cookeat-pin-forgot-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9800;display:flex;align-items:center;justify-content:center;padding:1rem';
+  overlay.innerHTML =
+      '<div style="background:var(--card);border-radius:var(--r-lg);max-width:420px;width:100%;padding:1.5rem 1.25rem;box-shadow:0 20px 60px rgba(0,0,0,.3)">'
+    +   '<div style="font-family:\'Fraunces\',serif;font-size:20px;font-weight:700;color:var(--t1);margin-bottom:.65rem;text-align:center">🔐 PIN olvidado</div>'
+    +   '<div style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:1rem">'
+    +     'Por seguridad, los PINs solo pueden cambiarse desde el panel de gestión.'
+    +   '</div>'
+    +   '<div style="background:var(--bg2);border-radius:var(--r-sm);padding:.85rem 1rem;margin-bottom:1rem">'
+    +     '<div style="font-size:12px;font-weight:600;color:var(--t1);margin-bottom:.4rem">Pasos:</div>'
+    +     '<ol style="font-size:12px;color:var(--t2);line-height:1.7;margin:0;padding-left:1.25rem">'
+    +       '<li>Pide al responsable del restaurante que entre en <strong>manageat</strong></li>'
+    +       '<li>Vaya a <strong>Ajustes → Personal</strong></li>'
+    +       '<li>Edite tu perfil y asigne un nuevo PIN</li>'
+    +       '<li>Vuelve aquí e introduce el PIN nuevo</li>'
+    +     '</ol>'
+    +   '</div>'
+    +   '<button onclick="_closePinForgotAndReturn()" '
+    +     'style="width:100%;padding:12px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">'
+    +     'Volver'
+    +   '</button>'
+    + '</div>';
+  document.body.appendChild(overlay);
+}
+
+function _closePinForgotAndReturn() {
+  document.getElementById('cookeat-pin-forgot-overlay')?.remove();
+  // Volver al selector de personal (no al keypad — porque el cocinero
+  // puede haber cambiado de idea y querer probar con otro usuario)
+  _cookeatStaffSelected = null;
+  go('s-cookeat-staff');
 }
 
 async function loadCookeatZonesSelector() {
@@ -12667,6 +12711,11 @@ async function adminLogin() {
   state.adminRestaurantId = data.id;
   state.adminRestaurantName = data.name;
   state.adminRole = 'admin';
+  // Sub-Sprint A.4+A.6 Turno 5: guardar credenciales en memoria (NO localStorage)
+  // para que la edge function set-pin pueda re-validar al admin sin re-login.
+  // Se borran al hacer adminLogout().
+  state.adminEmail = email;
+  state.adminPassword = pass;
   // Bug fix: NO resetear is_active de TODOS los camareros — eso mata sesiones reales
   // de camareros conectados en serveat. Solo resetear sesiones realmente stale (>13h).
   try { resetStaleWaiterSessions(data.id); } catch(e) {}
@@ -12684,6 +12733,9 @@ function adminLogout() {
   state.adminRestaurantId = null;
   state.adminRestaurantName = '';
   state.adminRole = 'admin';
+  // Sub-Sprint A.4+A.6 Turno 5: limpiar credenciales en memoria
+  state.adminEmail = null;
+  state.adminPassword = null;
   const tabBar = document.querySelector('#s-admin .tab-bar');
   if (tabBar) tabBar.style.display = '';
   const logo = document.querySelector('#s-admin .hdr .logo');
@@ -15499,22 +15551,109 @@ async function saveMemberEdit(waiterId) {
   loadAdminWaitersInline();
 }
 
+// Sub-Sprint A.4+A.6 Turno 5: reset de PIN/password con modal bonito
+// Para cocineros (chef, kitchen_chief): llama a set-pin (bcrypt server-side)
+// Para camareros: mantiene el flujo de password (auth-waiter ya hashea)
 async function promptResetWaiterPwd(waiterId, waiterName, role) {
-  // Sub-Sprint A.4+A.6: PIN para cocineros, password para camareros
   const isCook = role === 'chef' || role === 'kitchen_chief';
-  const promptMsg = isCook
-    ? 'Nuevo PIN (4 dígitos) para ' + waiterName + ':'
-    : 'Nueva contraseña para ' + waiterName + ' (mín. 6 caracteres):';
-  const newPwd = prompt(promptMsg);
-  if (!newPwd) return;
-  if (isCook) {
-    if (!/^\d{4}$/.test(newPwd)) { notify('El PIN debe tener exactamente 4 dígitos'); return; }
-  } else {
-    if (newPwd.length < 6) { notify('La contraseña debe tener mínimo 6 caracteres'); return; }
+  const credLabel = isCook ? 'PIN (4 dígitos)' : 'Contraseña (mín. 6 caracteres)';
+  const inputType = isCook ? 'tel' : 'password';
+  const inputAttrs = isCook
+    ? 'maxlength="4" inputmode="numeric" pattern="[0-9]{4}"'
+    : 'minlength="6"';
+
+  document.getElementById('reset-pwd-overlay')?.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'reset-pwd-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:700;display:flex;align-items:center;justify-content:center;padding:1rem';
+  overlay.innerHTML =
+      '<div style="background:var(--card);border-radius:var(--r-lg);width:100%;max-width:400px;padding:1.5rem 1.25rem">'
+    +   '<div style="font-size:17px;font-weight:700;color:var(--t1);margin-bottom:.25rem">🔑 Cambiar ' + (isCook ? 'PIN' : 'contraseña') + '</div>'
+    +   '<div style="font-size:13px;color:var(--t2);margin-bottom:1rem">Para <strong>' + escHtml(waiterName) + '</strong></div>'
+
+    +   '<label style="display:block;font-size:12px;color:var(--t2);margin-bottom:4px;font-weight:500">Nuevo ' + credLabel + '</label>'
+    +   '<input id="rp-new" type="' + inputType + '" ' + inputAttrs + ' autofocus '
+    +     'style="width:100%;padding:12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-size:16px;font-family:inherit;margin-bottom:.75rem;background:var(--card);color:var(--t1);' + (isCook ? 'text-align:center;letter-spacing:.5em;font-weight:600' : '') + '">'
+
+    + (isCook
+        ? '<div style="font-size:11px;color:var(--t3);margin-bottom:1rem;line-height:1.5">Comunica este PIN al cocinero. La primera vez que entre con este PIN, el sistema lo guardará de forma segura (cifrado).</div>'
+        : '<div style="font-size:11px;color:var(--t3);margin-bottom:1rem;line-height:1.5">Comunica esta contraseña al camarero.</div>')
+
+    +   '<div id="rp-err" style="display:none;font-size:12px;color:#A32D2D;background:#FCEBEB;padding:6px 10px;border-radius:var(--r-sm);margin-bottom:.75rem"></div>'
+
+    +   '<div style="display:flex;gap:.5rem">'
+    +     '<button onclick="_doResetPwd(\'' + waiterId + '\',\'' + escHtml(waiterName).replace(/'/g, '&#39;') + '\',' + isCook + ')" '
+    +       'class="btn btn-primary" style="flex:1">Guardar</button>'
+    +     '<button onclick="document.getElementById(\'reset-pwd-overlay\').remove()" '
+    +       'class="btn btn-secondary" style="flex:1">Cancelar</button>'
+    +   '</div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById('rp-new')?.focus(), 50);
+}
+
+async function _doResetPwd(waiterId, waiterName, isCook) {
+  const newCred = document.getElementById('rp-new')?.value?.trim() || '';
+  const errEl = document.getElementById('rp-err');
+  if (errEl) errEl.style.display = 'none';
+
+  // Validación
+  if (isCook && !/^\d{4}$/.test(newCred)) {
+    errEl.textContent = 'El PIN debe ser exactamente 4 dígitos numéricos';
+    errEl.style.display = 'block';
+    return;
   }
-  const { error } = await sb.from('waiters').update({ password: newPwd, password_hash: null, pin_hash: null }).eq('id', waiterId);
-  if (error) { notify('Error al actualizar: ' + error.message); return; }
-  showToast('✓ ' + (isCook ? 'PIN' : 'Contraseña') + ' actualizada', 'Comunícasela a ' + waiterName);
+  if (!isCook && newCred.length < 6) {
+    errEl.textContent = 'La contraseña debe tener mínimo 6 caracteres';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  if (isCook) {
+    // Cocinero: llamar a edge function set-pin (hashea con bcrypt)
+    try {
+      const res = await fetch(`${SUPA_URL}/functions/v1/set-pin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPA_KEY}`,
+          'apikey': SUPA_KEY
+        },
+        body: JSON.stringify({
+          waiterId,
+          newPin: newCred,
+          adminEmail: state.adminEmail,
+          adminPassword: state.adminPassword
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        const errMsg = data.message || data.error || 'Error desconocido';
+        errEl.textContent = 'Error: ' + errMsg;
+        errEl.style.display = 'block';
+        return;
+      }
+    } catch (e) {
+      console.error('[set-pin] error de red:', e);
+      errEl.textContent = 'Error de conexión: ' + e.message;
+      errEl.style.display = 'block';
+      return;
+    }
+  } else {
+    // Camarero: usa el flujo de password (la edge function auth-waiter hashea al login)
+    const { error } = await sb.from('waiters').update({
+      password: newCred,
+      password_hash: null
+    }).eq('id', waiterId);
+    if (error) {
+      errEl.textContent = 'Error al guardar: ' + error.message;
+      errEl.style.display = 'block';
+      return;
+    }
+  }
+
+  document.getElementById('reset-pwd-overlay')?.remove();
+  showToast('✓ ' + (isCook ? 'PIN' : 'Contraseña') + ' actualizado', 'Comunícaselo a ' + waiterName);
 }
 
 async function deleteWaiterInline(waiterId) {
