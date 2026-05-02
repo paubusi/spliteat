@@ -3231,7 +3231,17 @@
           <div class="modal-title" style="font-size:17px;font-weight:600;color:var(--t1)">Editar plato</div>
           <button onclick="closeEditItem()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
         </div>
-        <div class="field"><label>Nombre</label><input id="edit-item-name" type="text" placeholder="Nombre del plato"></div>
+        <div class="field"><label>Nombre</label><input id="edit-item-name" type="text" placeholder="Nombre del plato" oninput="_updateKdsPreview()"></div>
+        <div class="field">
+          <label style="display:flex;align-items:center;justify-content:space-between;gap:.5rem">
+            <span>Nombre corto KDS <span style="font-weight:400;color:var(--t3);font-size:11px">(opcional · cómo aparece en cocina)</span></span>
+            <button type="button" onclick="generateKdsShortName()" id="edit-item-kds-ai-btn" style="background:none;border:1px solid var(--bd2);border-radius:var(--r-sm);padding:3px 9px;font-size:11px;color:var(--brand-d);cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:4px">
+              💡 Sugerir con IA
+            </button>
+          </label>
+          <input id="edit-item-kds-short" type="text" maxlength="28" placeholder="Auto-generado si lo dejas vacío" oninput="_updateKdsPreview()">
+          <div id="edit-item-kds-preview" style="display:none;font-size:11px;color:var(--t3);margin-top:4px"></div>
+        </div>
         <div id="edit-item-base-price-block">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
             <div class="field"><label>Precio (€)</label><input id="edit-item-price" type="number" step="0.01" min="0" placeholder="0.00"></div>
@@ -8292,7 +8302,7 @@ async function _loadKitchenZoneMaps() {
     const [{ data: zones }, { data: cats }, { data: items }] = await Promise.all([
       sb.from('kitchen_zones').select('id,name,color,is_default').eq('restaurant_id', state.kitchenRestaurantId),
       sb.from('categories').select('id,name,kitchen_zone_id').eq('restaurant_id', state.kitchenRestaurantId),
-      sb.from('menu_items').select('id,name,kitchen_zone_id,category_id').eq('restaurant_id', state.kitchenRestaurantId)
+      sb.from('menu_items').select('id,name,kitchen_zone_id,kds_short_name,category_id').eq('restaurant_id', state.kitchenRestaurantId)
     ]);
 
     const zonesById = {};
@@ -8312,12 +8322,14 @@ async function _loadKitchenZoneMaps() {
       }
     });
 
-    // Mapa por menu_item_id (override individual)
+    // Mapa por menu_item_id (override individual + nombre corto KDS)
     const itemZoneById = {};
     const itemCategoryById = {};
+    const itemKdsShortById = {};
     (items || []).forEach(i => {
       if (i.kitchen_zone_id) itemZoneById[i.id] = i.kitchen_zone_id;
       if (i.category_id) itemCategoryById[i.id] = i.category_id;
+      if (i.kds_short_name) itemKdsShortById[i.id] = i.kds_short_name;
     });
 
     state.kitchenZoneMaps = {
@@ -8326,7 +8338,8 @@ async function _loadKitchenZoneMaps() {
       catZoneByName,
       catZoneById,
       itemZoneById,
-      itemCategoryById
+      itemCategoryById,
+      itemKdsShortById
     };
   } catch (e) {
     console.warn('[kitchen zones] no pude cargar mapas:', e);
@@ -8691,32 +8704,22 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
         return `<div data-dish-ids="${allIds}" style="display:flex;align-items:flex-start;gap:6px;padding:6px 0;border-bottom:1px solid rgba(0,0,0,.05);opacity:${isDone?'.5':'1'};flex-wrap:wrap;transition:opacity .15s">
           <span style="font-size:12px;flex-shrink:0;color:${isDone?'#3B6D11':ks==='making'?'#B7560D':'#aaa'};margin-top:1px">${dot}</span>
           <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:${isDone?'400':'500'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${isDone?'text-decoration:line-through;color:var(--t3)':''}">
-              ${count > 1 ? `<strong style="color:var(--brand-d);margin-right:4px">×${count}</strong>` : ''}${escHtml(d.name)}${d.variant_name ? ` <span style="display:inline-block;font-size:10px;font-weight:700;color:var(--brand-d);background:var(--brand-l);border:1px solid var(--brand);border-radius:99px;padding:1px 7px;margin-left:4px;letter-spacing:.02em;vertical-align:middle">${escHtml(d.variant_name)}</span>` : ''}
+            <div title="${escHtml(d.name)}${d.variant_name ? ' (' + escHtml(d.variant_name) + ')' : ''}" style="font-size:13px;font-weight:${isDone?'400':'500'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${isDone?'text-decoration:line-through;color:var(--t3)':''}">
+              ${count > 1 ? `<strong style="color:var(--brand-d);margin-right:4px">×${count}</strong>` : ''}${escHtml(_resolveKdsName(d))}${d.variant_name ? ` <span style="display:inline-block;font-size:10px;font-weight:700;color:var(--brand-d);background:var(--brand-l);border:1px solid var(--brand);border-radius:99px;padding:1px 7px;margin-left:4px;letter-spacing:.02em;vertical-align:middle">${escHtml(d.variant_name)}</span>` : ''}
             </div>
             ${d.cooking_point ? `<div style="font-size:11px;font-weight:600;color:#8B5E3C;margin-top:1px">${d.cooking_point}</div>` : ''}
-            ${prep && !isDone ? `<div style="font-size:10px;color:var(--t3)">⏱ ${prep} min · ${dishElapsed} min esperando</div>` : ''}
-            ${(() => {
-              if (isDone || typeof window._stockIssuesForDish !== 'function') return '';
-              const issues = window._stockIssuesForDish(d);
-              if (!issues.length) return '';
-              // Multiplicar por el count del grupo (×N platos idénticos)
-              const scaled = issues.map(i => ({
-                ...i,
-                qty_required: i.qty_required * count,
-                severity: i.qty_on_hand < i.qty_required * count ? 'out' : i.severity
-              }));
-              const hasOut = scaled.some(i => i.severity === 'out');
-              const bg = hasOut ? '#FCEBEB' : '#FAEEDA';
-              const border = hasOut ? '#E89C9C' : '#E5A85A';
-              const txt = hasOut ? '#A32D2D' : '#854F0B';
-              const icon = hasOut ? '⚠️' : '⚡';
-              const headline = hasOut ? 'Stock insuficiente' : 'Stock bajo';
-              return `<div style="margin-top:6px;background:${bg};border:1px solid ${border};border-radius:6px;padding:5px 8px">
-                <div style="font-size:11px;font-weight:600;color:${txt};margin-bottom:2px">${icon} ${headline}</div>
-                ${scaled.map(i => `<div style="font-size:10px;color:${txt};line-height:1.4">${escHtml(i.name)}: necesita ${(+i.qty_required.toFixed(3))} ${i.unit}, hay ${i.qty_on_hand}</div>`).join('')}
-              </div>`;
-            })()}
+            ${!isDone ? (() => {
+              // Sub-Sprint A.4+A.6: solo mostrar el tiempo de espera (lo crítico para cocina)
+              // sin el prep_time_minutes (es estático, el cocinero lo sabe).
+              // Coloreado por urgencia: <5min normal, 5-10min ámbar, >10min rojo.
+              const urgent = dishElapsed >= 10;
+              const warn = dishElapsed >= 5 && dishElapsed < 10;
+              const color = urgent ? '#A32D2D' : warn ? '#854F0B' : 'var(--t3)';
+              const weight = (urgent || warn) ? '600' : '400';
+              return `<div style="font-size:10px;color:${color};font-weight:${weight}">⏱ ${dishElapsed}m</div>`;
+            })() : ''}
+            <!-- Sub-Sprint A.4+A.6: stock info eliminada del KDS — principio de minimizar info.
+                 Los avisos de stock viven en stockeat / dashboard, no en cocina durante el servicio. -->
           </div>
           ${btn}
         </div>`;
@@ -14867,7 +14870,10 @@ async function confirmCartaImport() {
       active: true,
       has_variants: hasVariants,
       description: p.descripcion || null,
-      allergens: Array.isArray(p.alergenos) ? p.alergenos : []
+      allergens: Array.isArray(p.alergenos) ? p.alergenos : [],
+      // Sub-Sprint A.4+A.6: pre-rellenar nombre corto KDS (editable después por el manager)
+      // Si la IA del importador devolvió uno, usarlo; si no, usar algoritmo determinista
+      kds_short_name: p.nombre_kds || (p.nombre.length > 22 ? _kdsShortName(p.nombre) : null)
     };
   });
 
@@ -17075,7 +17081,115 @@ async function loadWaiterStatusBar() {
   `).join('');
 }
 
-// Sub-Sprint A.4+A.6 Turno 4: render de la barra de zonas activas en el KDS
+// Sub-Sprint A.4+A.6: resolver el nombre que mostrar en el KDS para un dish.
+// Prioridad: kds_short_name (configurado por manager) > algoritmo automático
+function _resolveKdsName(dish) {
+  if (!dish) return '';
+  // 1. Override del menu_item
+  if (dish.menu_item_id && state.kitchenZoneMaps?.itemKdsShortById?.[dish.menu_item_id]) {
+    return state.kitchenZoneMaps.itemKdsShortById[dish.menu_item_id];
+  }
+  // 2. Algoritmo automático sobre el nombre del dish
+  return _kdsShortName(dish.name || '');
+}
+
+// Sub-Sprint A.4+A.6: abreviatura para nombres largos en KDS
+//
+// Algoritmo determinista (sin IA por ahora):
+//   1. Si nombre <= 22 chars → tal cual
+//   2. Quitar conectores ("de", "con", "al", "la", "el", "sin", "en", "y", "o", "del", "los", "las")
+//   3. Reemplazar "con" intermedio por "+"
+//   4. Si todavía > 22 chars → truncar palabras > 8 chars a 7 + "."
+//   5. Si todavía > 28 chars → cortar y añadir "…"
+//
+// Ejemplos:
+//   "Solomillo de ternera al pimentón con patatas" → "Solomillo ternera pimentón + patatas"
+//   "Croquetas caseras de jamón ibérico" → "Croquetas caseras jamón ibérico"
+//   "Hamburguesa de la casa con queso cheddar" → "Hamburguesa casa + queso cheddar"
+function _kdsShortName(name) {
+  if (!name) return '';
+  if (name.length <= 22) return name;
+
+  const STOPWORDS = new Set(['de','del','la','el','los','las','al','a','en','y','o','sin','para']);
+  // "con" se reemplaza por "+" (más explícito)
+  const tokens = name.split(/\s+/);
+  const filtered = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const lower = tokens[i].toLowerCase();
+    if (lower === 'con') {
+      filtered.push('+');
+    } else if (!STOPWORDS.has(lower)) {
+      filtered.push(tokens[i]);
+    }
+    // ignorar stopwords
+  }
+  let result = filtered.join(' ').trim();
+
+  // Si todavía es muy largo, abreviar palabras largas
+  if (result.length > 22) {
+    result = result.split(' ').map(w => {
+      if (w === '+') return '+';
+      if (w.length > 8) return w.slice(0, 7) + '.';
+      return w;
+    }).join(' ');
+  }
+
+  // Si todavía no entra, truncar por palabra completa (no a media palabra)
+  if (result.length > 28) {
+    const words = result.split(' ');
+    const out = [];
+    let len = 0;
+    for (const w of words) {
+      if (len + w.length + (out.length ? 1 : 0) > 26) break;
+      out.push(w);
+      len += w.length + (out.length > 1 ? 1 : 0);
+    }
+    result = (out.length ? out.join(' ') : result.slice(0, 26)) + '…';
+  }
+
+  return result;
+}
+
+// Sub-Sprint A.4+A.6: helper para generar abreviatura desde el editor de plato.
+// Por ahora usa el algoritmo determinista (sin IA real). Cuando la edge function de
+// Anthropic API esté disponible, esto se reemplaza con una llamada al backend.
+function generateKdsShortName() {
+  const nameInput = document.getElementById('edit-item-name');
+  const shortInput = document.getElementById('edit-item-kds-short');
+  if (!nameInput || !shortInput) return;
+  const name = (nameInput.value || '').trim();
+  if (!name) {
+    notify('Escribe primero el nombre del plato', 'error');
+    return;
+  }
+  const suggestion = _kdsShortName(name);
+  // Si el nombre original es corto, no hay nada que abreviar
+  if (suggestion === name) {
+    notify('El nombre ya es suficientemente corto para el KDS', 'info');
+    return;
+  }
+  shortInput.value = suggestion;
+  _updateKdsPreview();
+}
+
+// Mostrar preview de cómo se verá en el KDS (en vivo mientras el usuario escribe)
+function _updateKdsPreview() {
+  const nameInput = document.getElementById('edit-item-name');
+  const shortInput = document.getElementById('edit-item-kds-short');
+  const preview = document.getElementById('edit-item-kds-preview');
+  if (!nameInput || !shortInput || !preview) return;
+  const name = (nameInput.value || '').trim();
+  const shortVal = (shortInput.value || '').trim();
+  const willShow = shortVal || _kdsShortName(name);
+  if (!name) {
+    preview.style.display = 'none';
+    return;
+  }
+  preview.style.display = 'block';
+  preview.innerHTML = 'En cocina se verá: <strong style="color:var(--brand-d)">' + escHtml(willShow) + '</strong>'
+    + (shortVal ? '' : ' <span style="color:var(--t3)">(autogenerado)</span>');
+}
+
 function _renderActiveZonesBar() {
   const bar = document.getElementById('k-active-zones-bar');
   const chips = document.getElementById('k-active-zones-chips');
@@ -22329,6 +22443,10 @@ async function openEditItem(itemId) {
   if (titleEl) titleEl.textContent = isNew ? 'Nuevo plato' : 'Editar plato';
 
   document.getElementById('edit-item-name').value = item?.name || '';
+  // Sub-Sprint A.4+A.6: nombre corto KDS
+  const kdsShortInput = document.getElementById('edit-item-kds-short');
+  if (kdsShortInput) kdsShortInput.value = item?.kds_short_name || '';
+  _updateKdsPreview();
   document.getElementById('edit-item-price').value = item?.price || '';
   document.getElementById('edit-item-cost').value = item?.cost_price || '';
   document.getElementById('edit-item-prep').value = item?.prep_time_minutes || '';
@@ -22495,6 +22613,10 @@ async function saveEditItem() {
   // Sub-Sprint A.4+A.6: zona override por plato (null = hereda de la categoría)
   const zoneVal = document.getElementById('edit-item-zone')?.value || null;
   updates.kitchen_zone_id = zoneVal || null;
+
+  // Sub-Sprint A.4+A.6: nombre corto KDS (null = se autogenera con algoritmo al renderizar)
+  const kdsShortVal = document.getElementById('edit-item-kds-short')?.value?.trim();
+  updates.kds_short_name = kdsShortVal || null;
 
   let savedItemId;
   if (isNew) {
