@@ -17170,26 +17170,79 @@ async function generateKdsShortName() {
     btn.innerHTML = '<span class="spinner" style="width:11px;height:11px;border:2px solid var(--bd2);border-top-color:var(--brand);border-radius:50%;animation:spin .8s linear infinite;display:inline-block"></span> Pensando…';
   }
 
+  console.log('[suggest-kds-name] llamando edge function con name:', name);
+
   try {
-    const { data, error } = await sb.functions.invoke('suggest-kds-name', {
-      body: { name }
+    // Llamada directa con fetch para tener control total sobre el error
+    const url = `${SUPA_URL}/functions/v1/suggest-kds-name`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPA_KEY}`,
+        'apikey': SUPA_KEY
+      },
+      body: JSON.stringify({ name })
     });
-    if (error) throw error;
+
+    console.log('[suggest-kds-name] status:', res.status, res.statusText);
+
+    if (!res.ok) {
+      let errBody = '';
+      try { errBody = await res.text(); } catch (_) {}
+      console.error('[suggest-kds-name] respuesta no OK:', res.status, errBody);
+
+      // Diagnóstico específico según el código
+      if (res.status === 404) {
+        notify('❌ Edge function "suggest-kds-name" NO está desplegada en Supabase', 'error');
+        throw new Error('not_deployed');
+      } else if (res.status === 401) {
+        notify('❌ Auth fallida — revisa SUPA_KEY del cliente', 'error');
+        throw new Error('auth_failed');
+      } else if (res.status === 500) {
+        // Probablemente API key de Anthropic faltante o error de Anthropic
+        let parsed = {};
+        try { parsed = JSON.parse(errBody); } catch (_) {}
+        const msg = parsed.error || errBody.slice(0, 100) || 'error 500';
+        notify('❌ Error servidor: ' + msg, 'error');
+        throw new Error('server_error: ' + msg);
+      } else {
+        notify('❌ HTTP ' + res.status + ': ' + (errBody.slice(0, 80) || 'error'), 'error');
+        throw new Error('http_' + res.status);
+      }
+    }
+
+    const data = await res.json();
+    console.log('[suggest-kds-name] respuesta:', data);
+
     const suggestion = (data?.kds_short_name || '').trim();
-    if (!suggestion) throw new Error('respuesta vacía');
+    if (!suggestion) {
+      notify('❌ La IA devolvió respuesta vacía', 'error');
+      throw new Error('empty_response');
+    }
+
     shortInput.value = suggestion;
     _updateKdsPreview();
     notify('✓ Abreviatura sugerida por IA', 'success');
+
   } catch (e) {
-    console.warn('[suggest-kds-name] fallo IA, fallback a algoritmo local:', e);
-    // Fallback al algoritmo determinista
-    const fallback = _kdsShortName(name);
-    if (fallback === name) {
-      notify('IA no disponible · El nombre ya es suficientemente corto', 'info');
-    } else {
-      shortInput.value = fallback;
-      _updateKdsPreview();
-      notify('IA no disponible · sugerencia generada localmente', 'info');
+    console.warn('[suggest-kds-name] fallo, usando fallback local:', e?.message || e);
+    // Solo aplicamos fallback si NO mostramos ya un error específico
+    const knownErrors = ['not_deployed', 'auth_failed', 'empty_response'];
+    const isKnownError = knownErrors.includes(e?.message) || (e?.message || '').startsWith('server_error') || (e?.message || '').startsWith('http_');
+
+    if (!isKnownError) {
+      // Error de red, CORS, etc. — mostramos mensaje genérico
+      notify('❌ Error de red al llamar a la IA — ' + (e?.message || 'desconocido'), 'error');
+    }
+
+    // Aplicar fallback local SI el campo está vacío (no sobreescribir lo que ya había)
+    if (!shortInput.value) {
+      const fallback = _kdsShortName(name);
+      if (fallback !== name) {
+        shortInput.value = fallback;
+        _updateKdsPreview();
+      }
     }
   } finally {
     if (btn && originalBtnHtml) {
