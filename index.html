@@ -9126,6 +9126,40 @@ async function generateInvoiceFromRoom(roomId, opts = {}) {
   }
 }
 
+// Sprint H Turno 3b — fix Bug 2:
+// Helper centralizado para cerrar mesa + emitir factura automáticamente.
+// Reemplaza las 14 llamadas dispersas a `rooms.update({ closed: true })`.
+// Si ya se está usando en un flujo que cobra antes, también funciona porque
+// generateInvoiceFromRoom es idempotente (devuelve la existente si ya existe).
+async function _closeRoomWithInvoice(roomId, extraUpdate = {}) {
+  // 1. Cerrar la mesa
+  const updatePayload = {
+    closed: true,
+    closed_at: new Date().toISOString(),
+    needs_cleaning: true,
+    cleaning_requested_at: new Date().toISOString(),
+    ...extraUpdate,
+  };
+  const { error: closeErr } = await sb.from('rooms').update(updatePayload).eq('id', roomId);
+  if (closeErr) {
+    console.error('[_closeRoomWithInvoice] error cerrando:', closeErr);
+    return { error: closeErr.message };
+  }
+
+  // 2. Generar factura (fire-and-forget; no bloquea)
+  generateInvoiceFromRoom(roomId).then(res => {
+    if (res?.invoice && !res?.alreadyExists) {
+      console.log('[_closeRoomWithInvoice] factura emitida:', res.invoice.display_number);
+      // El UI mostrará el badge cuando refresque (loadFacturas)
+    } else if (res?.error) {
+      console.warn('[_closeRoomWithInvoice] factura no emitida:', res.error);
+      // No bloqueamos el cierre — la factura se puede emitir manualmente con el botón "+🧾"
+    }
+  }).catch(e => console.warn('[_closeRoomWithInvoice] error factura:', e));
+
+  return { ok: true };
+}
+
 // Helper: descarga la factura como HTML imprimible (ticket-style + QR).
 // Llamable desde cualquier sitio con el invoice_id.
 async function downloadInvoiceHtml(invoiceId) {
@@ -9876,16 +9910,13 @@ async function waiterConfirmCobro(roomId, guestId, amount, method, nIdx) {
     const allPaid = (guests||[]).length > 0 && (guests||[]).every(g => paidIds.has(g.id));
     if (allPaid) {
       const totalPaid = (payments||[]).reduce((s,p)=>s+parseFloat(p.amount||0),0);
-      await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString(), needs_cleaning: true, cleaning_requested_at: new Date().toISOString() }).eq('id', roomId);
+      await _closeRoomWithInvoice(roomId);
       await _notifyPaymentComplete(roomId, totalPaid);
-      // Generar factura automáticamente al cerrar mesa (Verifactu)
-      generateInvoiceFromRoom(roomId).then(res => {
-        if (res?.invoice) {
-          showToast('🧾 Factura ' + res.invoice.display_number, 'Generada y guardada');
-        } else if (res?.error) {
-          console.warn('[invoice] generation failed:', res.error);
-        }
-      }).catch(e => console.warn('[invoice] error:', e));
+      // Toast informativo para el camarero — el helper ya generó la factura
+      setTimeout(async () => {
+        const { data: inv } = await sb.from('invoices').select('display_number').eq('room_id', roomId).maybeSingle();
+        if (inv?.display_number) showToast('🧾 Factura ' + inv.display_number, 'Generada y guardada');
+      }, 800);
       showToast('Mesa cerrada', 'Todos han pagado — recuerda limpiar la mesa');
       loadWaiterMesas();
       loadWaiterTableSelects();
@@ -11968,7 +11999,7 @@ async function waiterCobrarMesaCompleta(roomId, amount, method) {
     waiter_id: _waiterId, stripe_status: 'manual',
   });
   if (error) { notify('Error al registrar pago: ' + error.message); return; }
-  await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString(), needs_cleaning: true, cleaning_requested_at: new Date().toISOString() }).eq('id', roomId);
+  await _closeRoomWithInvoice(roomId);
   showToast('Mesa cobrada', `${fmt(amount)} · Mesa cerrada.`);
   try { playPaymentSound(true); } catch(_) {}
   await _notifyPaymentComplete(roomId, amount);
@@ -11986,7 +12017,7 @@ async function waiterCobrarPartesIguales(roomId, total) {
   }));
   const { error: payErr } = await sb.from('payments').insert(inserts);
   if (payErr) { notify('Error al registrar pagos: ' + payErr.message); return; }
-  await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString(), needs_cleaning: true, cleaning_requested_at: new Date().toISOString() }).eq('id', roomId);
+  await _closeRoomWithInvoice(roomId);
   showToast('Mesa cobrada', `${n} partes de ${fmt(porParte)}. Mesa cerrada.`);
   try { playPaymentSound(true); } catch(_) {}
   await _notifyPaymentComplete(roomId, total);
@@ -12007,7 +12038,7 @@ async function waiterMarkPaid(guestId, amount, roomId) {
   const allPaid = (guests||[]).length > 0 && (guests||[]).every(g => paidIds.has(g.id));
   if (allPaid) {
     const totalPaid = (payments||[]).reduce((s,p)=>s+parseFloat(p.amount||0),0);
-    await sb.from('rooms').update({ closed: true, closed_at: new Date().toISOString(), needs_cleaning: true, cleaning_requested_at: new Date().toISOString() }).eq('id', roomId);
+    await _closeRoomWithInvoice(roomId);
     showToast('Mesa cerrada', 'Todos han pagado.');
     await _notifyPaymentComplete(roomId, totalPaid);
     showWaiterTab('mesas'); loadWaiterMesas(); loadWaiterTableSelects();
@@ -22346,8 +22377,8 @@ async function loadFacturas() {
     const legalBadge = inv
       ? `<span style="font-size:9px;font-weight:600;background:#E1F5EE;color:#085041;padding:1px 6px;border-radius:99px;margin-left:4px;border:1px solid #085041">🧾 ${escHtml(inv.display_number)}</span>${_vfStatusInfo ? `<span title="${escHtml(inv.verifactu_error_msg || _vfStatusInfo.label)}" style="font-size:9px;font-weight:600;background:${_vfStatusInfo.bg};color:${_vfStatusInfo.color};padding:1px 6px;border-radius:99px;margin-left:3px">${_vfStatusInfo.icon} ${escHtml(_vfStatusInfo.label)}</span>` : ''}`
       : '';
-    const retryBtn = (inv && inv.verifactu_status === 'error')
-      ? `<button onclick="event.stopPropagation();_retryVerifactuSend('${inv.id}')" title="Reintentar envío a AEAT" style="flex-shrink:0;padding:5px 8px;border-radius:var(--r-sm);border:1px solid #C26B0A;background:#FFF3E0;color:#854F0B;cursor:pointer;font-size:13px;line-height:1">↻</button>`
+    const retryBtn = (inv && (inv.verifactu_status === 'error' || inv.verifactu_status === 'pending'))
+      ? `<button onclick="event.stopPropagation();_retryVerifactuSend('${inv.id}')" title="${inv.verifactu_status === 'pending' ? 'Forzar envío a AEAT ahora' : 'Reintentar envío a AEAT'}" style="flex-shrink:0;padding:5px 8px;border-radius:var(--r-sm);border:1px solid #C26B0A;background:#FFF3E0;color:#854F0B;cursor:pointer;font-size:13px;line-height:1">↻</button>`
       : '';
     const printBtn = inv
       ? `<button onclick="event.stopPropagation();printInvoice('${inv.id}')" title="Imprimir factura legal" style="flex-shrink:0;padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--brand);background:var(--brand-l);color:var(--brand-d);cursor:pointer;font-size:13px;line-height:1">🧾</button>`
