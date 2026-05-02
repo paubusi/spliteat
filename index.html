@@ -3126,6 +3126,19 @@
           </div>
         </div>
 
+        <!-- Sprint H — Datos fiscales (Verifactu) -->
+        <div class="settings-section">
+          <div class="settings-section-header">Facturación legal</div>
+          <div class="settings-row" onclick="openAjustesSection('fiscal')">
+            <span class="settings-row-icon">🧾</span>
+            <div class="settings-row-content">
+              <div class="settings-row-title">Datos fiscales y certificado</div>
+              <div class="settings-row-desc">Razón social, CIF, certificado digital y configuración Verifactu</div>
+            </div>
+            <span id="fiscal-status-badge" class="settings-row-arrow" style="font-size:10px;font-weight:600;color:var(--accent)">●</span>
+          </div>
+        </div>
+
       </div>
 
       <!-- Ajustes panels (shown inline when row clicked) -->
@@ -12787,7 +12800,7 @@ function showAdminTab(name) {
   if (name === 'encurso') { loadEncurso(); subscribeCalleatRealtime(); }
   if (name === 'calleat') { loadCalleatQueueMain(); subscribeCalleatRealtime(); }
   if (name === 'facturas') { loadFacturas(); }
-  if (name === 'gestion') { initGestionTab(); setTimeout(updateDisabledPlatosCount, 500); }
+  if (name === 'gestion') { initGestionTab(); setTimeout(updateDisabledPlatosCount, 500); setTimeout(() => typeof updateFiscalStatusBadge === 'function' && updateFiscalStatusBadge(), 600); }
   if (name === 'cocina') loadAdminOrders();
   if (name === 'reservas') initReservasTab();
   if (name === 'reportes') { loadKPIs(); showReportesTab('kpis'); }
@@ -13386,7 +13399,8 @@ function openAjustesSection(section) {
     perfil: 'Perfil del restaurante', 'reservas-config': 'Configuración de reservas',
     'metodos-pago': 'Métodos de pago aceptados',
     'zonas': 'Zonas de cocina',
-    'cocina-modos': 'Modos de KDS'
+    'cocina-modos': 'Modos de KDS',
+    'fiscal': 'Datos fiscales y certificado'
   };
   if (title) title.textContent = titles[section] || section;
 
@@ -13486,6 +13500,8 @@ function openAjustesSection(section) {
     renderKitchenZonesSection(content);
   } else if (section === 'cocina-modos') {
     renderKitchenModosSection(content);
+  } else if (section === 'fiscal') {
+    renderFiscalSection(content);
   } else {
     content.innerHTML = `<div class="notice notice-warn">Sección "${titles[section]}" — próximamente</div>`;
   }
@@ -13779,18 +13795,15 @@ async function saveKitchenModos() {
 
   // Sub-Sprint A.4+A.6: si se desactiva el modo pro, también desactivar
   // "solo el jefe de cocina" porque sin login real no hay distinción de roles.
-  // Lo hacemos silenciosamente para no bloquear el guardado del usuario.
   let chiefAutoDisabled = false;
   if (!updates.kitchen_zones_enabled && updates.kitchen_chief_required) {
     updates.kitchen_chief_required = false;
     chiefAutoDisabled = true;
-    // Reflejar en la UI
     const chiefToggle = document.getElementById('mode-chief-required');
     if (chiefToggle) chiefToggle.checked = false;
   }
 
   try {
-    // Detectar transición ON → OFF para limpiar sesiones cocinero
     const { data: prev } = await sb.from('restaurants')
       .select('kitchen_zones_enabled').eq('id', state.adminRestaurantId).maybeSingle();
     const wasOn = !!prev?.kitchen_zones_enabled;
@@ -13799,7 +13812,6 @@ async function saveKitchenModos() {
     const { error } = await sb.from('restaurants').update(updates).eq('id', state.adminRestaurantId);
     if (error) throw error;
 
-    // Si pasamos de ON → OFF, limpiamos waiter_active_zones de todos los cocineros del restaurante.
     if (wasOn && willBeOff) {
       const { data: cooks } = await sb.from('waiters')
         .select('id').eq('restaurant_id', state.adminRestaurantId)
@@ -13810,7 +13822,6 @@ async function saveKitchenModos() {
       }
     }
 
-    // Mensaje claro y específico según lo que cambió
     let msg = '✓ Cambios guardados.';
     if (wasOn && willBeOff) {
       msg = 'Modo cocina pro desactivado. Cookeat ahora entrará directo al KDS sin pedir PIN.';
@@ -13825,6 +13836,383 @@ async function saveKitchenModos() {
     notify('Error al guardar: ' + (e.message || e), 'error');
   }
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// SPRINT H — DATOS FISCALES (Verifactu)
+// ══════════════════════════════════════════════════════════════════════
+
+const IAE_OPTIONS = [
+  { code: '671', label: '671 — Servicios en restaurantes' },
+  { code: '672', label: '672 — Servicios en cafeterías' },
+  { code: '673', label: '673 — Servicios en bares' },
+  { code: '675', label: '675 — Servicios en quioscos, cajones, barracas u otros locales' },
+  { code: '676', label: '676 — Chocolaterías, heladerías y horchaterías' },
+  { code: '677', label: '677 — Servicios catering, comidas para llevar, etc.' },
+];
+
+const VAT_REGIME_OPTIONS = [
+  { value: 'general', label: 'General (lo más común)' },
+  { value: 'recargo_equivalencia', label: 'Recargo de equivalencia' },
+  { value: 'simplificado', label: 'Simplificado (módulos)' },
+];
+
+const VAT_RATES = [
+  { value: 10, label: '10% — Hostelería (recomendado)' },
+  { value: 21, label: '21% — General' },
+  { value: 4, label: '4% — Pan, leche, fruta...' },
+  { value: 0, label: '0% — Operaciones exentas' },
+];
+
+async function renderFiscalSection(container) {
+  container.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando configuración fiscal...</div>`;
+  if (!state.adminRestaurantId) return;
+
+  const { data: cfg } = await sb.from('restaurant_fiscal_config')
+    .select('*').eq('restaurant_id', state.adminRestaurantId).maybeSingle();
+
+  const c = cfg || {};
+  const addr = c.fiscal_address || {};
+  const certUploaded = !!c.cert_uploaded_at;
+  const isComplete = !!(c.legal_name && c.tax_id && addr.city && c.iae_code && certUploaded);
+
+  // Status banner
+  let statusBanner = '';
+  if (isComplete) {
+    statusBanner = `<div style="background:#E1F5EE;border:1px solid #2E7D2E;border-radius:var(--r-sm);padding:.85rem 1rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:.65rem">
+      <span style="font-size:18px">✓</span>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;color:#1F5E1F">Configuración completa</div>
+        <div style="font-size:11px;color:#3B6D3B">Tu restaurante puede emitir facturas legalmente.</div>
+      </div>
+    </div>`;
+  } else {
+    statusBanner = `<div style="background:#FFF3E0;border:1px solid #C26B0A;border-radius:var(--r-sm);padding:.85rem 1rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:.65rem">
+      <span style="font-size:18px">⚠️</span>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;color:#854F0B">Configuración incompleta</div>
+        <div style="font-size:11px;color:#854F0B">Para emitir facturas legalmente necesitas completar todos los campos obligatorios y subir el certificado digital.</div>
+      </div>
+    </div>`;
+  }
+
+  // Cert info card
+  let certCard = '';
+  if (certUploaded) {
+    const validUntil = c.cert_valid_until ? new Date(c.cert_valid_until).toLocaleDateString('es-ES') : '—';
+    const subject = c.cert_subject || '(sin información extraída aún)';
+    certCard = `<div style="background:var(--bg2);border:1px solid var(--bd);border-radius:var(--r-sm);padding:.85rem 1rem;margin-bottom:.65rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.4rem">
+        <div style="display:flex;align-items:center;gap:.5rem;flex:1;min-width:0">
+          <span style="font-size:18px">🔐</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;color:var(--t1)">Certificado activo</div>
+            <div style="font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(subject)}</div>
+          </div>
+        </div>
+        <button onclick="removeFiscalCert()" style="padding:5px 10px;border-radius:var(--r-sm);border:1px solid #FCCACA;background:#FFF5F5;color:#A32D2D;font-size:11px;cursor:pointer;font-family:inherit">Eliminar</button>
+      </div>
+      <div style="font-size:11px;color:var(--t3)">Válido hasta: <strong style="color:var(--t1)">${validUntil}</strong></div>
+    </div>`;
+  } else {
+    certCard = `<div style="background:#FFF5F5;border:1.5px dashed #FCCACA;border-radius:var(--r-sm);padding:1rem;text-align:center;margin-bottom:.65rem">
+      <div style="font-size:20px;margin-bottom:.25rem">📁</div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:.65rem">Sin certificado configurado</div>
+      <button class="btn btn-primary btn-sm" onclick="document.getElementById('fiscal-pfx-input').click()">Subir certificado .pfx / .p12</button>
+      <input type="file" id="fiscal-pfx-input" accept=".pfx,.p12" style="display:none" onchange="onFiscalPfxSelected(event)">
+    </div>`;
+  }
+
+  container.innerHTML = `
+    ${statusBanner}
+
+    <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:.5rem">Identidad fiscal</div>
+
+    <div class="field">
+      <label>Razón social <span style="color:var(--accent)">*</span></label>
+      <input id="fiscal-legal-name" type="text" placeholder="Restauración El Marino S.L." value="${escHtml(c.legal_name || '')}">
+    </div>
+
+    <div class="field">
+      <label>NIF / CIF <span style="color:var(--accent)">*</span></label>
+      <input id="fiscal-tax-id" type="text" placeholder="B12345678" value="${escHtml(c.tax_id || '')}" style="text-transform:uppercase">
+      <div style="font-size:11px;color:var(--t3);margin-top:3px">Persona física: 8 dígitos + letra · Sociedad: letra + 7 dígitos + control</div>
+    </div>
+
+    <div class="field">
+      <label>Domicilio fiscal <span style="color:var(--accent)">*</span></label>
+      <div style="display:flex;gap:.5rem">
+        <input id="fiscal-addr-street" type="text" placeholder="Calle, avenida..." value="${escHtml(addr.street || '')}" style="flex:2">
+        <input id="fiscal-addr-number" type="text" placeholder="Nº" value="${escHtml(addr.number || '')}" style="flex:0 0 70px">
+      </div>
+      <div style="display:flex;gap:.5rem;margin-top:.4rem">
+        <input id="fiscal-addr-cp" type="text" placeholder="CP" value="${escHtml(addr.postal_code || '')}" style="flex:0 0 80px" maxlength="5">
+        <input id="fiscal-addr-city" type="text" placeholder="Ciudad" value="${escHtml(addr.city || '')}" style="flex:1">
+        <input id="fiscal-addr-province" type="text" placeholder="Provincia" value="${escHtml(addr.province || '')}" style="flex:1">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Código IAE (actividad económica) <span style="color:var(--accent)">*</span></label>
+      <select id="fiscal-iae-code">
+        <option value="">— Selecciona —</option>
+        ${IAE_OPTIONS.map(o => `<option value="${o.code}" ${c.iae_code === o.code ? 'selected' : ''}>${o.label}</option>`).join('')}
+      </select>
+    </div>
+
+    <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin:1.25rem 0 .5rem">Certificado digital</div>
+
+    ${certCard}
+
+    <div style="font-size:11px;color:var(--t3);line-height:1.4;background:var(--bg2);padding:8px 10px;border-radius:var(--r-sm);margin-bottom:1rem">
+      💡 El certificado debe estar emitido a nombre del titular del NIF/CIF (FNMT, Camerfirma, etc.). Se almacena cifrado con AES-256-GCM y solo se descifra en el momento de firmar cada factura.
+    </div>
+
+    <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin:1.25rem 0 .5rem">IVA y numeración</div>
+
+    <div class="field">
+      <label>Régimen de IVA</label>
+      <select id="fiscal-vat-regime">
+        ${VAT_REGIME_OPTIONS.map(o => `<option value="${o.value}" ${(c.vat_regime || 'general') === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
+      </select>
+    </div>
+
+    <div class="field">
+      <label>IVA por defecto</label>
+      <select id="fiscal-default-vat">
+        ${VAT_RATES.map(r => `<option value="${r.value}" ${parseFloat(c.default_vat_rate || 10) === r.value ? 'selected' : ''}>${r.label}</option>`).join('')}
+      </select>
+      <div style="font-size:11px;color:var(--t3);margin-top:3px">Cada plato puede tener su propio IVA en su ficha (ej: bebidas al 21%).</div>
+    </div>
+
+    <div style="display:flex;gap:.5rem">
+      <div class="field" style="flex:1">
+        <label>Serie de facturas</label>
+        <input id="fiscal-series" type="text" placeholder="A" value="${escHtml(c.invoice_series || 'A')}" maxlength="3" style="text-transform:uppercase">
+      </div>
+      <div class="field" style="flex:1">
+        <label>Última factura emitida</label>
+        <input id="fiscal-number" type="number" placeholder="0" value="${c.invoice_number_current || 0}" min="0">
+        <div style="font-size:11px;color:var(--t3);margin-top:3px">Si vienes de otro sistema</div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin:1.25rem 0 .5rem">Modalidad y entorno</div>
+
+    <div class="field">
+      <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+        <input type="checkbox" id="fiscal-verifactu-enabled" ${c.verifactu_enabled !== false ? 'checked' : ''}>
+        <span>Enviar facturas a Hacienda en tiempo real (Verifactu)</span>
+      </label>
+      <div style="font-size:11px;color:var(--t3);margin-top:3px;margin-left:1.5rem">Recomendado. Las facturas llevan sello "Verifactu" + QR. Sin esto, las facturas quedan firmadas pero solo se envían a AEAT bajo demanda.</div>
+    </div>
+
+    <div class="field">
+      <label>Entorno de pruebas</label>
+      <select id="fiscal-environment">
+        <option value="mock"       ${(c.environment || 'mock') === 'mock' ? 'selected' : ''}>🧪 Mock — sin red, simulación local (desarrollo)</option>
+        <option value="sandbox"    ${c.environment === 'sandbox' ? 'selected' : ''}>🛠 Sandbox AEAT — pre-producción real</option>
+        <option value="production" ${c.environment === 'production' ? 'selected' : ''}>🏛 Producción — facturas reales a Hacienda</option>
+      </select>
+      <div style="font-size:11px;color:#A32D2D;margin-top:3px">⚠️ Cambiar a "Producción" sólo cuando hayas validado en Sandbox.</div>
+    </div>
+
+    <div style="display:flex;gap:.5rem;margin-top:1.5rem">
+      <button class="btn btn-secondary" onclick="closeAjustesPanel()" style="flex:1">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveFiscalConfig()" style="flex:2">Guardar configuración</button>
+    </div>
+  `;
+}
+
+async function saveFiscalConfig() {
+  const legal_name = document.getElementById('fiscal-legal-name')?.value?.trim();
+  const tax_id     = document.getElementById('fiscal-tax-id')?.value?.trim()?.toUpperCase();
+  const street     = document.getElementById('fiscal-addr-street')?.value?.trim();
+  const number     = document.getElementById('fiscal-addr-number')?.value?.trim();
+  const cp         = document.getElementById('fiscal-addr-cp')?.value?.trim();
+  const city       = document.getElementById('fiscal-addr-city')?.value?.trim();
+  const province   = document.getElementById('fiscal-addr-province')?.value?.trim();
+  const iae_code   = document.getElementById('fiscal-iae-code')?.value;
+  const vat_regime = document.getElementById('fiscal-vat-regime')?.value;
+  const default_vat_rate = parseFloat(document.getElementById('fiscal-default-vat')?.value || 10);
+  const invoice_series = document.getElementById('fiscal-series')?.value?.trim()?.toUpperCase() || 'A';
+  const invoice_number_current = parseInt(document.getElementById('fiscal-number')?.value || '0', 10);
+  const verifactu_enabled = !!document.getElementById('fiscal-verifactu-enabled')?.checked;
+  const environment = document.getElementById('fiscal-environment')?.value || 'mock';
+
+  // Validaciones mínimas
+  if (legal_name && tax_id && !/^[A-Z0-9]{9}$/.test(tax_id)) {
+    notify('NIF/CIF debe tener 9 caracteres alfanuméricos', 'error');
+    return;
+  }
+  if (cp && !/^\d{5}$/.test(cp)) {
+    notify('Código postal debe tener 5 dígitos', 'error');
+    return;
+  }
+
+  const fiscal_address = (street || number || cp || city || province)
+    ? { street, number, postal_code: cp, city, province, country: 'ES' }
+    : null;
+
+  const payload = {
+    restaurant_id: state.adminRestaurantId,
+    legal_name: legal_name || null,
+    tax_id: tax_id || null,
+    fiscal_address,
+    iae_code: iae_code || null,
+    vat_regime: vat_regime || 'general',
+    default_vat_rate,
+    invoice_series,
+    invoice_number_current,
+    verifactu_enabled,
+    environment,
+  };
+
+  // Si todos los obligatorios están + cert subido → marcar configured_at
+  const { data: existing } = await sb.from('restaurant_fiscal_config')
+    .select('cert_uploaded_at, configured_at').eq('restaurant_id', state.adminRestaurantId).maybeSingle();
+  const certUp = !!existing?.cert_uploaded_at;
+  const isComplete = !!(legal_name && tax_id && city && iae_code && certUp);
+  if (isComplete && !existing?.configured_at) {
+    payload.configured_at = new Date().toISOString();
+  }
+
+  const { error } = await sb.from('restaurant_fiscal_config').upsert(payload, { onConflict: 'restaurant_id' });
+  if (error) { notify('Error al guardar: ' + error.message, 'error'); return; }
+  notify('Configuración fiscal guardada', 'success');
+  // Re-render para refrescar el banner de estado
+  const content = document.getElementById('ajustes-panel-content');
+  if (content) renderFiscalSection(content);
+  // Actualizar badge en el sidebar
+  updateFiscalStatusBadge();
+}
+
+async function onFiscalPfxSelected(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  if (!/\.(pfx|p12)$/i.test(file.name)) {
+    notify('El archivo debe ser .pfx o .p12', 'error');
+    return;
+  }
+  if (file.size > 1024 * 1024) {
+    notify('El certificado supera 1 MB. Debe haber un error.', 'error');
+    return;
+  }
+
+  // Pedir contraseña con un modal sencillo
+  const password = await _promptCertPassword();
+  if (password === null) { event.target.value = ''; return; }
+
+  // Convertir a base64
+  const arrayBuffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  const pfxBase64 = btoa(binary);
+
+  // Llamar a edge function encrypt-cert
+  notify('Subiendo y cifrando certificado...', 'info');
+  try {
+    const res = await fetch(`${SUPA_URL}/functions/v1/encrypt-cert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPA_KEY}` },
+      body: JSON.stringify({
+        action: 'encrypt',
+        restaurantId: state.adminRestaurantId,
+        pfxBase64,
+        password,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      notify('Error: ' + (data.error || 'No se pudo procesar el certificado'), 'error');
+      event.target.value = '';
+      return;
+    }
+    notify('✓ Certificado guardado de forma segura', 'success');
+    // Re-render
+    const content = document.getElementById('ajustes-panel-content');
+    if (content) renderFiscalSection(content);
+    updateFiscalStatusBadge();
+  } catch (e) {
+    notify('Error subiendo certificado: ' + e.message, 'error');
+  } finally {
+    event.target.value = '';
+  }
+}
+
+async function removeFiscalCert() {
+  if (!(await confirmModal('¿Eliminar el certificado digital? Tendrás que volver a subirlo para emitir facturas.'))) return;
+  try {
+    const res = await fetch(`${SUPA_URL}/functions/v1/encrypt-cert`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPA_KEY}` },
+      body: JSON.stringify({ action: 'remove', restaurantId: state.adminRestaurantId }),
+    });
+    if (!res.ok) throw new Error('Edge function error');
+    notify('Certificado eliminado', 'success');
+    const content = document.getElementById('ajustes-panel-content');
+    if (content) renderFiscalSection(content);
+    updateFiscalStatusBadge();
+  } catch (e) {
+    notify('Error: ' + e.message, 'error');
+  }
+}
+
+// Modal de petición de contraseña del .pfx
+function _promptCertPassword() {
+  return new Promise(resolve => {
+    document.getElementById('fiscal-pwd-overlay')?.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'fiscal-pwd-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:710;display:flex;align-items:center;justify-content:center;padding:1rem';
+    overlay.innerHTML = `
+      <div style="background:var(--card);border-radius:var(--r-lg);width:100%;max-width:380px;padding:1.5rem 1.25rem">
+        <div style="position:relative;margin-bottom:1rem">
+          <button onclick="document.getElementById('fiscal-pwd-overlay').remove();window._fiscalPwdResolve&&window._fiscalPwdResolve(null)" style="position:absolute;top:-8px;right:-8px;background:var(--bg2);border:none;width:28px;height:28px;border-radius:50%;font-size:14px;cursor:pointer;color:var(--t2);display:flex;align-items:center;justify-content:center">✕</button>
+          <div style="font-size:18px;font-weight:600;color:var(--t1)">🔐 Contraseña del certificado</div>
+          <div style="font-size:13px;color:var(--t3);margin-top:.25rem">Necesitamos la contraseña para procesarlo de forma segura.</div>
+        </div>
+        <div class="field">
+          <label>Contraseña</label>
+          <input id="fiscal-pwd-input" type="password" autofocus
+            onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('fiscal-pwd-confirm').click()}">
+        </div>
+        <div style="display:flex;gap:.5rem;margin-top:1rem">
+          <button class="btn btn-primary" id="fiscal-pwd-confirm" style="flex:1"
+            onclick="(function(){const p=document.getElementById('fiscal-pwd-input').value;if(!p){return}document.getElementById('fiscal-pwd-overlay').remove();window._fiscalPwdResolve&&window._fiscalPwdResolve(p)})()">Confirmar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    window._fiscalPwdResolve = resolve;
+    setTimeout(() => document.getElementById('fiscal-pwd-input')?.focus(), 50);
+  });
+}
+
+// Badge de estado en el sidebar de Ajustes
+async function updateFiscalStatusBadge() {
+  const badge = document.getElementById('fiscal-status-badge');
+  if (!badge || !state.adminRestaurantId) return;
+  const { data: cfg } = await sb.from('restaurant_fiscal_config')
+    .select('legal_name,tax_id,fiscal_address,iae_code,cert_uploaded_at,configured_at')
+    .eq('restaurant_id', state.adminRestaurantId).maybeSingle();
+  if (!cfg) {
+    badge.textContent = '● No configurado';
+    badge.style.color = 'var(--accent)';
+    return;
+  }
+  const addr = cfg.fiscal_address || {};
+  const isComplete = !!(cfg.legal_name && cfg.tax_id && addr.city && cfg.iae_code && cfg.cert_uploaded_at);
+  if (isComplete) {
+    badge.textContent = '✓';
+    badge.style.color = '#2E7D2E';
+  } else {
+    badge.textContent = '● Incompleto';
+    badge.style.color = '#C26B0A';
+  }
+}
+
+// Llamar al cargar manageat para que el badge se actualice
+// (engancha en el flujo existente — ver showAdminTab)
 
 // ══════════════════════════════════════════════════════════════════════
 // END SUB-SPRINT A.4+A.6
