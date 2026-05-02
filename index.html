@@ -17150,26 +17150,53 @@ function _kdsShortName(name) {
   return result;
 }
 
-// Sub-Sprint A.4+A.6: helper para generar abreviatura desde el editor de plato.
-// Por ahora usa el algoritmo determinista (sin IA real). Cuando la edge function de
-// Anthropic API esté disponible, esto se reemplaza con una llamada al backend.
-function generateKdsShortName() {
+// Sub-Sprint A.4+A.6: generador de abreviatura KDS con IA (edge function suggest-kds-name).
+// Si la edge function falla o no está desplegada, cae al algoritmo determinista local.
+async function generateKdsShortName() {
   const nameInput = document.getElementById('edit-item-name');
   const shortInput = document.getElementById('edit-item-kds-short');
+  const btn = document.getElementById('edit-item-kds-ai-btn');
   if (!nameInput || !shortInput) return;
   const name = (nameInput.value || '').trim();
   if (!name) {
     notify('Escribe primero el nombre del plato', 'error');
     return;
   }
-  const suggestion = _kdsShortName(name);
-  // Si el nombre original es corto, no hay nada que abreviar
-  if (suggestion === name) {
-    notify('El nombre ya es suficientemente corto para el KDS', 'info');
-    return;
+
+  // UI: spinner en el botón
+  const originalBtnHtml = btn?.innerHTML;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner" style="width:11px;height:11px;border:2px solid var(--bd2);border-top-color:var(--brand);border-radius:50%;animation:spin .8s linear infinite;display:inline-block"></span> Pensando…';
   }
-  shortInput.value = suggestion;
-  _updateKdsPreview();
+
+  try {
+    const { data, error } = await sb.functions.invoke('suggest-kds-name', {
+      body: { name }
+    });
+    if (error) throw error;
+    const suggestion = (data?.kds_short_name || '').trim();
+    if (!suggestion) throw new Error('respuesta vacía');
+    shortInput.value = suggestion;
+    _updateKdsPreview();
+    notify('✓ Abreviatura sugerida por IA', 'success');
+  } catch (e) {
+    console.warn('[suggest-kds-name] fallo IA, fallback a algoritmo local:', e);
+    // Fallback al algoritmo determinista
+    const fallback = _kdsShortName(name);
+    if (fallback === name) {
+      notify('IA no disponible · El nombre ya es suficientemente corto', 'info');
+    } else {
+      shortInput.value = fallback;
+      _updateKdsPreview();
+      notify('IA no disponible · sugerencia generada localmente', 'info');
+    }
+  } finally {
+    if (btn && originalBtnHtml) {
+      btn.disabled = false;
+      btn.innerHTML = originalBtnHtml;
+    }
+  }
 }
 
 // Mostrar preview de cómo se verá en el KDS (en vivo mientras el usuario escribe)
