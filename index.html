@@ -484,6 +484,7 @@
   @media (max-width: 899px) {
     #sidebar-reopen-btn { display: none !important; }
     #admin-sidebar {
+      display: flex !important;     /* Sub-Sprint A.4+A.6 fix: era display:none → no se mostraba en mobile */
       position: fixed !important;
       left: 0; top: 0; bottom: 0;
       z-index: 150;
@@ -2487,8 +2488,11 @@
       </div>
 
       <!-- Floor plan canvas — draggable tables -->
-      <div id="floor-plan" style="flex:1;position:relative;overflow:hidden;background:repeating-linear-gradient(0deg,transparent,transparent 39px,var(--bd) 39px,var(--bd) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,var(--bd) 39px,var(--bd) 40px);background-color:var(--bg2)">
-        <div id="floor-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:14px">Cargando plano...</div>
+      <!-- Sub-Sprint A.4+A.6: scroll horizontal y ancho mínimo en mobile para evitar solape -->
+      <div id="floor-plan-wrap" style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch">
+        <div id="floor-plan" style="position:relative;width:100%;min-width:600px;height:100%;min-height:400px;background:repeating-linear-gradient(0deg,transparent,transparent 39px,var(--bd) 39px,var(--bd) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,var(--bd) 39px,var(--bd) 40px);background-color:var(--bg2)">
+          <div id="floor-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:14px">Cargando plano...</div>
+        </div>
       </div>
 
       <!-- Click-to-manage panel (slides in from right) -->
@@ -3487,12 +3491,17 @@ const _MAX_NOTIF = 50;
 
 function notify(msg, type = 'error') {
   const icons = { error: '⚠️', success: '✓', info: 'ℹ️', warning: '⚠️' };
-  showToast(icons[type] + ' ' + msg, type);
-  // #5: Store in history
+  // Sub-Sprint A.4+A.6: showToast ahora se encarga del push al historial.
+  // Evitamos el doble push manual (antes notify hacía push aparte y era duplicado).
+  // Para preservar el "type", guardamos en historial ANTES de showToast con el msg limpio.
   _notifHistory.unshift({ msg, type, ts: Date.now() });
   if (_notifHistory.length > _MAX_NOTIF) _notifHistory.pop();
-  _updateNotifBadge();
+  // Truco: marcar para que showToast no haga su propio push (el msg lleva el icono → distinto al que metimos)
+  _suppressNextToastHistory = true;
+  showToast(icons[type] + ' ' + msg, type);
+  _updateAdminNotifBadge && _updateAdminNotifBadge();
 }
+let _suppressNextToastHistory = false;
 
 // ── B2: Helper seguro para inserts críticos de pagos ──
 // Retry 1 vez en caso de error de red, notifica al usuario, retorna {ok, error}
@@ -4476,6 +4485,16 @@ function showGuestNotification(title, body) {
 }
 
 function showToast(title, body) {
+  // Sub-Sprint A.4+A.6: si veníamos de notify(), ya está guardado en historial; saltarlo
+  if (_suppressNextToastHistory) {
+    _suppressNextToastHistory = false;
+  } else if (typeof _notifHistory !== 'undefined') {
+    const fullMsg = body ? (title + ' — ' + body) : title;
+    _notifHistory.unshift({ msg: fullMsg, type: 'info', ts: Date.now() });
+    if (_notifHistory.length > _MAX_NOTIF) _notifHistory.pop();
+    if (typeof _updateAdminNotifBadge === 'function') _updateAdminNotifBadge();
+  }
+
   const existing = document.getElementById('spliteat-toast');
   if (existing) existing.remove();
 
@@ -16654,8 +16673,14 @@ function _addAdminNotif(notif) {
 }
 
 function _updateAdminNotifBadge() {
-  const unseen = _adminNotifs.filter(n => !n.seen).length;
-  // Sub-Sprint A.4+A.6: actualizar tanto badge desktop como mobile
+  // Sub-Sprint A.4+A.6: contar eventos operativos no vistos + toasts/notify después del último seen
+  const opsUnseen = _adminNotifs.filter(n => !n.seen).length;
+  const lastSeenTs = parseInt(localStorage.getItem('_notifLastSeenTs') || '0', 10);
+  const sysUnseen = (typeof _notifHistory !== 'undefined')
+    ? _notifHistory.filter(n => n.ts > lastSeenTs).length
+    : 0;
+  const unseen = opsUnseen + sysUnseen;
+  // Actualizar tanto badge desktop como mobile
   ['admin-notif-badge', 'admin-notif-badge-mobile'].forEach(id => {
     const badge = document.getElementById(id);
     if (badge) {
@@ -16667,6 +16692,8 @@ function _updateAdminNotifBadge() {
 
 function markAllAdminNotifSeen() {
   _adminNotifs.forEach(n => n.seen = true);
+  // Sub-Sprint A.4+A.6: marcar también los toasts del sistema como vistos (timestamp)
+  localStorage.setItem('_notifLastSeenTs', String(Date.now()));
   _updateAdminNotifBadge();
 }
 
