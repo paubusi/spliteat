@@ -7916,13 +7916,8 @@ async function registerFullPayment(me, method, totals) {
     );
   }
 
-  // Cerrar mesa con needs_cleaning para notificar al camarero
-  await sb.from('rooms').update({
-    closed: true,
-    closed_at: new Date().toISOString(),
-    needs_cleaning: true,
-    cleaning_requested_at: new Date().toISOString()
-  }).eq('id', state.roomId);
+  // Sprint H — Cerrar mesa + emitir factura (helper centralizado)
+  await _closeRoomWithInvoice(state.roomId);
   // Update local state so ticket check passes
   state.payments.push({ guest_id: state.myGuestId, amount: grand, method });
   others.forEach(t => state.payments.push({ guest_id: t.g.id, amount: 0, method: 'Invitado' }));
@@ -7959,12 +7954,7 @@ async function registerEqualPayment(me, method) {
   const tableTotalCovered = totalAmountPaid >= (state.dishes.reduce((s,d) => s+parseFloat(d.price||0),0) * 0.99);
 
   if (allGuestsPaid || tableTotalCovered) {
-    await sb.from('rooms').update({
-      closed: true,
-      closed_at: new Date().toISOString(),
-      needs_cleaning: true,
-      cleaning_requested_at: new Date().toISOString()
-    }).eq('id', state.roomId);
+    await _closeRoomWithInvoice(state.roomId);
     clearSession();
     setTimeout(() => showAccountClosed(), 800);
   } else {
@@ -8004,12 +7994,7 @@ async function registerManualPayment(me, method) {
 
   if (allPaid) {
     // Cerrar room con needs_cleaning:true en un solo UPDATE — sin race condition
-    await sb.from('rooms').update({
-      closed: true,
-      closed_at: new Date().toISOString(),
-      needs_cleaning: true,
-      cleaning_requested_at: new Date().toISOString()
-    }).eq('id', state.roomId);
+    await _closeRoomWithInvoice(state.roomId);
     clearSession();
     setTimeout(() => showAccountClosed(), 800);
   } else {
@@ -11506,9 +11491,8 @@ async function waiterCloseTableQuick(roomId) {
     confirmed = confirm('¿Cerrar esta mesa?');
   }
   if (!confirmed) return;
-  const { error } = await sb.from('rooms').update({
-    closed: true, closed_at: new Date().toISOString(), needs_cleaning: true
-  }).eq('id', roomId);
+  const { error } = (await _closeRoomWithInvoice(roomId)).error
+    ? { error: { message: 'Error cerrando mesa' } } : {};
   if (error) {
     console.error('Error cerrando mesa:', error);
     notify('Error: ' + error.message, 'error');
@@ -16225,12 +16209,11 @@ async function requestTableCleaning(roomId, tableLabel) {
 
 async function confirmTableClean(roomId) {
   // Cierra la room y marca como limpia → floor plan verde (libre)
-  await sb.from('rooms').update({
+  await _closeRoomWithInvoice(roomId, {
     needs_cleaning: false,
     cleaned_at: new Date().toISOString(),
-    closed: true,
-    closed_at: new Date().toISOString()
-  }).eq('id', roomId);
+    cleaning_requested_at: null,
+  });
 
   // Notificar al camarero que la mesa está limpia y lista
   try {
@@ -16265,9 +16248,8 @@ async function confirmTableClean(roomId) {
 }
 
 async function adminCloseTable(roomId) {
-  await sb.from('rooms').update({
-    needs_cleaning: true, closed: true, closed_at: new Date().toISOString()
-  }).eq('id', roomId);
+  // Sprint H — emite factura automáticamente
+  await _closeRoomWithInvoice(roomId);
 
   // Notificar al camarero que debe limpiar la mesa
   const restId = state.adminRestaurantId;
@@ -16321,13 +16303,9 @@ async function _originalCloseTable_unused(roomId) {
 
   if (!(await confirmModal(msg))) return;
 
-  await sb.from('rooms').update({
-    closed: true,
-    closed_at: new Date().toISOString(),
-    needs_cleaning: true,
-    cleaning_requested_at: new Date().toISOString(),
-    closed_reason: fullyPaid ? 'paid' : 'manual_unpaid'
-  }).eq('id', roomId);
+  await _closeRoomWithInvoice(roomId, {
+    closed_reason: fullyPaid ? 'paid' : 'manual_unpaid',
+  });
 
   loadAdminTables();
   loadEncurso();
@@ -19381,12 +19359,7 @@ async function handleQRUrl() {
 
         if (allPaid) {
           // Room completamente pagada — cerrarla ahora y tratarla como libre
-          await sb.from('rooms').update({
-            closed: true,
-            closed_at: new Date().toISOString(),
-            needs_cleaning: true,
-            cleaning_requested_at: new Date().toISOString()
-          }).eq('id', openRoom.id);
+          await _closeRoomWithInvoice(openRoom.id);
           lastClosedNeedsCleaning = { ...openRoom, closed: true, needs_cleaning: true };
           activeRoom = null;
         } else {
