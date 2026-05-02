@@ -2985,6 +2985,27 @@
           </div>
         </div>
 
+        <!-- Sub-Sprint A.4+A.6: Cocina (zonas + modos KDS) -->
+        <div class="settings-section">
+          <div class="settings-section-header">Cocina</div>
+          <div class="settings-row" onclick="openAjustesSection('zonas')">
+            <span class="settings-row-icon">🍳</span>
+            <div class="settings-row-content">
+              <div class="settings-row-title">Zonas de cocina</div>
+              <div class="settings-row-desc">Define partidas (frío, caliente, parrilla...) y asígnalas a categorías</div>
+            </div>
+            <span class="settings-row-arrow">›</span>
+          </div>
+          <div class="settings-row" onclick="openAjustesSection('cocina-modos')">
+            <span class="settings-row-icon">⚡</span>
+            <div class="settings-row-content">
+              <div class="settings-row-title">Modos de KDS</div>
+              <div class="settings-row-desc">1-click, auto-entrega, jefe de cocina, cocina pro con login</div>
+            </div>
+            <span class="settings-row-arrow">›</span>
+          </div>
+        </div>
+
       </div>
 
       <!-- Ajustes panels (shown inline when row clicked) -->
@@ -3114,6 +3135,13 @@
           </div>
         </div>
         <div class="field"><label>Tiempo de preparación (min)</label><input id="edit-item-prep" type="number" min="1" max="120" placeholder="ej. 15"></div>
+        <!-- Sub-Sprint A.4+A.6: zona override por plato -->
+        <div class="field" id="edit-item-zone-block">
+          <label>Zona de cocina <span style="font-weight:400;color:var(--t3)">(opcional, sobrescribe la de la categoría)</span></label>
+          <select id="edit-item-zone" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
+            <option value="">— Heredar de categoría —</option>
+          </select>
+        </div>
         <!-- ── VARIANTS EDITOR (Turno 3.5) ── -->
         <div style="margin:.85rem 0;padding:.75rem 1rem;background:var(--bg2);border-radius:var(--r-sm);border:1px solid var(--bd2)">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
@@ -12655,7 +12683,9 @@ function openAjustesSection(section) {
     carta: 'Gestionar carta',
     mesas: 'Gestionar mesas', camareros: 'Camareros',
     perfil: 'Perfil del restaurante', 'reservas-config': 'Configuración de reservas',
-    'metodos-pago': 'Métodos de pago aceptados'
+    'metodos-pago': 'Métodos de pago aceptados',
+    'zonas': 'Zonas de cocina',
+    'cocina-modos': 'Modos de KDS'
   };
   if (title) title.textContent = titles[section] || section;
 
@@ -12739,6 +12769,10 @@ function openAjustesSection(section) {
     renderCostesSection(content);
   } else if (section === 'metodos-pago') {
     renderMetodosPagoSection(content);
+  } else if (section === 'zonas') {
+    renderKitchenZonesSection(content);
+  } else if (section === 'cocina-modos') {
+    renderKitchenModosSection(content);
   } else {
     content.innerHTML = `<div class="notice notice-warn">Sección "${titles[section]}" — próximamente</div>`;
   }
@@ -12771,6 +12805,262 @@ const PAYMENT_METHODS_LABELS = {
   ticketRestaurante: { label: 'Ticket restaurante', desc: 'Sodexo, Edenred, Pluxee, Coverflex, etc.', icon: '🎫' },
   chequeGourmet: { label: 'Cheque Gourmet', desc: 'Cheques de restaurante físicos o digitales', icon: '🧾' },
 };
+
+// ══════════════════════════════════════════════════════════════════════
+// SUB-SPRINT A.4+A.6 — KITCHEN ZONES MANAGEMENT
+// ══════════════════════════════════════════════════════════════════════
+
+// Cache de zonas del restaurante (evita queries repetidas)
+let _kitchenZonesCache = null;
+let _kitchenZonesCacheRestId = null;
+
+async function loadKitchenZones(restaurantId, force = false) {
+  const restId = restaurantId || state.adminRestaurantId;
+  if (!restId) return [];
+  if (!force && _kitchenZonesCache && _kitchenZonesCacheRestId === restId) {
+    return _kitchenZonesCache;
+  }
+  const { data, error } = await sb.from('kitchen_zones')
+    .select('*').eq('restaurant_id', restId).order('sort_order').order('name');
+  if (error) {
+    console.error('[loadKitchenZones]', error);
+    return [];
+  }
+  _kitchenZonesCache = data || [];
+  _kitchenZonesCacheRestId = restId;
+  return _kitchenZonesCache;
+}
+
+function _invalidateKitchenZonesCache() { _kitchenZonesCache = null; _kitchenZonesCacheRestId = null; }
+
+// Render del gestor de zonas en el panel de Ajustes
+async function renderKitchenZonesSection(container) {
+  container.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando zonas...</div>`;
+  const zones = await loadKitchenZones(state.adminRestaurantId, true);
+
+  // Render
+  let html = '<div style="font-size:13px;color:var(--t3);margin-bottom:1rem;line-height:1.5">'
+    + 'Las <strong>zonas</strong> son las partidas o estaciones de tu cocina (frío, caliente, parrilla, postres, barra...). '
+    + 'Cada cocinero filtra el KDS por sus zonas activas para ver solo los platos que le tocan. '
+    + 'La zona <strong>General</strong> es obligatoria y recoge cualquier plato sin zona asignada.'
+    + '</div>';
+
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.85rem">'
+    + '<div style="font-size:13px;color:var(--t2)">' + zones.length + ' zona' + (zones.length === 1 ? '' : 's') + ' configurada' + (zones.length === 1 ? '' : 's') + '</div>'
+    + '<button class="btn btn-primary btn-sm" onclick="openZoneEditor(null)">+ Añadir zona</button>'
+    + '</div>';
+
+  if (zones.length === 0) {
+    html += '<div style="padding:1.5rem;background:var(--bg2);border-radius:var(--r-sm);text-align:center;color:var(--t3);font-size:13px">No hay zonas configuradas todavía.</div>';
+  } else {
+    html += '<div id="zones-list" style="display:flex;flex-direction:column;gap:.5rem">';
+    zones.forEach(z => {
+      html += _renderZoneCard(z);
+    });
+    html += '</div>';
+  }
+
+  container.innerHTML = html;
+}
+
+function _renderZoneCard(z) {
+  const safeName = escHtml(z.name || '');
+  const isDefault = !!z.is_default;
+  return '<div style="display:flex;align-items:center;gap:12px;padding:.85rem 1rem;background:var(--card);border:1px solid var(--bd);border-radius:var(--r-sm)">'
+    + '<div style="width:14px;height:34px;border-radius:4px;background:' + escHtml(z.color || '#085041') + ';flex-shrink:0"></div>'
+    + '<div style="flex:1;min-width:0">'
+    +   '<div style="font-size:14px;font-weight:600;color:var(--t1);display:flex;align-items:center;gap:6px">'
+    +     safeName
+    +     (isDefault ? '<span style="font-size:10px;font-weight:600;color:var(--brand-d);background:var(--brand-l);border-radius:99px;padding:1px 7px">POR DEFECTO</span>' : '')
+    +   '</div>'
+    +   '<div style="font-size:11px;color:var(--t3);margin-top:2px">Orden: ' + (z.sort_order ?? 0) + (isDefault ? ' · No eliminable · Recoge platos sin zona' : '') + '</div>'
+    + '</div>'
+    + '<button onclick="openZoneEditor(\'' + z.id + '\')" style="padding:6px 12px;border-radius:6px;border:1.5px solid var(--bd2);background:var(--card);color:var(--t2);font-size:12px;cursor:pointer;font-family:inherit">Editar</button>'
+    + (isDefault ? '' : '<button onclick="deleteZone(\'' + z.id + '\',\'' + safeName.replace(/'/g, '&#39;') + '\')" style="padding:6px 12px;border-radius:6px;border:1.5px solid #E89C9C;background:var(--card);color:#A32D2D;font-size:12px;cursor:pointer;font-family:inherit">Eliminar</button>')
+    + '</div>';
+}
+
+// Modal para crear/editar zona
+async function openZoneEditor(zoneId) {
+  let zone = null;
+  if (zoneId) {
+    const { data } = await sb.from('kitchen_zones').select('*').eq('id', zoneId).maybeSingle();
+    zone = data;
+  }
+  const isNew = !zone;
+  const isDefault = !!zone?.is_default;
+
+  // Colores predefinidos (paleta corporativa)
+  const palette = ['#085041','#3D7BC2','#C2563D','#854F0B','#7A4F8C','#27500A','#444441','#A32D2D'];
+  const currentColor = zone?.color || palette[0];
+
+  const overlay = document.createElement('div');
+  overlay.id = 'zone-editor-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;display:flex;align-items:center;justify-content:center;padding:1rem';
+  overlay.innerHTML =
+    '<div style="background:var(--card);border-radius:var(--r-lg);width:100%;max-width:420px;max-height:90vh;overflow-y:auto;padding:1.5rem">'
+    + '<div style="font-size:16px;font-weight:700;margin-bottom:.25rem">' + (isNew ? 'Nueva zona' : 'Editar zona') + '</div>'
+    + '<div style="font-size:12px;color:var(--t3);margin-bottom:1rem">' + (isDefault ? 'La zona por defecto no se puede renombrar ni eliminar.' : 'Define el nombre, color y orden de aparición.') + '</div>'
+
+    + '<label style="display:block;font-size:12px;color:var(--t2);margin-bottom:4px;font-weight:500">Nombre</label>'
+    + '<input id="zone-name" type="text" maxlength="40" value="' + escHtml(zone?.name || '') + '" '
+    +   (isDefault ? 'disabled style="opacity:.6;cursor:not-allowed;' : 'style="')
+    +   'width:100%;padding:10px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-size:14px;font-family:inherit;margin-bottom:1rem;background:var(--card);color:var(--t1)" placeholder="ej. Frío, Caliente, Parrilla...">'
+
+    + '<label style="display:block;font-size:12px;color:var(--t2);margin-bottom:6px;font-weight:500">Color</label>'
+    + '<div id="zone-palette" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem">'
+    +   palette.map(c => '<button type="button" data-color="' + c + '" onclick="_pickZoneColor(\'' + c + '\')" '
+    +     'style="width:36px;height:36px;border-radius:8px;background:' + c + ';border:3px solid ' + (c === currentColor ? '#000' : 'transparent') + ';cursor:pointer;padding:0"></button>').join('')
+    + '</div>'
+    + '<input id="zone-color" type="hidden" value="' + currentColor + '">'
+
+    + '<label style="display:block;font-size:12px;color:var(--t2);margin-bottom:4px;font-weight:500">Orden de aparición</label>'
+    + '<input id="zone-sort" type="number" min="0" max="999" value="' + (zone?.sort_order ?? 0) + '" '
+    +   'style="width:100%;padding:10px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-size:14px;font-family:inherit;margin-bottom:1.25rem;background:var(--card);color:var(--t1)">'
+
+    + '<div style="display:flex;gap:.5rem">'
+    +   '<button class="btn btn-primary" onclick="saveZone(\'' + (zone?.id || '') + '\')" style="flex:1">Guardar</button>'
+    +   '<button class="btn btn-secondary" onclick="document.getElementById(\'zone-editor-overlay\').remove()" style="flex:1">Cancelar</button>'
+    + '</div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+}
+
+function _pickZoneColor(color) {
+  document.getElementById('zone-color').value = color;
+  document.querySelectorAll('#zone-palette button').forEach(btn => {
+    btn.style.border = '3px solid ' + (btn.getAttribute('data-color') === color ? '#000' : 'transparent');
+  });
+}
+
+async function saveZone(zoneId) {
+  const nameEl = document.getElementById('zone-name');
+  const colorEl = document.getElementById('zone-color');
+  const sortEl = document.getElementById('zone-sort');
+  if (!nameEl || !colorEl || !sortEl) return;
+
+  const name = (nameEl.value || '').trim();
+  const color = (colorEl.value || '#085041').trim();
+  const sort_order = parseInt(sortEl.value, 10) || 0;
+
+  if (!nameEl.disabled && !name) {
+    notify('El nombre no puede estar vacío.', 'error');
+    return;
+  }
+
+  try {
+    if (zoneId) {
+      // Update — si la zona es default, el name viene disabled, no lo actualizamos
+      const updates = { color, sort_order };
+      if (!nameEl.disabled) updates.name = name;
+      const { error } = await sb.from('kitchen_zones').update(updates).eq('id', zoneId);
+      if (error) throw error;
+    } else {
+      // Insert nueva
+      const { error } = await sb.from('kitchen_zones').insert({
+        restaurant_id: state.adminRestaurantId,
+        name, color, sort_order, is_default: false
+      });
+      if (error) throw error;
+    }
+    document.getElementById('zone-editor-overlay')?.remove();
+    notify('Zona guardada', 'success');
+    _invalidateKitchenZonesCache();
+    // Refresh panel
+    const content = document.getElementById('ajustes-panel-content');
+    if (content) renderKitchenZonesSection(content);
+  } catch (e) {
+    notify('Error al guardar la zona: ' + (e.message || e), 'error');
+  }
+}
+
+async function deleteZone(zoneId, zoneName) {
+  if (!confirm('¿Eliminar la zona "' + zoneName + '"?\n\nLos platos que la tenían asignada pasarán a "General".')) return;
+  try {
+    const { error } = await sb.from('kitchen_zones').delete().eq('id', zoneId);
+    if (error) throw error;
+    notify('Zona eliminada', 'success');
+    _invalidateKitchenZonesCache();
+    const content = document.getElementById('ajustes-panel-content');
+    if (content) renderKitchenZonesSection(content);
+  } catch (e) {
+    notify('Error al eliminar: ' + (e.message || e), 'error');
+  }
+}
+
+// ─── Modos de KDS — toggles para los flags del restaurante ───
+async function renderKitchenModosSection(container) {
+  container.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando...</div>`;
+  const { data: rest } = await sb.from('restaurants')
+    .select('kds_one_click_mode,auto_deliver_enabled,kitchen_chief_required,kitchen_zones_enabled,kds_card_hide_after_seconds')
+    .eq('id', state.adminRestaurantId).maybeSingle();
+  if (!rest) { container.innerHTML = '<div class="notice notice-warn">Error cargando configuración</div>'; return; }
+
+  const toggle = (id, label, desc, val) =>
+      '<div style="display:flex;align-items:flex-start;gap:12px;padding:1rem 0;border-bottom:1px solid var(--bd)">'
+    +   '<div style="flex:1">'
+    +     '<div style="font-size:14px;font-weight:600;color:var(--t1);margin-bottom:2px">' + label + '</div>'
+    +     '<div style="font-size:12px;color:var(--t3);line-height:1.4">' + desc + '</div>'
+    +   '</div>'
+    +   '<label class="switch" style="flex-shrink:0">'
+    +     '<input type="checkbox" id="' + id + '" ' + (val ? 'checked' : '') + '>'
+    +     '<span class="slider"></span>'
+    +   '</label>'
+    + '</div>';
+
+  container.innerHTML =
+      '<div style="font-size:13px;color:var(--t3);margin-bottom:1rem;line-height:1.5">'
+    +   'Configura cómo trabaja tu KDS de cocina. Los cambios se aplican en el siguiente login de cookeat.'
+    + '</div>'
+    + toggle('mode-one-click', '🖱 Modo 1-click',
+        'El cocinero solo pulsa una vez (✓ Listo) en vez de dos. Útil para personal con poca formación o servicios a alta intensidad.',
+        rest.kds_one_click_mode)
+    + toggle('mode-auto-deliver', '⚡ Auto-entrega',
+        'Cuando cocina marca un plato como listo, queda automáticamente como entregado al comensal. El camarero recibe la notificación pero no tiene que confirmar nada manualmente.',
+        rest.auto_deliver_enabled)
+    + toggle('mode-chief-required', '👨‍🍳 Solo el jefe de cocina cierra pases',
+        'El botón "pase listo — avisar camarero" solo está disponible para el rol kitchen_chief. Evita avisos prematuros del personal junior. Requiere "Modo cocina pro".',
+        rest.kitchen_chief_required)
+    + toggle('mode-zones-enabled', '🍳 Modo cocina pro (login + zonas)',
+        'Cookeat exige que cada cocinero se identifique con PIN, seleccione sus zonas y solo vea los platos de esas zonas. Recomendado para cocinas grandes con varias partidas.',
+        rest.kitchen_zones_enabled)
+
+    + '<div style="margin-top:1.25rem;display:flex;align-items:center;gap:.5rem;padding:.85rem;background:var(--bg2);border-radius:var(--r-sm)">'
+    +   '<div style="font-size:13px;color:var(--t2);flex:1">Auto-borrar tarjetas servidas tras</div>'
+    +   '<input id="mode-card-hide" type="number" min="5" max="300" value="' + (rest.kds_card_hide_after_seconds || 30) + '" style="width:80px;padding:8px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-size:13px;font-family:inherit;background:var(--card);color:var(--t1);text-align:right">'
+    +   '<div style="font-size:13px;color:var(--t3)">segundos</div>'
+    + '</div>'
+
+    + '<div style="margin-top:1.5rem;display:flex;gap:.5rem">'
+    +   '<button class="btn btn-primary" onclick="saveKitchenModos()" style="flex:1">Guardar cambios</button>'
+    + '</div>';
+}
+
+async function saveKitchenModos() {
+  const updates = {
+    kds_one_click_mode:          !!document.getElementById('mode-one-click')?.checked,
+    auto_deliver_enabled:        !!document.getElementById('mode-auto-deliver')?.checked,
+    kitchen_chief_required:      !!document.getElementById('mode-chief-required')?.checked,
+    kitchen_zones_enabled:       !!document.getElementById('mode-zones-enabled')?.checked,
+    kds_card_hide_after_seconds: parseInt(document.getElementById('mode-card-hide')?.value || '30', 10)
+  };
+  // Validación lógica: chief_required sin zones_enabled no funciona (no hay login)
+  if (updates.kitchen_chief_required && !updates.kitchen_zones_enabled) {
+    notify('"Solo el jefe de cocina" requiere activar "Modo cocina pro" para que haya login real.', 'error');
+    return;
+  }
+  try {
+    const { error } = await sb.from('restaurants').update(updates).eq('id', state.adminRestaurantId);
+    if (error) throw error;
+    notify('Configuración guardada', 'success');
+  } catch (e) {
+    notify('Error: ' + (e.message || e), 'error');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// END SUB-SPRINT A.4+A.6
+// ══════════════════════════════════════════════════════════════════════
 
 async function renderMetodosPagoSection(container) {
   container.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px">Cargando...</div>`;
@@ -13384,6 +13674,11 @@ async function openCategoryEditor(catId) {
     const { data } = await sb.from('categories').select('*').eq('id', catId).maybeSingle();
     cat = data;
   }
+  // Sub-Sprint A.4+A.6: cargar zonas para el dropdown
+  const _zones = await loadKitchenZones(state.adminRestaurantId);
+  const _zoneOpts = '<option value="">— Sin asignar (zona General) —</option>'
+    + _zones.map(z => '<option value="' + z.id + '"' + (cat?.kitchen_zone_id === z.id ? ' selected' : '') + '>' + escHtml(z.name) + '</option>').join('');
+
   document.getElementById('category-editor-modal')?.remove();
   const el = document.createElement('div');
   el.id = 'category-editor-modal';
@@ -13419,6 +13714,14 @@ async function openCategoryEditor(catId) {
           <option value="5" ${(cat?.course_order ?? -1) === 5 ? 'selected' : ''}>5º curso</option>
         </select>
         <div style="font-size:11px;color:var(--t3);margin-top:.35rem;line-height:1.4">El curso determina cuándo se sirve. Bebidas se sirven inmediatamente; entrantes antes que principales, etc.</div>
+      </div>
+
+      <div class="field" style="margin-top:.75rem">
+        <label>Zona de cocina <span style="color:var(--t3);font-weight:400">(opcional)</span></label>
+        <select id="cat-zone" style="width:100%;padding:12px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-size:14px;font-family:inherit;background:var(--card)">
+          ${_zoneOpts}
+        </select>
+        <div style="font-size:11px;color:var(--t3);margin-top:.35rem;line-height:1.4">Asigna una zona/partida para que solo los cocineros de esa zona vean estos platos en su KDS. Cada plato puede sobrescribir esto individualmente.</div>
       </div>
 
       <div class="toggle" style="margin-top:.75rem">
@@ -13483,7 +13786,9 @@ async function saveCategory() {
     name,
     routing_target: routingTarget,
     course_order: courseOrder,
-    is_visible: isVisible
+    is_visible: isVisible,
+    // Sub-Sprint A.4+A.6: zona (null = sin asignar = cae en zona General)
+    kitchen_zone_id: (document.getElementById('cat-zone')?.value || null) || null
   };
 
   if (_editingCategoryId) {
@@ -20870,6 +21175,13 @@ async function openEditItem(itemId) {
   }
   if (sel)    await _populateCategorySelect(sel, currentName);
   if (selAlt) await _populateCategorySelect(selAlt, currentName);
+  // Sub-Sprint A.4+A.6: poblar select de zona
+  const zoneSel = document.getElementById('edit-item-zone');
+  if (zoneSel) {
+    const zones = await loadKitchenZones(state.adminRestaurantId);
+    zoneSel.innerHTML = '<option value="">— Heredar de categoría —</option>'
+      + zones.map(z => '<option value="' + z.id + '"' + (item?.kitchen_zone_id === z.id ? ' selected' : '') + '>' + escHtml(z.name) + '</option>').join('');
+  }
   document.getElementById('edit-item-shared').checked = !!item?.is_shared;
   document.getElementById('edit-item-postre').checked = !!item?.can_go_with_postre;
   document.getElementById('edit-item-cooking').checked = !!item?.requires_cooking_point;
@@ -21011,6 +21323,10 @@ async function saveEditItem() {
   }
   const prepVal = parseInt(document.getElementById('edit-item-prep').value);
   if (!isNaN(prepVal) && prepVal > 0) updates.prep_time_minutes = prepVal;
+
+  // Sub-Sprint A.4+A.6: zona override por plato (null = hereda de la categoría)
+  const zoneVal = document.getElementById('edit-item-zone')?.value || null;
+  updates.kitchen_zone_id = zoneVal || null;
 
   let savedItemId;
   if (isNew) {
