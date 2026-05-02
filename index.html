@@ -434,6 +434,15 @@
     padding: .75rem 1.25rem; border-bottom: 1px solid var(--bd);
     background: var(--card); flex-shrink: 0;
   }
+  /* Sub-Sprint A.4+A.6: Desktop topbar — solo visible en desktop, esquina superior derecha */
+  .admin-desktop-topbar {
+    display: none;
+    align-items: center; gap: .5rem;
+    padding: .65rem 1.5rem;
+    border-bottom: 1px solid var(--bd);
+    background: var(--card);
+    flex-shrink: 0;
+  }
   .admin-mobile-tabs {
     display: flex; background: var(--card); border-top: 1px solid var(--bd);
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
@@ -506,6 +515,7 @@
     }
     .admin-mobile-bar { display: none !important; }
     .admin-mobile-tabs { display: none !important; }
+    .admin-desktop-topbar { display: flex !important; }
     #admin-main > [id^="atab-"] { padding-bottom: 0; }
     /* Collapsed: fully hidden (width 0) — no rail mode */
     #admin-sidebar.collapsed {
@@ -2403,10 +2413,6 @@
 
         <div style="padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,.08)">
           <div id="admin-user-info" style="font-size:12px;color:rgba(255,255,255,.4);margin-bottom:.65rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
-          <button onclick="openNotifHistory()" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:rgba(255,255,255,.6);font-size:12px;cursor:pointer;font-family:inherit;text-align:left;display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;position:relative">
-            🔔 <span>Notificaciones</span>
-            <span class="notif-bell-badge" style="display:none;position:absolute;top:-3px;right:8px;background:var(--accent);color:#fff;border-radius:99px;font-size:9px;font-weight:700;min-width:14px;height:14px;text-align:center;line-height:14px;padding:0 3px">0</span>
-          </button>
           <button onclick="adminLogout()" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:rgba(255,255,255,.6);font-size:12px;cursor:pointer;font-family:inherit;text-align:left">
             ← Cerrar sesión
           </button>
@@ -2416,6 +2422,17 @@
       <!-- ── Main content area ── -->
       <div id="admin-main" style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0">
 
+        <!-- Sub-Sprint A.4+A.6: Desktop topbar (esquina superior derecha) -->
+        <!-- Solo visible en desktop; en mobile se reemplaza por admin-mobile-bar -->
+        <div class="admin-desktop-topbar">
+          <div style="flex:1"></div>
+          <button onclick="openAdminNotifPanel()" title="Notificaciones"
+            style="position:relative;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;cursor:pointer;padding:6px 10px;color:var(--t2);font-size:14px;line-height:1;display:flex;align-items:center;gap:6px">
+            🔔
+            <span id="admin-notif-badge" style="display:none;background:var(--accent);color:#fff;border-radius:99px;font-size:10px;font-weight:700;min-width:18px;height:18px;text-align:center;line-height:18px;padding:0 4px">0</span>
+          </button>
+        </div>
+
         <!-- Mobile topbar (visible only on small screens) -->
         <div class="admin-mobile-bar">
           <button onclick="openMobileSidebar()"
@@ -2424,9 +2441,9 @@
           </button>
           <div class="logo" style="font-size:17px">manag<em style="color:#D85A30;font-style:normal">eat</em></div>
           <div style="display:flex;align-items:center;gap:.4rem">
-            <button onclick="openNotifHistory()" style="position:relative;background:none;border:none;font-size:16px;color:var(--t2);cursor:pointer;padding:4px 6px;line-height:1">
+            <button onclick="openAdminNotifPanel()" style="position:relative;background:none;border:none;font-size:16px;color:var(--t2);cursor:pointer;padding:4px 6px;line-height:1">
               🔔
-              <span class="notif-bell-badge" style="display:none;position:absolute;top:0;right:0;background:var(--accent);color:#fff;border-radius:99px;font-size:9px;font-weight:700;min-width:14px;height:14px;text-align:center;line-height:14px;padding:0 3px">0</span>
+              <span id="admin-notif-badge-mobile" style="display:none;position:absolute;top:0;right:0;background:var(--accent);color:#fff;border-radius:99px;font-size:9px;font-weight:700;min-width:14px;height:14px;text-align:center;line-height:14px;padding:0 3px">0</span>
             </button>
             <button onclick="adminLogout()" style="background:none;border:none;font-size:12px;color:var(--t2);cursor:pointer;font-family:inherit">Salir</button>
           </div>
@@ -13489,14 +13506,21 @@ async function saveKitchenModos() {
     kitchen_zones_enabled:       !!document.getElementById('mode-zones-enabled')?.checked,
     kds_card_hide_after_seconds: parseInt(document.getElementById('mode-card-hide')?.value || '30', 10)
   };
-  // Validación lógica: chief_required sin zones_enabled no funciona (no hay login)
-  if (updates.kitchen_chief_required && !updates.kitchen_zones_enabled) {
-    notify('"Solo el jefe de cocina" requiere activar "Modo cocina pro" para que haya login real.', 'error');
-    return;
+
+  // Sub-Sprint A.4+A.6: si se desactiva el modo pro, también desactivar
+  // "solo el jefe de cocina" porque sin login real no hay distinción de roles.
+  // Lo hacemos silenciosamente para no bloquear el guardado del usuario.
+  let chiefAutoDisabled = false;
+  if (!updates.kitchen_zones_enabled && updates.kitchen_chief_required) {
+    updates.kitchen_chief_required = false;
+    chiefAutoDisabled = true;
+    // Reflejar en la UI
+    const chiefToggle = document.getElementById('mode-chief-required');
+    if (chiefToggle) chiefToggle.checked = false;
   }
+
   try {
-    // Sub-Sprint A.4+A.6 bug-fix: si vamos a desactivar el modo pro, primero
-    // saber el estado anterior para invalidar sesiones de cocineros activos.
+    // Detectar transición ON → OFF para limpiar sesiones cocinero
     const { data: prev } = await sb.from('restaurants')
       .select('kitchen_zones_enabled').eq('id', state.adminRestaurantId).maybeSingle();
     const wasOn = !!prev?.kitchen_zones_enabled;
@@ -13505,19 +13529,30 @@ async function saveKitchenModos() {
     const { error } = await sb.from('restaurants').update(updates).eq('id', state.adminRestaurantId);
     if (error) throw error;
 
-    // Si pasamos de ON → OFF, limpiamos waiter_active_zones para que ningún cocinero
-    // quede "fantasmagóricamente identificado". Cookeat re-leerá flags al próximo openKitchen.
+    // Si pasamos de ON → OFF, limpiamos waiter_active_zones de todos los cocineros del restaurante.
     if (wasOn && willBeOff) {
-      await sb.from('waiter_active_zones').delete()
-        .in('waiter_id', (
-          await sb.from('waiters').select('id').eq('restaurant_id', state.adminRestaurantId)
-        ).data?.map(w => w.id) || []);
-      notify('Configuración guardada. Modo cocina pro desactivado: los cocineros activos volverán al modo simple en el próximo turno.', 'success');
-    } else {
-      notify('Configuración guardada', 'success');
+      const { data: cooks } = await sb.from('waiters')
+        .select('id').eq('restaurant_id', state.adminRestaurantId)
+        .in('role', ['chef', 'kitchen_chief']);
+      const cookIds = (cooks || []).map(w => w.id);
+      if (cookIds.length > 0) {
+        await sb.from('waiter_active_zones').delete().in('waiter_id', cookIds);
+      }
     }
+
+    // Mensaje claro y específico según lo que cambió
+    let msg = '✓ Cambios guardados.';
+    if (wasOn && willBeOff) {
+      msg = 'Modo cocina pro desactivado. Cookeat ahora entrará directo al KDS sin pedir PIN.';
+      if (chiefAutoDisabled) {
+        msg += ' También se ha desactivado "Solo el jefe de cocina" (no tiene sentido sin login).';
+      }
+    } else if (chiefAutoDisabled) {
+      msg = '"Solo el jefe de cocina" se ha desactivado porque requiere "Modo cocina pro" activo.';
+    }
+    notify(msg, 'success');
   } catch (e) {
-    notify('Error: ' + (e.message || e), 'error');
+    notify('Error al guardar: ' + (e.message || e), 'error');
   }
 }
 
@@ -15060,8 +15095,9 @@ async function loadAdminWaitersInline() {
         +     credEmail
         +   '</div>'
         +   '<div style="display:flex;gap:4px;flex-shrink:0">'
+        +     '<button onclick="openEditMemberModal(\'' + w.id + '\')" title="Editar" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer">✏️</button>'
         +     '<button onclick="promptResetWaiterPwd(\'' + w.id + '\',\'' + escHtml(w.name).replace(/'/g, '&#39;') + '\',\'' + role + '\')" style="padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit">🔑 ' + accessLabel + '</button>'
-        +     '<button onclick="deleteWaiterInline(\'' + w.id + '\')" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer">✕</button>'
+        +     '<button onclick="deleteWaiterInline(\'' + w.id + '\')" title="Eliminar" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer">✕</button>'
         +   '</div>'
         + '</div>'
         + '</div>';
@@ -15159,6 +15195,105 @@ async function saveWaiterAjustes() {
   loadAdminWaitersInline();
   notify(isCook ? 'Cocinero creado. Comunícale el PIN.' : 'Miembro creado. Comunícale las credenciales.', 'success');
   track('waiter_created', { restaurant_id: state.adminRestaurantId, role });
+}
+
+async function openEditMemberModal(waiterId) {
+  const { data: w } = await sb.from('waiters').select('*').eq('id', waiterId).maybeSingle();
+  if (!w) { notify('Miembro no encontrado', 'error'); return; }
+
+  const role = w.role || 'waiter';
+  const isCook = role === 'chef' || role === 'kitchen_chief';
+  const palette = ['#085041','#3D7BC2','#C2563D','#854F0B','#7A4F8C','#27500A','#A32D2D'];
+  const currentColor = w.avatar_color || palette[0];
+
+  document.getElementById('edit-member-overlay')?.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'edit-member-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:600;display:flex;align-items:center;justify-content:center;padding:1rem';
+  overlay.innerHTML =
+      '<div style="background:var(--card);border-radius:var(--r-lg);width:100%;max-width:440px;max-height:90vh;overflow-y:auto;padding:1.5rem 1.25rem">'
+    +   '<div style="font-size:17px;font-weight:700;color:var(--t1);margin-bottom:.25rem">Editar miembro</div>'
+    +   '<div style="font-size:12px;color:var(--t3);margin-bottom:1rem">Cambia los datos básicos. El acceso (PIN/contraseña) se gestiona con el botón 🔑 desde la lista.</div>'
+
+    +   '<label style="display:block;font-size:12px;color:var(--t2);margin-bottom:4px;font-weight:500">Nombre</label>'
+    +   '<input id="em-name" type="text" maxlength="60" value="' + escHtml(w.name || '') + '" '
+    +     'style="width:100%;padding:10px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-size:14px;font-family:inherit;margin-bottom:1rem;background:var(--card);color:var(--t1)">'
+
+    +   '<label style="display:block;font-size:12px;color:var(--t2);margin-bottom:4px;font-weight:500">Rol</label>'
+    +   '<select id="em-role" onchange="_onEditMemberRoleChange()" style="width:100%;padding:10px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);margin-bottom:1rem">'
+    +     '<option value="waiter"' + (role === 'waiter' ? ' selected' : '') + '>Camarero / Jefe de sala (serveat)</option>'
+    +     '<option value="chef"' + (role === 'chef' ? ' selected' : '') + '>Cocinero (cookeat)</option>'
+    +     '<option value="kitchen_chief"' + (role === 'kitchen_chief' ? ' selected' : '') + '>Jefe de cocina (cookeat)</option>'
+    +   '</select>'
+
+    +   '<label id="em-email-label" style="display:' + (isCook ? 'none' : 'block') + ';font-size:12px;color:var(--t2);margin-bottom:4px;font-weight:500">Email <span style="font-weight:400;color:var(--t3)">(opcional)</span></label>'
+    +   '<input id="em-email" type="email" value="' + escHtml(w.email || '') + '" '
+    +     'style="display:' + (isCook ? 'none' : 'block') + ';width:100%;padding:10px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-size:14px;font-family:inherit;margin-bottom:1rem;background:var(--card);color:var(--t1)">'
+
+    +   '<label style="display:block;font-size:12px;color:var(--t2);margin-bottom:6px;font-weight:500">Color del avatar</label>'
+    +   '<div id="em-palette" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem">'
+    +     palette.map(c => '<button type="button" data-color="' + c + '" onclick="_pickMemberColor(\'' + c + '\')" '
+    +       'style="width:36px;height:36px;border-radius:8px;background:' + c + ';border:3px solid ' + (c === currentColor ? '#000' : 'transparent') + ';cursor:pointer;padding:0"></button>').join('')
+    +   '</div>'
+    +   '<input id="em-color" type="hidden" value="' + currentColor + '">'
+
+    +   '<div style="display:flex;align-items:center;gap:8px;margin-bottom:1.25rem">'
+    +     '<input type="checkbox" id="em-active" ' + (w.active ? 'checked' : '') + ' style="width:18px;height:18px;accent-color:var(--brand)">'
+    +     '<label for="em-active" style="font-size:13px;color:var(--t2);cursor:pointer">Miembro activo</label>'
+    +   '</div>'
+
+    +   '<div style="display:flex;gap:.5rem">'
+    +     '<button class="btn btn-primary" onclick="saveMemberEdit(\'' + waiterId + '\')" style="flex:1">Guardar</button>'
+    +     '<button class="btn btn-secondary" onclick="document.getElementById(\'edit-member-overlay\').remove()" style="flex:1">Cancelar</button>'
+    +   '</div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+}
+
+function _onEditMemberRoleChange() {
+  const role = document.getElementById('em-role')?.value || 'waiter';
+  const isCook = role === 'chef' || role === 'kitchen_chief';
+  const lbl = document.getElementById('em-email-label');
+  const inp = document.getElementById('em-email');
+  if (lbl) lbl.style.display = isCook ? 'none' : 'block';
+  if (inp) inp.style.display = isCook ? 'none' : 'block';
+}
+
+function _pickMemberColor(color) {
+  document.getElementById('em-color').value = color;
+  document.querySelectorAll('#em-palette button').forEach(btn => {
+    btn.style.border = '3px solid ' + (btn.getAttribute('data-color') === color ? '#000' : 'transparent');
+  });
+}
+
+async function saveMemberEdit(waiterId) {
+  const name = document.getElementById('em-name')?.value?.trim();
+  const role = document.getElementById('em-role')?.value || 'waiter';
+  const email = document.getElementById('em-email')?.value?.trim() || null;
+  const avatar_color = document.getElementById('em-color')?.value || '#085041';
+  const active = !!document.getElementById('em-active')?.checked;
+
+  if (!name) { notify('El nombre no puede estar vacío', 'error'); return; }
+
+  const isCook = role === 'chef' || role === 'kitchen_chief';
+  // Validar email solo si es no-cook y se ha introducido algo
+  if (!isCook && email && !email.includes('@')) {
+    notify('Email no válido', 'error'); return;
+  }
+
+  // Comprobar duplicados de email (excluyendo a este mismo waiter)
+  if (email) {
+    const { data: existing } = await sb.from('waiters')
+      .select('id').eq('email', email).eq('active', true).neq('id', waiterId).maybeSingle();
+    if (existing) { notify('Ya existe otro miembro con ese email', 'error'); return; }
+  }
+
+  const updates = { name, role, email: isCook ? null : email, avatar_color, active };
+  const { error } = await sb.from('waiters').update(updates).eq('id', waiterId);
+  if (error) { notify('Error al guardar: ' + error.message, 'error'); return; }
+  document.getElementById('edit-member-overlay')?.remove();
+  notify('✓ Miembro actualizado', 'success');
+  loadAdminWaitersInline();
 }
 
 async function promptResetWaiterPwd(waiterId, waiterName, role) {
@@ -16520,10 +16655,14 @@ function _addAdminNotif(notif) {
 
 function _updateAdminNotifBadge() {
   const unseen = _adminNotifs.filter(n => !n.seen).length;
-  const badge = document.getElementById('admin-notif-badge');
-  const fab = document.getElementById('admin-notif-fab');
-  if (badge) { badge.textContent = unseen; badge.style.display = unseen > 0 ? 'inline' : 'none'; }
-  if (fab) fab.style.background = unseen > 0 ? '#E24B4A' : 'var(--brand-d)';
+  // Sub-Sprint A.4+A.6: actualizar tanto badge desktop como mobile
+  ['admin-notif-badge', 'admin-notif-badge-mobile'].forEach(id => {
+    const badge = document.getElementById(id);
+    if (badge) {
+      badge.textContent = unseen > 9 ? '9+' : String(unseen);
+      badge.style.display = unseen > 0 ? 'inline-block' : 'none';
+    }
+  });
 }
 
 function markAllAdminNotifSeen() {
@@ -16534,19 +16673,47 @@ function markAllAdminNotifSeen() {
 function renderAdminNotifList() {
   const el = document.getElementById('admin-notif-list');
   if (!el) return;
-  if (!_adminNotifs.length) {
+
+  // Sub-Sprint A.4+A.6: panel unificado — eventos operativos arriba, avisos del sistema (toasts) abajo
+  const hasOps = _adminNotifs.length > 0;
+  const hasSys = (typeof _notifHistory !== 'undefined') && _notifHistory.length > 0;
+
+  if (!hasOps && !hasSys) {
     el.innerHTML = '<div style="text-align:center;padding:3rem 1rem;color:var(--t3);font-size:13px">Sin notificaciones aún</div>';
     return;
   }
-  el.innerHTML = _adminNotifs.map(n => `
-    <div style="display:flex;gap:10px;padding:.75rem 0;border-bottom:1px solid var(--bd);align-items:flex-start">
-      <div style="width:8px;height:8px;border-radius:50%;background:${n.seen ? 'var(--bd2)' : '#E24B4A'};flex-shrink:0;margin-top:5px"></div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:${n.seen ? '400' : '600'};color:var(--t1)">${escHtml(n.title)}</div>
-        <div style="font-size:12px;color:var(--t2);margin-top:2px">${escHtml(n.body)}</div>
-        <div style="font-size:11px;color:var(--t3);margin-top:2px">${n.time}</div>
-      </div>
-    </div>`).join('');
+
+  let html = '';
+
+  // Eventos operativos
+  if (hasOps) {
+    html += '<div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">Eventos del restaurante</div>';
+    html += _adminNotifs.map(n => `
+      <div style="display:flex;gap:10px;padding:.75rem 0;border-bottom:1px solid var(--bd);align-items:flex-start">
+        <div style="width:8px;height:8px;border-radius:50%;background:${n.seen ? 'var(--bd2)' : '#E24B4A'};flex-shrink:0;margin-top:5px"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:${n.seen ? '400' : '600'};color:var(--t1)">${escHtml(n.title)}</div>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">${escHtml(n.body)}</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px">${n.time}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  // Avisos del sistema (toasts UI que ya pasaron)
+  if (hasSys) {
+    const typeColors = { error:'var(--accent)', success:'var(--brand)', info:'var(--blue)', warning:'#E5A85A' };
+    html += '<div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin:1.25rem 0 .5rem">Avisos del sistema</div>';
+    html += _notifHistory.map(n => {
+      const time = new Date(n.ts).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      return `<div style="display:flex;gap:10px;padding:.6rem 0;border-bottom:1px solid var(--bd);align-items:flex-start">
+        <div style="width:6px;height:6px;border-radius:50%;background:${typeColors[n.type] || 'var(--t3)'};flex-shrink:0;margin-top:6px"></div>
+        <div style="flex:1;min-width:0;font-size:12px;color:var(--t2);line-height:1.4">${escHtml(n.msg)}</div>
+        <div style="font-size:11px;color:var(--t3);flex-shrink:0">${time}</div>
+      </div>`;
+    }).join('');
+  }
+
+  el.innerHTML = html;
 }
 
 function subscribeAdminNotifications() {
@@ -23643,16 +23810,8 @@ document.addEventListener('keydown', (e) => {
   </div>
 </div>
 
-<!-- FAB de notificaciones manageat — oculto por defecto, visible solo en manageat -->
-<button id="admin-notif-fab" onclick="openAdminNotifPanel()"
-  style="display:none;position:fixed;bottom:80px;right:20px;z-index:900;width:52px;height:52px;border-radius:50%;background:var(--brand-d);color:#fff;border:none;cursor:pointer;font-family:inherit;box-shadow:0 4px 20px rgba(0,0,0,.3);align-items:center;justify-content:center;transition:transform .15s,background .2s"
-  onmouseenter="this.style.transform='scale(1.08)'" onmouseleave="this.style.transform='scale(1)'">
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-  </svg>
-  <span id="admin-notif-badge" style="display:none;position:absolute;top:-3px;right:-3px;background:#E24B4A;color:#fff;border-radius:99px;font-size:10px;font-weight:700;min-width:18px;height:18px;text-align:center;line-height:18px;padding:0 4px;pointer-events:none">0</span>
-</button>
+<!-- Sub-Sprint A.4+A.6: FAB flotante eliminado. Notificaciones ahora viven en topbar. -->
+<!-- (anterior id="admin-notif-fab" retirado por UX — quedaba en esquina inferior derecha tapando contenido) -->
 <div id="admin-notif-panel" style="display:none;position:fixed;top:0;right:0;bottom:0;width:min(360px,100vw);z-index:910;background:var(--card);box-shadow:-4px 0 24px rgba(0,0,0,.2);flex-direction:column">
   <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--brand-d)">
     <div style="font-size:15px;font-weight:600;color:#fff">Notificaciones</div>
