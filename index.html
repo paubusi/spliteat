@@ -16736,9 +16736,18 @@ function _updateAdminNotifBadge() {
   // Sub-Sprint A.4+A.6: contar eventos operativos no vistos + toasts/notify después del último seen
   const opsUnseen = _adminNotifs.filter(n => !n.seen).length;
   const lastSeenTs = parseInt(localStorage.getItem('_notifLastSeenTs') || '0', 10);
-  const sysUnseen = (typeof _notifHistory !== 'undefined')
-    ? _notifHistory.filter(n => n.ts > lastSeenTs).length
-    : 0;
+
+  // Leer desde localStorage para evitar desincronizaciones
+  let sysHistory = [];
+  try {
+    const raw = localStorage.getItem('_spliteatNotifHistory');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) sysHistory = parsed;
+    }
+  } catch (e) { sysHistory = []; }
+
+  const sysUnseen = sysHistory.filter(n => n.ts > lastSeenTs).length;
   const unseen = opsUnseen + sysUnseen;
   // Actualizar tanto badge desktop como mobile
   ['admin-notif-badge', 'admin-notif-badge-mobile'].forEach(id => {
@@ -16761,9 +16770,26 @@ function renderAdminNotifList() {
   const el = document.getElementById('admin-notif-list');
   if (!el) return;
 
-  // Sub-Sprint A.4+A.6: panel unificado — eventos operativos arriba, avisos del sistema (toasts) abajo
+  // Sub-Sprint A.4+A.6 fix DEFINITIVO: leer SIEMPRE desde localStorage,
+  // no desde la variable en memoria. Si está persistido, se muestra.
+  let sysHistory = [];
+  try {
+    const raw = localStorage.getItem('_spliteatNotifHistory');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) sysHistory = parsed;
+    }
+  } catch (e) { sysHistory = []; }
+
+  // Mantener la variable en memoria sincronizada (por si algún caller la lee)
+  if (typeof _notifHistory !== 'undefined') _notifHistory = sysHistory;
+
+  // Diagnóstico temporal
+  console.log('[NOTIF] render → ops:', _adminNotifs.length, '· sys:', sysHistory.length);
+
+  // Panel unificado — eventos operativos arriba, avisos del sistema (toasts) abajo
   const hasOps = _adminNotifs.length > 0;
-  const hasSys = (typeof _notifHistory !== 'undefined') && _notifHistory.length > 0;
+  const hasSys = sysHistory.length > 0;
 
   if (!hasOps && !hasSys) {
     el.innerHTML = '<div style="text-align:center;padding:3rem 1rem;color:var(--t3);font-size:13px">Sin notificaciones aún</div>';
@@ -16786,11 +16812,11 @@ function renderAdminNotifList() {
       </div>`).join('');
   }
 
-  // Avisos del sistema (toasts UI que ya pasaron)
+  // Avisos del sistema (toasts UI que ya pasaron) — usar sysHistory local (lee de localStorage)
   if (hasSys) {
     const typeColors = { error:'var(--accent)', success:'var(--brand)', info:'var(--blue)', warning:'#E5A85A' };
     html += '<div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin:1.25rem 0 .5rem">Avisos del sistema</div>';
-    html += _notifHistory.map(n => {
+    html += sysHistory.map(n => {
       const time = new Date(n.ts).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
       return `<div style="display:flex;gap:10px;padding:.6rem 0;border-bottom:1px solid var(--bd);align-items:flex-start">
         <div style="width:6px;height:6px;border-radius:50%;background:${typeColors[n.type] || 'var(--t3)'};flex-shrink:0;margin-top:6px"></div>
