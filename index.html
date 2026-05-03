@@ -7470,7 +7470,6 @@ async function _generateTicket(mode) {
   const totals = calcTotals();
   const total = state.dishes.reduce((s,d) => s + parseFloat(d.price||0), 0);
   const now = new Date();
-  const fechaStr = now.toLocaleString('es-ES', { dateStyle:'short', timeStyle:'short' });
   const restName = state.restaurantName || 'Restaurante';
 
   const me = totals.find(t => t.g.id === state.myGuestId);
@@ -7491,9 +7490,32 @@ async function _generateTicket(mode) {
   }
   fiscalData = fiscalData || {};
 
-  // Número de ticket: usar serie + room_id corto + timestamp
-  const serie = fiscalData.invoice_series || 'T-';
-  const ticketNum = serie + (state.roomId || '').slice(0,8).toUpperCase();
+  // Sprint H — Cargar la factura LEGAL ya emitida desde la BD
+  // Si está disponible, usamos su display_number, qr_url, csv y hash reales.
+  // El cierre de mesa ya disparó generateInvoiceFromRoom + sign-and-send-invoice,
+  // por lo que normalmente la factura ya existe cuando el comensal pulsa "Descargar".
+  let legalInvoice = null;
+  if (state.roomId) {
+    try {
+      const { data: inv } = await sb.from('invoices')
+        .select('display_number, qr_url, verifactu_csv, verifactu_status, hash, issued_at')
+        .eq('room_id', state.roomId)
+        .maybeSingle();
+      if (inv) legalInvoice = inv;
+    } catch(e) { console.warn('No se pudo cargar factura legal:', e); }
+  }
+
+  // Número y fecha: del legal si existe, fallback al cálculo viejo
+  let ticketNum, fechaStr;
+  if (legalInvoice?.display_number) {
+    ticketNum = legalInvoice.display_number;
+    fechaStr = new Date(legalInvoice.issued_at).toLocaleString('es-ES', { dateStyle:'short', timeStyle:'short' });
+  } else {
+    const serie = fiscalData.invoice_series || 'T-';
+    ticketNum = serie + (state.roomId || '').slice(0,8).toUpperCase();
+    fechaStr = now.toLocaleString('es-ES', { dateStyle:'short', timeStyle:'short' });
+  }
+
   const ivaRate = parseFloat(fiscalData.iva_rate ?? 10);
 
   // Cálculo IVA a partir del total con IVA incluido (típico en hostelería ES)
@@ -7502,6 +7524,20 @@ async function _generateTicket(mode) {
     const ivaAmt = amt - base;
     return { base: base, iva: ivaAmt };
   };
+
+  // Sprint H — Bloque QR Verifactu (solo si hay factura legal con qr_url)
+  const verifactuBlock = legalInvoice?.qr_url ? `
+    <hr>
+    <div style="display:flex;align-items:center;gap:12px;margin:8px 0">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(legalInvoice.qr_url)}" width="90" height="90" alt="QR Verifactu" style="display:block;border:1px solid #ddd;border-radius:4px;flex-shrink:0">
+      <div style="flex:1;font-size:10px;line-height:1.5">
+        <div style="font-weight:700;color:#085041;font-size:11px;margin-bottom:2px">VERI*FACTU</div>
+        <div style="color:#555">Verificable en sede.agenciatributaria.gob.es</div>
+        ${legalInvoice.verifactu_csv ? `<div style="color:#555;margin-top:3px">CSV:<br><span style="font-family:monospace;color:#222;font-weight:600;word-break:break-all">${escHtml(legalInvoice.verifactu_csv)}</span></div>` : `<div style="color:#C26B0A;margin-top:3px">⏳ Pendiente envío AEAT</div>`}
+      </div>
+    </div>
+    ${legalInvoice.hash ? `<div style="font-size:8px;color:#888;word-break:break-all;margin-top:4px">Hash: ${escHtml(legalInvoice.hash)}</div>` : ''}
+  ` : '';
 
   // CSS — diseño tipo factura simplificada legal (RD 1619/2012)
   const css = `body{font-family:'Helvetica Neue',Arial,sans-serif;max-width:380px;margin:0 auto;padding:24px 20px;font-size:13px;color:#222;line-height:1.45}
@@ -7572,6 +7608,7 @@ async function _generateTicket(mode) {
       <hr>
       <div style="font-size:12px;font-weight:600;margin-bottom:6px">Desglose por comensal</div>
       <table><tbody>${guestRows}</tbody></table>
+      ${verifactuBlock}
       <div class="footer">
         <strong>Factura simplificada</strong> — Art. 7 RD 1619/2012<br>
         Emitida con spliteat.es
@@ -7624,13 +7661,31 @@ async function _generateTicket(mode) {
       </div>
       <div class="grand">Total: ${fmt(myTotal)}</div>
       <div style="font-size:11px;color:#888;margin-top:4px">Total mesa: ${fmt(total)}</div>
+      ${verifactuBlock}
       <div class="footer">
         <strong>Factura simplificada</strong> — Art. 7 RD 1619/2012<br>
         Emitida con spliteat.es
       </div>`;
   }
 
-  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escHtml(ticketNum)}</title><style>${css}</style></head><body>${body}<` + `script>setTimeout(()=>window.print&&window.print(),300);<\/script></body></html>`;
+  // Sprint H — esperar a que la imagen QR cargue antes de imprimir (si la hay)
+  const printScript = `<` + `script>
+    window.addEventListener("load", function(){
+      var imgs = document.querySelectorAll("img");
+      if (imgs.length === 0) { setTimeout(function(){ try{window.print()}catch(e){} }, 200); return; }
+      var loaded = 0; var done = false;
+      function check(){
+        loaded++;
+        if (loaded >= imgs.length && !done) { done = true; setTimeout(function(){ try{window.print()}catch(e){} }, 150); }
+      }
+      imgs.forEach(function(img){
+        if (img.complete) { check(); }
+        else { img.addEventListener("load", check); img.addEventListener("error", check); }
+      });
+      setTimeout(function(){ if(!done){ done=true; try{window.print()}catch(e){} } }, 2500);
+    });
+  <\/script>`;
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escHtml(ticketNum)}</title><style>${css}</style></head><body>${body}${printScript}</body></html>`;
 
   // Generación robusta: Blob + descarga directa (funciona en iOS Safari y Android)
   try {
