@@ -2424,6 +2424,9 @@
           <button class="adm-nav" data-tab="stockeat" onclick="showAdminTab('stockeat')">
             <span class="adm-nav-icon">📦</span><span class="adm-nav-label">stock<em style="color:#D85A30;font-style:normal">eat</em></span>
           </button>
+          <button class="adm-nav" data-tab="equipo" onclick="showAdminTab('equipo')">
+            <span class="adm-nav-icon">👥</span><span class="adm-nav-label">Equipo</span>
+          </button>
         </nav>
 
         <div style="padding:1rem 1.25rem;border-top:1px solid rgba(255,255,255,.08)">
@@ -2474,6 +2477,7 @@
           <button class="adm-mob-tab" data-tab="reportes" onclick="showAdminTab('reportes')">📊<br><span>Dashboard</span></button>
           <button class="adm-mob-tab" data-tab="facturas" onclick="showAdminTab('facturas')">📄<br><span>Facturas</span></button>
           <button class="adm-mob-tab" data-tab="stockeat" onclick="showAdminTab('stockeat')">📦<br><span>Stock</span></button>
+          <button class="adm-mob-tab" data-tab="equipo" onclick="showAdminTab('equipo')">👥<br><span>Equipo</span></button>
           <button class="adm-mob-tab" data-tab="gestion" onclick="showAdminTab('gestion')">⚙️<br><span>Ajustes</span></button>
         </div>
 
@@ -3027,6 +3031,43 @@
       <div id="admin-notif-list-legacy" style="padding:1rem 1.5rem;flex:1">
         <div style="text-align:center;padding:3rem 1rem;color:var(--t3);font-size:13px">Sin notificaciones aún</div>
       </div>
+    </div>
+
+    <!-- TAB EQUIPO — Control horario empleados (RD-ley 8/2019) -->
+    <div id="atab-equipo" style="display:none;flex-direction:column;height:calc(100dvh - 57px);overflow-y:auto">
+      <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--bd);background:var(--card);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:.65rem;flex-wrap:wrap">
+        <div>
+          <div style="font-size:16px;font-weight:600">👥 Equipo</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px">Control horario · RD-ley 8/2019</div>
+        </div>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <select id="equipo-period" onchange="loadEquipoDashboard()" class="stk-allow-readonly"
+            style="padding:7px 28px 7px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);font-family:inherit;font-size:13px;background:var(--card);cursor:pointer">
+            <option value="today">Hoy</option>
+            <option value="week">Esta semana</option>
+            <option value="month" selected>Este mes</option>
+            <option value="last_month">Mes anterior</option>
+          </select>
+          <button onclick="exportEquipoMonthlyReport()" class="stk-allow-readonly"
+            style="padding:7px 14px;border-radius:var(--r-sm);border:1px solid var(--brand);background:var(--brand-l);color:var(--brand-d);cursor:pointer;font-family:inherit;font-size:12px;font-weight:600">
+            ⬇ Exportar
+          </button>
+        </div>
+      </div>
+
+      <!-- KPIs row -->
+      <div id="equipo-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.75rem;padding:1rem 1.25rem"></div>
+
+      <!-- Empleados list -->
+      <div style="padding:0 1.25rem 1rem">
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden">
+          <div style="padding:.75rem 1rem;border-bottom:1px solid var(--bd);font-weight:600;font-size:14px">Empleados</div>
+          <div id="equipo-list" style="min-height:200px"></div>
+        </div>
+      </div>
+
+      <!-- Detalle empleado (modal-like inline) -->
+      <div id="equipo-detail" style="display:none;padding:0 1.25rem 1rem"></div>
     </div>
 
     <div id="atab-gestion" style="display:none;flex-direction:column;height:calc(100dvh - 57px);overflow-y:auto">
@@ -10673,6 +10714,457 @@ async function _doClockOutAndLogout() {
 }
 
 // Logout sin tocar shift (función original renombrada)
+// ════════════════════════════════════════════════════════════════
+// SPRINT CONTROL HORARIO — UI Admin (Turno 3/4)
+// ════════════════════════════════════════════════════════════════
+
+let _equipoData = []; // cache para export
+
+function _equipoFmtMins(mins) {
+  if (mins == null || isNaN(mins)) return '—';
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h === 0) return `${m}m`;
+  return `${h}h ${m}m`;
+}
+
+function _equipoPeriodRange() {
+  const period = document.getElementById('equipo-period')?.value || 'month';
+  const now = new Date();
+  let from, to;
+  if (period === 'today') {
+    from = new Date(now); from.setHours(0,0,0,0);
+    to = new Date(now); to.setHours(23,59,59,999);
+  } else if (period === 'week') {
+    from = new Date(now);
+    from.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
+    from.setHours(0,0,0,0);
+    to = new Date(now); to.setHours(23,59,59,999);
+  } else if (period === 'month') {
+    from = new Date(now.getFullYear(), now.getMonth(), 1);
+    to = new Date(now); to.setHours(23,59,59,999);
+  } else { // last_month
+    from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    to = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+  }
+  return { from: from.toISOString(), to: to.toISOString(), label: { today:'Hoy', week:'Esta semana', month:'Este mes', last_month:'Mes anterior' }[period] };
+}
+
+async function loadEquipoDashboard() {
+  if (!state.adminRestaurantId) return;
+  const range = _equipoPeriodRange();
+
+  const { data, error } = await sb.rpc('shift_summary', {
+    p_restaurant_id: state.adminRestaurantId,
+    p_from: range.from,
+    p_to: range.to
+  });
+  if (error) { notify('Error: ' + error.message, 'error'); return; }
+  _equipoData = data || [];
+
+  _renderEquipoKPIs();
+  _renderEquipoList();
+}
+
+function _renderEquipoKPIs() {
+  const el = document.getElementById('equipo-kpis');
+  if (!el) return;
+  const totalEmployees = _equipoData.length;
+  const active = _equipoData.filter(e => e.has_active_shift).length;
+  const totalHours = _equipoData.reduce((s, e) => s + parseFloat(e.worked_hours || 0), 0);
+  const totalShifts = _equipoData.reduce((s, e) => s + parseInt(e.shift_count || 0), 0);
+
+  const kpi = (icon, label, val, color) =>
+    `<div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:1rem">
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem">
+        <span style="font-size:18px">${icon}</span>
+        <span style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em">${label}</span>
+      </div>
+      <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:${color || 'var(--t1)'}">${val}</div>
+    </div>`;
+
+  el.innerHTML =
+    kpi('👥', 'Empleados', totalEmployees) +
+    kpi('🟢', 'Trabajando ahora', active, '#3B6D11') +
+    kpi('⏱', 'Horas totales', totalHours.toFixed(1) + 'h', 'var(--brand-d)') +
+    kpi('📊', 'Fichajes', totalShifts);
+}
+
+function _renderEquipoList() {
+  const el = document.getElementById('equipo-list');
+  if (!el) return;
+  if (_equipoData.length === 0) {
+    el.innerHTML = '<div style="padding:2rem;text-align:center;color:var(--t3);font-size:13px">Sin empleados con fichaje en este período</div>';
+    return;
+  }
+  const roleLabels = { waiter:'Camarero', kitchen:'Cocina', manager:'Manager', other:'Otro' };
+  const roleColors = { waiter:'#085041', kitchen:'#854F0B', manager:'#185FA5', other:'#444' };
+
+  el.innerHTML = _equipoData.map(e => {
+    const role = roleLabels[e.role] || roleLabels.waiter;
+    const roleColor = roleColors[e.role] || roleColors.waiter;
+    const statusBadge = e.has_active_shift
+      ? '<span style="display:inline-flex;align-items:center;font-size:10px;font-weight:600;color:#3B6D11;background:#EAF3DE;padding:2px 8px;border-radius:99px;margin-left:6px"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:#3B6D11;margin-right:4px;animation:pulse 1.5s infinite"></span>Trabajando</span>'
+      : '<span style="font-size:10px;color:var(--t3);padding:2px 8px;border-radius:99px;background:var(--bg2);margin-left:6px">Off</span>';
+
+    return `<div onclick="openEquipoDetail('${e.waiter_id}')"
+      style="display:flex;align-items:center;gap:.85rem;padding:.85rem 1rem;border-bottom:1px solid var(--bd);cursor:pointer;transition:background .15s"
+      onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:600;color:var(--t1);display:flex;align-items:center;flex-wrap:wrap">
+          ${escHtml(e.waiter_name)} ${statusBadge}
+        </div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px">
+          <span style="color:${roleColor};font-weight:500">${role}</span>
+          · ${e.shift_count} fichaje${e.shift_count!=1?'s':''}
+          ${e.break_minutes_sum > 0 ? ' · descanso ' + _equipoFmtMins(e.break_minutes_sum) : ''}
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:var(--brand-d)">${parseFloat(e.worked_hours).toFixed(1)}h</div>
+        <div style="font-size:10px;color:var(--t3)">trabajadas</div>
+      </div>
+      <span style="color:var(--t3);font-size:18px">›</span>
+    </div>`;
+  }).join('');
+}
+
+async function openEquipoDetail(waiterId) {
+  const range = _equipoPeriodRange();
+  const emp = _equipoData.find(e => e.waiter_id === waiterId);
+  if (!emp) return;
+
+  // Cargar shifts del empleado en el periodo
+  const { data: shifts, error } = await sb.from('shifts')
+    .select('id, clock_in_at, clock_out_at, total_minutes, break_minutes, worked_minutes, notes, corrected_by_admin, auto_closed')
+    .eq('waiter_id', waiterId)
+    .gte('clock_in_at', range.from)
+    .lte('clock_in_at', range.to)
+    .order('clock_in_at', { ascending: false });
+  if (error) { notify('Error: ' + error.message, 'error'); return; }
+
+  const detail = document.getElementById('equipo-detail');
+  if (!detail) return;
+  detail.style.display = 'block';
+
+  const rows = (shifts || []).map(s => {
+    const inDate = new Date(s.clock_in_at);
+    const outDate = s.clock_out_at ? new Date(s.clock_out_at) : null;
+    const dateStr = inDate.toLocaleDateString('es-ES', { weekday:'short', day:'2-digit', month:'2-digit' });
+    const inTime = inDate.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
+    const outTime = outDate ? outDate.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }) : '<span style="color:#854F0B">activo</span>';
+    const flags = [
+      s.corrected_by_admin ? '<span title="Corregido por admin" style="font-size:10px;color:#185FA5">✏</span>' : '',
+      s.auto_closed ? '<span title="Auto-cerrado por sistema" style="font-size:10px;color:#A32D2D">⚠</span>' : ''
+    ].filter(Boolean).join(' ');
+
+    return `<tr style="border-bottom:1px solid var(--bd)">
+      <td style="padding:.55rem .65rem;font-size:12px;color:var(--t2);text-transform:capitalize">${dateStr}</td>
+      <td style="padding:.55rem .65rem;font-size:13px;font-weight:500">${inTime}</td>
+      <td style="padding:.55rem .65rem;font-size:13px;font-weight:500">${outTime}</td>
+      <td style="padding:.55rem .65rem;font-size:13px;text-align:right">${_equipoFmtMins(s.total_minutes)}</td>
+      <td style="padding:.55rem .65rem;font-size:12px;text-align:right;color:var(--t3)">${s.break_minutes ? '-' + _equipoFmtMins(s.break_minutes) : '—'}</td>
+      <td style="padding:.55rem .65rem;font-size:13px;font-weight:600;text-align:right;color:var(--brand-d)">${_equipoFmtMins(s.worked_minutes)}</td>
+      <td style="padding:.55rem .65rem;text-align:center">${flags}</td>
+      <td style="padding:.55rem .65rem;text-align:right">
+        <button onclick="event.stopPropagation();openCorrectShiftModal('${s.id}','${escHtml(emp.waiter_name)}')"
+          title="Corregir fichaje" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:14px;padding:4px">✏</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  detail.innerHTML = `
+    <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-top:1rem">
+      <div style="padding:.85rem 1rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap">
+        <div>
+          <div style="font-size:14px;font-weight:600">${escHtml(emp.waiter_name)} · ${range.label}</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px">${emp.shift_count} fichajes · ${parseFloat(emp.worked_hours).toFixed(1)}h trabajadas</div>
+        </div>
+        <div style="display:flex;gap:.4rem">
+          <button onclick="openManualShiftModal('${waiterId}','${escHtml(emp.waiter_name)}')"
+            style="padding:6px 11px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);font-size:12px;cursor:pointer;font-family:inherit">+ Fichaje manual</button>
+          <button onclick="document.getElementById('equipo-detail').style.display='none'"
+            style="padding:6px 11px;border-radius:var(--r-sm);border:none;background:none;color:var(--t3);font-size:12px;cursor:pointer;font-family:inherit">✕ Cerrar</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead style="background:var(--bg2)">
+            <tr>
+              <th style="padding:.55rem .65rem;text-align:left;font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em">Fecha</th>
+              <th style="padding:.55rem .65rem;text-align:left;font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em">Entrada</th>
+              <th style="padding:.55rem .65rem;text-align:left;font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em">Salida</th>
+              <th style="padding:.55rem .65rem;text-align:right;font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em">Total</th>
+              <th style="padding:.55rem .65rem;text-align:right;font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em">Descanso</th>
+              <th style="padding:.55rem .65rem;text-align:right;font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em">Trabajado</th>
+              <th style="padding:.55rem .65rem;text-align:center;font-size:10px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.05em"></th>
+              <th style="padding:.55rem .65rem"></th>
+            </tr>
+          </thead>
+          <tbody>${rows || '<tr><td colspan="8" style="padding:2rem;text-align:center;color:var(--t3);font-size:13px">Sin fichajes en este período</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>`;
+  detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ── CORREGIR FICHAJE ────────────────────────────────────────────
+function openCorrectShiftModal(shiftId, waiterName) {
+  document.getElementById('correct-shift-modal')?.remove();
+  // Cargar el shift
+  sb.from('shifts').select('*').eq('id', shiftId).maybeSingle().then(({ data: s }) => {
+    if (!s) { notify('Fichaje no encontrado', 'error'); return; }
+    const inDt = new Date(s.clock_in_at);
+    const outDt = s.clock_out_at ? new Date(s.clock_out_at) : null;
+    const inLocal = inDt.toISOString().slice(0,16);
+    const outLocal = outDt ? outDt.toISOString().slice(0,16) : '';
+
+    const el = document.createElement('div');
+    el.id = 'correct-shift-modal';
+    el.style.cssText = 'position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:1rem';
+    el.innerHTML = `
+      <div style="background:var(--card);border-radius:var(--r-lg);padding:1.5rem;max-width:440px;width:100%;max-height:90vh;overflow-y:auto">
+        <div style="font-size:17px;font-weight:600;margin-bottom:.85rem">Corregir fichaje · ${escHtml(waiterName)}</div>
+
+        <div style="background:#FFF3E0;border:1px solid #C26B0A;border-radius:var(--r-sm);padding:.75rem;margin-bottom:1rem;font-size:11px;color:#854F0B;line-height:1.5">
+          ⚠ La corrección quedará marcada como <strong>"corregido por admin"</strong> y será visible en el registro permanente. Indica una razón clara.
+        </div>
+
+        <div class="field">
+          <label>Entrada</label>
+          <input type="datetime-local" id="cs-in" value="${inLocal}" class="stk-allow-readonly"
+            style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
+        </div>
+        <div class="field">
+          <label>Salida ${outDt ? '' : '<span style="color:var(--t3)">(vacío = sigue activo)</span>'}</label>
+          <input type="datetime-local" id="cs-out" value="${outLocal}" class="stk-allow-readonly"
+            style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
+        </div>
+        <div class="field">
+          <label>Razón de la corrección *</label>
+          <textarea id="cs-reason" placeholder="Ej: olvidó fichar, se quedó la app cerrada..." class="stk-allow-readonly"
+            style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%;min-height:60px;resize:vertical"></textarea>
+        </div>
+
+        <div style="display:flex;gap:.5rem;margin-top:.5rem">
+          <button onclick="document.getElementById('correct-shift-modal').remove()" class="btn btn-secondary" style="flex:1">Cancelar</button>
+          <button onclick="saveCorrectShift('${shiftId}')" class="btn btn-primary" style="flex:2">✓ Guardar corrección</button>
+        </div>
+      </div>`;
+    document.body.appendChild(el);
+  });
+}
+
+async function saveCorrectShift(shiftId) {
+  const inVal = document.getElementById('cs-in')?.value;
+  const outVal = document.getElementById('cs-out')?.value;
+  const reason = (document.getElementById('cs-reason')?.value || '').trim();
+
+  if (!inVal) { notify('La entrada es obligatoria'); return; }
+  if (!reason) { notify('Indica una razón'); return; }
+
+  const inDate = new Date(inVal);
+  const outDate = outVal ? new Date(outVal) : null;
+
+  if (outDate && outDate <= inDate) { notify('La salida debe ser posterior a la entrada'); return; }
+
+  // Calcular tiempos
+  const updates = {
+    clock_in_at: inDate.toISOString(),
+    clock_out_at: outDate ? outDate.toISOString() : null,
+    notes: reason,
+    corrected_by_admin: true
+  };
+  if (outDate) {
+    const totalMin = Math.floor((outDate - inDate) / 60000);
+    updates.total_minutes = totalMin;
+    updates.break_minutes = totalMin >= 360 ? 30 : 0;
+    updates.worked_minutes = totalMin - updates.break_minutes;
+  } else {
+    updates.total_minutes = null;
+    updates.break_minutes = 0;
+    updates.worked_minutes = null;
+  }
+
+  const { error } = await sb.from('shifts').update(updates).eq('id', shiftId);
+  if (error) { notify('Error: ' + error.message, 'error'); return; }
+  document.getElementById('correct-shift-modal')?.remove();
+  notify('Corrección guardada', 'success');
+  loadEquipoDashboard();
+}
+
+// ── FICHAJE MANUAL (admin crea uno desde cero) ─────────────────
+function openManualShiftModal(waiterId, waiterName) {
+  document.getElementById('manual-shift-modal')?.remove();
+  const now = new Date();
+  const todayStart = new Date(now); todayStart.setHours(9,0,0,0);
+  const todayEnd = new Date(now); todayEnd.setHours(17,0,0,0);
+
+  const el = document.createElement('div');
+  el.id = 'manual-shift-modal';
+  el.style.cssText = 'position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:1rem';
+  el.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg);padding:1.5rem;max-width:440px;width:100%">
+      <div style="font-size:17px;font-weight:600;margin-bottom:.85rem">Fichaje manual · ${escHtml(waiterName)}</div>
+
+      <div style="background:#FFF3E0;border:1px solid #C26B0A;border-radius:var(--r-sm);padding:.75rem;margin-bottom:1rem;font-size:11px;color:#854F0B;line-height:1.5">
+        ⚠ Este fichaje quedará marcado como creado manualmente por admin. Para corregir un fichaje olvidado.
+      </div>
+
+      <div class="field">
+        <label>Entrada</label>
+        <input type="datetime-local" id="ms-in" value="${todayStart.toISOString().slice(0,16)}" class="stk-allow-readonly"
+          style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
+      </div>
+      <div class="field">
+        <label>Salida</label>
+        <input type="datetime-local" id="ms-out" value="${todayEnd.toISOString().slice(0,16)}" class="stk-allow-readonly"
+          style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
+      </div>
+      <div class="field">
+        <label>Razón *</label>
+        <textarea id="ms-reason" placeholder="Ej: olvidó fichar al llegar..." class="stk-allow-readonly"
+          style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%;min-height:60px;resize:vertical"></textarea>
+      </div>
+
+      <div style="display:flex;gap:.5rem;margin-top:.5rem">
+        <button onclick="document.getElementById('manual-shift-modal').remove()" class="btn btn-secondary" style="flex:1">Cancelar</button>
+        <button onclick="saveManualShift('${waiterId}')" class="btn btn-primary" style="flex:2">✓ Crear fichaje</button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+}
+
+async function saveManualShift(waiterId) {
+  const inVal = document.getElementById('ms-in')?.value;
+  const outVal = document.getElementById('ms-out')?.value;
+  const reason = (document.getElementById('ms-reason')?.value || '').trim();
+
+  if (!inVal || !outVal) { notify('Entrada y salida son obligatorios'); return; }
+  if (!reason) { notify('Indica una razón'); return; }
+
+  const inDate = new Date(inVal);
+  const outDate = new Date(outVal);
+  if (outDate <= inDate) { notify('La salida debe ser posterior a la entrada'); return; }
+
+  const totalMin = Math.floor((outDate - inDate) / 60000);
+  const breakMin = totalMin >= 360 ? 30 : 0;
+
+  const { error } = await sb.from('shifts').insert({
+    restaurant_id: state.adminRestaurantId,
+    waiter_id: waiterId,
+    clock_in_at: inDate.toISOString(),
+    clock_out_at: outDate.toISOString(),
+    total_minutes: totalMin,
+    break_minutes: breakMin,
+    worked_minutes: totalMin - breakMin,
+    notes: reason,
+    corrected_by_admin: true
+  });
+  if (error) { notify('Error: ' + error.message, 'error'); return; }
+  document.getElementById('manual-shift-modal')?.remove();
+  notify('Fichaje creado', 'success');
+  loadEquipoDashboard();
+  // Recargar el detalle si está abierto
+  if (document.getElementById('equipo-detail')?.style.display === 'block') {
+    openEquipoDetail(waiterId);
+  }
+}
+
+// ── EXPORT MENSUAL ─────────────────────────────────────────────
+async function exportEquipoMonthlyReport() {
+  if (!state.adminRestaurantId) { notify('Restaurante no detectado', 'error'); return; }
+  const range = _equipoPeriodRange();
+
+  // Cargar TODOS los shifts del periodo con datos del waiter
+  const { data: shifts, error } = await sb.from('shifts')
+    .select('clock_in_at, clock_out_at, total_minutes, break_minutes, worked_minutes, notes, corrected_by_admin, auto_closed, waiter_id, waiters!inner(name, role)')
+    .eq('restaurant_id', state.adminRestaurantId)
+    .gte('clock_in_at', range.from)
+    .lte('clock_in_at', range.to)
+    .not('clock_out_at', 'is', null)
+    .order('clock_in_at');
+  if (error) { notify('Error cargando datos: ' + error.message, 'error'); return; }
+  if (!shifts?.length) { notify('Sin fichajes en el período seleccionado'); return; }
+
+  // Datos del restaurante
+  const { data: rest } = await sb.from('restaurants')
+    .select('name,nif,address').eq('id', state.adminRestaurantId).maybeSingle();
+
+  // Generar HTML para imprimir como PDF (formato Inspección de Trabajo)
+  const roleLabels = { waiter:'Camarero', kitchen:'Cocina', manager:'Manager', other:'Otro' };
+  const totalMin = shifts.reduce((s, r) => s + (r.worked_minutes || 0), 0);
+  const totalHours = (totalMin / 60).toFixed(2);
+
+  const rows = shifts.map(s => {
+    const inDt = new Date(s.clock_in_at);
+    const outDt = new Date(s.clock_out_at);
+    const flags = [
+      s.corrected_by_admin ? '<span style="color:#185FA5;font-weight:600">✏ Corregido</span>' : '',
+      s.auto_closed ? '<span style="color:#A32D2D;font-weight:600">⚠ Auto-cierre</span>' : ''
+    ].filter(Boolean).join(' ');
+    return `<tr>
+      <td>${escHtml(s.waiters.name)}</td>
+      <td>${roleLabels[s.waiters.role] || 'Camarero'}</td>
+      <td>${inDt.toLocaleDateString('es-ES')}</td>
+      <td>${inDt.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})}</td>
+      <td>${outDt.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})}</td>
+      <td style="text-align:right">${_equipoFmtMins(s.total_minutes)}</td>
+      <td style="text-align:right">${s.break_minutes ? '-' + _equipoFmtMins(s.break_minutes) : '—'}</td>
+      <td style="text-align:right;font-weight:600">${_equipoFmtMins(s.worked_minutes)}</td>
+      <td style="font-size:10px">${flags}${s.notes ? '<br><span style="color:#666">' + escHtml(s.notes) + '</span>' : ''}</td>
+    </tr>`;
+  }).join('');
+
+  const fromDate = new Date(range.from).toLocaleDateString('es-ES');
+  const toDate = new Date(range.to).toLocaleDateString('es-ES');
+
+  const pw = window.open('', '_blank');
+  if (!pw) { notify('Permite ventanas emergentes para descargar', 'error'); return; }
+  pw.document.open();
+  pw.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Registro jornada — ${range.label}</title>
+    <style>
+      body{font-family:Arial,sans-serif;padding:1.5rem;color:#1a1a18;max-width:1100px;margin:0 auto;font-size:12px}
+      h1{font-size:18px;margin:0 0 .25rem;color:#085041}
+      .header-info{font-size:12px;color:#555;margin-bottom:1.5rem;line-height:1.6}
+      .legal-block{background:#F0F7F4;border-left:3px solid #085041;padding:.75rem 1rem;margin-bottom:1rem;font-size:10px;color:#555}
+      table{width:100%;border-collapse:collapse;margin-bottom:1rem;font-size:11px}
+      th{background:#085041;color:#fff;padding:7px 8px;text-align:left;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+      td{padding:5px 8px;border-bottom:1px solid #e0e0e0;vertical-align:top}
+      tr:nth-child(even) td{background:#FAFAFA}
+      .totals{margin-top:1rem;border-top:2px solid #085041;padding-top:.75rem;display:flex;justify-content:space-between;font-size:13px;font-weight:600}
+      @media print{@page{margin:1.2cm;size:A4 landscape}body{padding:0}}
+    </style>
+    <script>setTimeout(()=>{try{window.print()}catch(e){}},500);<\/script>
+  </head><body>
+    <h1>Registro de jornada laboral</h1>
+    <div class="header-info">
+      <strong>${escHtml(rest?.name || 'Restaurante')}</strong>${rest?.nif ? ' — NIF ' + escHtml(rest.nif) : ''}<br>
+      ${rest?.address ? escHtml(rest.address) + '<br>' : ''}
+      Periodo: <strong>${fromDate} a ${toDate}</strong> (${range.label})
+    </div>
+    <div class="legal-block">
+      Documento emitido en cumplimiento del <strong>RD-ley 8/2019</strong> de 8 de marzo, de medidas urgentes de protección social y de lucha contra la precariedad laboral en la jornada de trabajo. Conservar 4 años a disposición de la Inspección de Trabajo.
+    </div>
+    <table>
+      <thead><tr>
+        <th>Empleado</th><th>Puesto</th><th>Fecha</th>
+        <th>Entrada</th><th>Salida</th>
+        <th style="text-align:right">Total</th><th style="text-align:right">Descanso</th><th style="text-align:right">Trabajado</th>
+        <th>Notas</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="totals">
+      <span>${shifts.length} fichaje${shifts.length!=1?'s':''}</span>
+      <span>Total trabajado: <span style="color:#085041">${totalHours} horas</span></span>
+    </div>
+    <div style="margin-top:1.5rem;font-size:10px;color:#888;text-align:center">Generado por spliteat · ${new Date().toLocaleString('es-ES')}</div>
+  </body></html>`);
+  pw.document.close();
+}
+
+
 async function _waiterLogoutWithoutShift() {
   if (_waiterId) {
     await sb.from('waiters').update({ is_active: false, last_seen_at: null }).eq('id', _waiterId);
@@ -13037,7 +13529,7 @@ function adminLogout() {
 function showAdminTab(name) {
   closeMobileSidebar();
   // Sprint B: 'stockeat' ahora vuelve como tab de vista lectura en manageat.
-  ['encurso','gestion','cocina','reservas','reportes','facturas','calleat','notificaciones','stockeat'].forEach(t => {
+  ['encurso','gestion','cocina','reservas','reportes','facturas','calleat','notificaciones','stockeat','equipo'].forEach(t => {
     const el = document.getElementById('atab-' + t);
     if (el) el.style.display = t === name ? 'flex' : 'none';
   });
@@ -13057,6 +13549,7 @@ function showAdminTab(name) {
   if (name === 'cocina') loadAdminOrders();
   if (name === 'reservas') initReservasTab();
   if (name === 'reportes') { loadKPIs(); showReportesTab('kpis'); }
+  if (name === 'equipo') loadEquipoDashboard();
   if (name === 'stockeat') {
     // El nodo #atab-stockeat puede haber sido movido al módulo independiente.
     // Lo restauramos a su sitio original y activamos modo solo-lectura.
