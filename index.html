@@ -2200,6 +2200,7 @@
           <span id="waiter-notif-badge" style="display:none;position:absolute;top:0;right:0;background:#E24B4A;color:#fff;border-radius:99px;font-size:9px;font-weight:700;padding:1px 4px;min-width:14px;text-align:center">0</span>
         </button>
         <span id="waiter-name-badge" style="font-size:13px;font-weight:500;color:var(--brand-d)"></span>
+        <span id="shift-badge" onclick="promptClockOut()" style="display:none;align-items:center;font-size:11px;font-weight:600;color:#3B6D11;background:#EAF3DE;padding:3px 9px;border-radius:99px;cursor:pointer;font-family:inherit;border:1px solid #C8E0AB" title="Click para fichar salida"></span>
         <button class="back-btn" onclick="waiterLogout()" style="color:var(--accent)">Salir</button>
       </div>
     </div>
@@ -10380,6 +10381,9 @@ async function waiterLogin() {
     document.getElementById('waiter-name-badge').textContent = escHtml(w.name);
     go('s-waiter'); loadWaiterMesas(); loadWaiterTableSelects(); subscribeWaiterNotifications();
 
+    // Sprint Control horario: si el empleado no tiene fichaje activo, pedirle ficharse
+    setTimeout(() => promptClockInIfNeeded(w.id), 400);
+
     // #BG6: Cargar notificaciones recientes al login
     try {
       // Solo últimas 8h y solo de rooms aún abiertas — evitar spam histórico
@@ -10529,7 +10533,179 @@ async function waiterForgotPassword() {
   notify(`Contacta con el responsable de tu restaurante para que restablezca tu contraseña desde el panel manageat → Gestión → Camareros.`);
 }
 
+// ════════════════════════════════════════════════════════════════
+// SPRINT CONTROL HORARIO — Fichaje empleados (RD-ley 8/2019)
+// ════════════════════════════════════════════════════════════════
+
+let _clockInBadgeTimer = null;
+
+// Prompt clock-in al login si no hay fichaje activo
+async function promptClockInIfNeeded(waiterId) {
+  try {
+    const { data, error } = await sb.rpc('get_active_shift', { p_waiter_id: waiterId });
+    if (error) { console.warn('[promptClockIn]', error); return; }
+    if (data?.active) {
+      // Ya tiene shift activo → solo arrancar el badge
+      _startClockInBadge(data.clock_in_at);
+      return;
+    }
+    _showClockInModal(waiterId);
+  } catch (e) { console.warn('[promptClockIn]', e); }
+}
+
+function _showClockInModal(waiterId) {
+  document.getElementById('clockin-modal')?.remove();
+  const el = document.createElement('div');
+  el.id = 'clockin-modal';
+  el.style.cssText = 'position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:1rem';
+  el.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg);padding:1.75rem 1.5rem;max-width:380px;width:100%;text-align:center;animation:fadeIn .2s">
+      <div style="font-size:48px;line-height:1;margin-bottom:.5rem">⏰</div>
+      <div style="font-family:'Fraunces',serif;font-size:21px;font-weight:700;color:var(--t1);margin-bottom:.4rem">¡Hola, ${escHtml(_waiterName || '')}!</div>
+      <div style="font-size:14px;color:var(--t2);margin-bottom:1.5rem;line-height:1.5">¿Empiezas tu turno ahora?</div>
+      <button class="btn btn-primary" onclick="_doClockIn('${waiterId}')" style="width:100%;margin-bottom:.5rem">✓ Fichar entrada</button>
+      <button onclick="document.getElementById('clockin-modal').remove()"
+        style="width:100%;padding:11px;border:none;background:transparent;color:var(--t3);font-size:13px;cursor:pointer;font-family:inherit">
+        Ahora no
+      </button>
+      <div style="font-size:10px;color:var(--t3);margin-top:.85rem;line-height:1.4">Cumplimiento RD-ley 8/2019 · Registro obligatorio de jornada</div>
+    </div>
+  `;
+  document.body.appendChild(el);
+}
+
+async function _doClockIn(waiterId) {
+  const { data, error } = await sb.rpc('clock_in', { p_waiter_id: waiterId });
+  if (error) { notify('Error: ' + error.message, 'error'); return; }
+  if (data?.error) { notify(data.error, 'error'); return; }
+  document.getElementById('clockin-modal')?.remove();
+  showToast('✓ Entrada fichada', new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }));
+  _startClockInBadge(data.clock_in_at);
+}
+
+// Badge en serveat que muestra tiempo trabajado en vivo
+function _startClockInBadge(clockInAt) {
+  if (_clockInBadgeTimer) clearInterval(_clockInBadgeTimer);
+  const since = new Date(clockInAt).getTime();
+
+  function tick() {
+    const badge = document.getElementById('shift-badge');
+    if (!badge) return;
+    const minutes = Math.floor((Date.now() - since) / 60000);
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    const txt = h > 0 ? `${h}h ${m}m` : `${m}m`;
+    badge.style.display = 'inline-flex';
+    badge.innerHTML = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#3B6D11;margin-right:5px;animation:pulse 1.5s infinite"></span>${txt}`;
+    badge.setAttribute('data-since', since);
+  }
+  tick();
+  _clockInBadgeTimer = setInterval(tick, 60000);
+}
+
+function _stopClockInBadge() {
+  if (_clockInBadgeTimer) { clearInterval(_clockInBadgeTimer); _clockInBadgeTimer = null; }
+  const badge = document.getElementById('shift-badge');
+  if (badge) badge.style.display = 'none';
+}
+
+// Modal de cierre de sesión / clock-out
+async function promptClockOut() {
+  if (!_waiterId) return;
+  // Comprobar si tiene shift activo
+  const { data } = await sb.rpc('get_active_shift', { p_waiter_id: _waiterId });
+  if (!data?.active) {
+    // Sin fichaje activo → logout normal
+    return _waiterLogoutWithoutShift();
+  }
+
+  document.getElementById('clockout-modal')?.remove();
+  const minutes = data.minutes_so_far || 0;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  const totalTxt = h > 0 ? `${h}h ${m}m` : `${m}m`;
+  const willHaveBreak = minutes >= 360;
+
+  const el = document.createElement('div');
+  el.id = 'clockout-modal';
+  el.style.cssText = 'position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:1rem';
+  el.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg);padding:1.5rem;max-width:380px;width:100%;animation:fadeIn .2s">
+      <div style="font-family:'Fraunces',serif;font-size:19px;font-weight:700;color:var(--t1);margin-bottom:.85rem;text-align:center">Cerrar turno</div>
+
+      <div style="background:var(--bg2);border-radius:var(--r-sm);padding:.85rem 1rem;margin-bottom:1rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
+          <span style="font-size:12px;color:var(--t3)">Tiempo en mesa</span>
+          <strong style="font-size:14px;color:var(--t1)">${totalTxt}</strong>
+        </div>
+        ${willHaveBreak ? `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem">
+          <span style="font-size:12px;color:var(--t3)">Descanso legal</span>
+          <strong style="font-size:14px;color:var(--t2)">- 30m</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:.4rem;border-top:1px solid var(--bd)">
+          <span style="font-size:13px;font-weight:600;color:var(--t1)">Tiempo trabajado</span>
+          <strong style="font-size:15px;color:var(--brand-d)">${Math.floor((minutes-30)/60)}h ${(minutes-30)%60}m</strong>
+        </div>
+        <div style="font-size:10px;color:var(--t3);margin-top:.5rem;line-height:1.4">Se aplica descanso legal automático de 30min en turnos de 6h o más (RD-ley 8/2019)</div>
+        ` : `
+        <div style="font-size:11px;color:var(--t3);margin-top:.25rem">Sin descanso legal (turno menor de 6h)</div>
+        `}
+      </div>
+
+      <div style="display:flex;gap:.5rem">
+        <button onclick="document.getElementById('clockout-modal').remove()" class="btn btn-secondary" style="flex:1">Cancelar</button>
+        <button onclick="_doClockOutAndLogout()" class="btn btn-primary" style="flex:2">✓ Fichar salida</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(el);
+}
+
+async function _doClockOutAndLogout() {
+  const { data, error } = await sb.rpc('clock_out', { p_waiter_id: _waiterId, p_notes: null });
+  if (error) { notify('Error: ' + error.message, 'error'); return; }
+  if (data?.error) { notify(data.error, 'error'); return; }
+  document.getElementById('clockout-modal')?.remove();
+  _stopClockInBadge();
+  showToast('✓ Salida fichada', `${data.worked_minutes} min trabajados`);
+  setTimeout(() => _waiterLogoutWithoutShift(), 600);
+}
+
+// Logout sin tocar shift (función original renombrada)
+async function _waiterLogoutWithoutShift() {
+  if (_waiterId) {
+    await sb.from('waiters').update({ is_active: false, last_seen_at: null }).eq('id', _waiterId);
+  }
+  if (window._waiterAutoLogoutTimer) clearTimeout(window._waiterAutoLogoutTimer);
+  if (window._waiterHeartbeat) { clearInterval(window._waiterHeartbeat); window._waiterHeartbeat = null; }
+  if (window._waiterVisibilityHandler) {
+    document.removeEventListener('visibilitychange', window._waiterVisibilityHandler);
+    window._waiterVisibilityHandler = null;
+  }
+  if (_waiterNotifPollTimer) { clearInterval(_waiterNotifPollTimer); _waiterNotifPollTimer = null; }
+  _stopClockInBadge();
+  _waiterId = null; _waiterName = null;
+  _waiterRestaurantId = null; _waiterCart = [];
+  go('s0');
+}
+
+
 async function waiterLogout() {
+  // Sprint Control horario: si tiene shift activo, ofrecer clock-out antes de cerrar sesión
+  if (_waiterId) {
+    const { data } = await sb.rpc('get_active_shift', { p_waiter_id: _waiterId });
+    if (data?.active) {
+      promptClockOut();
+      return;  // El user decide en el modal
+    }
+  }
+  // Sin shift activo → logout directo
+  return _waiterLogoutWithoutShift();
+}
+
+// Función original conservada como fallback (forzar logout sin preguntar)
+async function _waiterLogoutOriginal() {
   // Mark waiter as inactive
   if (_waiterId) {
     await sb.from('waiters').update({ is_active: false, last_seen_at: null }).eq('id', _waiterId);
