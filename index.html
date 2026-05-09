@@ -14266,13 +14266,9 @@ async function switchToRestaurant(restaurantId, name) {
 
   // Limpiar el dashboard de grupo si venimos de él (evita queries con id='group')
   if (restaurantId !== 'group') {
-    const gh = document.getElementById('group-dashboard');
-    if (gh) gh.style.display = 'none';
-    // Restaurar visibilidad de bloques individuales que loadGroupDashboard pudo ocultar
-    ['kpi-grid','kpi-foodcost-block','rtab-platos','rtab-historial','kpi-ai-block','kpi-loading'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = '';
-    });
+    if (typeof _restoreIndividualKpisVisibility === 'function') {
+      _restoreIndividualKpisVisibility();
+    }
   }
 
   // Detectar tab activo y re-loguear
@@ -20814,10 +20810,20 @@ async function loadGroupDashboard() {
     return;
   }
 
-  // 2) Esconder los KPIs individuales (no aplican en vista grupo)
-  ['kpi-grid','kpi-foodcost-block','rtab-platos','rtab-historial','kpi-ai-block','kpi-loading'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = 'none';
+  // 2) Ocultar TODOS los hijos directos de rtab-kpis excepto:
+  //    - el wrapper #group-dashboard (que crearemos / mostraremos)
+  //    - elementos sin display visual (select hidden, etc.)
+  // Esta estrategia es más robusta que tocar IDs específicos porque
+  // no se rompe si el HTML añade más bloques.
+  Array.from(container.children).forEach(child => {
+    if (child.id === 'group-dashboard') return;
+    if (child.tagName === 'SELECT') return;
+    // Guardar el display original solo la primera vez
+    if (!child.dataset.origDisplay) {
+      const computed = window.getComputedStyle(child).display;
+      child.dataset.origDisplay = child.style.display || (computed !== 'none' ? '' : '');
+    }
+    child.style.display = 'none';
   });
 
   // 3) Crear/reutilizar contenedor del dashboard de grupo
@@ -20826,7 +20832,6 @@ async function loadGroupDashboard() {
     host = document.createElement('div');
     host.id = 'group-dashboard';
     host.style.cssText = 'display:flex;flex-direction:column;gap:1rem';
-    // Insertar después del period filter si existe, si no al inicio
     container.appendChild(host);
   }
   host.style.display = 'flex';
@@ -21006,19 +21011,31 @@ async function loadGroupDashboard() {
 // Compat: si algo invoca al placeholder antiguo, redirigir al dashboard real
 function _renderGroupViewPlaceholder() { return loadGroupDashboard(); }
 
+// Helper: restaurar visibilidad de los hijos directos del rtab-kpis
+// (deshace lo que hizo loadGroupDashboard al ocultarlos uno a uno).
+function _restoreIndividualKpisVisibility() {
+  const container = document.getElementById('rtab-kpis');
+  if (!container) return;
+  Array.from(container.children).forEach(child => {
+    if (child.id === 'group-dashboard') {
+      child.style.display = 'none';
+      return;
+    }
+    if (child.tagName === 'SELECT') return;
+    // Restaurar al display original guardado, o vaciar para usar el inline del HTML
+    const orig = child.dataset.origDisplay;
+    child.style.display = orig != null ? orig : '';
+  });
+}
+
 async function loadKPIs() {
   // Sprint Costes Turno 8b — Vista grupo: dashboard consolidado real
   if (state.activeRestaurantId === 'group') {
     return loadGroupDashboard();
   }
 
-  // Restaurar visibilidad de bloques individuales si venimos de vista grupo
-  ['kpi-grid','kpi-foodcost-block','rtab-platos','rtab-historial','kpi-ai-block'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.style.display = '';
-  });
-  const groupHost = document.getElementById('group-dashboard');
-  if (groupHost) groupHost.style.display = 'none';
+  // Restaurar visibilidad si venimos de vista grupo
+  _restoreIndividualKpisVisibility();
 
   const days = document.getElementById('kpi-filter')?.value ?? '0'; // default: today
   const loadingEl = document.getElementById('kpi-loading');
