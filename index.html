@@ -1101,7 +1101,7 @@
               <div style="font-size:18px;flex-shrink:0;line-height:1.2">💳</div>
               <div>
                 <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:2px">No tiene que ir a por el datáfono</div>
-                <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.5">El cliente paga desde su móvil con Apple Pay, Google Pay, Bizum o tarjeta. <strong style="color:rgba(255,255,255,.85)">Se eliminan 2 viajes</strong> (traer datáfono + devolver cambio) y el cobro tarda <strong style="color:rgba(255,255,255,.85)">30 segundos en lugar de 18 minutos</strong>.</div>
+                <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.55">El comensal elige cómo pagar desde el QR: <strong style="color:rgba(255,255,255,.85)">paga al instante con Apple Pay, Google Pay, Bizum o tarjeta</strong> (30 segundos) <strong style="color:rgba(255,255,255,.85)">o avisa al camarero</strong> con un toque para pagar con tarjeta física o efectivo — la notificación llega directa a su móvil indicando la mesa. Cuando paga desde el móvil, el cobro tarda <strong style="color:rgba(255,255,255,.85)">30 segundos en lugar de 18 minutos</strong>: las mesas rotan más rápido y atiendes más servicios con el mismo equipo.</div>
               </div>
             </div>
             <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:.7rem .85rem;display:flex;align-items:flex-start;gap:.6rem">
@@ -1578,91 +1578,7 @@
   </div>
 </footer>
 
-<!-- ═══════════ COOKIES BANNER ═══════════ -->
-<!-- ═══════════ COOKIES BANNER (AEPD-compliant: aceptar/rechazar igualados) ═══════════ -->
-<div id="cookies-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#0F1C17;border-top:1px solid rgba(255,255,255,.1);padding:1.1rem 1.25rem;box-shadow:0 -8px 24px rgba(0,0,0,.25)">
-  <div style="max-width:760px;margin:0 auto;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
-    <div style="flex:1;min-width:240px">
-      <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:3px">🍪 Usamos cookies</div>
-      <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.5">Usamos cookies técnicas para que el servicio funcione, y cookies analíticas (opcionales) para entender cómo se usa. <a href="/cookies" style="color:rgba(255,255,255,.85);text-decoration:underline">Más info</a>.</div>
-    </div>
-    <div style="display:flex;gap:.45rem;flex-shrink:0;flex-wrap:wrap">
-      <button onclick="rejectAllCookies()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:13px;font-weight:500;padding:8px 16px;border-radius:99px;cursor:pointer;font-family:inherit">Rechazar</button>
-      <button onclick="openCookiesSettings()" style="background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.85);font-size:13px;font-weight:500;padding:8px 14px;border-radius:99px;cursor:pointer;font-family:inherit">Configurar</button>
-      <button onclick="acceptAllCookies()" style="background:#1D9E75;border:none;color:#fff;font-size:13px;font-weight:600;padding:8px 18px;border-radius:99px;cursor:pointer;font-family:inherit">Aceptar todas</button>
-    </div>
-  </div>
-</div>
 
-<!-- ═══════════ COOKIES SETTINGS MODAL ═══════════ -->
-<div id="cookies-settings-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:10000;align-items:flex-end;justify-content:center;padding:0">
-  <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;font-family:'DM Sans',sans-serif">
-    <div style="position:sticky;top:0;background:#fff;padding:1.25rem 1.25rem .75rem;border-bottom:1px solid #f0f0ea;display:flex;align-items:center;justify-content:space-between;z-index:1">
-      <div>
-        <div style="font-family:'Fraunces',serif;font-size:19px;font-weight:700;color:#0F1C17;line-height:1.2">Configurar cookies</div>
-        <div style="font-size:11px;color:#5A7168;margin-top:2px">Elige qué cookies aceptas en spliteat.es</div>
-      </div>
-      <button onclick="closeCookiesSettings()" aria-label="Cerrar" style="background:#F3F7F5;border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;color:#5A7168;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>
-    </div>
-
-    <div style="padding:1rem 1.25rem 0">
-      <!-- Necesarias (siempre activas) -->
-      <div style="background:#F3F7F5;border-radius:12px;padding:14px 16px;margin-bottom:10px">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
-          <div style="flex:1">
-            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-              <span style="font-size:14px;font-weight:600;color:#0F1C17">Necesarias</span>
-              <span style="font-size:10px;font-weight:600;color:#085041;background:#E1F5EE;padding:2px 7px;border-radius:99px;letter-spacing:.04em">SIEMPRE ACTIVAS</span>
-            </div>
-            <div style="font-size:12px;color:#5A7168;line-height:1.5">Imprescindibles para que el servicio funcione: sesión, autenticación, identificador de mesa, recuerdo de tu elección de cookies.</div>
-          </div>
-          <!-- Switch deshabilitado -->
-          <div style="width:38px;height:22px;border-radius:99px;background:#085041;position:relative;flex-shrink:0;opacity:.7">
-            <div style="position:absolute;right:2px;top:2px;width:18px;height:18px;border-radius:50%;background:#fff"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Funcionales -->
-      <div style="background:#fff;border:1px solid #e0e0da;border-radius:12px;padding:14px 16px;margin-bottom:10px">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
-          <div style="flex:1">
-            <div style="font-size:14px;font-weight:600;color:#0F1C17;margin-bottom:4px">Funcionales</div>
-            <div style="font-size:12px;color:#5A7168;line-height:1.5">Recuerdan tus preferencias para mejorar la experiencia (panel plegado, idioma).</div>
-          </div>
-          <button id="cookies-toggle-functional" onclick="toggleCookieSwitch('functional')" role="switch" aria-checked="false"
-            style="width:38px;height:22px;border-radius:99px;background:#d0d0c8;border:none;position:relative;flex-shrink:0;cursor:pointer;transition:background .18s;padding:0">
-            <span style="position:absolute;left:2px;top:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .18s;display:block"></span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Analíticas -->
-      <div style="background:#fff;border:1px solid #e0e0da;border-radius:12px;padding:14px 16px;margin-bottom:10px">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
-          <div style="flex:1">
-            <div style="font-size:14px;font-weight:600;color:#0F1C17;margin-bottom:4px">Analíticas</div>
-            <div style="font-size:12px;color:#5A7168;line-height:1.5">Estadísticas anónimas de uso (Google Analytics 4, IP anonimizada). Nos ayudan a mejorar el servicio.</div>
-          </div>
-          <button id="cookies-toggle-analytics" onclick="toggleCookieSwitch('analytics')" role="switch" aria-checked="false"
-            style="width:38px;height:22px;border-radius:99px;background:#d0d0c8;border:none;position:relative;flex-shrink:0;cursor:pointer;transition:background .18s;padding:0">
-            <span style="position:absolute;left:2px;top:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .18s;display:block"></span>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Footer modal -->
-    <div style="position:sticky;bottom:0;background:#fff;padding:.75rem 1.25rem 1.25rem;border-top:1px solid #f0f0ea;display:flex;flex-direction:column;gap:8px">
-      <button onclick="saveCookiesSettings()" style="width:100%;background:#085041;border:none;color:#fff;font-size:14px;font-weight:600;padding:11px;border-radius:99px;cursor:pointer;font-family:inherit">Guardar elección</button>
-      <div style="display:flex;gap:8px">
-        <button onclick="rejectAllFromSettings()" style="flex:1;background:#fff;border:1px solid #e0e0da;color:#5A7168;font-size:13px;padding:9px;border-radius:99px;cursor:pointer;font-family:inherit">Rechazar todas</button>
-        <button onclick="acceptAllFromSettings()" style="flex:1;background:#fff;border:1px solid #e0e0da;color:#085041;font-size:13px;font-weight:500;padding:9px;border-radius:99px;cursor:pointer;font-family:inherit">Aceptar todas</button>
-      </div>
-      <a href="/cookies" style="font-size:11px;color:#9A9990;text-align:center;text-decoration:underline;margin-top:2px">Ver política de cookies completa</a>
-    </div>
-  </div>
-</div>
 
 </div>
 
@@ -28816,6 +28732,94 @@ document.addEventListener('keydown', (e) => {
   </div>
 </div>
 <div id="admin-notif-overlay" onclick="closeAdminNotifPanel()" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.3)"></div>
+
+
+<!-- COOKIES BANNER + MODAL — fuera de #s0 para que aparezcan en cualquier pantalla -->
+<!-- ═══════════ COOKIES BANNER ═══════════ -->
+<!-- ═══════════ COOKIES BANNER (AEPD-compliant: aceptar/rechazar igualados) ═══════════ -->
+<div id="cookies-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#0F1C17;border-top:1px solid rgba(255,255,255,.1);padding:1.1rem 1.25rem;box-shadow:0 -8px 24px rgba(0,0,0,.25)">
+  <div style="max-width:760px;margin:0 auto;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+    <div style="flex:1;min-width:240px">
+      <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:3px">🍪 Usamos cookies</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.5">Usamos cookies técnicas para que el servicio funcione, y cookies analíticas (opcionales) para entender cómo se usa. <a href="/cookies" style="color:rgba(255,255,255,.85);text-decoration:underline">Más info</a>.</div>
+    </div>
+    <div style="display:flex;gap:.45rem;flex-shrink:0;flex-wrap:wrap">
+      <button onclick="rejectAllCookies()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;font-size:13px;font-weight:500;padding:8px 16px;border-radius:99px;cursor:pointer;font-family:inherit">Rechazar</button>
+      <button onclick="openCookiesSettings()" style="background:transparent;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.85);font-size:13px;font-weight:500;padding:8px 14px;border-radius:99px;cursor:pointer;font-family:inherit">Configurar</button>
+      <button onclick="acceptAllCookies()" style="background:#1D9E75;border:none;color:#fff;font-size:13px;font-weight:600;padding:8px 18px;border-radius:99px;cursor:pointer;font-family:inherit">Aceptar todas</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ COOKIES SETTINGS MODAL ═══════════ -->
+<div id="cookies-settings-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:10000;align-items:flex-end;justify-content:center;padding:0">
+  <div style="background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;font-family:'DM Sans',sans-serif">
+    <div style="position:sticky;top:0;background:#fff;padding:1.25rem 1.25rem .75rem;border-bottom:1px solid #f0f0ea;display:flex;align-items:center;justify-content:space-between;z-index:1">
+      <div>
+        <div style="font-family:'Fraunces',serif;font-size:19px;font-weight:700;color:#0F1C17;line-height:1.2">Configurar cookies</div>
+        <div style="font-size:11px;color:#5A7168;margin-top:2px">Elige qué cookies aceptas en spliteat.es</div>
+      </div>
+      <button onclick="closeCookiesSettings()" aria-label="Cerrar" style="background:#F3F7F5;border:none;width:32px;height:32px;border-radius:50%;font-size:16px;cursor:pointer;color:#5A7168;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>
+    </div>
+
+    <div style="padding:1rem 1.25rem 0">
+      <!-- Necesarias (siempre activas) -->
+      <div style="background:#F3F7F5;border-radius:12px;padding:14px 16px;margin-bottom:10px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+              <span style="font-size:14px;font-weight:600;color:#0F1C17">Necesarias</span>
+              <span style="font-size:10px;font-weight:600;color:#085041;background:#E1F5EE;padding:2px 7px;border-radius:99px;letter-spacing:.04em">SIEMPRE ACTIVAS</span>
+            </div>
+            <div style="font-size:12px;color:#5A7168;line-height:1.5">Imprescindibles para que el servicio funcione: sesión, autenticación, identificador de mesa, recuerdo de tu elección de cookies.</div>
+          </div>
+          <!-- Switch deshabilitado -->
+          <div style="width:38px;height:22px;border-radius:99px;background:#085041;position:relative;flex-shrink:0;opacity:.7">
+            <div style="position:absolute;right:2px;top:2px;width:18px;height:18px;border-radius:50%;background:#fff"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Funcionales -->
+      <div style="background:#fff;border:1px solid #e0e0da;border-radius:12px;padding:14px 16px;margin-bottom:10px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:600;color:#0F1C17;margin-bottom:4px">Funcionales</div>
+            <div style="font-size:12px;color:#5A7168;line-height:1.5">Recuerdan tus preferencias para mejorar la experiencia (panel plegado, idioma).</div>
+          </div>
+          <button id="cookies-toggle-functional" onclick="toggleCookieSwitch('functional')" role="switch" aria-checked="false"
+            style="width:38px;height:22px;border-radius:99px;background:#d0d0c8;border:none;position:relative;flex-shrink:0;cursor:pointer;transition:background .18s;padding:0">
+            <span style="position:absolute;left:2px;top:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .18s;display:block"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Analíticas -->
+      <div style="background:#fff;border:1px solid #e0e0da;border-radius:12px;padding:14px 16px;margin-bottom:10px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:600;color:#0F1C17;margin-bottom:4px">Analíticas</div>
+            <div style="font-size:12px;color:#5A7168;line-height:1.5">Estadísticas anónimas de uso (Google Analytics 4, IP anonimizada). Nos ayudan a mejorar el servicio.</div>
+          </div>
+          <button id="cookies-toggle-analytics" onclick="toggleCookieSwitch('analytics')" role="switch" aria-checked="false"
+            style="width:38px;height:22px;border-radius:99px;background:#d0d0c8;border:none;position:relative;flex-shrink:0;cursor:pointer;transition:background .18s;padding:0">
+            <span style="position:absolute;left:2px;top:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .18s;display:block"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer modal -->
+    <div style="position:sticky;bottom:0;background:#fff;padding:.75rem 1.25rem 1.25rem;border-top:1px solid #f0f0ea;display:flex;flex-direction:column;gap:8px">
+      <button onclick="saveCookiesSettings()" style="width:100%;background:#085041;border:none;color:#fff;font-size:14px;font-weight:600;padding:11px;border-radius:99px;cursor:pointer;font-family:inherit">Guardar elección</button>
+      <div style="display:flex;gap:8px">
+        <button onclick="rejectAllFromSettings()" style="flex:1;background:#fff;border:1px solid #e0e0da;color:#5A7168;font-size:13px;padding:9px;border-radius:99px;cursor:pointer;font-family:inherit">Rechazar todas</button>
+        <button onclick="acceptAllFromSettings()" style="flex:1;background:#fff;border:1px solid #e0e0da;color:#085041;font-size:13px;font-weight:500;padding:9px;border-radius:99px;cursor:pointer;font-family:inherit">Aceptar todas</button>
+      </div>
+      <a href="/cookies" style="font-size:11px;color:#9A9990;text-align:center;text-decoration:underline;margin-top:2px">Ver política de cookies completa</a>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
