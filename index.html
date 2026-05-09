@@ -13873,6 +13873,23 @@ function renderAdminTabs() {
     const logo = document.querySelector('#s-admin .hdr .logo');
     if (logo) logo.innerHTML = 'manag<em style="color:var(--accent);font-style:normal">eat</em>';
   }
+
+  // Sprint Costes Turno 8b — En vista grupo solo tiene sentido "reportes" (trendeat)
+  // El resto de tabs son por-restaurante (sala, cocina, reservas, etc.)
+  const isGroup = state.activeRestaurantId === 'group';
+  const tabsAlwaysVisible = ['reportes']; // futuro: 'fiscaleat-grupo', 'ajustes-grupo'
+  // Sidebar (desktop)
+  document.querySelectorAll('#s-admin .adm-nav').forEach(btn => {
+    const t = btn.dataset.tab;
+    if (!t) return;
+    btn.style.display = (isGroup && !tabsAlwaysVisible.includes(t)) ? 'none' : '';
+  });
+  // Bottom tabs (mobile)
+  document.querySelectorAll('#s-admin .adm-mob-tab').forEach(btn => {
+    const t = btn.dataset.tab;
+    if (!t) return;
+    btn.style.display = (isGroup && !tabsAlwaysVisible.includes(t)) ? 'none' : '';
+  });
 }
 
 // ══════════════════════════════════════════════════════
@@ -14033,7 +14050,9 @@ function enterAdminApp(restaurantId, restaurantName) {
   // Vista grupo: arranca en trendeat (resumen consolidado)
   // Restaurante normal: arranca en sala (encurso)
   if (restaurantId === 'group') {
-    showAdminTab('kpis');  // trendeat
+    // Sprint Costes Turno 8b — el tab real es 'reportes' (trendeat).
+    // 'kpis' es sub-tab; usar 'kpis' aquí no funcionaba (dejaba la pantalla en blanco).
+    showAdminTab('reportes');
   } else {
     showAdminTab('encurso');
     loadEncurso();
@@ -14243,10 +14262,13 @@ async function switchToRestaurant(restaurantId, name) {
   // Detectar tab activo y re-loguear
   const activeTab = document.querySelector('.adm-nav.on')?.dataset?.tab;
   if (restaurantId === 'group') {
-    showAdminTab('kpis'); // siempre trendeat en vista grupo
+    showAdminTab('reportes'); // siempre trendeat en vista grupo (sub-tab 'kpis' interno)
   } else {
-    showAdminTab(activeTab || 'encurso');
-    if (activeTab === 'encurso' || !activeTab) loadEncurso();
+    // Si venimos de vista grupo y el tab activo era 'reportes', mantenerlo;
+    // si no, ir a encurso por defecto.
+    const safeTab = (activeTab && activeTab !== 'reportes') ? activeTab : (activeTab === 'reportes' ? 'reportes' : 'encurso');
+    showAdminTab(safeTab);
+    if (safeTab === 'encurso') loadEncurso();
   }
 
   notify(`Cambiado a ${name}`, 'success');
@@ -14801,6 +14823,8 @@ function showReportesTab(name) {
 }
 
 function setKpiPeriod(val) {
+  // Bug fix: state.kpiPeriod nunca se seteaba — loadFoodcostKPI lee state.kpiPeriod ?? 0
+  state.kpiPeriod = val;
   const sel = document.getElementById('kpi-filter');
   if (sel) sel.value = val;
   document.querySelectorAll('.kpi-period-btn').forEach(btn => {
@@ -20722,51 +20746,247 @@ function updateEncursoBadge(count) {
 // ══════════════════════════════════════════════════════
 // REPORTES — KPIs
 // ══════════════════════════════════════════════════════
-// Sprint Costes Turno 8a — Placeholder para Vista grupo (Turno 8b implementa el real)
-function _renderGroupViewPlaceholder() {
-  // Buscar el contenedor de trendeat
-  const container = document.getElementById('atab-kpis') || document.getElementById('atab-trendeat');
-  if (!container) return;
+// ─────────────────────────────────────────────────────────────────
+// Sprint Costes Turno 8b — Dashboard consolidado (Vista grupo)
+// Reemplaza al placeholder del Turno 8a.
+// ─────────────────────────────────────────────────────────────────
 
-  // Esconder elementos típicos de trendeat individual
-  ['kpi-loading','kpi-filter-bar','kpi-foodcost-block','rtab-platos','rtab-historial'].forEach(id => {
+// Helper: traduce días→intervalo de fecha (igual que loadKPIs individual)
+function _groupPeriodRange() {
+  const days = state.kpiPeriod ?? document.getElementById('kpi-filter')?.value ?? '0';
+  const now = new Date();
+  let from = new Date();
+  if (days === '0' || days === 0) {
+    from.setHours(0, 0, 0, 0);
+  } else if (days === 'all') {
+    from = new Date('2020-01-01');
+  } else {
+    from = new Date(Date.now() - parseInt(days) * 86400000);
+  }
+  return { from, to: now, label: days };
+}
+
+// Helper: semáforos consistentes con loadFoodcostKPI (línea ~20917)
+function _groupSemaphore(metric, pct) {
+  if (pct == null) return { color: 'var(--t3)', label: 'sin datos' };
+  if (metric === 'foodcost') {
+    if (pct < 30) return { color: '#3B6D11', label: 'saludable' };
+    if (pct <= 35) return { color: '#C26B0A', label: 'ajustado' };
+    return { color: '#A32D2D', label: 'alto' };
+  }
+  if (metric === 'labor') {
+    if (pct < 25) return { color: '#3B6D11', label: 'eficiente' };
+    if (pct <= 35) return { color: '#C26B0A', label: 'normal' };
+    return { color: '#A32D2D', label: 'alto' };
+  }
+  if (metric === 'ebitda') {
+    if (pct >= 15) return { color: '#3B6D11', label: 'saludable' };
+    if (pct >= 5)  return { color: '#C26B0A', label: 'ajustado' };
+    return { color: '#A32D2D', label: 'crítico' };
+  }
+  return { color: 'var(--t3)', label: '' };
+}
+
+const _gFmtEur = n => (n == null || isNaN(n)) ? '—' : new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
+const _gFmtPct = p => (p == null || isNaN(p)) ? '—' : `${parseFloat(p).toFixed(1)}%`;
+
+async function loadGroupDashboard() {
+  // 1) Asegurarnos de que el contenedor existe — usar rtab-kpis (que SÍ existe)
+  const container = document.getElementById('rtab-kpis');
+  if (!container) {
+    console.warn('[loadGroupDashboard] no rtab-kpis container');
+    return;
+  }
+
+  // 2) Esconder los KPIs individuales (no aplican en vista grupo)
+  ['kpi-grid','kpi-foodcost-block','rtab-platos','rtab-historial','kpi-ai-block','kpi-loading'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
 
-  // Buscar el primer panel para inyectar el placeholder
-  let placeholder = document.getElementById('group-view-placeholder');
-  if (!placeholder) {
-    placeholder = document.createElement('div');
-    placeholder.id = 'group-view-placeholder';
-    placeholder.style.cssText = 'padding:2rem 1.5rem;max-width:600px;margin:0 auto';
-    container.prepend(placeholder);
+  // 3) Crear/reutilizar contenedor del dashboard de grupo
+  let host = document.getElementById('group-dashboard');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'group-dashboard';
+    host.style.cssText = 'display:flex;flex-direction:column;gap:1rem';
+    // Insertar después del period filter si existe, si no al inicio
+    container.appendChild(host);
   }
-  placeholder.style.display = 'block';
+  host.style.display = 'flex';
 
-  const restCount = state.owner?.restaurant_count || 0;
-  placeholder.innerHTML = `
-    <div style="text-align:center;padding:2rem;background:var(--bg2);border-radius:var(--r);border:1.5px dashed var(--bd2)">
-      <div style="font-size:48px;margin-bottom:.75rem">🏢</div>
-      <div style="font-size:18px;font-weight:600;color:var(--t1);margin-bottom:.5rem">Vista grupo</div>
-      <div style="font-size:13px;color:var(--t2);line-height:1.6;max-width:420px;margin:0 auto">
-        Estás viendo los <strong>${restCount} restaurantes</strong> de <strong>${escHtml(state.owner?.name || 'tu grupo')}</strong>.
+  // Loading state
+  host.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--t3);font-size:13px">⏳ Calculando consolidado del grupo…</div>`;
+
+  // 4) Validar contexto
+  if (!state.owner?.id) {
+    host.innerHTML = `<div class="notice notice-warn">No se ha podido identificar el grupo.</div>`;
+    return;
+  }
+
+  const { from, to, label } = _groupPeriodRange();
+  const periodLabel = label === '0' ? 'Hoy'
+                    : label === 'all' ? 'Histórico'
+                    : `Últimos ${label}d`;
+
+  // 5) Llamar la RPC — protegida con try/catch (sb.rpc thenable sin .catch())
+  let payload = null, rpcError = null;
+  try {
+    const { data, error } = await sb.rpc('consolidated_summary_for_owner', {
+      p_owner_id: state.owner.id,
+      p_from: from.toISOString(),
+      p_to:   to.toISOString()
+    });
+    if (error) throw error;
+    payload = data;
+  } catch (e) {
+    rpcError = e;
+    console.warn('[consolidated_summary_for_owner]', e);
+  }
+
+  if (rpcError || !payload || payload.error) {
+    host.innerHTML = `
+      <div class="notice notice-warn" style="margin:1rem 0">
+        <strong>No se ha podido calcular el dashboard consolidado.</strong><br>
+        <span style="font-size:12px;color:var(--t2)">
+          Probable causa: la función SQL <code>consolidated_summary_for_owner</code> no está aún desplegada en Supabase.
+        </span>
       </div>
-      <div style="font-size:13px;color:var(--t2);line-height:1.6;max-width:420px;margin:.5rem auto 0">
-        El dashboard consolidado (revenue, foodcost, EBITDA agregados + comparativa por local) se está preparando en el siguiente sprint.
-      </div>
-      <div style="margin-top:1.25rem;display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap">
+      <div style="display:flex;justify-content:center">
         <button class="btn btn-primary btn-sm" onclick="openRestaurantSwitcher()">⇄ Cambiar de local</button>
+      </div>`;
+    return;
+  }
+
+  const totals = payload.totals || {};
+  const restaurants = Array.isArray(payload.restaurants) ? payload.restaurants : [];
+
+  // 6) Pintar dashboard
+  const fcSem = _groupSemaphore('foodcost', totals.food_cost_pct);
+  const lbSem = _groupSemaphore('labor',    totals.labor_cost_pct);
+  const ebSem = _groupSemaphore('ebitda',   totals.ebitda_pct);
+
+  const headerHtml = `
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;flex-wrap:wrap">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:600">🏢 Vista grupo</div>
+        <div style="font-size:18px;font-weight:600;color:var(--t1);margin-top:2px">${escHtml(state.owner?.name || 'Mi grupo')}</div>
+        <div style="font-size:12px;color:var(--t3);margin-top:2px">
+          ${totals.restaurant_count_active ?? 0} de ${totals.restaurant_count ?? restaurants.length} locales con actividad · ${escHtml(periodLabel)}
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="openRestaurantSwitcher()" style="flex-shrink:0">⇄ Cambiar de local</button>
+    </div>`;
+
+  const totalsHtml = `
+    <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:1rem;display:flex;flex-direction:column;gap:.85rem">
+      <div style="font-size:12px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.04em">Consolidado del grupo</div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.5rem">
+        <div class="kpi-card highlight" style="grid-column:1/-1">
+          <div class="kpi-value">${_gFmtEur(totals.revenue)}</div>
+          <div class="kpi-label">💰 Facturación total del grupo</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value" style="color:${fcSem.color}">${_gFmtPct(totals.food_cost_pct)}</div>
+          <div class="kpi-label">🥕 Food cost · ${escHtml(fcSem.label)}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value" style="color:${lbSem.color}">${_gFmtPct(totals.labor_cost_pct)}</div>
+          <div class="kpi-label">👥 Labor · ${escHtml(lbSem.label)}</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value">${_gFmtPct(totals.fixed_cost_pct)}</div>
+          <div class="kpi-label">🏠 Costes fijos</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-value" style="color:${ebSem.color}">${_gFmtEur(totals.ebitda)}</div>
+          <div class="kpi-label">📈 EBITDA · ${_gFmtPct(totals.ebitda_pct)}</div>
+        </div>
       </div>
     </div>`;
+
+  // Cards comparativos por restaurante
+  let cardsHtml = `
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-top:.25rem">
+      <div style="font-size:14px;font-weight:600;color:var(--t1)">Comparativa por local</div>
+      <div style="font-size:11px;color:var(--t3)">${restaurants.length} ${restaurants.length === 1 ? 'restaurante' : 'restaurantes'}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.75rem">`;
+
+  if (!restaurants.length) {
+    cardsHtml += `<div class="notice notice-info" style="grid-column:1/-1">No hay restaurantes en este grupo.</div>`;
+  } else {
+    restaurants.forEach(r => {
+      if (r.error) {
+        cardsHtml += `
+          <div style="background:var(--card);border:1px dashed var(--bd2);border-radius:var(--r);padding:.85rem;opacity:.7">
+            <div style="font-size:14px;font-weight:600;color:var(--t1)">${escHtml(r.name)}</div>
+            <div style="font-size:11px;color:var(--t3);margin-top:4px">⚠️ Sin datos disponibles</div>
+          </div>`;
+        return;
+      }
+
+      const fc = _groupSemaphore('foodcost', r.food_cost_pct);
+      const lb = _groupSemaphore('labor',    r.labor_cost_pct);
+      const eb = _groupSemaphore('ebitda',   r.ebitda_pct);
+      const safeName = escHtml(r.name).replace(/'/g, '&#39;');
+
+      cardsHtml += `
+        <button onclick="switchToRestaurant('${r.id}', '${safeName}')"
+          style="text-align:left;background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.85rem;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;gap:.6rem;transition:all .15s"
+          onmouseover="this.style.borderColor='var(--brand)';this.style.transform='translateY(-1px)'"
+          onmouseout="this.style.borderColor='var(--bd)';this.style.transform=''">
+          <div>
+            <div style="font-size:14px;font-weight:600;color:var(--t1)">${escHtml(r.name)}</div>
+            <div style="font-size:18px;font-weight:700;color:var(--t1);margin-top:2px">${_gFmtEur(r.revenue)}</div>
+            <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em">Facturación</div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem">
+            <div style="padding:.4rem .5rem;background:var(--bg2);border-radius:6px">
+              <div style="font-size:11px;color:var(--t3)">🥕 Food</div>
+              <div style="font-size:13px;font-weight:600;color:${fc.color}">${_gFmtPct(r.food_cost_pct)}</div>
+            </div>
+            <div style="padding:.4rem .5rem;background:var(--bg2);border-radius:6px">
+              <div style="font-size:11px;color:var(--t3)">👥 Labor</div>
+              <div style="font-size:13px;font-weight:600;color:${lb.color}">${_gFmtPct(r.labor_cost_pct)}</div>
+            </div>
+            <div style="padding:.4rem .5rem;background:var(--bg2);border-radius:6px;grid-column:1/-1">
+              <div style="font-size:11px;color:var(--t3)">📈 EBITDA</div>
+              <div style="font-size:13px;font-weight:600;color:${eb.color}">${_gFmtEur(r.ebitda)} · ${_gFmtPct(r.ebitda_pct)}</div>
+            </div>
+          </div>
+
+          <div style="font-size:11px;color:var(--brand-d);font-weight:500;margin-top:auto">Ver detalle →</div>
+        </button>`;
+    });
+  }
+  cardsHtml += `</div>`;
+
+  host.innerHTML = headerHtml + totalsHtml + cardsHtml;
+
+  // Si quedaba el placeholder antiguo del Turno 8a, ocultarlo
+  const oldPh = document.getElementById('group-view-placeholder');
+  if (oldPh) oldPh.style.display = 'none';
 }
 
+// Compat: si algo invoca al placeholder antiguo, redirigir al dashboard real
+function _renderGroupViewPlaceholder() { return loadGroupDashboard(); }
+
 async function loadKPIs() {
-  // Sprint Costes Turno 8a — Si estamos en vista grupo, mostrar placeholder
-  // (el dashboard real se implementa en Turno 8b)
+  // Sprint Costes Turno 8b — Vista grupo: dashboard consolidado real
   if (state.activeRestaurantId === 'group') {
-    return _renderGroupViewPlaceholder();
+    return loadGroupDashboard();
   }
+
+  // Restaurar visibilidad de bloques individuales si venimos de vista grupo
+  ['kpi-grid','kpi-foodcost-block','rtab-platos','rtab-historial','kpi-ai-block'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = '';
+  });
+  const groupHost = document.getElementById('group-dashboard');
+  if (groupHost) groupHost.style.display = 'none';
 
   const days = document.getElementById('kpi-filter')?.value ?? '0'; // default: today
   const loadingEl = document.getElementById('kpi-loading');
