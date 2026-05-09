@@ -3997,6 +3997,7 @@ let state = {
   menuItems: [], categories: [], restaurantId: null,
   adminRestaurantId: null, adminRestaurantName: '',
   adminRole: 'admin', // 'admin' | 'cocina'
+  owner: null, // Sprint Costes Turno 6 — info del owner (multi-restaurante)
   kitchenRestaurantId: null,
   kitchenRestaurantName: '',
   // Sub-Sprint A.4+A.6: identificación del cocinero logueado y sus zonas activas
@@ -13863,6 +13864,22 @@ async function adminLogin() {
   state.adminRestaurantId = data.id;
   state.adminRestaurantName = data.name;
   state.adminRole = 'admin';
+
+  // Sprint Costes Turno 6 — cargar info del owner (para multi-restaurante futuro)
+  // Si la RPC no existe (turno 6 SQL no ejecutado), state.owner queda null sin romper nada
+  try {
+    const { data: ownerData } = await sb.rpc('get_owner_for_restaurant', { p_restaurant_id: data.id });
+    if (ownerData && ownerData.owner_id) {
+      state.owner = {
+        id: ownerData.owner_id,
+        name: ownerData.owner_name,
+        legal_name: ownerData.owner_legal_name,
+        nif: ownerData.owner_nif,
+        restaurant_count: ownerData.restaurant_count || 1
+      };
+    }
+  } catch (e) { console.warn('[get_owner_for_restaurant]', e); state.owner = null; }
+
   // Bug fix: NO resetear is_active de TODOS los camareros — eso mata sesiones reales
   // de camareros conectados en serveat. Solo resetear sesiones realmente stale (>13h).
   try { resetStaleWaiterSessions(data.id); } catch(e) {}
@@ -13880,6 +13897,7 @@ function adminLogout() {
   state.adminRestaurantId = null;
   state.adminRestaurantName = '';
   state.adminRole = 'admin';
+  state.owner = null;  // Sprint Costes Turno 6
   const tabBar = document.querySelector('#s-admin .tab-bar');
   if (tabBar) tabBar.style.display = '';
   const logo = document.querySelector('#s-admin .hdr .logo');
