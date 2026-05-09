@@ -20165,7 +20165,10 @@ async function loadFoodcostKPI() {
     const noRecipe = fcData?.dishes_without_recipe || 0;
     const empNoRate = primeData?.employees_without_rate || 0;
 
-    if (revenue === 0) {
+    // Sprint Costes Turno 5 — esconder solo si NO hay ni revenue ni costes fijos
+    // (antes escondíamos solo por revenue=0, pero con costes fijos configurados
+    //  hay info útil que mostrar: punto de equilibrio, costes fijos mensuales)
+    if (revenue === 0 && fixedMonthly === 0) {
       el.style.display = 'none';
       return;
     }
