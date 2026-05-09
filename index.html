@@ -2008,6 +2008,22 @@
     </div>
   </div>
 
+  <!-- Sprint Costes Turno 8a — RESTAURANT PICKER (post-login si owner tiene 2+ restaurantes) -->
+  <div class="screen" id="s-restaurant-picker">
+    <div class="hdr">
+      <button class="back-btn" onclick="adminLogout()">← Salir</button>
+      <div class="logo">manag<em style="color:var(--accent);font-style:normal">eat</em></div>
+      <div style="width:60px"></div>
+    </div>
+    <div class="body" style="max-width:680px;margin:0 auto">
+      <h2 class="title" style="font-size:22px;margin-bottom:.5rem">Elige tu local</h2>
+      <p class="subtitle" id="picker-owner-name" style="color:var(--t3);margin-bottom:1.5rem"></p>
+      <div id="picker-list" style="display:flex;flex-direction:column;gap:.65rem">
+        <div style="text-align:center;padding:2rem;color:var(--t3)">Cargando...</div>
+      </div>
+    </div>
+  </div>
+
   <!-- COCINA LOGIN -->
   <div class="screen" id="s-kitchen-login">
     <div class="hdr">
@@ -4006,6 +4022,8 @@ let state = {
   menuItems: [], categories: [], restaurantId: null,
   adminRestaurantId: null, adminRestaurantName: '',
   adminRole: 'admin', // 'admin' | 'cocina'
+  adminEmail: null, // Sprint Costes Turno 8a — email del admin para multi-restaurante
+  activeRestaurantId: null, // Sprint Costes Turno 8a — restaurante activo (o 'group')
   owner: null, // Sprint Costes Turno 6 — info del owner (multi-restaurante)
   kitchenRestaurantId: null,
   kitchenRestaurantName: '',
@@ -13874,8 +13892,7 @@ async function adminLogin() {
   state.adminRestaurantName = data.name;
   state.adminRole = 'admin';
 
-  // Sprint Costes Turno 6 — cargar info del owner (para multi-restaurante futuro)
-  // Si la RPC no existe (turno 6 SQL no ejecutado), state.owner queda null sin romper nada
+  // Sprint Costes Turno 6 — cargar info del owner (para multi-restaurante)
   try {
     const { data: ownerData } = await sb.rpc('get_owner_for_restaurant', { p_restaurant_id: data.id });
     if (ownerData && ownerData.owner_id) {
@@ -13889,17 +13906,136 @@ async function adminLogin() {
     }
   } catch (e) { console.warn('[get_owner_for_restaurant]', e); state.owner = null; }
 
-  // Bug fix: NO resetear is_active de TODOS los camareros — eso mata sesiones reales
-  // de camareros conectados en serveat. Solo resetear sesiones realmente stale (>13h).
-  try { resetStaleWaiterSessions(data.id); } catch(e) {}
+  // Sprint Costes Turno 8a — Si owner tiene 2+ restaurantes, mostrar picker
+  // Si solo tiene 1, entrar directamente al actual
+  state.adminEmail = email;
+  if (state.owner && state.owner.restaurant_count >= 2) {
+    showRestaurantPicker();
+  } else {
+    enterAdminApp(data.id, data.name);
+  }
+}
+
+// Sprint Costes Turno 8a — Pantalla "Elige local"
+async function showRestaurantPicker() {
+  go('s-restaurant-picker');
+  const list = document.getElementById('picker-list');
+  const ownerLabel = document.getElementById('picker-owner-name');
+  if (ownerLabel) ownerLabel.textContent = state.owner?.name ? `Grupo: ${state.owner.name}` : '';
+
+  if (!state.adminEmail) {
+    list.innerHTML = '<div class="notice notice-warn">Sesión no iniciada.</div>';
+    return;
+  }
+
+  // Cargar restaurantes que gestiona este admin
+  let restaurants = [];
+  try {
+    const { data, error } = await sb.rpc('list_restaurants_for_admin', { p_admin_email: state.adminEmail });
+    if (error) throw error;
+    restaurants = data || [];
+  } catch (e) {
+    console.warn('[list_restaurants_for_admin]', e);
+    // Fallback: query directa sin RPC, traer todos los del owner
+    if (state.owner?.id) {
+      const { data } = await sb.from('restaurants')
+        .select('id,name')
+        .eq('owner_id', state.owner.id)
+        .order('name');
+      restaurants = (data || []).map(r => ({
+        restaurant_id: r.id, restaurant_name: r.name,
+        owner_id: state.owner.id, owner_name: state.owner.name, role: 'owner'
+      }));
+    }
+  }
+
+  if (!restaurants.length) {
+    list.innerHTML = '<div class="notice notice-warn">No hay restaurantes asociados a tu cuenta.</div>';
+    return;
+  }
+
+  // Pintar cards de restaurantes + opción "Vista grupo" al final si N>=2
+  let html = '';
+  restaurants.forEach(r => {
+    html += `<button onclick="pickRestaurant('${r.restaurant_id}', '${escHtml(r.restaurant_name).replace(/'/g, '&#39;')}')"
+      style="display:flex;align-items:center;gap:.85rem;background:var(--card);border:1.5px solid var(--bd);border-radius:var(--r);padding:1rem 1.15rem;cursor:pointer;font-family:inherit;text-align:left;transition:all .15s;width:100%"
+      onmouseover="this.style.borderColor='var(--brand)';this.style.background='var(--brand-l)'"
+      onmouseout="this.style.borderColor='var(--bd)';this.style.background='var(--card)'">
+      <div style="width:44px;height:44px;border-radius:10px;background:var(--brand);color:white;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0;font-family:'Fraunces',serif">
+        ${escHtml(r.restaurant_name.charAt(0).toUpperCase())}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;font-weight:600;color:var(--t1);line-height:1.3">${escHtml(r.restaurant_name)}</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px">${r.role === 'owner' ? '👑 Propietario' : r.role === 'manager' ? '🧑‍💼 Manager' : '👁 Lectura'}</div>
+      </div>
+      <div style="font-size:18px;color:var(--t3)">›</div>
+    </button>`;
+  });
+
+  // Vista grupo (solo si hay 2+ restaurantes)
+  if (restaurants.length >= 2) {
+    html += `<button onclick="pickRestaurant('group', 'Vista grupo')"
+      style="display:flex;align-items:center;gap:.85rem;background:var(--bg2);border:1.5px dashed var(--bd2);border-radius:var(--r);padding:1rem 1.15rem;cursor:pointer;font-family:inherit;text-align:left;transition:all .15s;width:100%;margin-top:.5rem"
+      onmouseover="this.style.borderColor='var(--brand-d)';this.style.background='var(--brand-l)'"
+      onmouseout="this.style.borderColor='var(--bd2)';this.style.background='var(--bg2)'">
+      <div style="width:44px;height:44px;border-radius:10px;background:var(--brand-d);color:white;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">
+        🏢
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;font-weight:600;color:var(--t1);line-height:1.3">Vista grupo</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px">Resumen consolidado de los ${restaurants.length} restaurantes</div>
+      </div>
+      <div style="font-size:18px;color:var(--t3)">›</div>
+    </button>`;
+  }
+
+  list.innerHTML = html;
+}
+
+function pickRestaurant(restaurantId, name) {
+  if (restaurantId === 'group') {
+    state.activeRestaurantId = 'group';
+    state.adminRestaurantName = 'Vista grupo';
+    enterAdminApp('group', 'Vista grupo');
+  } else {
+    enterAdminApp(restaurantId, name);
+  }
+}
+
+// Sprint Costes Turno 8a — Entrar a manageat con un restaurante específico
+function enterAdminApp(restaurantId, restaurantName) {
+  state.adminRestaurantId = restaurantId;
+  state.adminRestaurantName = restaurantName;
+  state.activeRestaurantId = restaurantId;
+  state.adminRole = 'admin';
+
+  // Persistir el último elegido (para futuras sesiones, opcional)
+  try {
+    if (state.adminEmail && restaurantId !== 'group') {
+      localStorage.setItem('lastRestaurant_' + state.adminEmail, restaurantId);
+    }
+  } catch (e) {}
+
+  // Bug fix: NO resetear is_active de TODOS los camareros
+  if (restaurantId !== 'group') {
+    try { resetStaleWaiterSessions(restaurantId); } catch(e) {}
+  }
   go('s-admin');
   renderAdminTabs();
-  showAdminTab('encurso');
-  loadEncurso();
-  subscribeAdminNotifications();
-  // Mostrar FAB de notificaciones solo en manageat
+  // Vista grupo: arranca en trendeat (resumen consolidado)
+  // Restaurante normal: arranca en sala (encurso)
+  if (restaurantId === 'group') {
+    showAdminTab('kpis');  // trendeat
+  } else {
+    showAdminTab('encurso');
+    loadEncurso();
+    subscribeAdminNotifications();
+  }
+  // FAB de notificaciones solo en restaurante (no en vista grupo)
   const fab = document.getElementById('admin-notif-fab');
-  if (fab) fab.style.display = 'flex';
+  if (fab) fab.style.display = (restaurantId === 'group') ? 'none' : 'flex';
+  // Pintar el switcher en el header
+  renderAdminRestaurantLabel();
 }
 
 function adminLogout() {
@@ -13907,6 +14043,8 @@ function adminLogout() {
   state.adminRestaurantName = '';
   state.adminRole = 'admin';
   state.owner = null;  // Sprint Costes Turno 6
+  state.adminEmail = null; // Sprint Costes Turno 8a
+  state.activeRestaurantId = null; // Sprint Costes Turno 8a
   const tabBar = document.querySelector('#s-admin .tab-bar');
   if (tabBar) tabBar.style.display = '';
   const logo = document.querySelector('#s-admin .hdr .logo');
@@ -13957,11 +14095,150 @@ function showAdminTab(name) {
     if (stkNode) stkNode.style.display = 'flex';
     if (typeof initStockeat === 'function') initStockeat();
   }
-  // Populate sidebar restaurant name if available
-  const restLabel = document.getElementById('admin-restaurant-label');
-  const userInfo = document.getElementById('admin-user-info');
-  if (restLabel && state.restaurantName) restLabel.textContent = escHtml(state.restaurantName);
-  if (userInfo && state.adminEmail) userInfo.textContent = escHtml(state.adminEmail);
+  // Sprint Costes Turno 8a — pintar switcher en lugar de label estático
+  renderAdminRestaurantLabel();
+}
+
+// Sprint Costes Turno 8a — Switcher de restaurantes en el sidebar
+function renderAdminRestaurantLabel() {
+  const labelEl = document.getElementById('admin-restaurant-label');
+  if (!labelEl) return;
+
+  const isGroup = state.activeRestaurantId === 'group';
+  const restCount = state.owner?.restaurant_count || 1;
+  const displayName = isGroup ? '🏢 Vista grupo' : (state.adminRestaurantName || '');
+
+  // Si solo hay 1 restaurante, mostrar nombre simple sin dropdown (cumple "permitir escoger" cuando hay opciones)
+  if (restCount < 2) {
+    labelEl.style.cursor = 'default';
+    labelEl.innerHTML = escHtml(displayName);
+    labelEl.onclick = null;
+    return;
+  }
+
+  // 2+ restaurantes → switcher clicable
+  labelEl.style.cursor = 'pointer';
+  labelEl.style.display = 'flex';
+  labelEl.style.alignItems = 'center';
+  labelEl.style.justifyContent = 'space-between';
+  labelEl.style.gap = '4px';
+  labelEl.style.padding = '.4rem .75rem';
+  labelEl.style.margin = '.25rem 1rem .85rem';
+  labelEl.style.background = 'rgba(255,255,255,.06)';
+  labelEl.style.borderRadius = '8px';
+  labelEl.style.border = '1px solid rgba(255,255,255,.1)';
+  labelEl.style.transition = 'background .15s';
+  labelEl.innerHTML = `
+    <span style="font-size:13px;color:rgba(255,255,255,.85);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0">${escHtml(displayName)}</span>
+    <span style="font-size:11px;color:rgba(255,255,255,.5);flex-shrink:0">▾</span>
+  `;
+  labelEl.onclick = openRestaurantSwitcher;
+  labelEl.onmouseenter = () => labelEl.style.background = 'rgba(255,255,255,.12)';
+  labelEl.onmouseleave = () => labelEl.style.background = 'rgba(255,255,255,.06)';
+}
+
+// Abre menú modal con la lista de restaurantes
+async function openRestaurantSwitcher() {
+  // Cargar lista
+  let restaurants = [];
+  try {
+    const { data, error } = await sb.rpc('list_restaurants_for_admin', { p_admin_email: state.adminEmail });
+    if (error) throw error;
+    restaurants = data || [];
+  } catch (e) {
+    if (state.owner?.id) {
+      const { data } = await sb.from('restaurants')
+        .select('id,name')
+        .eq('owner_id', state.owner.id)
+        .order('name');
+      restaurants = (data || []).map(r => ({
+        restaurant_id: r.id, restaurant_name: r.name,
+        owner_id: state.owner.id, role: 'owner'
+      }));
+    }
+  }
+
+  // Crear overlay modal
+  const overlay = document.createElement('div');
+  overlay.id = 'restaurant-switcher-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1000;display:flex;align-items:center;justify-content:center;padding:1rem';
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+  let html = `<div style="background:var(--card);border-radius:var(--r);max-width:440px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:14px;font-weight:600">Cambiar de local</div>
+      <button onclick="document.getElementById('restaurant-switcher-overlay').remove()" style="background:none;border:none;font-size:18px;color:var(--t3);cursor:pointer;line-height:1">✕</button>
+    </div>
+    <div style="padding:.75rem;display:flex;flex-direction:column;gap:.4rem">`;
+
+  restaurants.forEach(r => {
+    const isActive = r.restaurant_id === state.activeRestaurantId;
+    html += `<button onclick="document.getElementById('restaurant-switcher-overlay').remove();switchToRestaurant('${r.restaurant_id}', '${escHtml(r.restaurant_name).replace(/'/g, '&#39;')}')"
+      style="display:flex;align-items:center;gap:.65rem;background:${isActive?'var(--brand-l)':'var(--card)'};border:1.5px solid ${isActive?'var(--brand)':'var(--bd)'};border-radius:var(--r-sm);padding:.75rem .85rem;cursor:pointer;font-family:inherit;text-align:left;transition:all .15s;width:100%">
+      <div style="width:32px;height:32px;border-radius:8px;background:var(--brand);color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;font-family:'Fraunces',serif">${escHtml(r.restaurant_name.charAt(0).toUpperCase())}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--t1)">${escHtml(r.restaurant_name)}</div>
+        <div style="font-size:10px;color:var(--t3)">${r.role === 'owner' ? '👑 Propietario' : r.role}</div>
+      </div>
+      ${isActive ? '<div style="font-size:11px;color:var(--brand-d);font-weight:600">Activo</div>' : ''}
+    </button>`;
+  });
+
+  // Vista grupo
+  if (restaurants.length >= 2) {
+    const isActive = state.activeRestaurantId === 'group';
+    html += `<div style="height:1px;background:var(--bd);margin:.4rem 0"></div>
+    <button onclick="document.getElementById('restaurant-switcher-overlay').remove();switchToRestaurant('group', 'Vista grupo')"
+      style="display:flex;align-items:center;gap:.65rem;background:${isActive?'var(--brand-l)':'var(--bg2)'};border:1.5px ${isActive?'solid var(--brand-d)':'dashed var(--bd2)'};border-radius:var(--r-sm);padding:.75rem .85rem;cursor:pointer;font-family:inherit;text-align:left;width:100%">
+      <div style="width:32px;height:32px;border-radius:8px;background:var(--brand-d);color:white;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🏢</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--t1)">Vista grupo</div>
+        <div style="font-size:10px;color:var(--t3)">Resumen consolidado de los ${restaurants.length} restaurantes</div>
+      </div>
+      ${isActive ? '<div style="font-size:11px;color:var(--brand-d);font-weight:600">Activo</div>' : ''}
+    </button>`;
+  }
+
+  html += '</div></div>';
+  overlay.innerHTML = html;
+  document.body.appendChild(overlay);
+}
+
+// Cambia el restaurante activo y recarga la pantalla actual
+async function switchToRestaurant(restaurantId, name) {
+  if (restaurantId === state.activeRestaurantId) return;  // ya estás aquí
+
+  state.adminRestaurantId = restaurantId;
+  state.adminRestaurantName = name;
+  state.activeRestaurantId = restaurantId;
+
+  // Persistir
+  try {
+    if (state.adminEmail && restaurantId !== 'group') {
+      localStorage.setItem('lastRestaurant_' + state.adminEmail, restaurantId);
+    }
+  } catch (e) {}
+
+  // Recargar contadores/notificaciones del nuevo restaurante
+  if (restaurantId !== 'group') {
+    try { resetStaleWaiterSessions(restaurantId); } catch(e) {}
+    subscribeAdminNotifications();
+  }
+
+  // Reload completo de la pantalla activa
+  const fab = document.getElementById('admin-notif-fab');
+  if (fab) fab.style.display = (restaurantId === 'group') ? 'none' : 'flex';
+
+  // Detectar tab activo y re-loguear
+  const activeTab = document.querySelector('.adm-nav.on')?.dataset?.tab;
+  if (restaurantId === 'group') {
+    showAdminTab('kpis'); // siempre trendeat en vista grupo
+  } else {
+    showAdminTab(activeTab || 'encurso');
+    if (activeTab === 'encurso' || !activeTab) loadEncurso();
+  }
+
+  notify(`Cambiado a ${name}`, 'success');
 }
 
 function initGestionTab() {
@@ -20434,7 +20711,52 @@ function updateEncursoBadge(count) {
 // ══════════════════════════════════════════════════════
 // REPORTES — KPIs
 // ══════════════════════════════════════════════════════
+// Sprint Costes Turno 8a — Placeholder para Vista grupo (Turno 8b implementa el real)
+function _renderGroupViewPlaceholder() {
+  // Buscar el contenedor de trendeat
+  const container = document.getElementById('atab-kpis') || document.getElementById('atab-trendeat');
+  if (!container) return;
+
+  // Esconder elementos típicos de trendeat individual
+  ['kpi-loading','kpi-filter-bar','kpi-foodcost-block','rtab-platos','rtab-historial'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  // Buscar el primer panel para inyectar el placeholder
+  let placeholder = document.getElementById('group-view-placeholder');
+  if (!placeholder) {
+    placeholder = document.createElement('div');
+    placeholder.id = 'group-view-placeholder';
+    placeholder.style.cssText = 'padding:2rem 1.5rem;max-width:600px;margin:0 auto';
+    container.prepend(placeholder);
+  }
+  placeholder.style.display = 'block';
+
+  const restCount = state.owner?.restaurant_count || 0;
+  placeholder.innerHTML = `
+    <div style="text-align:center;padding:2rem;background:var(--bg2);border-radius:var(--r);border:1.5px dashed var(--bd2)">
+      <div style="font-size:48px;margin-bottom:.75rem">🏢</div>
+      <div style="font-size:18px;font-weight:600;color:var(--t1);margin-bottom:.5rem">Vista grupo</div>
+      <div style="font-size:13px;color:var(--t2);line-height:1.6;max-width:420px;margin:0 auto">
+        Estás viendo los <strong>${restCount} restaurantes</strong> de <strong>${escHtml(state.owner?.name || 'tu grupo')}</strong>.
+      </div>
+      <div style="font-size:13px;color:var(--t2);line-height:1.6;max-width:420px;margin:.5rem auto 0">
+        El dashboard consolidado (revenue, foodcost, EBITDA agregados + comparativa por local) se está preparando en el siguiente sprint.
+      </div>
+      <div style="margin-top:1.25rem;display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="openRestaurantSwitcher()">⇄ Cambiar de local</button>
+      </div>
+    </div>`;
+}
+
 async function loadKPIs() {
+  // Sprint Costes Turno 8a — Si estamos en vista grupo, mostrar placeholder
+  // (el dashboard real se implementa en Turno 8b)
+  if (state.activeRestaurantId === 'group') {
+    return _renderGroupViewPlaceholder();
+  }
+
   const days = document.getElementById('kpi-filter')?.value ?? '0'; // default: today
   const loadingEl = document.getElementById('kpi-loading');
   if (loadingEl) loadingEl.style.display = 'block';
