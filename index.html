@@ -2009,13 +2009,13 @@
   </div>
 
   <!-- Sprint Costes Turno 8a — RESTAURANT PICKER (post-login si owner tiene 2+ restaurantes) -->
-  <div class="screen" id="s-restaurant-picker">
-    <div class="hdr">
+  <div class="screen" id="s-restaurant-picker" style="max-width:none;width:100vw;min-height:100dvh;background:var(--bg)">
+    <div class="hdr" style="max-width:680px;margin:0 auto;width:100%">
       <button class="back-btn" onclick="adminLogout()">← Salir</button>
       <div class="logo">manag<em style="color:var(--accent);font-style:normal">eat</em></div>
       <div style="width:60px"></div>
     </div>
-    <div class="body" style="max-width:680px;margin:0 auto">
+    <div class="body" style="max-width:680px;margin:0 auto;width:100%;padding:1rem 1.5rem 3rem">
       <h2 class="title" style="font-size:22px;margin-bottom:.5rem">Elige tu local</h2>
       <p class="subtitle" id="picker-owner-name" style="color:var(--t3);margin-bottom:1.5rem"></p>
       <div id="picker-list" style="display:flex;flex-direction:column;gap:.65rem">
@@ -13936,17 +13936,20 @@ async function showRestaurantPicker() {
     restaurants = data || [];
   } catch (e) {
     console.warn('[list_restaurants_for_admin]', e);
-    // Fallback: query directa sin RPC, traer todos los del owner
-    if (state.owner?.id) {
-      const { data } = await sb.from('restaurants')
-        .select('id,name')
-        .eq('owner_id', state.owner.id)
-        .order('name');
-      restaurants = (data || []).map(r => ({
-        restaurant_id: r.id, restaurant_name: r.name,
-        owner_id: state.owner.id, owner_name: state.owner.name, role: 'owner'
-      }));
-    }
+  }
+
+  // Fallback: si la RPC no devuelve nada (owner_admins vacío o RPC fallida),
+  // cargar restaurantes directamente desde owners.
+  // Esto cubre el caso en que la migración del Turno 6 no pobló owner_admins.
+  if (!restaurants.length && state.owner?.id) {
+    const { data } = await sb.from('restaurants')
+      .select('id,name')
+      .eq('owner_id', state.owner.id)
+      .order('name');
+    restaurants = (data || []).map(r => ({
+      restaurant_id: r.id, restaurant_name: r.name,
+      owner_id: state.owner.id, owner_name: state.owner.name, role: 'owner'
+    }));
   }
 
   if (!restaurants.length) {
@@ -14146,16 +14149,19 @@ async function openRestaurantSwitcher() {
     if (error) throw error;
     restaurants = data || [];
   } catch (e) {
-    if (state.owner?.id) {
-      const { data } = await sb.from('restaurants')
-        .select('id,name')
-        .eq('owner_id', state.owner.id)
-        .order('name');
-      restaurants = (data || []).map(r => ({
-        restaurant_id: r.id, restaurant_name: r.name,
-        owner_id: state.owner.id, role: 'owner'
-      }));
-    }
+    console.warn('[list_restaurants_for_admin]', e);
+  }
+
+  // Fallback si RPC vacía u owner_admins no poblada
+  if (!restaurants.length && state.owner?.id) {
+    const { data } = await sb.from('restaurants')
+      .select('id,name')
+      .eq('owner_id', state.owner.id)
+      .order('name');
+    restaurants = (data || []).map(r => ({
+      restaurant_id: r.id, restaurant_name: r.name,
+      owner_id: state.owner.id, role: 'owner'
+    }));
   }
 
   // Crear overlay modal
