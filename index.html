@@ -2965,21 +2965,37 @@
           </div>
         </div>
 
-        <!-- KPIs personalizados -->
-        <div style="margin-top:1rem;border-top:1px solid var(--bd);padding-top:1rem">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem">
-            <div style="font-size:14px;font-weight:600">📌 KPIs personalizados</div>
-            <button onclick="showAddCustomKPI()" style="font-size:12px;padding:4px 12px;border-radius:99px;border:1px solid var(--brand);background:none;color:var(--brand);cursor:pointer;font-family:inherit">+ Añadir</button>
+        <!-- KPIs personalizados con IA -->
+        <div style="margin-top:1.5rem;border-top:1px solid var(--bd);padding-top:1rem">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem;flex-wrap:wrap;gap:.5rem">
+            <div>
+              <div style="font-size:14px;font-weight:600">✨ KPIs personalizados</div>
+              <div style="font-size:11px;color:var(--t3);margin-top:2px">Generados con IA según tus necesidades</div>
+            </div>
+            <button onclick="showAIKpiPrompt()" style="font-size:12px;padding:7px 14px;border-radius:99px;border:none;background:linear-gradient(135deg, #085041, #D85A30);color:#fff;cursor:pointer;font-family:inherit;font-weight:600;display:inline-flex;align-items:center;gap:5px">
+              ✨ Crear KPI con IA
+            </button>
           </div>
           <div id="custom-kpis-list"></div>
-          <div id="add-custom-kpi-form" style="display:none" class="card">
-            <div class="field"><label>Nombre del KPI</label><input id="ckpi-name" type="text" placeholder="ej. Mesas en terraza" autocomplete="off"></div>
-            <div class="field"><label>Valor actual</label><input id="ckpi-value" type="text" placeholder="ej. 12 por noche"></div>
-            <div class="field"><label>Objetivo</label><input id="ckpi-target" type="text" placeholder="ej. 15 por noche"></div>
-            <div class="row mt">
-              <button class="btn btn-primary btn-sm" onclick="saveCustomKPI()">Guardar</button>
-              <button class="btn btn-secondary btn-sm" onclick="document.getElementById('add-custom-kpi-form').style.display='none'">Cancelar</button>
+
+          <!-- Formulario IA -->
+          <div id="ai-kpi-form" style="display:none;background:var(--bg2);border:1.5px solid var(--brand);border-radius:var(--r);padding:1rem;margin-top:.75rem">
+            <div style="font-size:13px;font-weight:600;margin-bottom:.5rem">¿Qué KPI quieres ver?</div>
+            <div style="font-size:11px;color:var(--t2);line-height:1.5;margin-bottom:.75rem">
+              Describe en español lo que quieres medir. Ejemplos:<br>
+              <span style="color:var(--brand-d)">• "Porcentaje de propinas sobre el total facturado"</span><br>
+              <span style="color:var(--brand-d)">• "Tiempo medio de preparación por plato"</span><br>
+              <span style="color:var(--brand-d)">• "Margen del plato más vendido"</span>
             </div>
+            <textarea id="ai-kpi-prompt" placeholder="Ej: porcentaje de pagos en efectivo sobre el total" rows="2"
+              style="width:100%;padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:13px;background:var(--card);resize:vertical;margin-bottom:.65rem"></textarea>
+            <div style="display:flex;gap:.5rem;align-items:center">
+              <button onclick="generateAIKpi()" id="ai-kpi-submit" class="btn btn-primary" style="flex:1">
+                ✨ Generar KPI
+              </button>
+              <button onclick="document.getElementById('ai-kpi-form').style.display='none'" class="btn btn-secondary">Cancelar</button>
+            </div>
+            <div id="ai-kpi-result" style="margin-top:.75rem;display:none"></div>
           </div>
         </div>
       </div>
@@ -15942,22 +15958,22 @@ async function loadCostesEditor() {
   let html = '';
   if (viewData?.length) {
     html += `
-    <div style="display:flex;gap:.5rem;margin-bottom:.85rem;flex-wrap:wrap">
-      <div style="flex:1;min-width:110px;background:var(--bg2);border-radius:var(--r-sm);padding:.55rem .75rem">
-        <div style="font-size:10px;color:var(--t3);margin-bottom:1px">📖 Con receta</div>
-        <div style="font-size:16px;font-weight:700;color:var(--brand-d)">${withRecipe} <span style="font-size:10px;color:var(--t3);font-weight:400">/ ${data.length}</span></div>
+    <div style="display:flex;gap:.65rem;margin-bottom:1rem;flex-wrap:wrap">
+      <div style="flex:1;min-width:130px;background:var(--bg2);border-radius:var(--r);padding:.85rem 1rem">
+        <div style="font-size:11px;color:var(--t3);margin-bottom:4px">📖 Con receta</div>
+        <div style="font-size:20px;font-weight:700;color:var(--brand-d);line-height:1">${withRecipe} <span style="font-size:12px;color:var(--t3);font-weight:400">/ ${data.length}</span></div>
       </div>
-      <div style="flex:1;min-width:110px;background:var(--bg2);border-radius:var(--r-sm);padding:.55rem .75rem">
-        <div style="font-size:10px;color:var(--t3);margin-bottom:1px">⚠ Sin coste manual</div>
-        <div style="font-size:16px;font-weight:700;color:${noCost > 0 ? '#A32D2D' : 'var(--brand-d)'}">${noCost}</div>
+      <div style="flex:1;min-width:130px;background:var(--bg2);border-radius:var(--r);padding:.85rem 1rem">
+        <div style="font-size:11px;color:var(--t3);margin-bottom:4px">⚠ Sin coste manual</div>
+        <div style="font-size:20px;font-weight:700;color:${noCost > 0 ? '#A32D2D' : 'var(--brand-d)'};line-height:1">${noCost}</div>
       </div>
-      <div style="flex:1;min-width:110px;background:var(--bg2);border-radius:var(--r-sm);padding:.55rem .75rem">
-        <div style="font-size:10px;color:var(--t3);margin-bottom:1px">📊 Desviación >15%</div>
-        <div style="font-size:16px;font-weight:700;color:${withDev > 0 ? '#C26B0A' : 'var(--brand-d)'}">${withDev}</div>
+      <div style="flex:1;min-width:130px;background:var(--bg2);border-radius:var(--r);padding:.85rem 1rem">
+        <div style="font-size:11px;color:var(--t3);margin-bottom:4px">📊 Desviación &gt;15%</div>
+        <div style="font-size:20px;font-weight:700;color:${withDev > 0 ? '#C26B0A' : 'var(--brand-d)'};line-height:1">${withDev}</div>
       </div>
     </div>
-    <div style="font-size:11px;color:var(--t2);margin-bottom:.85rem;line-height:1.4;background:var(--bg2);padding:.55rem .75rem;border-radius:var(--r-sm)">
-      <strong>Manual</strong> es el oficial (KPIs). <strong>Auto</strong> se calcula desde la receta (informativo).
+    <div style="font-size:12px;color:var(--t2);margin-bottom:1rem;line-height:1.5;background:var(--bg2);padding:.75rem 1rem;border-radius:var(--r)">
+      💡 El <strong>coste manual</strong> es el oficial para los KPIs. El <strong>coste de receta</strong> se calcula automáticamente desde los ingredientes y sirve de referencia. Si difieren mucho, revisa tu receta o ajusta el coste manual.
     </div>`;
   }
 
@@ -15991,40 +16007,59 @@ async function loadCostesEditor() {
       let theorBlock = '';
       if (theor) {
         if (!theor.has_recipe) {
-          theorBlock = `<span style="font-size:10px;color:var(--t3);font-style:italic;flex-shrink:0;width:90px;text-align:right">sin receta</span>`;
+          theorBlock = `<span style="font-size:11px;color:var(--t3);font-style:italic;flex-shrink:0;width:130px;text-align:right">sin receta</span>`;
         } else if (theor.cost_theoretical == null) {
-          theorBlock = `<span style="font-size:10px;color:#C26B0A;flex-shrink:0;width:90px;text-align:right">receta incompleta</span>`;
+          theorBlock = `<span style="font-size:11px;color:#C26B0A;flex-shrink:0;width:130px;text-align:right">receta incompleta</span>`;
         } else {
           const ct = parseFloat(theor.cost_theoretical);
           const fcTheor = theor.foodcost_theoretical_pct;
           const fcColor = fcTheor == null ? 'var(--t3)' : fcTheor < 30 ? '#3B6D11' : fcTheor <= 35 ? '#C26B0A' : '#A32D2D';
           const dev = theor.deviation_pct;
           const showSync = (item.cost_price == null) || (dev != null && dev > 5);
-          const syncBtn = showSync ? `<button onclick="_syncCostFromTheoretical('${item.id}', ${ct})" title="Copiar a coste manual" style="background:none;border:none;cursor:pointer;color:var(--brand);font-size:13px;padding:0 2px;line-height:1">↻</button>` : '';
-          theorBlock = `<div style="flex-shrink:0;width:100px;text-align:right;font-size:10px;line-height:1.3">
-            <div style="color:var(--t3)">Auto: <strong style="color:var(--t1)">${ct.toFixed(2)}€</strong> ${syncBtn}</div>
+          theorBlock = `<div style="flex-shrink:0;width:130px;text-align:right;font-size:11px;line-height:1.4">
+            <div style="color:var(--t3);margin-bottom:1px">Receta: <strong style="color:var(--t1)">${ct.toFixed(2)}€</strong></div>
             ${fcTheor != null ? `<div style="color:${fcColor};font-weight:600">${fcTheor}%</div>` : ''}
-            ${dev != null && dev > 15 ? `<div style="color:#C26B0A;font-size:9px;margin-top:1px">⚠ ${dev}%</div>` : ''}
+            ${dev != null && dev > 15 ? `<div style="color:#C26B0A;font-size:10px;margin-top:2px">⚠ ${dev}% desv.</div>` : ''}
           </div>`;
         }
       }
 
-      html += `<div class="card" style="margin-bottom:.4rem;padding:.65rem .85rem">
-        <div style="display:flex;align-items:center;gap:.5rem">
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:500;color:var(--t1)">${escHtml(item.name)}</div>
-            <div style="font-size:11px;color:var(--t3)">PVP ${fmt(parseFloat(item.price))}</div>
+      // Botón descriptivo "Usar coste de receta" (cuando hay diferencia o no hay manual)
+      let syncButtonRow = '';
+      if (theor && theor.cost_theoretical != null && theor.has_recipe) {
+        const ct = parseFloat(theor.cost_theoretical);
+        const dev = theor.deviation_pct;
+        const showSync = (item.cost_price == null) || (dev != null && dev > 5);
+        if (showSync) {
+          syncButtonRow = `<div style="margin-top:.5rem;display:flex;justify-content:flex-end">
+            <button onclick="_syncCostFromTheoretical('${item.id}', ${ct})"
+              style="padding:5px 11px;border-radius:99px;border:1px solid var(--brand);background:var(--brand-l);color:var(--brand-d);font-size:11px;cursor:pointer;font-family:inherit;font-weight:500;display:inline-flex;align-items:center;gap:5px">
+              📥 Usar coste de receta (${ct.toFixed(2)}€)
+            </button>
+          </div>`;
+        }
+      }
+
+      html += `<div class="card" style="margin-bottom:.65rem;padding:.85rem 1rem">
+        <div style="display:flex;align-items:center;gap:.85rem;flex-wrap:wrap">
+          <div style="flex:1;min-width:200px">
+            <div style="font-size:14px;font-weight:500;color:var(--t1);line-height:1.3">${escHtml(item.name)}</div>
+            <div style="font-size:11px;color:var(--t3);margin-top:3px">PVP ${fmt(parseFloat(item.price))}</div>
           </div>
-          <div style="position:relative;width:90px">
-            <input type="number" step="0.01" min="0" placeholder="Coste" value="${item.cost_price ?? ''}"
-              data-item-id="${item.id}"
-              onchange="_saveItemCost(this)"
-              style="width:100%;padding:6px 22px 6px 8px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-size:12px;font-family:inherit;background:var(--card);text-align:right">
-            <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--t3);pointer-events:none">€</span>
+          <div style="display:flex;align-items:center;gap:.6rem">
+            <label style="font-size:11px;color:var(--t3);font-weight:500">Coste manual</label>
+            <div style="position:relative;width:96px">
+              <input type="number" step="0.01" min="0" placeholder="0,00" value="${item.cost_price ?? ''}"
+                data-item-id="${item.id}"
+                onchange="_saveItemCost(this)"
+                style="width:100%;padding:7px 22px 7px 10px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-size:13px;font-family:inherit;background:var(--card);text-align:right">
+              <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--t3);pointer-events:none">€</span>
+            </div>
+            <span style="font-size:13px;font-weight:600;color:${margin >= 50 ? 'var(--brand-d)' : margin >= 30 ? '#854F0B' : margin !== null ? 'var(--accent)' : 'var(--t3)'};flex-shrink:0;width:46px;text-align:right">${margin !== null ? margin + '%' : '—'}</span>
           </div>
-          ${margin !== null ? `<span style="font-size:11px;color:${margin >= 50 ? 'var(--brand-d)' : margin >= 30 ? '#854F0B' : 'var(--accent)'};font-weight:600;flex-shrink:0;width:42px;text-align:right">${margin}%</span>` : '<span style="width:42px"></span>'}
-          ${theorBlock}
+          ${theorBlock ? `<div style="border-left:1px solid var(--bd);padding-left:.85rem;margin-left:.25rem">${theorBlock}</div>` : ''}
         </div>
+        ${syncButtonRow}
       </div>`;
     }
   });
@@ -19941,53 +19976,214 @@ async function _loadFoodcostKPILegacy(el, from, to) {
 }
 
 // ── CUSTOM KPIs ──
-function showAddCustomKPI() {
-  document.getElementById('add-custom-kpi-form').style.display = 'block';
-  document.getElementById('ckpi-name')?.focus();
+// ══════════════════════════════════════════════════════
+// SPRINT COSTES Turno 4 — KPIs personalizados con IA
+// ══════════════════════════════════════════════════════
+
+// Compatibilidad: la función vieja sigue existiendo para no romper nada
+function showAddCustomKPI() { showAIKpiPrompt(); }
+
+// Mostrar el formulario IA
+function showAIKpiPrompt() {
+  const el = document.getElementById('ai-kpi-form');
+  if (el) {
+    el.style.display = 'block';
+    document.getElementById('ai-kpi-prompt')?.focus();
+    document.getElementById('ai-kpi-result').style.display = 'none';
+  }
 }
 
-function saveCustomKPI() {
-  const name = document.getElementById('ckpi-name')?.value.trim();
-  const value = document.getElementById('ckpi-value')?.value.trim();
-  const target = document.getElementById('ckpi-target')?.value.trim();
-  if (!name) { notify('Escribe un nombre para el KPI', 'info'); return; }
+// Llamar a la edge function kpi-generator
+async function generateAIKpi() {
+  const promptEl = document.getElementById('ai-kpi-prompt');
+  const submitBtn = document.getElementById('ai-kpi-submit');
+  const resultEl = document.getElementById('ai-kpi-result');
+  const userPrompt = (promptEl?.value || '').trim();
 
-  const key = 'spliteat_kpis_' + state.adminRestaurantId;
-  let kpis = [];
-  try { kpis = JSON.parse(localStorage.getItem(key) || '[]'); } catch(e) {}
-  kpis.push({ id: Date.now(), name, value, target });
-  localStorage.setItem(key, JSON.stringify(kpis));
+  if (!userPrompt) { notify('Describe qué KPI quieres ver', 'info'); return; }
+  if (userPrompt.length < 10) { notify('Sé un poco más específico (mínimo 10 caracteres)', 'info'); return; }
 
-  document.getElementById('add-custom-kpi-form').style.display = 'none';
-  ['ckpi-name','ckpi-value','ckpi-target'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  renderCustomKPIs();
+  // UI de carga
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '⏳ Generando...';
+  }
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = `<div style="text-align:center;padding:1rem;color:var(--t3);font-size:12px">Pensando... Claude está diseñando tu KPI ✨</div>`;
+
+  try {
+    const url = `${window.SUPABASE_URL || 'https://zvkdzbxczeysezvfqfzp.supabase.co'}/functions/v1/kpi-generator`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${window.SUPABASE_ANON_KEY || ''}`,
+        'apikey': window.SUPABASE_ANON_KEY || ''
+      },
+      body: JSON.stringify({
+        user_prompt: userPrompt,
+        restaurant_id: state.adminRestaurantId,
+        user_id: null
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      resultEl.innerHTML = `<div style="background:#FFEAEA;color:#A32D2D;padding:.75rem;border-radius:var(--r-sm);font-size:12px;line-height:1.5">
+        ❌ Error: ${escHtml(data.error || 'Error desconocido')}
+        ${data.detail ? `<div style="font-size:10px;margin-top:4px;opacity:.8">${escHtml(data.detail.slice(0,200))}</div>` : ''}
+      </div>`;
+      return;
+    }
+
+    if (data.result === 'pending_dev') {
+      // No factible — petición guardada para revisión manual
+      resultEl.innerHTML = `<div style="background:#FFF3E0;border:1px solid #C26B0A;padding:1rem;border-radius:var(--r);font-size:13px;line-height:1.5;color:#854F0B">
+        <div style="font-weight:600;margin-bottom:6px">📋 Petición registrada</div>
+        <div>${escHtml(data.message)}</div>
+        ${data.reason ? `<div style="font-size:11px;margin-top:8px;padding:.5rem;background:rgba(255,255,255,.5);border-radius:var(--r-sm)"><strong>Motivo:</strong> ${escHtml(data.reason)}</div>` : ''}
+      </div>`;
+      promptEl.value = '';
+    } else if (data.result === 'created' && data.kpi) {
+      // KPI creado — recargar lista
+      resultEl.innerHTML = `<div style="background:#E8F5E9;border:1px solid #3B6D11;padding:1rem;border-radius:var(--r);font-size:13px;line-height:1.5;color:#2E5008">
+        <div style="font-weight:600;margin-bottom:4px">✅ KPI creado: ${escHtml(data.kpi.name)}</div>
+        ${data.kpi.description ? `<div style="font-size:11px">${escHtml(data.kpi.description)}</div>` : ''}
+      </div>`;
+      promptEl.value = '';
+      setTimeout(() => {
+        document.getElementById('ai-kpi-form').style.display = 'none';
+        renderCustomKPIs();
+      }, 1500);
+    }
+  } catch (e) {
+    resultEl.innerHTML = `<div style="background:#FFEAEA;color:#A32D2D;padding:.75rem;border-radius:var(--r-sm);font-size:12px">
+      ❌ Error de red: ${escHtml(e.message)}
+    </div>`;
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '✨ Generar KPI';
+    }
+  }
 }
 
-function renderCustomKPIs() {
+// Compat function (no se usa pero alguna llamada legacy puede invocarla)
+function saveCustomKPI() { showAIKpiPrompt(); }
+
+// Renderizar KPIs personalizados (ahora desde BD)
+async function renderCustomKPIs() {
   const el = document.getElementById('custom-kpis-list');
-  if (!el) return;
-  const key = 'spliteat_kpis_' + state.adminRestaurantId;
-  let kpis = [];
-  try { kpis = JSON.parse(localStorage.getItem(key) || '[]'); } catch(e) {}
-  if (!kpis.length) { el.innerHTML = '<div style="font-size:12px;color:var(--t3)">Sin KPIs personalizados aún. Añade métricas importantes para tu negocio.</div>'; return; }
-  el.innerHTML = kpis.map(k => `
-    <div style="display:flex;align-items:center;gap:8px;padding:.65rem .85rem;border:1px solid var(--bd);border-radius:var(--r-sm);margin-bottom:.4rem;background:var(--card)">
-      <div style="flex:1">
-        <div style="font-size:13px;font-weight:500">${k.name}</div>
-        <div style="font-size:12px;color:var(--t2)">${k.value || '—'}${k.target ? ` / Objetivo: ${k.target}` : ''}</div>
+  if (!el || !state.adminRestaurantId) return;
+
+  // Migrar KPIs viejos de localStorage si existen
+  await _migrateLegacyKpisFromLocalStorage();
+
+  const { data: kpis, error } = await sb.from('custom_kpis')
+    .select('*')
+    .eq('restaurant_id', state.adminRestaurantId)
+    .eq('is_active', true)
+    .order('created_at', { ascending: false });
+
+  if (error || !kpis?.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--t3);text-align:center;padding:1rem">Sin KPIs personalizados aún. Pulsa "Crear KPI con IA" para empezar.</div>';
+    return;
+  }
+
+  // Para cada KPI, ejecutar compute_custom_kpi
+  const period = state.kpiPeriod ?? 0;
+  const now = new Date();
+  let from;
+  if (period === 'all') from = new Date('2020-01-01');
+  else {
+    const days = parseInt(period) || 0;
+    from = new Date(now);
+    from.setHours(0,0,0,0);
+    if (days > 0) from.setDate(from.getDate() - days);
+  }
+
+  let html = '';
+  for (const k of kpis) {
+    let valueDisplay = '—';
+    let valueColor = 'var(--t3)';
+    try {
+      const { data: result } = await sb.rpc('compute_custom_kpi', {
+        p_kpi_id: k.id,
+        p_from: from.toISOString(),
+        p_to: now.toISOString()
+      });
+      if (result && result.value != null && !result.error) {
+        const val = parseFloat(result.value);
+        // Formato según display_format
+        switch (k.display_format) {
+          case 'percentage': valueDisplay = val.toFixed(1) + '%'; break;
+          case 'currency':   valueDisplay = fmt(val); break;
+          case 'time':       valueDisplay = Math.round(val) + ' min'; break;
+          default:           valueDisplay = val.toFixed(2);
+        }
+        // Color según thresholds + dirección
+        const t = k.color_thresholds || {};
+        const dir = k.threshold_direction || 'higher_better';
+        if (t.green != null && t.amber != null) {
+          if (dir === 'lower_better') {
+            valueColor = val <= t.green ? '#3B6D11' : val <= t.amber ? '#C26B0A' : '#A32D2D';
+          } else {
+            valueColor = val >= t.green ? '#3B6D11' : val >= t.amber ? '#C26B0A' : '#A32D2D';
+          }
+        }
+      } else if (result?.error) {
+        valueDisplay = 'error';
+        valueColor = '#A32D2D';
+      }
+    } catch (e) { console.warn('[compute_custom_kpi]', e); }
+
+    html += `<div style="display:flex;align-items:center;gap:.85rem;padding:.85rem 1rem;border:1px solid var(--bd);border-radius:var(--r);margin-bottom:.5rem;background:var(--card)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--t1)">${escHtml(k.name)} ${k.source === 'ai' ? '<span style="font-size:9px;background:linear-gradient(135deg,#085041,#D85A30);color:#fff;padding:1px 6px;border-radius:99px;font-weight:600;letter-spacing:.05em;margin-left:4px">IA</span>' : ''}</div>
+        ${k.description ? `<div style="font-size:11px;color:var(--t3);margin-top:2px">${escHtml(k.description)}</div>` : ''}
       </div>
-      <button onclick="deleteCustomKPI(${k.id})"
-        style="width:24px;height:24px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:13px;cursor:pointer">✕</button>
-    </div>`).join('');
+      <div style="font-size:20px;font-weight:700;color:${valueColor};line-height:1;flex-shrink:0">${valueDisplay}</div>
+      <button onclick="deleteCustomKPI('${k.id}')" title="Eliminar"
+        style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer;flex-shrink:0">✕</button>
+    </div>`;
+  }
+  el.innerHTML = html;
 }
 
-function deleteCustomKPI(id) {
+async function deleteCustomKPI(kpiId) {
+  if (!confirm('¿Eliminar este KPI personalizado?')) return;
+  const { error } = await sb.from('custom_kpis').update({ is_active: false }).eq('id', kpiId);
+  if (error) { notify('Error: ' + error.message, 'error'); return; }
+  notify('KPI eliminado', 'success');
+  renderCustomKPIs();
+}
+
+// Migración: si hay KPIs viejos en localStorage, los marcamos como manuales en BD
+async function _migrateLegacyKpisFromLocalStorage() {
   const key = 'spliteat_kpis_' + state.adminRestaurantId;
   let kpis = [];
   try { kpis = JSON.parse(localStorage.getItem(key) || '[]'); } catch(e) {}
-  kpis = kpis.filter(k => k.id !== id);
-  localStorage.setItem(key, JSON.stringify(kpis));
-  renderCustomKPIs();
+  if (!kpis.length) return;
+  // Solo migra una vez
+  if (localStorage.getItem(key + '_migrated') === '1') return;
+
+  for (const k of kpis) {
+    if (!k.name) continue;
+    await sb.from('custom_kpis').insert({
+      restaurant_id: state.adminRestaurantId,
+      name: k.name.slice(0, 60),
+      description: k.value ? `Valor manual: ${k.value}${k.target ? ' / objetivo ' + k.target : ''}` : null,
+      formula_type: 'sum',
+      numerator: '0',  // placeholder — al ser manual el cálculo no se ejecuta automáticamente
+      display_format: 'number',
+      source: 'manual',
+      is_active: true
+    });
+  }
+  localStorage.setItem(key + '_migrated', '1');
+  // Limpiar después
+  localStorage.removeItem(key);
 }
 
 // ══════════════════════════════════════════════════════
