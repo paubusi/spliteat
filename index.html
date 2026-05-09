@@ -15192,9 +15192,27 @@ const _FIXED_COST_CATEGORIES = [
   { id: 'otros',        label: 'Otros',            icon: '📦' }
 ];
 
+const _FIXED_COST_FREQUENCIES = [
+  { id: 'monthly',    label: 'Mensual',     divisor: 1,  short: '/mes' },
+  { id: 'bimonthly',  label: 'Bimestral',   divisor: 2,  short: '/2 meses' },
+  { id: 'quarterly',  label: 'Trimestral',  divisor: 3,  short: '/trimestre' },
+  { id: 'semiannual', label: 'Semestral',   divisor: 6,  short: '/semestre' },
+  { id: 'annual',     label: 'Anual',       divisor: 12, short: '/año' }
+];
+
 function _fixedCostCatLabel(id) {
   const c = _FIXED_COST_CATEGORIES.find(c => c.id === id);
   return c ? `${c.icon} ${c.label}` : '📦 ' + id;
+}
+
+function _fixedCostFreqLabel(id) {
+  const f = _FIXED_COST_FREQUENCIES.find(f => f.id === id);
+  return f ? f.short : '/mes';
+}
+
+function _monthlyEquivalent(amount, frequency) {
+  const f = _FIXED_COST_FREQUENCIES.find(f => f.id === frequency);
+  return amount / (f?.divisor || 1);
 }
 
 async function renderFixedCostsSection(container) {
@@ -15253,11 +15271,21 @@ async function renderFixedCostsSection(container) {
           ${_FIXED_COST_CATEGORIES.map(c => `<option value="${c.id}">${c.icon} ${c.label}${c.hint ? ' — ' + c.hint : ''}</option>`).join('')}
         </select>
       </div>
-      <div class="field">
-        <label>Importe mensual (€)</label>
-        <input id="fc-amount" type="number" step="0.01" min="0" placeholder="Ej. 1500.00" autocomplete="off">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
+        <div class="field" style="margin:0">
+          <label>Importe (€)</label>
+          <input id="fc-amount" type="number" step="0.01" min="0" placeholder="Ej. 1500.00" autocomplete="off" oninput="_updateFcMonthlyHint()">
+        </div>
+        <div class="field" style="margin:0">
+          <label>Frecuencia de pago</label>
+          <select id="fc-frequency" onchange="_updateFcMonthlyHint()" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
+            ${_FIXED_COST_FREQUENCIES.map(f => `<option value="${f.id}">${f.label}</option>`).join('')}
+          </select>
+        </div>
       </div>
-      <div class="field">
+      <div id="fc-monthly-hint" style="font-size:11px;color:var(--brand-d);margin-top:.4rem;padding:.4rem .65rem;background:var(--brand-l);border-radius:var(--r-sm);display:none">
+      </div>
+      <div class="field" style="margin-top:.75rem">
         <label>Notas <span style="font-weight:400;color:var(--t3)">(opcional)</span></label>
         <input id="fc-notes" type="text" placeholder="Ej. contrato hasta dic 2026" autocomplete="off">
       </div>
@@ -15276,13 +15304,18 @@ async function renderFixedCostsSection(container) {
     const cats = [...new Set(costs.map(c => c.category))];
     cats.forEach(cat => {
       const items = costs.filter(c => c.category === cat);
-      const subtotal = items.reduce((s, c) => s + parseFloat(c.monthly_amount), 0);
+      // Subtotal en mensual equivalente
+      const subtotal = items.reduce((s, c) => s + _monthlyEquivalent(parseFloat(c.amount), c.payment_frequency || 'monthly'), 0);
       html += `<div style="margin-bottom:1rem">
         <div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem;padding:0 .25rem">
           <span>${_fixedCostCatLabel(cat)}</span>
           <span>${fmt(subtotal)}/mes</span>
         </div>`;
       items.forEach(c => {
+        const amount = parseFloat(c.amount);
+        const freq = c.payment_frequency || 'monthly';
+        const monthlyEq = _monthlyEquivalent(amount, freq);
+        const showMonthlyEq = freq !== 'monthly';
         html += `<div class="card" style="margin-bottom:.4rem;padding:.75rem .85rem">
           <div style="display:flex;align-items:center;gap:.75rem">
             <div style="flex:1;min-width:0">
@@ -15290,8 +15323,9 @@ async function renderFixedCostsSection(container) {
               ${c.notes ? `<div style="font-size:11px;color:var(--t3);margin-top:2px">${escHtml(c.notes)}</div>` : ''}
             </div>
             <div style="text-align:right;flex-shrink:0">
-              <div style="font-size:14px;font-weight:600;color:var(--brand-d)">${fmt(parseFloat(c.monthly_amount))}</div>
-              <div style="font-size:10px;color:var(--t3)">al mes</div>
+              <div style="font-size:14px;font-weight:600;color:var(--brand-d)">${fmt(amount)}</div>
+              <div style="font-size:10px;color:var(--t3)">${_fixedCostFreqLabel(freq)}</div>
+              ${showMonthlyEq ? `<div style="font-size:10px;color:var(--t3);margin-top:1px;font-style:italic">≈ ${fmt(monthlyEq)}/mes</div>` : ''}
             </div>
             <div style="display:flex;gap:4px;flex-shrink:0">
               <button onclick="editFixedCost('${c.id}')" title="Editar" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer">✏️</button>
@@ -15312,13 +15346,45 @@ function showAddFixedCostForm() {
   if (!f) return;
   f.style.display = 'block';
   ['fc-name','fc-amount','fc-notes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  // Reset frecuencia a mensual
+  const freqEl = document.getElementById('fc-frequency');
+  if (freqEl) freqEl.value = 'monthly';
+  // Limpiar editingId (por si venía de un editar previo)
+  delete f.dataset.editingId;
+  _updateFcMonthlyHint();
   document.getElementById('fc-name')?.focus();
+}
+
+// Hint dinámico que muestra el equivalente mensual al introducir importe + frecuencia
+function _updateFcMonthlyHint() {
+  const hint = document.getElementById('fc-monthly-hint');
+  const amountEl = document.getElementById('fc-amount');
+  const freqEl = document.getElementById('fc-frequency');
+  if (!hint || !amountEl || !freqEl) return;
+
+  const amount = parseFloat(amountEl.value);
+  const freq = freqEl.value || 'monthly';
+
+  if (isNaN(amount) || amount <= 0) {
+    hint.style.display = 'none';
+    return;
+  }
+  if (freq === 'monthly') {
+    hint.style.display = 'none';
+    return;
+  }
+
+  const monthlyEq = _monthlyEquivalent(amount, freq);
+  const annualEq = monthlyEq * 12;
+  hint.innerHTML = `📊 Equivalente: <strong>${fmt(monthlyEq)}/mes</strong> · ${fmt(annualEq)}/año`;
+  hint.style.display = 'block';
 }
 
 async function saveFixedCost() {
   const name = document.getElementById('fc-name')?.value.trim();
   const category = document.getElementById('fc-category')?.value || 'otros';
   const amount = parseFloat(document.getElementById('fc-amount')?.value);
+  const frequency = document.getElementById('fc-frequency')?.value || 'monthly';
   const notes = document.getElementById('fc-notes')?.value.trim() || null;
 
   if (!name) { notify('Nombre obligatorio', 'error'); return; }
@@ -15328,13 +15394,14 @@ async function saveFixedCost() {
   let res;
   if (editingId) {
     res = await sb.from('restaurant_fixed_costs').update({
-      name, category, monthly_amount: amount, notes, updated_at: new Date().toISOString()
+      name, category, amount, payment_frequency: frequency, notes,
+      updated_at: new Date().toISOString()
     }).eq('id', editingId);
     delete document.getElementById('add-fixed-cost-form').dataset.editingId;
   } else {
     res = await sb.from('restaurant_fixed_costs').insert({
       restaurant_id: state.adminRestaurantId,
-      name, category, monthly_amount: amount, notes
+      name, category, amount, payment_frequency: frequency, notes
     });
   }
   if (res.error) { notify('Error: ' + res.error.message, 'error'); return; }
@@ -15351,9 +15418,11 @@ async function editFixedCost(id) {
   showAddFixedCostForm();
   document.getElementById('fc-name').value = c.name || '';
   document.getElementById('fc-category').value = c.category || 'otros';
-  document.getElementById('fc-amount').value = c.monthly_amount || '';
+  document.getElementById('fc-amount').value = c.amount || '';
+  document.getElementById('fc-frequency').value = c.payment_frequency || 'monthly';
   document.getElementById('fc-notes').value = c.notes || '';
   document.getElementById('add-fixed-cost-form').dataset.editingId = id;
+  _updateFcMonthlyHint();
 }
 
 async function deleteFixedCost(id, name) {
