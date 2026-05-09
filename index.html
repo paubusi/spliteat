@@ -2013,16 +2013,16 @@
 
   <!-- Sprint Costes Turno 8a — RESTAURANT PICKER (post-login si owner tiene 2+ restaurantes) -->
   <div class="screen" id="s-restaurant-picker">
-    <div class="hdr" style="max-width:680px;margin:0 auto;width:100%">
+    <div class="hdr" style="max-width:1200px;margin:0 auto;width:100%;padding:0 1.5rem">
       <button class="back-btn" onclick="adminLogout()">← Salir</button>
       <div class="logo">manag<em style="color:var(--accent);font-style:normal">eat</em></div>
       <div style="width:60px"></div>
     </div>
-    <div class="body" style="max-width:680px;margin:0 auto;width:100%;padding:1rem 1.5rem 3rem;flex:1">
-      <h2 class="title" style="font-size:22px;margin-bottom:.5rem">Elige tu local</h2>
-      <p class="subtitle" id="picker-owner-name" style="color:var(--t3);margin-bottom:1.5rem"></p>
-      <div id="picker-list" style="display:flex;flex-direction:column;gap:.65rem">
-        <div style="text-align:center;padding:2rem;color:var(--t3)">Cargando...</div>
+    <div class="body" style="max-width:1200px;margin:0 auto;width:100%;padding:2rem 2rem 4rem;flex:1">
+      <h2 class="title" style="font-size:28px;margin-bottom:.5rem">Elige tu local</h2>
+      <p class="subtitle" id="picker-owner-name" style="color:var(--t3);margin-bottom:2rem;font-size:14px"></p>
+      <div id="picker-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem">
+        <div style="text-align:center;padding:2rem;color:var(--t3);grid-column:1/-1">Cargando...</div>
       </div>
     </div>
   </div>
@@ -13964,34 +13964,34 @@ async function showRestaurantPicker() {
   let html = '';
   restaurants.forEach(r => {
     html += `<button onclick="pickRestaurant('${r.restaurant_id}', '${escHtml(r.restaurant_name).replace(/'/g, '&#39;')}')"
-      style="display:flex;align-items:center;gap:.85rem;background:var(--card);border:1.5px solid var(--bd);border-radius:var(--r);padding:1rem 1.15rem;cursor:pointer;font-family:inherit;text-align:left;transition:all .15s;width:100%"
-      onmouseover="this.style.borderColor='var(--brand)';this.style.background='var(--brand-l)'"
-      onmouseout="this.style.borderColor='var(--bd)';this.style.background='var(--card)'">
-      <div style="width:44px;height:44px;border-radius:10px;background:var(--brand);color:white;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0;font-family:'Fraunces',serif">
+      style="display:flex;flex-direction:column;align-items:flex-start;gap:.85rem;background:var(--card);border:1.5px solid var(--bd);border-radius:var(--r);padding:1.5rem;cursor:pointer;font-family:inherit;text-align:left;transition:all .15s;width:100%;min-height:160px"
+      onmouseover="this.style.borderColor='var(--brand)';this.style.background='var(--brand-l)';this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,.08)'"
+      onmouseout="this.style.borderColor='var(--bd)';this.style.background='var(--card)';this.style.transform='translateY(0)';this.style.boxShadow='none'">
+      <div style="width:56px;height:56px;border-radius:14px;background:var(--brand);color:white;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;flex-shrink:0;font-family:'Fraunces',serif">
         ${escHtml(r.restaurant_name.charAt(0).toUpperCase())}
       </div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:15px;font-weight:600;color:var(--t1);line-height:1.3">${escHtml(r.restaurant_name)}</div>
-        <div style="font-size:11px;color:var(--t3);margin-top:2px">${r.role === 'owner' ? '👑 Propietario' : r.role === 'manager' ? '🧑‍💼 Manager' : '👁 Lectura'}</div>
+      <div style="flex:1;min-width:0;width:100%">
+        <div style="font-size:17px;font-weight:600;color:var(--t1);line-height:1.3;margin-bottom:4px">${escHtml(r.restaurant_name)}</div>
+        <div style="font-size:12px;color:var(--t3)">${r.role === 'owner' ? '👑 Propietario' : r.role === 'manager' ? '🧑‍💼 Manager' : '👁 Lectura'}</div>
       </div>
-      <div style="font-size:18px;color:var(--t3)">›</div>
+      <div style="font-size:13px;color:var(--brand-d);font-weight:600;margin-top:auto">Entrar →</div>
     </button>`;
   });
 
   // Vista grupo (solo si hay 2+ restaurantes)
   if (restaurants.length >= 2) {
     html += `<button onclick="pickRestaurant('group', 'Vista grupo')"
-      style="display:flex;align-items:center;gap:.85rem;background:var(--bg2);border:1.5px dashed var(--bd2);border-radius:var(--r);padding:1rem 1.15rem;cursor:pointer;font-family:inherit;text-align:left;transition:all .15s;width:100%;margin-top:.5rem"
-      onmouseover="this.style.borderColor='var(--brand-d)';this.style.background='var(--brand-l)'"
-      onmouseout="this.style.borderColor='var(--bd2)';this.style.background='var(--bg2)'">
-      <div style="width:44px;height:44px;border-radius:10px;background:var(--brand-d);color:white;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">
+      style="display:flex;flex-direction:column;align-items:flex-start;gap:.85rem;background:var(--bg2);border:1.5px dashed var(--bd2);border-radius:var(--r);padding:1.5rem;cursor:pointer;font-family:inherit;text-align:left;transition:all .15s;width:100%;min-height:160px"
+      onmouseover="this.style.borderColor='var(--brand-d)';this.style.background='var(--brand-l)';this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,.08)'"
+      onmouseout="this.style.borderColor='var(--bd2)';this.style.background='var(--bg2)';this.style.transform='translateY(0)';this.style.boxShadow='none'">
+      <div style="width:56px;height:56px;border-radius:14px;background:var(--brand-d);color:white;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">
         🏢
       </div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:15px;font-weight:600;color:var(--t1);line-height:1.3">Vista grupo</div>
-        <div style="font-size:11px;color:var(--t3);margin-top:2px">Resumen consolidado de los ${restaurants.length} restaurantes</div>
+      <div style="flex:1;min-width:0;width:100%">
+        <div style="font-size:17px;font-weight:600;color:var(--t1);line-height:1.3;margin-bottom:4px">Vista grupo</div>
+        <div style="font-size:12px;color:var(--t3)">Resumen consolidado de los ${restaurants.length} restaurantes</div>
       </div>
-      <div style="font-size:18px;color:var(--t3)">›</div>
+      <div style="font-size:13px;color:var(--brand-d);font-weight:600;margin-top:auto">Ver consolidado →</div>
     </button>`;
   }
 
