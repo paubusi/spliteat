@@ -26186,21 +26186,31 @@ function initLanding() {
 function _showCookieBannerIfNeeded() {
   try {
     const c = window.spliteatCookies?.get?.();
+    console.log('[cookies] _showCookieBannerIfNeeded() invocado. consent:', c, 'viewport:', window.innerWidth + 'x' + window.innerHeight);
     if (c && c.ts) {
-      console.log('[cookies] consent ya guardado, banner oculto', c);
+      console.log('[cookies] consent ya guardado, banner oculto');
       return; // ya eligió, no hace falta
     }
     const banner = document.getElementById('cookies-banner');
-    if (banner) {
-      banner.style.display = 'block';
-      console.log('[cookies] banner mostrado');
-    } else {
+    if (!banner) {
       console.warn('[cookies] elemento #cookies-banner no encontrado en DOM');
+      return;
     }
+    // Forzar display:block con !important via setProperty para sobrescribir cualquier regla CSS
+    banner.style.setProperty('display', 'block', 'important');
+    const rect = banner.getBoundingClientRect();
+    const computed = getComputedStyle(banner);
+    console.log('[cookies] banner forzado a visible. rect:', {top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height}, 'computed display:', computed.display, 'visibility:', computed.visibility, 'opacity:', computed.opacity, 'pointer-events:', computed.pointerEvents);
   } catch (e) {
     console.error('[cookies] error mostrando banner', e);
   }
 }
+
+// Función debug expuesta en window para que el usuario pueda forzar el banner desde consola
+window._debugShowCookies = function() {
+  localStorage.removeItem('spliteat.cookieConsent');
+  _showCookieBannerIfNeeded();
+};
 
 // ══════════════════════════════════════════════════════════════════
 // COOKIE CONSENT — AEPD compliant (granular + Aceptar/Rechazar igualados)
