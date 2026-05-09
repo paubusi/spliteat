@@ -66,7 +66,7 @@
   /* Sprint Costes Turno 8a — Picker de restaurante full-width */
   #s-restaurant-picker { max-width: none !important; width: 100vw !important; margin: 0 !important; }
   #s-restaurant-picker.active { position: fixed !important; inset: 0 !important; overflow-y: auto; display: flex !important; flex-direction: column !important; }
-  #s0.active ~ * { pointer-events: none; }
+  #s0.active ~ *:not(#cookies-banner):not(#cookies-settings-modal) { pointer-events: none; }
 
   /* #1: Pantallas de login en desktop — solo el .body se centra, el .hdr ocupa todo el ancho
      (igual que serveat, que es la única que se ve bien). */
@@ -26186,10 +26186,20 @@ function initLanding() {
 function _showCookieBannerIfNeeded() {
   try {
     const c = window.spliteatCookies?.get?.();
-    if (c && c.ts) return; // ya eligió, no hace falta
+    if (c && c.ts) {
+      console.log('[cookies] consent ya guardado, banner oculto', c);
+      return; // ya eligió, no hace falta
+    }
     const banner = document.getElementById('cookies-banner');
-    if (banner) banner.style.display = 'block';
-  } catch (e) { /* silent */ }
+    if (banner) {
+      banner.style.display = 'block';
+      console.log('[cookies] banner mostrado');
+    } else {
+      console.warn('[cookies] elemento #cookies-banner no encontrado en DOM');
+    }
+  } catch (e) {
+    console.error('[cookies] error mostrando banner', e);
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════
