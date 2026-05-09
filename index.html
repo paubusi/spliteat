@@ -141,6 +141,12 @@
   .screen.active { display: flex; }
   @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
+  /* ── LANDING · SUITE CARDS (expandibles) ── */
+  .suite-card { transition: background .18s, border-color .18s; }
+  .suite-card:hover { background: rgba(255,255,255,.07) !important; border-color: rgba(255,255,255,.16) !important; }
+  #prod-spliteat.suite-card:hover { background: rgba(216,90,48,.12) !important; border-color: rgba(216,90,48,.28) !important; }
+  .suite-card-chev { display: inline-block; }
+
   /* ── HEADER ── */
   .hdr { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid var(--bd); background: var(--card); position: sticky; top: 0; z-index: 10; }
   .logo { font-family: 'Fraunces', serif; font-size: 22px; color: var(--brand-d); letter-spacing: -0.5px; white-space: nowrap; word-spacing: 0; }
@@ -844,7 +850,7 @@
 </nav>
 
 <!-- ═══════════ HERO ═══════════ -->
-<section style="background:#085041;padding:5rem 1.5rem 4rem;position:relative;overflow:hidden">
+<section style="background:#085041;padding:5rem 1.5rem 3.5rem;position:relative;overflow:hidden">
   <!-- Decorative circles -->
   <div style="position:absolute;right:-80px;top:-80px;width:320px;height:320px;border-radius:50%;background:rgba(255,255,255,.04);pointer-events:none"></div>
   <div style="position:absolute;left:-60px;bottom:-100px;width:280px;height:280px;border-radius:50%;background:rgba(29,158,117,.18);pointer-events:none"></div>
@@ -852,75 +858,95 @@
 
   <div style="max-width:760px;margin:0 auto;position:relative;z-index:1">
     <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:99px;padding:5px 14px;font-size:12px;font-weight:500;color:rgba(255,255,255,.8);margin-bottom:2rem;letter-spacing:.04em">
-      🇪🇸 Hecho en España · Gratis para el comensal
+      🇪🇸 Hecho en España · Sin permanencia · Instalación en 5 min
     </div>
-    <h1 style="font-family:'Fraunces',serif;font-size:clamp(2.4rem,7vw,4.2rem);font-weight:900;color:#fff;line-height:1.08;letter-spacing:-1.5px;margin-bottom:1.25rem">
-      Adiós a los bizums<br>de 15,43€ que<br><em style="color:#6FE8B0;font-style:italic">nunca llegan.</em>
+    <h1 style="font-family:'Fraunces',serif;font-size:clamp(2.2rem,6.5vw,3.8rem);font-weight:900;color:#fff;line-height:1.08;letter-spacing:-1.2px;margin-bottom:1.25rem">
+      Tu restaurante,<br>operando con<br><em style="color:#6FE8B0;font-style:italic">menos esfuerzo.</em>
     </h1>
-    <p style="font-size:clamp(1rem,2.5vw,1.2rem);color:rgba(255,255,255,.75);line-height:1.65;margin-bottom:2.5rem;max-width:540px">
-      Sin marear al camarero, sin perseguir a nadie.<br>
-      <strong style="color:#fff;font-weight:600">La cuenta, resuelta.</strong>
+    <p style="font-size:clamp(1rem,2.4vw,1.18rem);color:rgba(255,255,255,.78);line-height:1.65;margin-bottom:2.25rem;max-width:560px">
+      Pedidos, cocina, sala, reservas, fiscal e inventario en una sola plataforma.<br>
+      <strong style="color:#fff;font-weight:600">Tu equipo deja de ser un call-center. Tú dejas de tirar de Excel.</strong>
     </p>
-    <div style="display:flex;flex-wrap:wrap;gap:.75rem">
-      <div onclick="handleQRLanding()" style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.25);border-radius:var(--r);padding:.9rem 1.25rem;cursor:pointer;flex:1;min-width:220px;max-width:320px;transition:background .15s" onmouseover="this.style.background='rgba(255,255,255,.18)'" onmouseout="this.style.background='rgba(255,255,255,.1)'">
-        <div>
-          <div style="font-size:15px;font-weight:600;color:#fff">Escanea el QR de tu mesa</div>
-          <div style="font-size:12px;color:rgba(255,255,255,.6);margin-top:2px">Sin registro · Gratis para el comensal</div>
-        </div>
-        <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:auto">
-          <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M7 5l4 4-4 4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </div>
+
+    <!-- Métricas de impacto operativo -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.6rem;margin-bottom:2.25rem;max-width:600px">
+      <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:.85rem .9rem">
+        <div style="font-family:'Fraunces',serif;font-size:1.7rem;font-weight:900;color:#6FE8B0;line-height:1;letter-spacing:-.5px">−12h</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.55);margin-top:4px;line-height:1.35">admin/semana</div>
       </div>
-      <div onclick="openCalleatFromLanding()" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:var(--r);padding:.9rem 1.1rem;cursor:pointer;flex:1;min-width:180px;max-width:260px" onmouseover="this.style.background='rgba(255,255,255,.12)'" onmouseout="this.style.background='rgba(255,255,255,.07)'">
-        <span style="font-size:20px">🪑</span>
-        <div>
-          <div style="font-size:13px;font-weight:600;color:#fff">Lista de espera</div>
-          <div style="font-size:11px;color:rgba(255,255,255,.5)">call<em style="color:#D85A30;font-style:normal">eat</em> — sin mesa libre</div>
-        </div>
+      <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:.85rem .9rem">
+        <div style="font-family:'Fraunces',serif;font-size:1.7rem;font-weight:900;color:#6FE8B0;line-height:1;letter-spacing:-.5px">+18%</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.55);margin-top:4px;line-height:1.35">rotación de mesas</div>
       </div>
+      <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:.85rem .9rem">
+        <div style="font-family:'Fraunces',serif;font-size:1.7rem;font-weight:900;color:#6FE8B0;line-height:1;letter-spacing:-.5px">−67%</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.55);margin-top:4px;line-height:1.35">errores de pedido</div>
+      </div>
+      <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:.85rem .9rem">
+        <div style="font-family:'Fraunces',serif;font-size:1.7rem;font-weight:900;color:#6FE8B0;line-height:1;letter-spacing:-.5px">+23%</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.55);margin-top:4px;line-height:1.35">propinas del equipo</div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:.65rem;align-items:center">
+      <a href="#productos" onclick="event.preventDefault();document.getElementById('s0-productos').scrollIntoView({behavior:'smooth'})" style="display:inline-flex;align-items:center;gap:8px;background:#D85A30;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:.85rem 1.5rem;border-radius:99px;cursor:pointer">
+        Ver cómo funciona →
+      </a>
+      <a href="#" onclick="event.preventDefault();go('s-admin-login')" style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff;text-decoration:none;font-size:14px;font-weight:500;padding:.85rem 1.4rem;border-radius:99px;cursor:pointer">
+        Acceso al panel
+      </a>
+    </div>
+    <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:1.25rem">
+      ¿Buscas la app del comensal? <a href="#productos-spliteat" onclick="event.preventDefault();document.getElementById('prod-spliteat')?.scrollIntoView({behavior:'smooth'})" style="color:rgba(255,255,255,.7);text-decoration:underline">Conoce spliteat</a>
     </div>
   </div>
 </section>
 
-<!-- ═══════════ CÓMO FUNCIONA ═══════════ -->
+<!-- ═══════════ EL DÍA A DÍA CON EATLAB ═══════════ -->
 <section style="background:#F3F7F5;padding:3.5rem 1.5rem">
   <div style="max-width:760px;margin:0 auto">
-    <div style="font-size:11px;font-weight:600;color:#085041;text-transform:uppercase;letter-spacing:.1em;margin-bottom:1.5rem">Cómo funciona</div>
+    <div style="font-size:11px;font-weight:600;color:#085041;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem">El día a día</div>
+    <h2 style="font-family:'Fraunces',serif;font-size:clamp(1.5rem,5vw,2.2rem);font-weight:700;color:#0F1C17;line-height:1.15;letter-spacing:-.5px;margin-bottom:.5rem">
+      Lo que cambia desde el primer servicio
+    </h2>
+    <p style="font-size:14px;color:#5A7168;line-height:1.65;margin-bottom:1.75rem;max-width:520px">
+      Tu equipo gestiona más mesas con menos estrés. Tú dejas de improvisar con datos a mano.
+    </p>
     <div style="display:flex;flex-direction:column;gap:.6rem">
-      <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:center;gap:.85rem;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:flex-start;gap:.85rem;box-shadow:0 1px 4px rgba(0,0,0,.06)">
         <div style="width:38px;height:38px;border-radius:10px;background:#E1F5EE;flex-shrink:0;display:flex;align-items:center;justify-content:center">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="6" height="6" rx="1.5" fill="#085041"/><rect x="10" y="2" width="6" height="6" rx="1.5" fill="#085041"/><rect x="2" y="10" width="6" height="6" rx="1.5" fill="#085041"/><rect x="10" y="10" width="2.5" height="2.5" rx=".75" fill="#085041"/><rect x="13.5" y="10" width="2.5" height="2.5" rx=".75" fill="#085041"/><rect x="10" y="13.5" width="2.5" height="2.5" rx=".75" fill="#085041"/><rect x="13.5" y="13.5" width="2.5" height="2.5" rx=".75" fill="#085041"/></svg>
         </div>
         <div>
-          <div style="font-size:14px;font-weight:600;color:#0F1C17">Pide desde la mesa</div>
-          <div style="font-size:12px;color:#5A7168;margin-top:1px">Sin tener que perseguir al camarero</div>
+          <div style="font-size:14px;font-weight:600;color:#0F1C17">Los pedidos llegan solos a cocina</div>
+          <div style="font-size:12px;color:#5A7168;margin-top:2px;line-height:1.5">El comensal pide desde el QR o el camarero desde su móvil. Cocina ve el pase agrupado por mesa, sin papel ni gritos.</div>
         </div>
       </div>
-      <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:center;gap:.85rem;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:flex-start;gap:.85rem;box-shadow:0 1px 4px rgba(0,0,0,.06)">
         <div style="width:38px;height:38px;border-radius:10px;background:#E1F5EE;flex-shrink:0;display:flex;align-items:center;justify-content:center">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="6.5" stroke="#085041" stroke-width="1.6"/><path d="M9 5.5V9.5l2.5 1.5" stroke="#085041" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
         <div>
-          <div style="font-size:14px;font-weight:600;color:#0F1C17">Sigue tu pedido en tiempo real</div>
-          <div style="font-size:12px;color:#5A7168;margin-top:1px">Sabes cuándo está listo, sin preguntar</div>
+          <div style="font-size:14px;font-weight:600;color:#0F1C17">El camarero solo aparece cuando hace falta</div>
+          <div style="font-size:12px;color:#5A7168;margin-top:2px;line-height:1.5">Recibe avisos de pases listos en su móvil. Deja de hacer rondas a ciegas. Sus mesas rotan más rápido, sus propinas suben.</div>
         </div>
       </div>
-      <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:center;gap:.85rem;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:flex-start;gap:.85rem;box-shadow:0 1px 4px rgba(0,0,0,.06)">
         <div style="width:38px;height:38px;border-radius:10px;background:#E1F5EE;flex-shrink:0;display:flex;align-items:center;justify-content:center">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9h12M9 3v12" stroke="#085041" stroke-width="1.6" stroke-linecap="round"/><circle cx="9" cy="9" r="6.5" stroke="#085041" stroke-width="1.6"/></svg>
         </div>
         <div>
-          <div style="font-size:14px;font-weight:600;color:#0F1C17">Divide la cuenta fácilmente</div>
-          <div style="font-size:12px;color:#5A7168;margin-top:1px">¿Bravas para compartir? Tú decides, spliteat calcula al céntimo</div>
+          <div style="font-size:14px;font-weight:600;color:#0F1C17">El cobro se cierra solo</div>
+          <div style="font-size:12px;color:#5A7168;margin-top:2px;line-height:1.5">Cada comensal paga su parte desde el móvil con Apple Pay, Bizum o tarjeta. La factura se emite y firma con Verifactu automáticamente.</div>
         </div>
       </div>
-      <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:center;gap:.85rem;box-shadow:0 1px 4px rgba(0,0,0,.06)">
+      <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:flex-start;gap:.85rem;box-shadow:0 1px 4px rgba(0,0,0,.06)">
         <div style="width:38px;height:38px;border-radius:10px;background:#E1F5EE;flex-shrink:0;display:flex;align-items:center;justify-content:center">
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1.5" y="4" width="15" height="10" rx="2" stroke="#085041" stroke-width="1.6"/><path d="M1.5 7.5h15" stroke="#085041" stroke-width="1.6"/><rect x="4" y="10.5" width="3.5" height="1.5" rx=".75" fill="#085041"/></svg>
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="3" width="14" height="12" rx="1.5" stroke="#085041" stroke-width="1.6"/><path d="M5 11l2-2 2 2 4-4" stroke="#085041" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
         <div>
-          <div style="font-size:14px;font-weight:600;color:#0F1C17">Paga en segundos</div>
-          <div style="font-size:12px;color:#5A7168;margin-top:1px">Apple Pay, Bizum o tarjeta. Sin esperar</div>
+          <div style="font-size:14px;font-weight:600;color:#0F1C17">Los datos están siempre listos</div>
+          <div style="font-size:12px;color:#5A7168;margin-top:2px;line-height:1.5">Margen por plato, food cost real, EBITDA, propinas por camarero, horas trabajadas. Cierras el mes sin abrir un Excel.</div>
         </div>
       </div>
     </div>
@@ -932,60 +958,229 @@
   <div style="max-width:760px;margin:0 auto">
     <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem">La suite completa</div>
     <h2 style="font-family:'Fraunces',serif;font-size:clamp(1.6rem,5vw,2.4rem);font-weight:700;color:#fff;line-height:1.15;margin-bottom:.75rem;letter-spacing:-.5px">
-      Una plataforma.<br>Seis herramientas.
+      Cinco apps. Un ecosistema.
     </h2>
     <p style="font-size:14px;color:rgba(255,255,255,.55);line-height:1.65;margin-bottom:2.5rem;max-width:480px">
-      Cada app del ecosistema <strong style="color:rgba(255,255,255,.8)">eat</strong>lab cubre un rol del restaurante. Todas conectadas, en tiempo real.
+      Cada app del ecosistema <strong style="color:rgba(255,255,255,.8)">eat</strong>lab cubre un rol del restaurante. Todas conectadas, en tiempo real. Toca cualquier card para ver el detalle.
     </p>
 
     <div style="display:flex;flex-direction:column;gap:.75rem">
-      <!-- spliteat -->
-      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem 1.25rem">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:.5rem">
-          <div style="font-family:'Fraunces',serif;font-size:18px;color:#fff">split<em style="color:#D85A30;font-style:normal">eat</em></div>
-          <div style="font-size:10px;font-weight:600;color:#D85A30;background:rgba(216,90,48,.15);border-radius:99px;padding:2px 8px;letter-spacing:.06em">COMENSALES</div>
+
+      <!-- ═══════ MANAGEAT (con sub-módulos integrados) ═══════ -->
+      <div id="prod-manageat" class="suite-card" data-product="manageat" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem 1.25rem;cursor:pointer;transition:background .15s" onclick="toggleProductCard('manageat')">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:.5rem">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="font-family:'Fraunces',serif;font-size:18px;color:#fff">manag<em style="color:#D85A30;font-style:normal">eat</em></div>
+            <div style="font-size:10px;font-weight:600;color:#6FE8B0;background:rgba(111,232,176,.1);border-radius:99px;padding:2px 8px;letter-spacing:.06em">DIRECCIÓN</div>
+          </div>
+          <span class="suite-card-chev" style="font-size:14px;color:rgba(255,255,255,.4);transition:transform .2s">▾</span>
         </div>
-        <p style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.6;margin:0">La app del cliente. Escanean el QR, piden, siguen su pedido en tiempo real y pagan exactamente lo que han consumido — dividido al céntimo. Sin registro, sin descarga.</p>
+        <p style="font-size:13px;color:rgba(255,255,255,.62);line-height:1.6;margin:0">
+          Tu panel central de control. Toda la operativa, los datos y la fiscalidad en una sola pantalla. Incluye <strong style="color:rgba(255,255,255,.85)">bookeat</strong>, <strong style="color:rgba(255,255,255,.85)">trendeat</strong>, <strong style="color:rgba(255,255,255,.85)">fiscaleat</strong>, <strong style="color:rgba(255,255,255,.85)">controleat</strong> y <strong style="color:rgba(255,255,255,.85)">stockeat</strong>.
+        </p>
+
+        <div class="suite-card-detail" style="display:none;margin-top:1.1rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,.08)">
+          <div style="font-size:11px;font-weight:600;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.85rem">Qué incluye manageat</div>
+
+          <div style="display:flex;flex-direction:column;gap:.7rem">
+            <!-- Operativa diaria -->
+            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:.85rem">
+              <div style="font-size:13px;font-weight:600;color:#fff;margin-bottom:3px">🏠 Operativa diaria</div>
+              <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.55">Sala en vivo, mesas en curso, asignación de camareros, gestión de la carta, modos de cocina y zonas. Vista grupo si tienes varios locales.</div>
+            </div>
+
+            <!-- bookeat -->
+            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:.85rem">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+                <div style="font-family:'Fraunces',serif;font-size:14px;color:#fff">book<em style="color:#D85A30;font-style:normal">eat</em></div>
+                <div style="font-size:9px;font-weight:600;color:rgba(255,208,179,.9);background:rgba(255,208,179,.1);border-radius:99px;padding:1px 7px;letter-spacing:.06em">RESERVAS</div>
+              </div>
+              <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.55">Calendario de reservas con confirmación automática por WhatsApp/email. Capacidad por turno, horarios, peticiones especiales. Recordatorios anti-no-show.</div>
+            </div>
+
+            <!-- trendeat -->
+            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:.85rem">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+                <div style="font-family:'Fraunces',serif;font-size:14px;color:#fff">trend<em style="color:#D85A30;font-style:normal">eat</em></div>
+                <div style="font-size:9px;font-weight:600;color:#6FE8B0;background:rgba(111,232,176,.1);border-radius:99px;padding:1px 7px;letter-spacing:.06em">KPIs · DATOS</div>
+              </div>
+              <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.55">Facturación, ticket medio, mesas servidas, propinas, food cost real, labor cost, EBITDA y punto de equilibrio. Margen por plato. KPIs personalizados con IA. Comparativa entre locales si tienes grupo.</div>
+            </div>
+
+            <!-- fiscaleat -->
+            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:.85rem">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+                <div style="font-family:'Fraunces',serif;font-size:14px;color:#fff">fiscal<em style="color:#D85A30;font-style:normal">eat</em></div>
+                <div style="font-size:9px;font-weight:600;color:#FAEEDA;background:rgba(250,238,218,.1);border-radius:99px;padding:1px 7px;letter-spacing:.06em">FACTURACIÓN</div>
+              </div>
+              <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.55">Facturación electrónica Verifactu desde el primer ticket. Numeración correlativa, IVA por tipo, factura completa F1 a petición del cliente. Certificado digital y CIF gestionados desde el panel.</div>
+            </div>
+
+            <!-- controleat -->
+            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:.85rem">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+                <div style="font-family:'Fraunces',serif;font-size:14px;color:#fff">control<em style="color:#D85A30;font-style:normal">eat</em></div>
+                <div style="font-size:9px;font-weight:600;color:#B3D4FF;background:rgba(179,212,255,.1);border-radius:99px;padding:1px 7px;letter-spacing:.06em">EQUIPO</div>
+              </div>
+              <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.55">Control horario obligatorio (registro de jornada). Fichaje desde el móvil del empleado, horas trabajadas, horas extra, exportable a PDF para inspección. Coste de personal real por turno.</div>
+            </div>
+
+            <!-- stockeat -->
+            <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:.85rem">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+                <div style="font-family:'Fraunces',serif;font-size:14px;color:#fff">stock<em style="color:#D85A30;font-style:normal">eat</em></div>
+                <div style="font-size:9px;font-weight:600;color:#C7E5FF;background:rgba(199,229,255,.1);border-radius:99px;padding:1px 7px;letter-spacing:.06em">INVENTARIO</div>
+              </div>
+              <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.55">Recetas, ingredientes y proveedores. El stock se descuenta automáticamente con cada pedido. Alertas de mínimos, food cost real, mermas, valor del inventario.</div>
+            </div>
+          </div>
+        </div>
       </div>
-      <!-- manageat -->
-      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem 1.25rem">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:.5rem">
-          <div style="font-family:'Fraunces',serif;font-size:18px;color:#fff">manag<em style="color:#D85A30;font-style:normal">eat</em></div>
-          <div style="font-size:10px;font-weight:600;color:#6FE8B0;background:rgba(111,232,176,.1);border-radius:99px;padding:2px 8px;letter-spacing:.06em">DIRECCIÓN</div>
+
+      <!-- ═══════ COOKEAT ═══════ -->
+      <div id="prod-cookeat" class="suite-card" data-product="cookeat" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem 1.25rem;cursor:pointer;transition:background .15s" onclick="toggleProductCard('cookeat')">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:.5rem">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="font-family:'Fraunces',serif;font-size:18px;color:#fff">cook<em style="color:#D85A30;font-style:normal">eat</em></div>
+            <div style="font-size:10px;font-weight:600;color:#FAEEDA;background:rgba(250,238,218,.1);border-radius:99px;padding:2px 8px;letter-spacing:.06em">COCINA</div>
+          </div>
+          <span class="suite-card-chev" style="font-size:14px;color:rgba(255,255,255,.4);transition:transform .2s">▾</span>
         </div>
-        <p style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.6;margin:0">El panel de administración. Gestiona la carta, mesas, camareros, reservas y visualiza el dashboard de KPIs, márgenes por plato y facturación histórica en tiempo real.</p>
+        <p style="font-size:13px;color:rgba(255,255,255,.62);line-height:1.6;margin:0">El KDS (Kitchen Display System). Los pedidos llegan agrupados por pase y mesa, sin papel ni gritos.</p>
+        <div class="suite-card-detail" style="display:none;margin-top:1.1rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:rgba(255,255,255,.6);line-height:1.6">
+          <ul style="margin:0;padding-left:1.1rem;display:flex;flex-direction:column;gap:.45rem">
+            <li>Pases agrupados por mesa con tiempos en directo y semáforo de retraso.</li>
+            <li>Múltiples zonas de cocina (fría, caliente, postres, barra) con su propia pantalla.</li>
+            <li>Notificación al camarero en cuanto el pase está listo. Cero rondas a ciegas.</li>
+            <li>Punto de cocción configurable por plato (al punto, hecho, vuelta y vuelta…).</li>
+            <li>Histórico de tiempos reales para ajustar estimaciones de la carta.</li>
+          </ul>
+        </div>
       </div>
-      <!-- cookeat -->
-      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem 1.25rem">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:.5rem">
-          <div style="font-family:'Fraunces',serif;font-size:18px;color:#fff">cook<em style="color:#D85A30;font-style:normal">eat</em></div>
-          <div style="font-size:10px;font-weight:600;color:#FAEEDA;background:rgba(250,238,218,.1);border-radius:99px;padding:2px 8px;letter-spacing:.06em">COCINA</div>
+
+      <!-- ═══════ SERVEAT ═══════ -->
+      <div id="prod-serveat" class="suite-card" data-product="serveat" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem 1.25rem;cursor:pointer;transition:background .15s" onclick="toggleProductCard('serveat')">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:.5rem">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="font-family:'Fraunces',serif;font-size:18px;color:#fff">serv<em style="color:#D85A30;font-style:normal">eat</em></div>
+            <div style="font-size:10px;font-weight:600;color:#B3D4FF;background:rgba(179,212,255,.1);border-radius:99px;padding:2px 8px;letter-spacing:.06em">SALA</div>
+          </div>
+          <span class="suite-card-chev" style="font-size:14px;color:rgba(255,255,255,.4);transition:transform .2s">▾</span>
         </div>
-        <p style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.6;margin:0">El KDS (Kitchen Display System). Los pedidos aparecen automáticamente agrupados por pase y mesa. Controla tiempos, activa platos y notifica al camarero cuando el pase está listo.</p>
+        <p style="font-size:13px;color:rgba(255,255,255,.62);line-height:1.6;margin:0">El móvil del camarero. Avisos de pases listos, gestión de mesas, cobro y propinas — todo en su mano.</p>
+        <div class="suite-card-detail" style="display:none;margin-top:1.1rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:rgba(255,255,255,.6);line-height:1.6">
+          <ul style="margin:0;padding-left:1.1rem;display:flex;flex-direction:column;gap:.45rem">
+            <li>Notificación push cuando un pase está listo en cocina. Sabe a qué mesa ir y por qué.</li>
+            <li>Toma pedidos desde su propio móvil (sin agobiar al cliente con un QR si no lo quiere).</li>
+            <li>Cobra en efectivo, marca pagado y cierra mesa en un toque.</li>
+            <li>Control de sus propias propinas del turno y de su rendimiento (mesas servidas, ticket medio).</li>
+            <li>Login con PIN — onboarding de un camarero nuevo en menos de 1 hora.</li>
+          </ul>
+        </div>
       </div>
-      <!-- serveat -->
-      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem 1.25rem">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:.5rem">
-          <div style="font-family:'Fraunces',serif;font-size:18px;color:#fff">serv<em style="color:#D85A30;font-style:normal">eat</em></div>
-          <div style="font-size:10px;font-weight:600;color:#B3D4FF;background:rgba(179,212,255,.1);border-radius:99px;padding:2px 8px;letter-spacing:.06em">SALA</div>
+
+      <!-- ═══════ CALLEAT ═══════ -->
+      <div id="prod-calleat" class="suite-card" data-product="calleat" style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem 1.25rem;cursor:pointer;transition:background .15s" onclick="toggleProductCard('calleat')">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:.5rem">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="font-family:'Fraunces',serif;font-size:18px;color:#fff">call<em style="color:#D85A30;font-style:normal">eat</em></div>
+            <div style="font-size:10px;font-weight:600;color:#FFD0B3;background:rgba(255,208,179,.1);border-radius:99px;padding:2px 8px;letter-spacing:.06em">LISTA DE ESPERA</div>
+          </div>
+          <span class="suite-card-chev" style="font-size:14px;color:rgba(255,255,255,.4);transition:transform .2s">▾</span>
         </div>
-        <p style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.6;margin:0">El panel del camarero. Recibe notificaciones de pases listos, gestiona sus mesas, confirma entregas, cobra en efectivo y lleva el control de sus propinas del turno.</p>
+        <p style="font-size:13px;color:rgba(255,255,255,.62);line-height:1.6;margin:0">La cola virtual. El cliente espera fuera, no en tu puerta — tu equipo no tiene que gestionarla a mano.</p>
+        <div class="suite-card-detail" style="display:none;margin-top:1.1rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:rgba(255,255,255,.6);line-height:1.6">
+          <ul style="margin:0;padding-left:1.1rem;display:flex;flex-direction:column;gap:.45rem">
+            <li>El cliente se apunta desde su móvil con nombre, número de personas y teléfono.</li>
+            <li>Ve su posición en directo. Cuando le toca, recibe <strong style="color:rgba(255,255,255,.85)">WhatsApp o SMS</strong> aunque haya cerrado el navegador.</li>
+            <li>Reduce abandonos: el cliente no se cansa esperando en la puerta.</li>
+            <li>Estimación de tiempo de espera basada en la rotación real de tus mesas.</li>
+            <li>Histórico para saber tus horas pico y dimensionar mejor el equipo.</li>
+          </ul>
+        </div>
       </div>
-      <!-- calleat -->
-      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem 1.25rem">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:.5rem">
-          <div style="font-family:'Fraunces',serif;font-size:18px;color:#fff">call<em style="color:#D85A30;font-style:normal">eat</em></div>
-          <div style="font-size:10px;font-weight:600;color:#FFD0B3;background:rgba(255,208,179,.1);border-radius:99px;padding:2px 8px;letter-spacing:.06em">LISTA DE ESPERA</div>
+
+      <!-- ═══════ SPLITEAT (último — descripción completa AQUÍ) ═══════ -->
+      <div id="prod-spliteat" class="suite-card" data-product="spliteat" style="background:rgba(216,90,48,.08);border:1px solid rgba(216,90,48,.18);border-radius:14px;padding:1.25rem 1.25rem;cursor:pointer;transition:background .15s" onclick="toggleProductCard('spliteat')">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:.5rem">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="font-family:'Fraunces',serif;font-size:18px;color:#fff">split<em style="color:#D85A30;font-style:normal">eat</em></div>
+            <div style="font-size:10px;font-weight:600;color:#D85A30;background:rgba(216,90,48,.18);border-radius:99px;padding:2px 8px;letter-spacing:.06em">COMENSALES</div>
+          </div>
+          <span class="suite-card-chev" style="font-size:14px;color:rgba(255,255,255,.4);transition:transform .2s">▾</span>
         </div>
-        <p style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.6;margin:0">La cola virtual. Cuando no hay mesa libre, el cliente se apunta con su nombre, número de personas y teléfono. Puede seguir su posición en directo desde la web y, en cuanto la mesa esté lista, recibe un <strong style="color:rgba(255,255,255,.85)">WhatsApp o SMS</strong> aunque haya cerrado el navegador.</p>
+        <p style="font-size:13px;color:rgba(255,255,255,.7);line-height:1.6;margin:0">
+          La app del cliente — la que dispara todo lo demás. <strong style="color:#fff">Adiós a los bizums de 15,43€ que nunca llegan.</strong>
+        </p>
+        <div class="suite-card-detail" style="display:none;margin-top:1.1rem;padding-top:1rem;border-top:1px solid rgba(216,90,48,.18)">
+          <p style="font-size:13px;color:rgba(255,255,255,.7);line-height:1.65;margin:0 0 .85rem">
+            Sin app, sin descargas, sin registro. El comensal escanea el QR de la mesa, ve la carta, pide y al final paga <strong style="color:#fff">exactamente lo que ha consumido</strong> — dividido al céntimo.
+          </p>
+          <ul style="margin:0;padding-left:1.1rem;display:flex;flex-direction:column;gap:.45rem;font-size:12px;color:rgba(255,255,255,.6);line-height:1.6">
+            <li>Carta digital con fotos, alérgenos y recomendaciones.</li>
+            <li>Pedido en tiempo real con seguimiento ("en cocina", "saliendo a tu mesa").</li>
+            <li>División de cuenta inteligente: platos compartidos, "invito yo", por persona o partes iguales.</li>
+            <li>Pago con Apple Pay, Google Pay, Bizum o tarjeta — en menos de 30 segundos.</li>
+            <li>Funciona en cualquier móvil con cámara. Cero fricción, cero formación.</li>
+            <li>Gratis para el comensal. Sin comisión por transacción.</li>
+          </ul>
+          <div style="margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap">
+            <button onclick="event.stopPropagation();handleQRLanding()" style="background:#D85A30;border:none;color:#fff;font-size:13px;font-weight:600;padding:.65rem 1.1rem;border-radius:99px;cursor:pointer;font-family:inherit">Probar como comensal →</button>
+            <button onclick="event.stopPropagation();openCalleatFromLanding()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff;font-size:13px;font-weight:500;padding:.65rem 1.1rem;border-radius:99px;cursor:pointer;font-family:inherit">Lista de espera</button>
+          </div>
+        </div>
       </div>
-      <!-- stockeat -->
-      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem 1.25rem">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:.5rem">
-          <div style="font-family:'Fraunces',serif;font-size:18px;color:#fff">stock<em style="color:#D85A30;font-style:normal">eat</em></div>
-          <div style="font-size:10px;font-weight:600;color:#C7E5FF;background:rgba(199,229,255,.1);border-radius:99px;padding:2px 8px;letter-spacing:.06em">INVENTARIO</div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ TU EQUIPO GANA TIEMPO ═══════════ -->
+<section style="background:#0F1C17;padding:3.5rem 1.5rem;border-top:1px solid rgba(255,255,255,.06)">
+  <div style="max-width:760px;margin:0 auto">
+    <div style="font-size:11px;font-weight:600;color:#6FE8B0;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem">Por qué importa</div>
+    <h2 style="font-family:'Fraunces',serif;font-size:clamp(1.5rem,5vw,2.2rem);font-weight:700;color:#fff;line-height:1.15;letter-spacing:-.5px;margin-bottom:.5rem">
+      Tu equipo trabaja menos.<br>Tu negocio rinde más.
+    </h2>
+    <p style="font-size:14px;color:rgba(255,255,255,.55);line-height:1.65;margin-bottom:2rem;max-width:520px">
+      No es solo tecnología. Es eliminar la fricción que hace que la hostelería tenga la rotación de personal más alta del país.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:.75rem">
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem">
+        <div style="display:flex;align-items:flex-start;gap:.85rem">
+          <div style="font-size:24px;flex-shrink:0">🔁</div>
+          <div>
+            <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:4px">Onboarding de personal en 1 hora, no 3 semanas</div>
+            <div style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.6">El camarero nuevo no aprende un sistema, solo recibe avisos en su móvil. Cocina ve los pases en pantalla. La rotación de personal deja de ser un problema operativo cada vez que se va alguien.</div>
+          </div>
         </div>
-        <p style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.6;margin:0">El inventario inteligente. Define recetas, ingredientes y proveedores: el stock se descuenta automáticamente con cada pedido. Alertas de mínimos, food cost real, mermas, valor del inventario y márgenes por plato — sin contar a mano.</p>
+      </div>
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem">
+        <div style="display:flex;align-items:flex-start;gap:.85rem">
+          <div style="font-size:24px;flex-shrink:0">⚡</div>
+          <div>
+            <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:4px">Menos carga mental, mejor servicio</div>
+            <div style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.6">Se acabaron los pedidos por escrito que se pierden, los gritos a cocina, la calculadora con la cuenta. Tu equipo se concentra en atender, no en hacer de mensajero. Las propinas suben porque la experiencia mejora.</div>
+          </div>
+        </div>
+      </div>
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem">
+        <div style="display:flex;align-items:flex-start;gap:.85rem">
+          <div style="font-size:24px;flex-shrink:0">📊</div>
+          <div>
+            <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:4px">Decisiones con datos, no con intuición</div>
+            <div style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.6">Sabes qué plato te da margen y cuál tiras a la basura. Cuál es tu food cost real frente al teórico. Qué camarero rinde más. Cuál es tu punto de equilibrio mensual. Cierras el mes en 5 minutos, no en una tarde de Excel.</div>
+          </div>
+        </div>
+      </div>
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:1.25rem">
+        <div style="display:flex;align-items:flex-start;gap:.85rem">
+          <div style="font-size:24px;flex-shrink:0">🇪🇸</div>
+          <div>
+            <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:4px">Cumplimiento normativo sin papeleo extra</div>
+            <div style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.6">Verifactu desde el primer ticket. Registro de jornada del personal (controleat). Factura completa F1 a petición del cliente con un clic. Lo que la ley exige, ya viene hecho.</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -999,7 +1194,7 @@
       Tecnología de restaurante sin la complejidad
     </h2>
     <p style="font-size:14px;color:#5A7168;line-height:1.65;margin-bottom:2rem">
-      Sin hardware, sin instalaciones. spliteat funciona en cualquier dispositivo con navegador. Empieza en minutos.
+      Sin hardware, sin instalaciones. Funciona en cualquier dispositivo con navegador. Empieza en minutos.
     </p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:2rem">
       <div style="background:#fff;border-radius:12px;padding:1rem;box-shadow:0 1px 3px rgba(0,0,0,.06)">
@@ -1070,7 +1265,7 @@
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.65rem">
           <div>
             <div style="font-size:16px;font-weight:600;color:#0F1C17">Pro</div>
-            <div style="font-size:12px;color:#5A7168;margin-top:2px">Mesas ilimitadas</div>
+            <div style="font-size:12px;color:#5A7168;margin-top:2px">Mesas ilimitadas · Suite completa</div>
           </div>
           <div style="text-align:right">
             <div style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:#085041;line-height:1">59€</div>
@@ -1079,9 +1274,12 @@
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
           <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Todo lo de Starter</div>
-          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> cook<em style="color:#D85A30;font-style:normal">eat</em> KDS · call<em style="color:#D85A30;font-style:normal">eat</em> lista de espera</div>
-          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> stock<em style="color:#D85A30;font-style:normal">eat</em> inventario + food cost</div>
-          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Reservas + alérgenos + márgenes</div>
+          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> cook<em style="color:#D85A30;font-style:normal">eat</em> KDS · call<em style="color:#D85A30;font-style:normal">eat</em> espera</div>
+          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> book<em style="color:#D85A30;font-style:normal">eat</em> reservas con WhatsApp</div>
+          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> trend<em style="color:#D85A30;font-style:normal">eat</em> KPIs · márgenes · EBITDA</div>
+          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> stock<em style="color:#D85A30;font-style:normal">eat</em> inventario + food cost real</div>
+          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> fiscal<em style="color:#D85A30;font-style:normal">eat</em> Verifactu + factura F1</div>
+          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> control<em style="color:#D85A30;font-style:normal">eat</em> registro de jornada</div>
           <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Soporte prioritario</div>
         </div>
       </div>
@@ -1090,7 +1288,7 @@
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.65rem">
           <div>
             <div style="font-size:16px;font-weight:600;color:#0F1C17">Business</div>
-            <div style="font-size:12px;color:#5A7168;margin-top:2px">Multi-local</div>
+            <div style="font-size:12px;color:#5A7168;margin-top:2px">Multi-local · Vista grupo</div>
           </div>
           <div style="text-align:right">
             <div style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:#085041;line-height:1">99€</div>
@@ -1099,8 +1297,9 @@
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
           <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Todo lo de Pro en varios locales</div>
-          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Dashboard consolidado</div>
-          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Onboarding personalizado</div>
+          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Dashboard consolidado del grupo</div>
+          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Costes compartidos entre locales</div>
+          <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Onboarding personalizado · Account manager</div>
         </div>
       </div>
     </div>
@@ -23501,6 +23700,25 @@ function openCalleatFromLanding() {
   const rId = urlParams.get('r') || _qrRestaurantId;
   if (!rId) { notify('Escanea el QR del restaurante primero', 'info'); return; }
   openCalleat(rId);
+}
+
+// ══════════════════════════════════════════════════════
+// LANDING — Suite de productos: expandir card al click
+// ══════════════════════════════════════════════════════
+function toggleProductCard(productId) {
+  const card = document.getElementById('prod-' + productId);
+  if (!card) return;
+  const detail = card.querySelector('.suite-card-detail');
+  const chev = card.querySelector('.suite-card-chev');
+  if (!detail) return;
+  const isOpen = detail.style.display !== 'none';
+  if (isOpen) {
+    detail.style.display = 'none';
+    if (chev) chev.style.transform = '';
+  } else {
+    detail.style.display = 'block';
+    if (chev) chev.style.transform = 'rotate(180deg)';
+  }
 }
 
 
