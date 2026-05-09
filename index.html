@@ -20818,10 +20818,11 @@ async function loadGroupDashboard() {
   Array.from(container.children).forEach(child => {
     if (child.id === 'group-dashboard') return;
     if (child.tagName === 'SELECT') return;
-    // Guardar el display original solo la primera vez
-    if (!child.dataset.origDisplay) {
-      const computed = window.getComputedStyle(child).display;
-      child.dataset.origDisplay = child.style.display || (computed !== 'none' ? '' : '');
+    // Guardar el display inline original SOLO la primera vez.
+    // Para #kpi-grid el inline es "grid", para bloques sin inline es "" (heredan CSS).
+    // Si volvemos a entrar a grupo desde grupo, no machacar lo guardado.
+    if (child.dataset.origDisplay === undefined) {
+      child.dataset.origDisplay = child.style.display || '';
     }
     child.style.display = 'none';
   });
@@ -21013,6 +21014,10 @@ function _renderGroupViewPlaceholder() { return loadGroupDashboard(); }
 
 // Helper: restaurar visibilidad de los hijos directos del rtab-kpis
 // (deshace lo que hizo loadGroupDashboard al ocultarlos uno a uno).
+// Importante: si un hijo NUNCA fue ocultado por loadGroupDashboard
+// (no tiene dataset.origDisplay), no lo tocamos — su inline style original
+// (ej. display:grid en #kpi-grid, display:none en .body siblings ocultos)
+// debe conservarse intacto.
 function _restoreIndividualKpisVisibility() {
   const container = document.getElementById('rtab-kpis');
   if (!container) return;
@@ -21022,9 +21027,9 @@ function _restoreIndividualKpisVisibility() {
       return;
     }
     if (child.tagName === 'SELECT') return;
-    // Restaurar al display original guardado, o vaciar para usar el inline del HTML
-    const orig = child.dataset.origDisplay;
-    child.style.display = orig != null ? orig : '';
+    // Solo restaurar si nosotros lo guardamos previamente
+    if (child.dataset.origDisplay === undefined) return;
+    child.style.display = child.dataset.origDisplay;
   });
 }
 
