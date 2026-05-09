@@ -20148,18 +20148,24 @@ async function loadFoodcostKPI() {
     const monthlyEst  = parseFloat(data?.monthly_revenue_estimate || 0);
 
     // También cargar foodcost_summary y prime_cost_summary para los warnings
-    const [{ data: fcData }, { data: primeData }] = await Promise.all([
-      sb.rpc('foodcost_summary', {
+    // NOTA: sb.rpc devuelve un thenable sin .catch() — usamos Promise.resolve() o try interno
+    let fcData = null, primeData = null;
+    try {
+      const fcRes = await sb.rpc('foodcost_summary', {
         p_restaurant_id: state.adminRestaurantId,
         p_from: from.toISOString(),
         p_to: now.toISOString()
-      }),
-      sb.rpc('prime_cost_summary', {
+      });
+      fcData = fcRes.data;
+    } catch (e) { console.warn('[foodcost_summary]', e); }
+    try {
+      const primeRes = await sb.rpc('prime_cost_summary', {
         p_restaurant_id: state.adminRestaurantId,
         p_from: from.toISOString(),
         p_to: now.toISOString()
-      }).catch(() => ({ data: null }))
-    ]);
+      });
+      primeData = primeRes.data;
+    } catch (e) { console.warn('[prime_cost_summary]', e); }
     const fcTheor = fcData?.foodcost_theoretical_pct;
     const noCost   = fcData?.dishes_without_manual_cost || 0;
     const noRecipe = fcData?.dishes_without_recipe || 0;
