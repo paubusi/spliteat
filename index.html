@@ -547,7 +547,14 @@
     content: ''; position: absolute; left: 0; top: 20%; bottom: 20%;
     width: 3px; background: var(--brand); border-radius: 0 2px 2px 0;
   }
-  .adm-nav-icon { font-size: 16px; width: 22px; text-align: center; }
+  .adm-nav-icon { font-size: 16px; width: 22px; text-align: center; flex-shrink: 0; }
+  .adm-nav-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; flex: 1; }
+  .adm-nav-sub  { font-size: 10.5px; color: rgba(255,255,255,.38); margin-top: 2px; font-weight: 400; }
+  .adm-nav.on .adm-nav-sub { color: rgba(255,255,255,.55); }
+  /* Compact mode: hide subtitle when sidebar is collapsed */
+  @media (max-width: 1100px) {
+    #admin-sidebar.compact .adm-nav-sub { display: none; }
+  }
 
   /* ── Main content area ── */
   #admin-main { height: 100%; }
@@ -2392,40 +2399,73 @@
         </div>
         <div id="admin-restaurant-label" style="padding:.25rem 1.25rem .85rem;font-size:12px;color:rgba(255,255,255,.4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
 
-        <!-- Nav items — order: Sala, Reservas, En espera, Cocina, Dashboard, Facturas, Ajustes -->
+        <!-- Nav items con subtítulos descriptivos -->
         <nav style="flex:1;padding:.25rem 0;overflow-y:auto">
           <button class="adm-nav on" data-tab="encurso" onclick="showAdminTab('encurso')">
             <span class="adm-nav-icon">🏠</span>
-            <span class="adm-nav-label">Sala</span>
+            <span class="adm-nav-text">
+              <span class="adm-nav-label">Sala</span>
+              <span class="adm-nav-sub">Mesas en curso</span>
+            </span>
             <span id="encurso-badge" style="display:none;background:#E24B4A;color:#fff;border-radius:99px;padding:0px 6px;font-size:10px;font-weight:700;margin-left:auto">0</span>
           </button>
           <button class="adm-nav" data-tab="reservas" onclick="showAdminTab('reservas')">
             <span class="adm-nav-icon">📅</span>
-            <span class="adm-nav-label">Reservas</span>
+            <span class="adm-nav-text">
+              <span class="adm-nav-label">book<em style="color:#D85A30;font-style:normal">eat</em></span>
+              <span class="adm-nav-sub">Reservas · Mesas</span>
+            </span>
             <span id="reservas-badge" style="display:none;background:#185FA5;color:#fff;border-radius:99px;padding:0px 6px;font-size:10px;font-weight:700;margin-left:auto">0</span>
           </button>
           <button class="adm-nav" data-tab="calleat" onclick="showAdminTab('calleat')">
             <span class="adm-nav-icon">🪑</span>
-            <span class="adm-nav-label">call<em style="color:#D85A30;font-style:normal">eat</em></span>
+            <span class="adm-nav-text">
+              <span class="adm-nav-label">call<em style="color:#D85A30;font-style:normal">eat</em></span>
+              <span class="adm-nav-sub">Lista de espera virtual</span>
+            </span>
             <span id="calleat-nav-badge" style="display:none;background:#D85A30;color:#fff;border-radius:99px;padding:0px 6px;font-size:10px;font-weight:700;margin-left:auto">0</span>
           </button>
           <button class="adm-nav" data-tab="cocina" onclick="showAdminTab('cocina')">
-            <span class="adm-nav-icon">🍳</span><span class="adm-nav-label">cook<em style="color:#D85A30;font-style:normal">eat</em></span>
+            <span class="adm-nav-icon">🍳</span>
+            <span class="adm-nav-text">
+              <span class="adm-nav-label">cook<em style="color:#D85A30;font-style:normal">eat</em></span>
+              <span class="adm-nav-sub">Cocina · KDS</span>
+            </span>
           </button>
           <button class="adm-nav" data-tab="reportes" onclick="showAdminTab('reportes')">
-            <span class="adm-nav-icon">📊</span><span class="adm-nav-label">KPI Dashboard</span>
+            <span class="adm-nav-icon">📊</span>
+            <span class="adm-nav-text">
+              <span class="adm-nav-label">trend<em style="color:#D85A30;font-style:normal">eat</em></span>
+              <span class="adm-nav-sub">KPIs · Análisis · Tendencias</span>
+            </span>
           </button>
           <button class="adm-nav" data-tab="facturas" onclick="showAdminTab('facturas')">
-            <span class="adm-nav-icon">🧾</span><span class="adm-nav-label">Facturas</span>
-          </button>
-          <button class="adm-nav" data-tab="gestion" onclick="showAdminTab('gestion')">
-            <span class="adm-nav-icon">⚙️</span><span class="adm-nav-label">Ajustes</span>
+            <span class="adm-nav-icon">🧾</span>
+            <span class="adm-nav-text">
+              <span class="adm-nav-label">fiscal<em style="color:#D85A30;font-style:normal">eat</em></span>
+              <span class="adm-nav-sub">Facturas · Verifactu · IVA</span>
+            </span>
           </button>
           <button class="adm-nav" data-tab="stockeat" onclick="showAdminTab('stockeat')">
-            <span class="adm-nav-icon">📦</span><span class="adm-nav-label">stock<em style="color:#D85A30;font-style:normal">eat</em></span>
+            <span class="adm-nav-icon">📦</span>
+            <span class="adm-nav-text">
+              <span class="adm-nav-label">stock<em style="color:#D85A30;font-style:normal">eat</em></span>
+              <span class="adm-nav-sub">Inventario y recetas</span>
+            </span>
           </button>
           <button class="adm-nav" data-tab="equipo" onclick="showAdminTab('equipo')">
-            <span class="adm-nav-icon">👥</span><span class="adm-nav-label">Equipo</span>
+            <span class="adm-nav-icon">⏱</span>
+            <span class="adm-nav-text">
+              <span class="adm-nav-label">control<em style="color:#D85A30;font-style:normal">eat</em></span>
+              <span class="adm-nav-sub">Control horario</span>
+            </span>
+          </button>
+          <button class="adm-nav" data-tab="gestion" onclick="showAdminTab('gestion')">
+            <span class="adm-nav-icon">⚙️</span>
+            <span class="adm-nav-text">
+              <span class="adm-nav-label">Ajustes</span>
+              <span class="adm-nav-sub">Carta · Mesas · Pagos · Datos</span>
+            </span>
           </button>
         </nav>
 
@@ -2474,10 +2514,10 @@
           <button class="adm-mob-tab" data-tab="reservas" onclick="showAdminTab('reservas')">📅<br><span>Reservas</span></button>
           <button class="adm-mob-tab" data-tab="calleat" onclick="showAdminTab('calleat')">🪑<br><span>Espera</span></button>
           <button class="adm-mob-tab" data-tab="cocina" onclick="showAdminTab('cocina')">🍳<br><span>Cocina</span></button>
-          <button class="adm-mob-tab" data-tab="reportes" onclick="showAdminTab('reportes')">📊<br><span>Dashboard</span></button>
-          <button class="adm-mob-tab" data-tab="facturas" onclick="showAdminTab('facturas')">📄<br><span>Facturas</span></button>
+          <button class="adm-mob-tab" data-tab="reportes" onclick="showAdminTab('reportes')">📊<br><span>Trends</span></button>
+          <button class="adm-mob-tab" data-tab="facturas" onclick="showAdminTab('facturas')">📄<br><span>Fiscal</span></button>
           <button class="adm-mob-tab" data-tab="stockeat" onclick="showAdminTab('stockeat')">📦<br><span>Stock</span></button>
-          <button class="adm-mob-tab" data-tab="equipo" onclick="showAdminTab('equipo')">👥<br><span>Equipo</span></button>
+          <button class="adm-mob-tab" data-tab="equipo" onclick="showAdminTab('equipo')">⏱<br><span>Horario</span></button>
           <button class="adm-mob-tab" data-tab="gestion" onclick="showAdminTab('gestion')">⚙️<br><span>Ajustes</span></button>
         </div>
 
@@ -2636,7 +2676,10 @@
     <!-- ── FACTURAS TAB ── -->
     <div id="atab-facturas" style="display:none;flex-direction:column;height:calc(100dvh - 57px);overflow:hidden">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.25rem;border-bottom:1px solid var(--bd);flex-shrink:0;gap:.5rem;flex-wrap:wrap">
-        <div style="font-size:15px;font-weight:600">🧾 Facturas</div>
+        <div>
+          <div style="font-size:15px;font-weight:600">🧾 fiscal<em style="color:#D85A30;font-style:normal">eat</em></div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px">Facturas · Verifactu · IVA</div>
+        </div>
         <div style="display:flex;align-items:center;gap:.5rem">
           <select id="facturas-filter" onchange="loadFacturas()" style="font-size:12px;padding:5px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);font-family:inherit">
             <option value="0">Hoy</option>
@@ -2710,7 +2753,11 @@
 
       <!-- Header -->
       <div style="display:flex;align-items:center;justify-content:space-between;padding:.6rem 1rem;border-bottom:1px solid var(--bd);background:var(--card);flex-shrink:0;gap:.5rem">
-        <div style="display:flex;align-items:center;gap:.5rem">
+        <div style="display:flex;align-items:center;gap:.85rem">
+          <div>
+            <div style="font-size:15px;font-weight:600;line-height:1">📅 book<em style="color:#D85A30;font-style:normal">eat</em></div>
+            <div style="font-size:10px;color:var(--t3);margin-top:2px">Reservas · Mesas</div>
+          </div>
           <div class="live-badge"><div class="live-dot"></div><span>Tiempo real</span></div>
           <!-- Selector de fecha -->
           <input type="date" id="reservas-date" onchange="loadReservas()"
@@ -2836,6 +2883,13 @@
     <!-- TAB REPORTES -->
     <!-- ═══════════════ DASHBOARD (old: Reportes) ═══════════════ -->
     <div id="atab-reportes" style="display:none;flex-direction:column;height:calc(100dvh - 57px);overflow:hidden">
+      <!-- Header con branding -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:.6rem 1rem;border-bottom:1px solid var(--bd);background:var(--card);flex-shrink:0;gap:.5rem">
+        <div>
+          <div style="font-size:15px;font-weight:600;line-height:1">📊 trend<em style="color:#D85A30;font-style:normal">eat</em></div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px">KPIs · Análisis · Tendencias</div>
+        </div>
+      </div>
       <!-- Sub-nav: only Resumen (platos + propinas embedded) -->
       <div style="display:flex;border-bottom:1px solid var(--bd);background:var(--card);padding:0 1rem;overflow-x:auto;flex-shrink:0;gap:2px">
         <button class="tab on" id="rtab-btn-kpis" onclick="showReportesTab('kpis')" style="font-size:13px;padding:.6rem .85rem;white-space:nowrap">📊 Resumen</button>
@@ -3037,7 +3091,7 @@
     <div id="atab-equipo" style="display:none;flex-direction:column;height:calc(100dvh - 57px);overflow-y:auto">
       <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--bd);background:var(--card);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:.65rem;flex-wrap:wrap">
         <div>
-          <div style="font-size:16px;font-weight:600">👥 Equipo</div>
+          <div style="font-size:16px;font-weight:600">⏱ control<em style="color:#D85A30;font-style:normal">eat</em></div>
           <div style="font-size:11px;color:var(--t3);margin-top:2px">Control horario · RD-ley 8/2019</div>
         </div>
         <div style="display:flex;gap:.5rem;align-items:center">
