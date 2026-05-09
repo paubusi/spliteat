@@ -3236,6 +3236,15 @@
             </div>
             <span class="settings-row-arrow">›</span>
           </div>
+          <!-- Sprint Costes Turno 7 — Costes compartidos -->
+          <div class="settings-row" onclick="openAjustesSection('costes-compartidos')">
+            <span class="settings-row-icon">🔗</span>
+            <div class="settings-row-content">
+              <div class="settings-row-title">Costes compartidos</div>
+              <div class="settings-row-desc">Gastos prorrateados entre tus restaurantes (asesoría, marketing, etc.)</div>
+            </div>
+            <span class="settings-row-arrow">›</span>
+          </div>
         </div>
 
         <!-- Sub-Sprint A.4+A.6: Cocina (zonas + modos KDS) -->
@@ -14533,7 +14542,8 @@ function openAjustesSection(section) {
     'zonas': 'Zonas de cocina',
     'cocina-modos': 'Modos de KDS',
     'fiscal': 'Datos fiscales y certificado',
-    'costes-fijos': 'Costes fijos del restaurante'
+    'costes-fijos': 'Costes fijos del restaurante',
+    'costes-compartidos': 'Costes compartidos entre restaurantes'
   };
   if (title) title.textContent = titles[section] || section;
 
@@ -14638,6 +14648,8 @@ function openAjustesSection(section) {
     renderFiscalSection(content);
   } else if (section === 'costes-fijos') {
     renderFixedCostsSection(content);
+  } else if (section === 'costes-compartidos') {
+    renderSharedCostsSection(content);
   } else {
     content.innerHTML = `<div class="notice notice-warn">Sección "${titles[section]}" — próximamente</div>`;
   }
@@ -15451,6 +15463,377 @@ async function deleteFixedCost(id, name) {
   notify('Coste eliminado', 'success');
   const container = document.getElementById('ajustes-panel-content');
   if (container) renderFixedCostsSection(container);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SPRINT COSTES Turno 7 — Costes compartidos (multi-restaurante)
+// ══════════════════════════════════════════════════════════════════
+const _ALLOCATION_METHODS = [
+  { id: 'equal',   label: 'Equitativo',     icon: '⚖️',  hint: 'Dividir 1/N entre todos los restaurantes' },
+  { id: 'manual',  label: 'Manual (%)',     icon: '✏️',  hint: 'Tú decides el % de cada restaurante' },
+  { id: 'revenue', label: 'Por facturación', icon: '📈', hint: 'El que más vende paga más (últimos 30d)' }
+];
+
+function _allocMethodLabel(id) {
+  const m = _ALLOCATION_METHODS.find(m => m.id === id);
+  return m ? `${m.icon} ${m.label}` : id;
+}
+
+async function renderSharedCostsSection(container) {
+  container.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3)">Cargando...</div>';
+
+  if (!state.owner?.id) {
+    container.innerHTML = `<div class="notice notice-warn" style="margin:1rem">
+      No hay owner configurado para este restaurante. Ejecuta la migración SQL del Turno 6.
+    </div>`;
+    return;
+  }
+
+  const ownerId = state.owner.id;
+  const restCount = state.owner.restaurant_count || 1;
+
+  // Si solo hay 1 restaurante → CTA, no permitir crear costes compartidos
+  if (restCount < 2) {
+    container.innerHTML = `
+      <div style="background:var(--bg2);border-radius:var(--r);padding:1.5rem;margin-bottom:1rem;text-align:center">
+        <div style="font-size:32px;margin-bottom:.5rem">🏢</div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:.5rem">Solo tienes 1 restaurante</div>
+        <div style="font-size:12px;color:var(--t2);line-height:1.6;max-width:380px;margin:0 auto">
+          Los costes compartidos sirven para repartir gastos comunes (asesoría, software multi-local, agencia de marketing) entre <strong>varios restaurantes del mismo grupo</strong>.
+        </div>
+        <div style="font-size:12px;color:var(--t2);line-height:1.6;max-width:380px;margin:.75rem auto 0">
+          Cuando añadas otro restaurante a tu grupo, aquí podrás definir cómo se reparten los gastos comunes.
+        </div>
+        <div style="margin-top:1rem;padding:.65rem .85rem;background:var(--card);border:1px dashed var(--bd2);border-radius:var(--r-sm);font-size:11px;color:var(--t3);max-width:380px;margin:1rem auto 0">
+          💡 Para añadir un nuevo restaurante a tu grupo, contacta con el equipo de spliteat.
+        </div>
+      </div>`;
+    return;
+  }
+
+  // Cargar costes compartidos del owner
+  let costs = [];
+  try {
+    const { data, error } = await sb.rpc('list_shared_costs_for_owner', { p_owner_id: ownerId });
+    if (error) throw error;
+    costs = data || [];
+  } catch (e) {
+    console.warn('[list_shared_costs_for_owner]', e);
+    container.innerHTML = `<div class="notice notice-warn" style="margin:1rem">
+      Error cargando costes compartidos: ${e.message || 'desconocido'}
+    </div>`;
+    return;
+  }
+
+  // Cargar lista de restaurantes del owner para el form
+  const { data: restaurants } = await sb.from('restaurants')
+    .select('id,name')
+    .eq('owner_id', ownerId)
+    .order('name');
+
+  const totalMonthly = costs.reduce((s, c) => s + parseFloat(c.monthly_equivalent || 0), 0);
+  const myShare = costs.reduce((sum, c) => {
+    const myAlloc = (c.allocations || []).find(a => a.restaurant_id === state.adminRestaurantId);
+    return sum + (myAlloc ? parseFloat(myAlloc.monthly_share || 0) : 0);
+  }, 0);
+
+  let html = `
+    <div style="background:var(--bg2);border-radius:var(--r);padding:1rem;margin-bottom:1rem">
+      <div style="font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:.85rem">
+        🔗 Costes que sirven a varios restaurantes (asesoría fiscal, agencia marketing, software multi-local). Se prorratean según el método elegido.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
+        <div style="background:var(--card);border-radius:var(--r-sm);padding:.75rem .85rem">
+          <div style="font-size:11px;color:var(--t3);margin-bottom:3px">📅 Total grupo /mes</div>
+          <div style="font-size:22px;font-weight:700;color:var(--brand-d);line-height:1">${fmt(totalMonthly)}</div>
+        </div>
+        <div style="background:var(--card);border-radius:var(--r-sm);padding:.75rem .85rem">
+          <div style="font-size:11px;color:var(--t3);margin-bottom:3px">💰 Mi parte /mes</div>
+          <div style="font-size:22px;font-weight:700;color:var(--t1);line-height:1">${fmt(myShare)}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px">${escHtml(state.adminRestaurantName)}</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.65rem">
+      <div style="font-size:13px;color:var(--t2)">${costs.length} ${costs.length === 1 ? 'coste compartido' : 'costes compartidos'}</div>
+      <button class="btn btn-primary btn-sm" onclick="showAddSharedCostForm()">+ Añadir coste compartido</button>
+    </div>
+
+    <!-- Formulario añadir/editar -->
+    <div id="add-shared-cost-form" style="display:none;background:var(--card);border:1.5px solid var(--brand);border-radius:var(--r);padding:1rem;margin-bottom:1rem">
+      <div style="font-size:13px;font-weight:600;margin-bottom:.75rem">Nuevo coste compartido</div>
+      <div class="field">
+        <label>Nombre</label>
+        <input id="shc-name" type="text" placeholder="Ej. Asesoría fiscal grupo, Agencia marketing..." autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Categoría</label>
+        <select id="shc-category" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
+          ${_FIXED_COST_CATEGORIES.map(c => `<option value="${c.id}">${c.icon} ${c.label}${c.hint ? ' — ' + c.hint : ''}</option>`).join('')}
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem">
+        <div class="field" style="margin:0">
+          <label>Importe (€)</label>
+          <input id="shc-amount" type="number" step="0.01" min="0" placeholder="Ej. 300.00" autocomplete="off" oninput="_updateShcMonthlyHint()">
+        </div>
+        <div class="field" style="margin:0">
+          <label>Frecuencia</label>
+          <select id="shc-frequency" onchange="_updateShcMonthlyHint()" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
+            ${_FIXED_COST_FREQUENCIES.map(f => `<option value="${f.id}">${f.label}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div id="shc-monthly-hint" style="font-size:11px;color:var(--brand-d);margin-top:.4rem;padding:.4rem .65rem;background:var(--brand-l);border-radius:var(--r-sm);display:none"></div>
+
+      <div class="field" style="margin-top:.75rem">
+        <label>Método de reparto</label>
+        <select id="shc-method" onchange="_updateAllocationUI()" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
+          ${_ALLOCATION_METHODS.map(m => `<option value="${m.id}">${m.icon} ${m.label} — ${m.hint}</option>`).join('')}
+        </select>
+      </div>
+
+      <!-- UI dinámica según método -->
+      <div id="shc-allocation-ui" style="margin-top:.5rem"></div>
+
+      <div class="field" style="margin-top:.75rem">
+        <label>Notas <span style="font-weight:400;color:var(--t3)">(opcional)</span></label>
+        <input id="shc-notes" type="text" placeholder="Ej. contrato hasta dic 2026" autocomplete="off">
+      </div>
+      <div style="display:flex;gap:.5rem;margin-top:.75rem">
+        <button class="btn btn-primary btn-sm" onclick="saveSharedCost()">Guardar</button>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('add-shared-cost-form').style.display='none'">Cancelar</button>
+      </div>
+    </div>`;
+
+  // Lista de costes
+  if (!costs.length) {
+    html += `<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px;border:1px dashed var(--bd2);border-radius:var(--r)">
+      Sin costes compartidos. Añade el primero (asesoría, marketing, software).
+    </div>`;
+  } else {
+    costs.forEach(c => {
+      const monthlyEq = parseFloat(c.monthly_equivalent || 0);
+      const myAlloc = (c.allocations || []).find(a => a.restaurant_id === state.adminRestaurantId);
+      const myShare = myAlloc ? parseFloat(myAlloc.monthly_share || 0) : 0;
+      const allocPct = monthlyEq > 0 ? (myShare / monthlyEq * 100) : 0;
+      html += `<div class="card" style="margin-bottom:.5rem;padding:.85rem 1rem">
+        <div style="display:flex;align-items:flex-start;gap:.75rem">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;color:var(--t1)">${escHtml(c.name)}</div>
+            <div style="font-size:11px;color:var(--t3);margin-top:2px">${_fixedCostCatLabel(c.category)} · ${_allocMethodLabel(c.allocation_method)}</div>
+            ${c.notes ? `<div style="font-size:11px;color:var(--t3);margin-top:3px;font-style:italic">${escHtml(c.notes)}</div>` : ''}
+          </div>
+          <div style="display:flex;gap:4px;flex-shrink:0">
+            <button onclick="editSharedCost('${c.id}')" title="Editar" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer">✏️</button>
+            <button onclick="deleteSharedCost('${c.id}','${escHtml(c.name).replace(/'/g, '&#39;')}')" title="Eliminar" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer">✕</button>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.65rem;padding-top:.65rem;border-top:1px solid var(--bd)">
+          <div>
+            <div style="font-size:10px;color:var(--t3)">Coste total /mes</div>
+            <div style="font-size:14px;font-weight:600;color:var(--brand-d)">${fmt(monthlyEq)}</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--t3)">Mi parte /mes (${allocPct.toFixed(0)}%)</div>
+            <div style="font-size:14px;font-weight:600;color:var(--t1)">${fmt(myShare)}</div>
+          </div>
+        </div>
+        ${(c.allocations && c.allocations.length > 1) ? `
+        <div style="margin-top:.5rem;padding-top:.5rem;border-top:1px dashed var(--bd2);font-size:10px;color:var(--t3)">
+          ${c.allocations.map(a => `${escHtml(a.restaurant_name)}: <strong style="color:var(--t2)">${fmt(parseFloat(a.monthly_share))}</strong>`).join(' · ')}
+        </div>` : ''}
+      </div>`;
+    });
+  }
+
+  container.innerHTML = html;
+}
+
+function showAddSharedCostForm() {
+  const f = document.getElementById('add-shared-cost-form');
+  if (!f) return;
+  f.style.display = 'block';
+  ['shc-name','shc-amount','shc-notes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  const freqEl = document.getElementById('shc-frequency'); if (freqEl) freqEl.value = 'monthly';
+  const methodEl = document.getElementById('shc-method'); if (methodEl) methodEl.value = 'equal';
+  delete f.dataset.editingId;
+  _updateShcMonthlyHint();
+  _updateAllocationUI();
+  document.getElementById('shc-name')?.focus();
+}
+
+function _updateShcMonthlyHint() {
+  const hint = document.getElementById('shc-monthly-hint');
+  const amount = parseFloat(document.getElementById('shc-amount')?.value);
+  const freq = document.getElementById('shc-frequency')?.value || 'monthly';
+  if (!hint) return;
+  if (isNaN(amount) || amount <= 0 || freq === 'monthly') {
+    hint.style.display = 'none'; return;
+  }
+  const monthlyEq = _monthlyEquivalent(amount, freq);
+  hint.innerHTML = `📊 Equivalente: <strong>${fmt(monthlyEq)}/mes</strong> · ${fmt(monthlyEq * 12)}/año`;
+  hint.style.display = 'block';
+}
+
+async function _updateAllocationUI() {
+  const method = document.getElementById('shc-method')?.value || 'equal';
+  const ui = document.getElementById('shc-allocation-ui');
+  if (!ui) return;
+
+  if (method === 'equal') {
+    const n = state.owner?.restaurant_count || 1;
+    ui.innerHTML = `<div style="font-size:11px;color:var(--t3);background:var(--bg2);padding:.6rem .75rem;border-radius:var(--r-sm);line-height:1.5">
+      ⚖️ Se dividirá automáticamente entre los <strong>${n}</strong> restaurantes del grupo a partes iguales (1/${n} cada uno).
+    </div>`;
+  } else if (method === 'revenue') {
+    ui.innerHTML = `<div style="font-size:11px;color:var(--t3);background:var(--bg2);padding:.6rem .75rem;border-radius:var(--r-sm);line-height:1.5">
+      📈 Se prorratea proporcionalmente al revenue de los últimos 30 días. Si ningún restaurante tiene ventas, se reparte equitativamente.
+    </div>`;
+  } else if (method === 'manual') {
+    // Cargar restaurantes del owner para el % manual
+    const { data: rests } = await sb.from('restaurants').select('id,name').eq('owner_id', state.owner.id).order('name');
+    if (!rests?.length) { ui.innerHTML = ''; return; }
+
+    // Si estamos editando, cargar allocations existentes
+    const editingId = document.getElementById('add-shared-cost-form')?.dataset.editingId;
+    let existingAllocs = {};
+    if (editingId) {
+      const { data: allocs } = await sb.from('shared_cost_allocations')
+        .select('restaurant_id, allocation_pct')
+        .eq('shared_cost_id', editingId);
+      (allocs || []).forEach(a => { existingAllocs[a.restaurant_id] = parseFloat(a.allocation_pct); });
+    }
+
+    // Si no hay existentes y son N restaurantes → 100/N de default
+    const defaultPct = 100 / rests.length;
+
+    ui.innerHTML = `
+      <div style="font-size:11px;color:var(--t3);margin-bottom:.4rem">✏️ Asigna el % de cada restaurante (deben sumar 100%)</div>
+      <div style="display:flex;flex-direction:column;gap:.4rem">
+      ${rests.map(r => `
+        <div style="display:flex;align-items:center;gap:.5rem;background:var(--bg2);padding:.5rem .65rem;border-radius:var(--r-sm)">
+          <div style="flex:1;font-size:12px;font-weight:500">${escHtml(r.name)}</div>
+          <input type="number" min="0" max="100" step="0.1"
+                 data-rest-id="${r.id}"
+                 class="shc-alloc-input"
+                 value="${existingAllocs[r.id] != null ? existingAllocs[r.id] : defaultPct.toFixed(1)}"
+                 onchange="_validateAllocSum()"
+                 style="width:80px;padding:6px 8px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:13px;text-align:right">
+          <span style="font-size:11px;color:var(--t3);min-width:14px">%</span>
+        </div>
+      `).join('')}
+      </div>
+      <div id="shc-alloc-sum-warn" style="font-size:11px;margin-top:.4rem"></div>`;
+    _validateAllocSum();
+  }
+}
+
+function _validateAllocSum() {
+  const inputs = document.querySelectorAll('.shc-alloc-input');
+  if (!inputs.length) return;
+  const sum = Array.from(inputs).reduce((s, i) => s + (parseFloat(i.value) || 0), 0);
+  const warn = document.getElementById('shc-alloc-sum-warn');
+  if (!warn) return;
+  if (Math.abs(sum - 100) < 0.05) {
+    warn.innerHTML = `<span style="color:#3B6D11">✓ Suma: 100%</span>`;
+  } else {
+    warn.innerHTML = `<span style="color:#A32D2D">⚠ Suma actual: ${sum.toFixed(1)}% (debe ser 100%)</span>`;
+  }
+}
+
+async function saveSharedCost() {
+  const name = document.getElementById('shc-name')?.value.trim();
+  const category = document.getElementById('shc-category')?.value || 'otros';
+  const amount = parseFloat(document.getElementById('shc-amount')?.value);
+  const frequency = document.getElementById('shc-frequency')?.value || 'monthly';
+  const method = document.getElementById('shc-method')?.value || 'equal';
+  const notes = document.getElementById('shc-notes')?.value.trim() || null;
+
+  if (!name) { notify('Nombre obligatorio', 'error'); return; }
+  if (isNaN(amount) || amount < 0) { notify('Importe no válido', 'error'); return; }
+  if (!state.owner?.id) { notify('No hay owner configurado', 'error'); return; }
+
+  // Validar allocations si method='manual'
+  let allocsToSave = [];
+  if (method === 'manual') {
+    const inputs = document.querySelectorAll('.shc-alloc-input');
+    let sum = 0;
+    inputs.forEach(i => {
+      const pct = parseFloat(i.value) || 0;
+      sum += pct;
+      allocsToSave.push({ restaurant_id: i.dataset.restId, allocation_pct: pct });
+    });
+    if (Math.abs(sum - 100) > 0.05) {
+      notify(`Los % deben sumar 100% (ahora suman ${sum.toFixed(1)}%)`, 'error');
+      return;
+    }
+  }
+
+  const editingId = document.getElementById('add-shared-cost-form')?.dataset.editingId;
+  const payload = {
+    owner_id: state.owner.id,
+    name, category, amount,
+    payment_frequency: frequency,
+    allocation_method: method,
+    notes,
+    updated_at: new Date().toISOString()
+  };
+
+  let costId;
+  if (editingId) {
+    const res = await sb.from('shared_costs').update(payload).eq('id', editingId);
+    if (res.error) { notify('Error: ' + res.error.message, 'error'); return; }
+    costId = editingId;
+    // Limpiar allocations viejas
+    await sb.from('shared_cost_allocations').delete().eq('shared_cost_id', costId);
+  } else {
+    const res = await sb.from('shared_costs').insert(payload).select('id').single();
+    if (res.error) { notify('Error: ' + res.error.message, 'error'); return; }
+    costId = res.data.id;
+  }
+
+  // Guardar allocations si method='manual'
+  if (method === 'manual' && allocsToSave.length > 0) {
+    const allocsPayload = allocsToSave.map(a => ({
+      shared_cost_id: costId,
+      restaurant_id: a.restaurant_id,
+      allocation_pct: a.allocation_pct
+    }));
+    const { error } = await sb.from('shared_cost_allocations').insert(allocsPayload);
+    if (error) { notify('Coste guardado pero falló reparto: ' + error.message, 'error'); }
+  }
+
+  notify(editingId ? 'Coste actualizado' : 'Coste compartido añadido', 'success');
+  document.getElementById('add-shared-cost-form').style.display = 'none';
+  delete document.getElementById('add-shared-cost-form').dataset.editingId;
+  const container = document.getElementById('ajustes-panel-content');
+  if (container) renderSharedCostsSection(container);
+}
+
+async function editSharedCost(id) {
+  const { data: c } = await sb.from('shared_costs').select('*').eq('id', id).maybeSingle();
+  if (!c) { notify('Coste no encontrado', 'error'); return; }
+  showAddSharedCostForm();
+  document.getElementById('shc-name').value = c.name || '';
+  document.getElementById('shc-category').value = c.category || 'otros';
+  document.getElementById('shc-amount').value = c.amount || '';
+  document.getElementById('shc-frequency').value = c.payment_frequency || 'monthly';
+  document.getElementById('shc-method').value = c.allocation_method || 'equal';
+  document.getElementById('shc-notes').value = c.notes || '';
+  document.getElementById('add-shared-cost-form').dataset.editingId = id;
+  _updateShcMonthlyHint();
+  _updateAllocationUI();
+}
+
+async function deleteSharedCost(id, name) {
+  if (!confirm(`¿Eliminar "${name}"?`)) return;
+  const { error } = await sb.from('shared_costs').update({ is_active: false }).eq('id', id);
+  if (error) { notify('Error: ' + error.message, 'error'); return; }
+  notify('Coste compartido eliminado', 'success');
+  const container = document.getElementById('ajustes-panel-content');
+  if (container) renderSharedCostsSection(container);
 }
 
 async function saveFiscalConfig() {
