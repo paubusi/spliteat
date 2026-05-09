@@ -3225,6 +3225,19 @@
           </div>
         </div>
 
+        <!-- Sprint Costes Turno 5 — Costes fijos -->
+        <div class="settings-section">
+          <div class="settings-section-header">Finanzas</div>
+          <div class="settings-row" onclick="openAjustesSection('costes-fijos')">
+            <span class="settings-row-icon">💰</span>
+            <div class="settings-row-content">
+              <div class="settings-row-title">Costes fijos</div>
+              <div class="settings-row-desc">Alquiler, suministros, seguros, software · para calcular punto de equilibrio</div>
+            </div>
+            <span class="settings-row-arrow">›</span>
+          </div>
+        </div>
+
         <!-- Sub-Sprint A.4+A.6: Cocina (zonas + modos KDS) -->
         <div class="settings-section">
           <div class="settings-section-header">Cocina</div>
@@ -14501,7 +14514,8 @@ function openAjustesSection(section) {
     'metodos-pago': 'Métodos de pago aceptados',
     'zonas': 'Zonas de cocina',
     'cocina-modos': 'Modos de KDS',
-    'fiscal': 'Datos fiscales y certificado'
+    'fiscal': 'Datos fiscales y certificado',
+    'costes-fijos': 'Costes fijos del restaurante'
   };
   if (title) title.textContent = titles[section] || section;
 
@@ -14604,6 +14618,8 @@ function openAjustesSection(section) {
     renderKitchenModosSection(content);
   } else if (section === 'fiscal') {
     renderFiscalSection(content);
+  } else if (section === 'costes-fijos') {
+    renderFixedCostsSection(content);
   } else {
     content.innerHTML = `<div class="notice notice-warn">Sección "${titles[section]}" — próximamente</div>`;
   }
@@ -15158,6 +15174,196 @@ async function renderFiscalSection(container) {
       <button class="btn btn-primary" onclick="saveFiscalConfig()" style="flex:2">Guardar configuración</button>
     </div>
   `;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SPRINT COSTES Turno 5 — Costes fijos del restaurante
+// ══════════════════════════════════════════════════════════════════
+const _FIXED_COST_CATEGORIES = [
+  { id: 'alquiler',     label: 'Alquiler',         icon: '🏠' },
+  { id: 'suministros',  label: 'Suministros',      icon: '💡', hint: 'Luz, agua, gas, basura' },
+  { id: 'seguros',      label: 'Seguros',          icon: '🛡' },
+  { id: 'internet',     label: 'Internet/Telefonía', icon: '📡' },
+  { id: 'software',     label: 'Software/SaaS',    icon: '💻', hint: 'TPV, gestor, spliteat...' },
+  { id: 'asesoria',     label: 'Asesoría/Gestoría', icon: '📊' },
+  { id: 'marketing',    label: 'Marketing',        icon: '📣' },
+  { id: 'mantenimiento', label: 'Mantenimiento',   icon: '🔧' },
+  { id: 'licencias',    label: 'Licencias/Tasas',  icon: '📜' },
+  { id: 'otros',        label: 'Otros',            icon: '📦' }
+];
+
+function _fixedCostCatLabel(id) {
+  const c = _FIXED_COST_CATEGORIES.find(c => c.id === id);
+  return c ? `${c.icon} ${c.label}` : '📦 ' + id;
+}
+
+async function renderFixedCostsSection(container) {
+  container.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3)">Cargando...</div>';
+
+  // Cargar costes activos + summary
+  const [{ data: costs }, { data: summary }] = await Promise.all([
+    sb.from('restaurant_fixed_costs')
+      .select('*')
+      .eq('restaurant_id', state.adminRestaurantId)
+      .eq('is_active', true)
+      .order('category').order('name'),
+    sb.from('restaurant_fixed_costs_summary')
+      .select('*')
+      .eq('restaurant_id', state.adminRestaurantId)
+      .maybeSingle()
+  ]);
+
+  const totalMonthly = parseFloat(summary?.total_monthly || 0);
+  const totalAnnual  = parseFloat(summary?.total_annual || 0);
+  const count        = summary?.cost_count || 0;
+
+  // Cabecera con KPIs y CTA
+  let html = `
+    <div style="background:var(--bg2);border-radius:var(--r);padding:1rem;margin-bottom:1rem">
+      <div style="font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:.85rem">
+        💡 Registra tus costes fijos mensuales (alquiler, suministros, seguros, software...). Te servirán para calcular tu <strong>punto de equilibrio</strong> y el <strong>EBITDA</strong> en trendeat.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">
+        <div style="background:var(--card);border-radius:var(--r-sm);padding:.75rem .85rem">
+          <div style="font-size:11px;color:var(--t3);margin-bottom:3px">📅 Total mensual</div>
+          <div style="font-size:22px;font-weight:700;color:var(--brand-d);line-height:1">${fmt(totalMonthly)}</div>
+        </div>
+        <div style="background:var(--card);border-radius:var(--r-sm);padding:.75rem .85rem">
+          <div style="font-size:11px;color:var(--t3);margin-bottom:3px">📊 Total anual</div>
+          <div style="font-size:22px;font-weight:700;color:var(--t1);line-height:1">${fmt(totalAnnual)}</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.65rem">
+      <div style="font-size:13px;color:var(--t2)">${count} ${count === 1 ? 'coste registrado' : 'costes registrados'}</div>
+      <button class="btn btn-primary btn-sm" onclick="showAddFixedCostForm()">+ Añadir coste</button>
+    </div>
+
+    <!-- Formulario añadir coste -->
+    <div id="add-fixed-cost-form" style="display:none;background:var(--card);border:1.5px solid var(--brand);border-radius:var(--r);padding:1rem;margin-bottom:1rem">
+      <div style="font-size:13px;font-weight:600;margin-bottom:.75rem">Nuevo coste fijo</div>
+      <div class="field">
+        <label>Nombre</label>
+        <input id="fc-name" type="text" placeholder="Ej. Alquiler local, Iberdrola, Movistar..." autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Categoría</label>
+        <select id="fc-category" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
+          ${_FIXED_COST_CATEGORIES.map(c => `<option value="${c.id}">${c.icon} ${c.label}${c.hint ? ' — ' + c.hint : ''}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>Importe mensual (€)</label>
+        <input id="fc-amount" type="number" step="0.01" min="0" placeholder="Ej. 1500.00" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Notas <span style="font-weight:400;color:var(--t3)">(opcional)</span></label>
+        <input id="fc-notes" type="text" placeholder="Ej. contrato hasta dic 2026" autocomplete="off">
+      </div>
+      <div style="display:flex;gap:.5rem;margin-top:.75rem">
+        <button class="btn btn-primary btn-sm" onclick="saveFixedCost()">Guardar</button>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('add-fixed-cost-form').style.display='none'">Cancelar</button>
+      </div>
+    </div>`;
+
+  // Lista de costes agrupados por categoría
+  if (!costs?.length) {
+    html += `<div style="text-align:center;padding:2rem;color:var(--t3);font-size:13px;border:1px dashed var(--bd2);border-radius:var(--r)">
+      Sin costes fijos registrados aún. Empieza añadiendo el alquiler, suministros, seguros...
+    </div>`;
+  } else {
+    const cats = [...new Set(costs.map(c => c.category))];
+    cats.forEach(cat => {
+      const items = costs.filter(c => c.category === cat);
+      const subtotal = items.reduce((s, c) => s + parseFloat(c.monthly_amount), 0);
+      html += `<div style="margin-bottom:1rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem;padding:0 .25rem">
+          <span>${_fixedCostCatLabel(cat)}</span>
+          <span>${fmt(subtotal)}/mes</span>
+        </div>`;
+      items.forEach(c => {
+        html += `<div class="card" style="margin-bottom:.4rem;padding:.75rem .85rem">
+          <div style="display:flex;align-items:center;gap:.75rem">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:500;color:var(--t1)">${escHtml(c.name)}</div>
+              ${c.notes ? `<div style="font-size:11px;color:var(--t3);margin-top:2px">${escHtml(c.notes)}</div>` : ''}
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              <div style="font-size:14px;font-weight:600;color:var(--brand-d)">${fmt(parseFloat(c.monthly_amount))}</div>
+              <div style="font-size:10px;color:var(--t3)">al mes</div>
+            </div>
+            <div style="display:flex;gap:4px;flex-shrink:0">
+              <button onclick="editFixedCost('${c.id}')" title="Editar" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer">✏️</button>
+              <button onclick="deleteFixedCost('${c.id}','${escHtml(c.name).replace(/'/g, '&#39;')}')" title="Eliminar" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer">✕</button>
+            </div>
+          </div>
+        </div>`;
+      });
+      html += `</div>`;
+    });
+  }
+
+  container.innerHTML = html;
+}
+
+function showAddFixedCostForm() {
+  const f = document.getElementById('add-fixed-cost-form');
+  if (!f) return;
+  f.style.display = 'block';
+  ['fc-name','fc-amount','fc-notes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('fc-name')?.focus();
+}
+
+async function saveFixedCost() {
+  const name = document.getElementById('fc-name')?.value.trim();
+  const category = document.getElementById('fc-category')?.value || 'otros';
+  const amount = parseFloat(document.getElementById('fc-amount')?.value);
+  const notes = document.getElementById('fc-notes')?.value.trim() || null;
+
+  if (!name) { notify('Nombre obligatorio', 'error'); return; }
+  if (isNaN(amount) || amount < 0) { notify('Importe no válido', 'error'); return; }
+
+  const editingId = document.getElementById('add-fixed-cost-form')?.dataset.editingId;
+  let res;
+  if (editingId) {
+    res = await sb.from('restaurant_fixed_costs').update({
+      name, category, monthly_amount: amount, notes, updated_at: new Date().toISOString()
+    }).eq('id', editingId);
+    delete document.getElementById('add-fixed-cost-form').dataset.editingId;
+  } else {
+    res = await sb.from('restaurant_fixed_costs').insert({
+      restaurant_id: state.adminRestaurantId,
+      name, category, monthly_amount: amount, notes
+    });
+  }
+  if (res.error) { notify('Error: ' + res.error.message, 'error'); return; }
+  notify(editingId ? 'Coste actualizado' : 'Coste añadido', 'success');
+  document.getElementById('add-fixed-cost-form').style.display = 'none';
+  // Recargar
+  const container = document.getElementById('ajustes-panel-content');
+  if (container) renderFixedCostsSection(container);
+}
+
+async function editFixedCost(id) {
+  const { data: c } = await sb.from('restaurant_fixed_costs').select('*').eq('id', id).maybeSingle();
+  if (!c) { notify('Coste no encontrado', 'error'); return; }
+  showAddFixedCostForm();
+  document.getElementById('fc-name').value = c.name || '';
+  document.getElementById('fc-category').value = c.category || 'otros';
+  document.getElementById('fc-amount').value = c.monthly_amount || '';
+  document.getElementById('fc-notes').value = c.notes || '';
+  document.getElementById('add-fixed-cost-form').dataset.editingId = id;
+}
+
+async function deleteFixedCost(id, name) {
+  if (!confirm(`¿Eliminar "${name}"?`)) return;
+  // Soft delete: marcar inactivo
+  const { error } = await sb.from('restaurant_fixed_costs').update({ is_active: false }).eq('id', id);
+  if (error) { notify('Error: ' + error.message, 'error'); return; }
+  notify('Coste eliminado', 'success');
+  const container = document.getElementById('ajustes-panel-content');
+  if (container) renderFixedCostsSection(container);
 }
 
 async function saveFiscalConfig() {
@@ -19846,35 +20052,49 @@ async function loadFoodcostKPI() {
   }
 
   try {
-    // Sprint Costes Turno 3 — usar prime_cost_summary que ya incluye food+labor
-    const { data, error } = await sb.rpc('prime_cost_summary', {
+    // Sprint Costes Turno 5 — usar full_cost_summary que incluye fixed costs + EBITDA + break-even
+    const { data, error } = await sb.rpc('full_cost_summary', {
       p_restaurant_id: state.adminRestaurantId,
       p_from: from.toISOString(),
       p_to: now.toISOString()
     });
     if (error) {
-      // Fallback a foodcost_summary si prime no existe (Turno 3 no ejecutado)
-      return _loadFoodcostKPILegacy(el, from, now);
+      // Fallback a prime_cost si turno 5 no ejecutado
+      return _loadPrimeCostKPILegacy(el, from, now);
     }
 
     const fcPct       = data?.food_cost_pct;
     const laborPct    = data?.labor_cost_pct;
+    const fixedPct    = data?.fixed_cost_pct;
     const primePct    = data?.prime_cost_pct;
+    const totalPct    = data?.total_cost_pct;
+    const ebitdaPct   = data?.ebitda_pct;
     const revenue     = parseFloat(data?.revenue || 0);
     const foodCost    = parseFloat(data?.food_cost || 0);
     const laborCost   = parseFloat(data?.labor_cost || 0);
-    const grossMargin = parseFloat(data?.gross_margin || 0);
-    const empNoRate   = data?.employees_without_rate || 0;
+    const fixedMonthly = parseFloat(data?.fixed_costs_monthly || 0);
+    const fixedPeriod = parseFloat(data?.fixed_costs_period || 0);
+    const ebitda      = parseFloat(data?.ebitda || 0);
+    const breakEven   = data?.break_even_monthly != null ? parseFloat(data.break_even_monthly) : null;
+    const monthlyEst  = parseFloat(data?.monthly_revenue_estimate || 0);
 
-    // También cargar foodcost_summary para los warnings de receta
-    const { data: fcData } = await sb.rpc('foodcost_summary', {
-      p_restaurant_id: state.adminRestaurantId,
-      p_from: from.toISOString(),
-      p_to: now.toISOString()
-    });
+    // También cargar foodcost_summary y prime_cost_summary para los warnings
+    const [{ data: fcData }, { data: primeData }] = await Promise.all([
+      sb.rpc('foodcost_summary', {
+        p_restaurant_id: state.adminRestaurantId,
+        p_from: from.toISOString(),
+        p_to: now.toISOString()
+      }),
+      sb.rpc('prime_cost_summary', {
+        p_restaurant_id: state.adminRestaurantId,
+        p_from: from.toISOString(),
+        p_to: now.toISOString()
+      }).catch(() => ({ data: null }))
+    ]);
     const fcTheor = fcData?.foodcost_theoretical_pct;
     const noCost   = fcData?.dishes_without_manual_cost || 0;
     const noRecipe = fcData?.dishes_without_recipe || 0;
+    const empNoRate = primeData?.employees_without_rate || 0;
 
     if (revenue === 0) {
       el.style.display = 'none';
@@ -19886,8 +20106,14 @@ async function loadFoodcostKPI() {
     const fcLabel    = pct => pct == null ? 'sin datos' : pct < 30 ? 'saludable' : pct <= 35 ? 'ajustado' : 'alto';
     const laborColor = pct => pct == null ? 'var(--t3)' : pct < 25 ? '#3B6D11' : pct <= 35 ? '#C26B0A' : '#A32D2D';
     const laborLabel = pct => pct == null ? 'sin datos' : pct < 25 ? 'eficiente' : pct <= 35 ? 'normal' : 'alto';
+    const fixedColor = pct => pct == null ? 'var(--t3)' : pct < 15 ? '#3B6D11' : pct <= 25 ? '#C26B0A' : '#A32D2D';
+    const fixedLabel = pct => pct == null ? 'sin datos' : pct < 15 ? 'controlado' : pct <= 25 ? 'normal' : 'alto';
     const primeColor = pct => pct == null ? 'var(--t3)' : pct < 60 ? '#3B6D11' : pct <= 65 ? '#C26B0A' : '#A32D2D';
     const primeLabel = pct => pct == null ? 'sin datos' : pct < 60 ? 'saludable' : pct <= 65 ? 'límite' : 'crítico';
+
+    // EBITDA semáforo (margen operativo después de food+labor+fixed)
+    const ebitdaColor = pct => pct == null ? 'var(--t3)' : pct >= 15 ? '#3B6D11' : pct >= 5 ? '#C26B0A' : '#A32D2D';
+    const ebitdaLabel = pct => pct == null ? 'sin datos' : pct >= 15 ? 'saludable' : pct >= 5 ? 'ajustado' : pct >= 0 ? 'mínimo' : 'pérdidas';
 
     el.style.display = 'block';
     el.innerHTML = `
@@ -19895,12 +20121,17 @@ async function loadFoodcostKPI() {
         <div style="font-size:14px;font-weight:600">📊 Costes del periodo</div>
         <button onclick="toggleCostInfo()" style="font-size:11px;color:var(--brand);background:none;border:none;cursor:pointer;font-family:inherit">¿Qué es esto?</button>
       </div>
-      <div id="cost-info" style="display:none;font-size:11px;color:var(--t2);background:var(--bg2);padding:.65rem;border-radius:var(--r-sm);margin-bottom:.65rem;line-height:1.5">
+      <div id="cost-info" style="display:none;font-size:11px;color:var(--t2);background:var(--bg2);padding:.65rem;border-radius:var(--r-sm);margin-bottom:.65rem;line-height:1.6">
         <strong>Foodcost</strong>: % del precio en materia prima. Saludable &lt;30%.<br>
-        <strong>Labor cost</strong>: % en mano de obra. Típico hostelería 25-35%.<br>
-        <strong>Prime cost</strong> = food + labor. Saludable &lt;60%, crítico &gt;65%.
+        <strong>Labor cost</strong>: % en mano de obra. Típico 25-35%.<br>
+        <strong>Fixed cost</strong>: % en costes fijos prorrateados (alquiler, luz...). Típico 10-20%.<br>
+        <strong>Prime cost</strong> = food + labor. Saludable &lt;60%.<br>
+        <strong>EBITDA</strong> = revenue − todos los costes variables y fijos. Saludable &gt;15%.<br>
+        <strong>Punto de equilibrio</strong>: revenue mensual mínimo para cubrir costes.
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.5rem">
+
+      <!-- 4 cards de costes principales -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.5rem;margin-bottom:.75rem">
         <div class="kpi-card" style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.75rem">
           <div style="font-size:10px;color:var(--t3);margin-bottom:3px">🍳 Foodcost</div>
           <div style="font-size:20px;font-weight:700;color:${fcColor(fcPct)}">${fcPct != null ? fcPct + '%' : '—'}</div>
@@ -19908,23 +20139,46 @@ async function loadFoodcostKPI() {
           ${foodCost > 0 ? `<div style="font-size:10px;color:var(--t3);margin-top:2px">${fmt(foodCost)}</div>` : ''}
         </div>
         <div class="kpi-card" style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.75rem">
-          <div style="font-size:10px;color:var(--t3);margin-bottom:3px">👥 Labor cost</div>
+          <div style="font-size:10px;color:var(--t3);margin-bottom:3px">👥 Labor</div>
           <div style="font-size:20px;font-weight:700;color:${laborColor(laborPct)}">${laborPct != null ? laborPct + '%' : '—'}</div>
           <div style="font-size:10px;color:var(--t3);margin-top:1px">${laborPct != null ? laborLabel(laborPct) : 'sin tarifas'}</div>
           ${laborCost > 0 ? `<div style="font-size:10px;color:var(--t3);margin-top:2px">${fmt(laborCost)}</div>` : ''}
         </div>
+        <div class="kpi-card" style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.75rem">
+          <div style="font-size:10px;color:var(--t3);margin-bottom:3px">🏠 Fijos</div>
+          <div style="font-size:20px;font-weight:700;color:${fixedColor(fixedPct)}">${fixedPct != null ? fixedPct + '%' : '—'}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:1px">${fixedPct != null ? fixedLabel(fixedPct) : (fixedMonthly === 0 ? 'sin configurar' : 'sin datos')}</div>
+          ${fixedMonthly > 0 ? `<div style="font-size:10px;color:var(--t3);margin-top:2px">${fmt(fixedMonthly)}/mes</div>` : ''}
+        </div>
         <div class="kpi-card" style="background:var(--card);border:1.5px solid ${primeColor(primePct)};border-radius:var(--r);padding:.75rem">
-          <div style="font-size:10px;color:var(--t3);margin-bottom:3px">⚡ Prime cost</div>
+          <div style="font-size:10px;color:var(--t3);margin-bottom:3px">⚡ Prime</div>
           <div style="font-size:20px;font-weight:700;color:${primeColor(primePct)}">${primePct != null ? primePct + '%' : '—'}</div>
           <div style="font-size:10px;color:var(--t3);margin-top:1px">${primePct != null ? primeLabel(primePct) : 'sin datos'}</div>
-          ${grossMargin !== 0 ? `<div style="font-size:10px;color:${grossMargin >= 0 ? '#3B6D11' : '#A32D2D'};margin-top:2px;font-weight:600">${grossMargin >= 0 ? '+' : ''}${fmt(grossMargin)}</div>` : ''}
         </div>
       </div>
-      ${(noCost > 0 || noRecipe > 0 || empNoRate > 0) ? `
-      <div style="background:#FFF3E0;border:1px solid #C26B0A;border-radius:var(--r-sm);padding:.5rem .75rem;margin-top:.5rem;font-size:11px;color:#854F0B;line-height:1.4">
+
+      <!-- EBITDA + Punto de equilibrio (cards más grandes) -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:.5rem">
+        <div style="background:var(--card);border:1.5px solid ${ebitdaColor(ebitdaPct)};border-radius:var(--r);padding:.85rem 1rem">
+          <div style="font-size:11px;color:var(--t3);margin-bottom:4px">💰 EBITDA</div>
+          <div style="font-size:22px;font-weight:700;color:${ebitdaColor(ebitdaPct)};line-height:1">${ebitdaPct != null ? ebitdaPct + '%' : '—'}</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:3px">${ebitdaPct != null ? ebitdaLabel(ebitdaPct) : 'sin datos'}</div>
+          <div style="font-size:11px;color:${ebitda >= 0 ? '#3B6D11' : '#A32D2D'};margin-top:4px;font-weight:600">${ebitda >= 0 ? '+' : ''}${fmt(ebitda)}</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.85rem 1rem">
+          <div style="font-size:11px;color:var(--t3);margin-bottom:4px">🎯 Punto equilibrio</div>
+          <div style="font-size:22px;font-weight:700;color:var(--t1);line-height:1">${breakEven != null ? fmt(breakEven) : '—'}</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:3px">/mes para cubrir costes</div>
+          ${monthlyEst > 0 && breakEven != null ? `<div style="font-size:11px;color:${monthlyEst >= breakEven ? '#3B6D11' : '#A32D2D'};margin-top:4px;font-weight:600">${monthlyEst >= breakEven ? '✓ por encima' : '⚠ por debajo'} (est. ${fmt(monthlyEst)})</div>` : ''}
+        </div>
+      </div>
+
+      ${(noCost > 0 || noRecipe > 0 || empNoRate > 0 || fixedMonthly === 0) ? `
+      <div style="background:#FFF3E0;border:1px solid #C26B0A;border-radius:var(--r-sm);padding:.5rem .75rem;margin-top:.5rem;font-size:11px;color:#854F0B;line-height:1.5">
         ${noCost > 0 ? `<div>⚠ ${noCost} ${noCost===1?'plato vendido sin coste manual':'platos vendidos sin coste manual'}</div>` : ''}
         ${noRecipe > 0 ? `<div>📖 ${noRecipe} ${noRecipe===1?'plato sin receta':'platos sin receta'}</div>` : ''}
         ${empNoRate > 0 ? `<div>👥 ${empNoRate} ${empNoRate===1?'empleado activo sin tarifa por hora':'empleados activos sin tarifa por hora'}</div>` : ''}
+        ${fixedMonthly === 0 ? `<div>🏠 Sin costes fijos configurados — añádelos en Ajustes &gt; Costes fijos para ver punto de equilibrio</div>` : ''}
       </div>` : ''}
       ${fcTheor != null && fcPct != null && Math.abs(fcTheor - fcPct) > 5 ? `
       <div style="font-size:10px;color:var(--t3);margin-top:.4rem;padding:.4rem .65rem;background:var(--bg2);border-radius:var(--r-sm)">
@@ -19935,6 +20189,42 @@ async function loadFoodcostKPI() {
     console.warn('[loadFoodcostKPI]', e);
     el.style.display = 'none';
   }
+}
+
+// Fallback Turno 3: solo prime_cost (cuando full_cost_summary no existe)
+async function _loadPrimeCostKPILegacy(el, from, to) {
+  try {
+    const { data, error } = await sb.rpc('prime_cost_summary', {
+      p_restaurant_id: state.adminRestaurantId,
+      p_from: from.toISOString(),
+      p_to: to.toISOString()
+    });
+    if (error) return _loadFoodcostKPILegacy(el, from, to);
+
+    const fcPct = data?.food_cost_pct;
+    const laborPct = data?.labor_cost_pct;
+    const primePct = data?.prime_cost_pct;
+    if (data?.revenue == 0) { el.style.display = 'none'; return; }
+
+    const colorFor = pct => pct == null ? 'var(--t3)' : pct < 30 ? '#3B6D11' : pct <= 35 ? '#C26B0A' : '#A32D2D';
+    el.style.display = 'block';
+    el.innerHTML = `
+      <div style="font-size:14px;font-weight:600;margin-bottom:.65rem">📊 Costes del periodo</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem">
+        <div class="kpi-card" style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.75rem">
+          <div style="font-size:10px;color:var(--t3)">🍳 Foodcost</div>
+          <div style="font-size:20px;font-weight:700;color:${colorFor(fcPct)}">${fcPct != null ? fcPct + '%' : '—'}</div>
+        </div>
+        <div class="kpi-card" style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.75rem">
+          <div style="font-size:10px;color:var(--t3)">👥 Labor</div>
+          <div style="font-size:20px;font-weight:700;color:${colorFor(laborPct)}">${laborPct != null ? laborPct + '%' : '—'}</div>
+        </div>
+        <div class="kpi-card" style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.75rem">
+          <div style="font-size:10px;color:var(--t3)">⚡ Prime</div>
+          <div style="font-size:20px;font-weight:700;color:${colorFor(primePct)}">${primePct != null ? primePct + '%' : '—'}</div>
+        </div>
+      </div>`;
+  } catch (e) { el.style.display = 'none'; }
 }
 
 function toggleCostInfo() {
