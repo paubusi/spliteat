@@ -63,6 +63,9 @@
   #s0.active { position: fixed !important; inset: 0 !important; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex !important; }
   #s0:not(.active) { display: none !important; }
   #s-kitchen { max-width: 100% !important; width: 100% !important; }
+  /* Sprint Costes Turno 8a — Picker de restaurante full-width */
+  #s-restaurant-picker { max-width: none !important; width: 100vw !important; margin: 0 !important; }
+  #s-restaurant-picker.active { position: fixed !important; inset: 0 !important; overflow-y: auto; display: flex !important; flex-direction: column !important; }
   #s0.active ~ * { pointer-events: none; }
 
   /* #1: Pantallas de login en desktop — solo el .body se centra, el .hdr ocupa todo el ancho
@@ -2009,13 +2012,13 @@
   </div>
 
   <!-- Sprint Costes Turno 8a — RESTAURANT PICKER (post-login si owner tiene 2+ restaurantes) -->
-  <div class="screen" id="s-restaurant-picker" style="max-width:none;width:100vw;min-height:100dvh;background:var(--bg)">
+  <div class="screen" id="s-restaurant-picker">
     <div class="hdr" style="max-width:680px;margin:0 auto;width:100%">
       <button class="back-btn" onclick="adminLogout()">← Salir</button>
       <div class="logo">manag<em style="color:var(--accent);font-style:normal">eat</em></div>
       <div style="width:60px"></div>
     </div>
-    <div class="body" style="max-width:680px;margin:0 auto;width:100%;padding:1rem 1.5rem 3rem">
+    <div class="body" style="max-width:680px;margin:0 auto;width:100%;padding:1rem 1.5rem 3rem;flex:1">
       <h2 class="title" style="font-size:22px;margin-bottom:.5rem">Elige tu local</h2>
       <p class="subtitle" id="picker-owner-name" style="color:var(--t3);margin-bottom:1.5rem"></p>
       <div id="picker-list" style="display:flex;flex-direction:column;gap:.65rem">
