@@ -3048,10 +3048,15 @@
             <option value="month" selected>Este mes</option>
             <option value="last_month">Mes anterior</option>
           </select>
-          <button onclick="exportEquipoMonthlyReport()" class="stk-allow-readonly"
-            style="padding:7px 14px;border-radius:var(--r-sm);border:1px solid var(--brand);background:var(--brand-l);color:var(--brand-d);cursor:pointer;font-family:inherit;font-size:12px;font-weight:600">
-            ⬇ Exportar
-          </button>
+          <select id="equipo-export-format" class="stk-allow-readonly"
+            style="padding:7px 28px 7px 12px;border-radius:var(--r-sm);border:1px solid var(--brand);background:var(--brand-l);color:var(--brand-d);cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;-webkit-appearance:none;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--brand-d) 50%),linear-gradient(135deg,var(--brand-d) 50%,transparent 50%);background-position:calc(100% - 14px) 50%,calc(100% - 9px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat"
+            onchange="exportEquipoReport(this.value); this.value=''">
+            <option value="" disabled selected>⬇ Exportar</option>
+            <option value="pdf">📄 PDF</option>
+            <option value="xlsx">📊 Excel</option>
+            <option value="csv">📋 CSV</option>
+            <option value="json">⚙ JSON</option>
+          </select>
         </div>
       </div>
 
@@ -11071,7 +11076,277 @@ async function saveManualShift(waiterId) {
   }
 }
 
-// ── EXPORT MENSUAL ─────────────────────────────────────────────
+// ── EXPORT MULTI-FORMATO ─────────────────────────────────────
+// Router que carga datos una sola vez y delega al formato pedido
+async function exportEquipoReport(format) {
+  if (!format) return;
+  if (!state.adminRestaurantId) { notify('Restaurante no detectado', 'error'); return; }
+  const range = _equipoPeriodRange();
+
+  // Cargar shifts (mismo SELECT para todos los formatos)
+  const { data: shifts, error } = await sb.from('shifts')
+    .select('clock_in_at, clock_out_at, total_minutes, break_minutes, worked_minutes, notes, corrected_by_admin, auto_closed, waiter_id, waiters!inner(name, role)')
+    .eq('restaurant_id', state.adminRestaurantId)
+    .gte('clock_in_at', range.from)
+    .lte('clock_in_at', range.to)
+    .not('clock_out_at', 'is', null)
+    .order('clock_in_at');
+  if (error) { notify('Error cargando datos: ' + error.message, 'error'); return; }
+  if (!shifts?.length) { notify('Sin fichajes en el período seleccionado'); return; }
+
+  const { data: rest } = await sb.from('restaurants')
+    .select('name,nif,address').eq('id', state.adminRestaurantId).maybeSingle();
+
+  const ctx = { shifts, rest, range };
+
+  if (format === 'pdf')  return _exportEquipoPDF(ctx);
+  if (format === 'xlsx') return _exportEquipoXLSX(ctx);
+  if (format === 'csv')  return _exportEquipoCSV(ctx);
+  if (format === 'json') return _exportEquipoJSON(ctx);
+}
+
+// Helper: nombre de archivo según rango
+function _equipoFilename(range, ext) {
+  const fromStr = new Date(range.from).toISOString().slice(0,10);
+  const toStr   = new Date(range.to).toISOString().slice(0,10);
+  return `jornada_${fromStr}_a_${toStr}.${ext}`;
+}
+
+// Helper: rol legible
+const _ROLE_LABELS = { waiter:'Camarero', kitchen:'Cocina', manager:'Manager', other:'Otro' };
+
+// ── PDF (formato Inspección de Trabajo) ───────────────────────
+function _exportEquipoPDF({ shifts, rest, range }) {
+  const totalMin = shifts.reduce((s, r) => s + (r.worked_minutes || 0), 0);
+  const totalHours = (totalMin / 60).toFixed(2);
+
+  const rows = shifts.map(s => {
+    const inDt = new Date(s.clock_in_at);
+    const outDt = new Date(s.clock_out_at);
+    const flags = [
+      s.corrected_by_admin ? '<span style="color:#185FA5;font-weight:600">✏ Corregido</span>' : '',
+      s.auto_closed ? '<span style="color:#A32D2D;font-weight:600">⚠ Auto-cierre</span>' : ''
+    ].filter(Boolean).join(' ');
+    return `<tr>
+      <td>${escHtml(s.waiters.name)}</td>
+      <td>${_ROLE_LABELS[s.waiters.role] || 'Camarero'}</td>
+      <td>${inDt.toLocaleDateString('es-ES')}</td>
+      <td>${inDt.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})}</td>
+      <td>${outDt.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'})}</td>
+      <td style="text-align:right">${_equipoFmtMins(s.total_minutes)}</td>
+      <td style="text-align:right">${s.break_minutes ? '-' + _equipoFmtMins(s.break_minutes) : '—'}</td>
+      <td style="text-align:right;font-weight:600">${_equipoFmtMins(s.worked_minutes)}</td>
+      <td style="font-size:10px">${flags}${s.notes ? '<br><span style="color:#666">' + escHtml(s.notes) + '</span>' : ''}</td>
+    </tr>`;
+  }).join('');
+
+  const fromDate = new Date(range.from).toLocaleDateString('es-ES');
+  const toDate = new Date(range.to).toLocaleDateString('es-ES');
+
+  const pw = window.open('', '_blank');
+  if (!pw) { notify('Permite ventanas emergentes para descargar', 'error'); return; }
+  pw.document.open();
+  pw.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Registro jornada — ${range.label}</title>
+    <style>
+      body{font-family:Arial,sans-serif;padding:1.5rem;color:#1a1a18;max-width:1100px;margin:0 auto;font-size:12px}
+      h1{font-size:18px;margin:0 0 .25rem;color:#085041}
+      .header-info{font-size:12px;color:#555;margin-bottom:1.5rem;line-height:1.6}
+      .legal-block{background:#F0F7F4;border-left:3px solid #085041;padding:.75rem 1rem;margin-bottom:1rem;font-size:10px;color:#555}
+      table{width:100%;border-collapse:collapse;margin-bottom:1rem;font-size:11px}
+      th{background:#085041;color:#fff;padding:7px 8px;text-align:left;font-weight:600;font-size:10px;text-transform:uppercase;letter-spacing:.04em}
+      td{padding:5px 8px;border-bottom:1px solid #e0e0e0;vertical-align:top}
+      tr:nth-child(even) td{background:#FAFAFA}
+      .totals{margin-top:1rem;border-top:2px solid #085041;padding-top:.75rem;display:flex;justify-content:space-between;font-size:13px;font-weight:600}
+      @media print{@page{margin:1.2cm;size:A4 landscape}body{padding:0}}
+    </style>
+    <script>setTimeout(()=>{try{window.print()}catch(e){}},500);<\/script>
+  </head><body>
+    <h1>Registro de jornada laboral</h1>
+    <div class="header-info">
+      <strong>${escHtml(rest?.name || 'Restaurante')}</strong>${rest?.nif ? ' — NIF ' + escHtml(rest.nif) : ''}<br>
+      ${rest?.address ? escHtml(rest.address) + '<br>' : ''}
+      Periodo: <strong>${fromDate} a ${toDate}</strong> (${range.label})
+    </div>
+    <div class="legal-block">
+      Documento emitido en cumplimiento del <strong>RD-ley 8/2019</strong> de 8 de marzo, de medidas urgentes de protección social y de lucha contra la precariedad laboral en la jornada de trabajo. Conservar 4 años a disposición de la Inspección de Trabajo.
+    </div>
+    <table>
+      <thead><tr>
+        <th>Empleado</th><th>Puesto</th><th>Fecha</th>
+        <th>Entrada</th><th>Salida</th>
+        <th style="text-align:right">Total</th><th style="text-align:right">Descanso</th><th style="text-align:right">Trabajado</th>
+        <th>Notas</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="totals">
+      <span>${shifts.length} fichaje${shifts.length!=1?'s':''}</span>
+      <span>Total trabajado: <span style="color:#085041">${totalHours} horas</span></span>
+    </div>
+    <div style="margin-top:1.5rem;font-size:10px;color:#888;text-align:center">Generado por spliteat · ${new Date().toLocaleString('es-ES')}</div>
+  </body></html>`);
+  pw.document.close();
+}
+
+// ── EXCEL (.xlsx con SheetJS) ─────────────────────────────────
+function _exportEquipoXLSX({ shifts, rest, range }) {
+  // Hoja 1: detalle de fichajes
+  const detailRows = shifts.map(s => {
+    const inDt = new Date(s.clock_in_at);
+    const outDt = new Date(s.clock_out_at);
+    return {
+      'Empleado': s.waiters.name,
+      'Puesto': _ROLE_LABELS[s.waiters.role] || 'Camarero',
+      'Fecha': inDt.toLocaleDateString('es-ES'),
+      'Entrada': inDt.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),
+      'Salida': outDt.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),
+      'Total (min)': s.total_minutes || 0,
+      'Descanso (min)': s.break_minutes || 0,
+      'Trabajado (min)': s.worked_minutes || 0,
+      'Trabajado (h)': ((s.worked_minutes || 0) / 60).toFixed(2),
+      'Corregido': s.corrected_by_admin ? 'Sí' : '',
+      'Auto-cierre': s.auto_closed ? 'Sí' : '',
+      'Notas': s.notes || ''
+    };
+  });
+
+  // Hoja 2: resumen por empleado
+  const byWaiter = {};
+  shifts.forEach(s => {
+    const k = s.waiter_id;
+    if (!byWaiter[k]) byWaiter[k] = {
+      'Empleado': s.waiters.name,
+      'Puesto': _ROLE_LABELS[s.waiters.role] || 'Camarero',
+      'Fichajes': 0,
+      'Total (min)': 0,
+      'Descanso (min)': 0,
+      'Trabajado (min)': 0
+    };
+    byWaiter[k]['Fichajes'] += 1;
+    byWaiter[k]['Total (min)'] += s.total_minutes || 0;
+    byWaiter[k]['Descanso (min)'] += s.break_minutes || 0;
+    byWaiter[k]['Trabajado (min)'] += s.worked_minutes || 0;
+  });
+  const summaryRows = Object.values(byWaiter).map(r => ({
+    ...r,
+    'Trabajado (h)': (r['Trabajado (min)'] / 60).toFixed(2)
+  }));
+
+  // Hoja 3: cabecera con datos del restaurante y periodo
+  const headerRows = [
+    { Campo: 'Empresa', Valor: rest?.name || '' },
+    { Campo: 'NIF', Valor: rest?.nif || '' },
+    { Campo: 'Dirección', Valor: rest?.address || '' },
+    { Campo: 'Período desde', Valor: new Date(range.from).toLocaleDateString('es-ES') },
+    { Campo: 'Período hasta', Valor: new Date(range.to).toLocaleDateString('es-ES') },
+    { Campo: 'Etiqueta', Valor: range.label },
+    { Campo: 'Fichajes totales', Valor: shifts.length },
+    { Campo: 'Horas trabajadas totales', Valor: (shifts.reduce((s,r)=>s+(r.worked_minutes||0),0)/60).toFixed(2) },
+    { Campo: 'Generado', Valor: new Date().toLocaleString('es-ES') },
+    { Campo: 'Cumplimiento', Valor: 'RD-ley 8/2019 — conservar 4 años' }
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(headerRows),  'Cabecera');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), 'Resumen empleados');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detailRows),  'Fichajes detalle');
+  XLSX.writeFile(wb, _equipoFilename(range, 'xlsx'));
+}
+
+// ── CSV (formato simple, separador coma, UTF-8 con BOM) ───────
+function _exportEquipoCSV({ shifts, range }) {
+  const headers = ['Empleado','Puesto','Fecha','Entrada','Salida',
+                   'Total (min)','Descanso (min)','Trabajado (min)','Trabajado (h)',
+                   'Corregido','Auto-cierre','Notas'];
+
+  const escCsv = v => {
+    if (v == null) return '';
+    const s = String(v);
+    if (s.includes('"') || s.includes(',') || s.includes('\n')) {
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
+  };
+
+  const rows = shifts.map(s => {
+    const inDt = new Date(s.clock_in_at);
+    const outDt = new Date(s.clock_out_at);
+    return [
+      s.waiters.name,
+      _ROLE_LABELS[s.waiters.role] || 'Camarero',
+      inDt.toLocaleDateString('es-ES'),
+      inDt.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),
+      outDt.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),
+      s.total_minutes || 0,
+      s.break_minutes || 0,
+      s.worked_minutes || 0,
+      ((s.worked_minutes || 0) / 60).toFixed(2),
+      s.corrected_by_admin ? 'Sí' : '',
+      s.auto_closed ? 'Sí' : '',
+      s.notes || ''
+    ].map(escCsv).join(',');
+  });
+
+  // BOM UTF-8 para que Excel detecte el encoding correctamente
+  const csv = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n');
+  _downloadBlob(csv, _equipoFilename(range, 'csv'), 'text/csv;charset=utf-8');
+}
+
+// ── JSON (estructurado, útil para APIs / análisis externo) ────
+function _exportEquipoJSON({ shifts, rest, range }) {
+  const totalMinutes = shifts.reduce((s,r)=>s+(r.worked_minutes||0),0);
+  const payload = {
+    meta: {
+      restaurant: {
+        name: rest?.name || null,
+        nif: rest?.nif || null,
+        address: rest?.address || null
+      },
+      period: {
+        from: range.from,
+        to: range.to,
+        label: range.label
+      },
+      stats: {
+        shift_count: shifts.length,
+        total_worked_minutes: totalMinutes,
+        total_worked_hours: +(totalMinutes/60).toFixed(2)
+      },
+      generated_at: new Date().toISOString(),
+      compliance: 'RD-ley 8/2019',
+      retention_years: 4
+    },
+    shifts: shifts.map(s => ({
+      waiter_id: s.waiter_id,
+      waiter_name: s.waiters.name,
+      role: s.waiters.role || 'waiter',
+      clock_in_at: s.clock_in_at,
+      clock_out_at: s.clock_out_at,
+      total_minutes: s.total_minutes,
+      break_minutes: s.break_minutes,
+      worked_minutes: s.worked_minutes,
+      corrected_by_admin: s.corrected_by_admin || false,
+      auto_closed: s.auto_closed || false,
+      notes: s.notes || null
+    }))
+  };
+  _downloadBlob(JSON.stringify(payload, null, 2), _equipoFilename(range, 'json'), 'application/json');
+}
+
+// Helper genérico para descargar texto como blob
+function _downloadBlob(content, filename, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+}
+
+
+// ── Wrapper retrocompatible (funciones viejas siguen funcionando) ────
 async function exportEquipoMonthlyReport() {
   if (!state.adminRestaurantId) { notify('Restaurante no detectado', 'error'); return; }
   const range = _equipoPeriodRange();
@@ -11644,22 +11919,29 @@ async function renderDrawerPedido() {
       const st = STATUS[g.status] || STATUS.new;
       const isServed = g.status === 'delivered' || g.status === 'served';
       const isReady  = g.status === 'ready';
+      // Bebidas (course=0): tap directo de cualquier estado activo a delivered (no pasan por cocina)
+      const isBeverage = c === 0;
+      const isTappableBeverage = isBeverage && !isServed;
+      const isTappable = isReady || isTappableBeverage;
       const qty = g.ids.length;
       const totalPrice = (g.price * qty).toFixed(2);
-      // Si hay >1 unidad: separadores ; sino una sola línea simplificada
-      // Acción tap: si está 'ready' → marcar servido (entrega visible). Si está new/sent/making → flujo cocina.
       const idsAttr = g.ids.join(',');
+      // Para bebidas no entregadas, mostrar badge "✓ Servir" en vez de "En cocina"
+      let badgeBg = st.bg, badgeColor = st.color, badgeIcon = st.icon, badgeLabel = st.label;
+      if (isTappableBeverage) {
+        badgeBg = '#FFF3E0'; badgeColor = '#B7560D'; badgeIcon = '✓'; badgeLabel = 'Toca para servir';
+      }
       html += `
         <div data-row="${g.key}"
-          style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--bd);border-radius:10px;margin-bottom:6px;${isServed ? 'opacity:.55;' : ''}cursor:${isReady ? 'pointer' : 'default'}"
-          ${isReady ? `onclick="markGroupServed('${idsAttr}')" title="Marcar como servido"` : ''}>
+          style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--bd);border-radius:10px;margin-bottom:6px;${isServed ? 'opacity:.55;' : ''}cursor:${isTappable ? 'pointer' : 'default'}"
+          ${isTappable ? `onclick="markGroupServed('${idsAttr}')" title="Marcar como servido"` : ''}>
           <div style="flex:1;min-width:0">
             <div style="font-size:14px;${isServed ? 'text-decoration:line-through;color:var(--t3);' : 'color:var(--t1);'}">
               ${qty > 1 ? `<strong style="color:var(--t3)">${qty}× </strong>` : ''}${escHtml(g.name)}
             </div>
             <div style="display:flex;align-items:center;gap:5px;margin-top:3px">
-              <span style="font-size:10px;font-weight:600;background:${st.bg};color:${st.color};border-radius:99px;padding:2px 7px;display:inline-flex;align-items:center;gap:3px">${st.icon} ${st.label}</span>
-              ${isReady ? `<span style="font-size:10px;color:var(--brand-d);font-weight:500">— toca para servir</span>` : ''}
+              <span style="font-size:10px;font-weight:600;background:${badgeBg};color:${badgeColor};border-radius:99px;padding:2px 7px;display:inline-flex;align-items:center;gap:3px">${badgeIcon} ${badgeLabel}</span>
+              ${isReady && !isBeverage ? `<span style="font-size:10px;color:var(--brand-d);font-weight:500">— toca para servir</span>` : ''}
             </div>
           </div>
           <div style="font-weight:600;color:var(--brand-d);font-size:14px">${totalPrice}€</div>
