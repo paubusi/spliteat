@@ -20194,6 +20194,46 @@ async function loadFoodcostKPI() {
     const ebitdaLabel = pct => pct == null ? 'sin datos' : pct >= 15 ? 'saludable' : pct >= 5 ? 'ajustado' : pct >= 0 ? 'mínimo' : 'pérdidas';
 
     el.style.display = 'block';
+
+    // Sprint Costes Turno 5b — UX adaptativa según escala temporal
+    // Periodo "corto" = 0 (Hoy) o 7d → los % de costes mensuales no son comparables al revenue del periodo
+    const periodDays = (period === 'all') ? 365 : (parseInt(period) || 0);
+    const isShortPeriod = (periodDays <= 7);
+    const shortLabel = period === 0 || period === '0' ? 'hoy' : `últimos ${periodDays}d`;
+
+    // Estado del scope del break-even (default mes)
+    if (state.breakEvenScope == null) state.breakEvenScope = 'month';
+
+    // Card para Fijos: en periodo corto, mostrar absoluto; en periodo largo, %
+    const fijosCard = isShortPeriod
+      ? `<div class="kpi-card" style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.75rem">
+          <div style="font-size:10px;color:var(--t3);margin-bottom:3px">🏠 Fijos</div>
+          <div style="font-size:20px;font-weight:700;color:var(--t1)">${fmt(fixedPeriod)}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:1px">${shortLabel}</div>
+          ${fixedMonthly > 0 ? `<div style="font-size:10px;color:var(--t3);margin-top:2px">de ${fmt(fixedMonthly)}/mes</div>` : `<div style="font-size:10px;color:#C26B0A;margin-top:2px">sin configurar</div>`}
+        </div>`
+      : `<div class="kpi-card" style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.75rem">
+          <div style="font-size:10px;color:var(--t3);margin-bottom:3px">🏠 Fijos</div>
+          <div style="font-size:20px;font-weight:700;color:${fixedColor(fixedPct)}">${fixedPct != null ? fixedPct + '%' : '—'}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:1px">${fixedPct != null ? fixedLabel(fixedPct) : (fixedMonthly === 0 ? 'sin configurar' : 'sin datos')}</div>
+          ${fixedMonthly > 0 ? `<div style="font-size:10px;color:var(--t3);margin-top:2px">${fmt(fixedMonthly)}/mes</div>` : ''}
+        </div>`;
+
+    // EBITDA: en periodo corto, mostrar solo absoluto sin %
+    const ebitdaCard = isShortPeriod
+      ? `<div style="background:var(--card);border:1.5px solid ${ebitda >= 0 ? '#3B6D11' : '#A32D2D'};border-radius:var(--r);padding:.85rem 1rem">
+          <div style="font-size:11px;color:var(--t3);margin-bottom:4px">💰 Resultado ${shortLabel}</div>
+          <div style="font-size:22px;font-weight:700;color:${ebitda >= 0 ? '#3B6D11' : '#A32D2D'};line-height:1">${ebitda >= 0 ? '+' : ''}${fmt(ebitda)}</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:3px">tras todos los costes</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:4px;font-style:italic">% no fiable en periodo corto</div>
+        </div>`
+      : `<div style="background:var(--card);border:1.5px solid ${ebitdaColor(ebitdaPct)};border-radius:var(--r);padding:.85rem 1rem">
+          <div style="font-size:11px;color:var(--t3);margin-bottom:4px">💰 EBITDA</div>
+          <div style="font-size:22px;font-weight:700;color:${ebitdaColor(ebitdaPct)};line-height:1">${ebitdaPct != null ? ebitdaPct + '%' : '—'}</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:3px">${ebitdaPct != null ? ebitdaLabel(ebitdaPct) : 'sin datos'}</div>
+          <div style="font-size:11px;color:${ebitda >= 0 ? '#3B6D11' : '#A32D2D'};margin-top:4px;font-weight:600">${ebitda >= 0 ? '+' : ''}${fmt(ebitda)}</div>
+        </div>`;
+
     el.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem">
         <div style="font-size:14px;font-weight:600">📊 Costes del periodo</div>
@@ -20202,10 +20242,11 @@ async function loadFoodcostKPI() {
       <div id="cost-info" style="display:none;font-size:11px;color:var(--t2);background:var(--bg2);padding:.65rem;border-radius:var(--r-sm);margin-bottom:.65rem;line-height:1.6">
         <strong>Foodcost</strong>: % del precio en materia prima. Saludable &lt;30%.<br>
         <strong>Labor cost</strong>: % en mano de obra. Típico 25-35%.<br>
-        <strong>Fixed cost</strong>: % en costes fijos prorrateados (alquiler, luz...). Típico 10-20%.<br>
+        <strong>Fixed cost</strong>: costes fijos prorrateados (alquiler, luz...). Típico 10-20% mensual.<br>
         <strong>Prime cost</strong> = food + labor. Saludable &lt;60%.<br>
-        <strong>EBITDA</strong> = revenue − todos los costes variables y fijos. Saludable &gt;15%.<br>
-        <strong>Punto de equilibrio</strong>: revenue mensual mínimo para cubrir costes.
+        <strong>EBITDA</strong> = revenue − todos los costes variables y fijos.<br>
+        <strong>Punto de equilibrio</strong>: revenue mínimo para cubrir costes.<br>
+        <em>En periodos cortos (Hoy / 7d) los % de Fijos y EBITDA no son fiables porque los costes mensuales no se comparan bien con un día de revenue.</em>
       </div>
 
       <!-- 4 cards de costes principales -->
@@ -20222,12 +20263,7 @@ async function loadFoodcostKPI() {
           <div style="font-size:10px;color:var(--t3);margin-top:1px">${laborPct != null ? laborLabel(laborPct) : 'sin tarifas'}</div>
           ${laborCost > 0 ? `<div style="font-size:10px;color:var(--t3);margin-top:2px">${fmt(laborCost)}</div>` : ''}
         </div>
-        <div class="kpi-card" style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.75rem">
-          <div style="font-size:10px;color:var(--t3);margin-bottom:3px">🏠 Fijos</div>
-          <div style="font-size:20px;font-weight:700;color:${fixedColor(fixedPct)}">${fixedPct != null ? fixedPct + '%' : '—'}</div>
-          <div style="font-size:10px;color:var(--t3);margin-top:1px">${fixedPct != null ? fixedLabel(fixedPct) : (fixedMonthly === 0 ? 'sin configurar' : 'sin datos')}</div>
-          ${fixedMonthly > 0 ? `<div style="font-size:10px;color:var(--t3);margin-top:2px">${fmt(fixedMonthly)}/mes</div>` : ''}
-        </div>
+        ${fijosCard}
         <div class="kpi-card" style="background:var(--card);border:1.5px solid ${primeColor(primePct)};border-radius:var(--r);padding:.75rem">
           <div style="font-size:10px;color:var(--t3);margin-bottom:3px">⚡ Prime</div>
           <div style="font-size:20px;font-weight:700;color:${primeColor(primePct)}">${primePct != null ? primePct + '%' : '—'}</div>
@@ -20235,21 +20271,18 @@ async function loadFoodcostKPI() {
         </div>
       </div>
 
-      <!-- EBITDA + Punto de equilibrio (cards más grandes) -->
+      <!-- Resultado/EBITDA + Punto de equilibrio -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:.5rem">
-        <div style="background:var(--card);border:1.5px solid ${ebitdaColor(ebitdaPct)};border-radius:var(--r);padding:.85rem 1rem">
-          <div style="font-size:11px;color:var(--t3);margin-bottom:4px">💰 EBITDA</div>
-          <div style="font-size:22px;font-weight:700;color:${ebitdaColor(ebitdaPct)};line-height:1">${ebitdaPct != null ? ebitdaPct + '%' : '—'}</div>
-          <div style="font-size:11px;color:var(--t3);margin-top:3px">${ebitdaPct != null ? ebitdaLabel(ebitdaPct) : 'sin datos'}</div>
-          <div style="font-size:11px;color:${ebitda >= 0 ? '#3B6D11' : '#A32D2D'};margin-top:4px;font-weight:600">${ebitda >= 0 ? '+' : ''}${fmt(ebitda)}</div>
-        </div>
-        <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.85rem 1rem">
-          <div style="font-size:11px;color:var(--t3);margin-bottom:4px">🎯 Punto equilibrio</div>
-          <div style="font-size:22px;font-weight:700;color:var(--t1);line-height:1">${breakEven != null ? fmt(breakEven) : '—'}</div>
-          <div style="font-size:11px;color:var(--t3);margin-top:3px">/mes para cubrir costes</div>
-          ${monthlyEst > 0 && breakEven != null ? `<div style="font-size:11px;color:${monthlyEst >= breakEven ? '#3B6D11' : '#A32D2D'};margin-top:4px;font-weight:600">${monthlyEst >= breakEven ? '✓ por encima' : '⚠ por debajo'} (est. ${fmt(monthlyEst)})</div>` : ''}
+        ${ebitdaCard}
+        <div id="break-even-card" style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.85rem 1rem">
+          <!-- contenido lo pinta loadBreakEvenCard -->
         </div>
       </div>
+
+      ${isShortPeriod ? `
+      <div style="font-size:11px;color:#854F0B;background:#FFF8E5;border-left:3px solid #C26B0A;padding:.5rem .75rem;margin-top:.5rem;border-radius:var(--r-sm);line-height:1.5">
+        💡 Estás viendo datos <strong>${shortLabel}</strong>. Los % de Fijos y EBITDA mensuales aquí no son fiables. Cambia a "30d" o "Todo" para análisis completo.
+      </div>` : ''}
 
       ${(noCost > 0 || noRecipe > 0 || empNoRate > 0 || fixedMonthly === 0) ? `
       <div style="background:#FFF3E0;border:1px solid #C26B0A;border-radius:var(--r-sm);padding:.5rem .75rem;margin-top:.5rem;font-size:11px;color:#854F0B;line-height:1.5">
@@ -20263,10 +20296,69 @@ async function loadFoodcostKPI() {
         📖 Foodcost teórico desde recetas: <strong>${fcTheor}%</strong> ${Math.abs(fcTheor - fcPct) > 10 ? '— mucha desviación con el manual' : ''}
       </div>` : ''}
     `;
+
+    // Pintar el break-even card de forma asíncrona (es otro RPC)
+    const beCard = document.getElementById('break-even-card');
+    if (beCard) beCard.dataset.monthlyEst = monthlyEst;
+    loadBreakEvenCard(monthlyEst);
   } catch (e) {
     console.warn('[loadFoodcostKPI]', e);
     el.style.display = 'none';
   }
+}
+
+// Sprint Costes Turno 5b — Card de punto de equilibrio con toggle día/semana/mes
+async function loadBreakEvenCard(monthlyRevenueEstimate) {
+  const card = document.getElementById('break-even-card');
+  if (!card) return;
+  const scope = state.breakEvenScope || 'month';
+
+  let breakEven = null, fixedMonthly = 0, varPct = null;
+  try {
+    const { data } = await sb.rpc('break_even_for_period', {
+      p_restaurant_id: state.adminRestaurantId,
+      p_scope: scope
+    });
+    if (data) {
+      breakEven = data.break_even_scaled != null ? parseFloat(data.break_even_scaled) : null;
+      fixedMonthly = parseFloat(data.fixed_monthly || 0);
+      varPct = data.variable_pct;
+    }
+  } catch (e) { console.warn('[break_even_for_period]', e); }
+
+  // Comparar contra el revenue real escalado
+  let scaledRevenue = monthlyRevenueEstimate || 0;
+  if (scope === 'day') scaledRevenue = scaledRevenue / 30;
+  else if (scope === 'week') scaledRevenue = scaledRevenue * 7 / 30;
+
+  const labelMap = { day: '/día', week: '/semana', month: '/mes' };
+  const label = labelMap[scope];
+  const helpMap = {
+    day: 'mínimo a facturar al día',
+    week: 'mínimo a facturar a la semana',
+    month: 'mínimo a facturar al mes'
+  };
+
+  card.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div style="font-size:11px;color:var(--t3)">🎯 Punto equilibrio</div>
+      <div style="display:flex;gap:2px;background:var(--bg2);border-radius:99px;padding:2px">
+        <button onclick="setBreakEvenScope('day')" style="font-size:10px;padding:3px 8px;border-radius:99px;border:none;background:${scope==='day'?'var(--card)':'transparent'};color:${scope==='day'?'var(--brand-d)':'var(--t3)'};cursor:pointer;font-family:inherit;font-weight:${scope==='day'?'600':'400'}">D</button>
+        <button onclick="setBreakEvenScope('week')" style="font-size:10px;padding:3px 8px;border-radius:99px;border:none;background:${scope==='week'?'var(--card)':'transparent'};color:${scope==='week'?'var(--brand-d)':'var(--t3)'};cursor:pointer;font-family:inherit;font-weight:${scope==='week'?'600':'400'}">S</button>
+        <button onclick="setBreakEvenScope('month')" style="font-size:10px;padding:3px 8px;border-radius:99px;border:none;background:${scope==='month'?'var(--card)':'transparent'};color:${scope==='month'?'var(--brand-d)':'var(--t3)'};cursor:pointer;font-family:inherit;font-weight:${scope==='month'?'600':'400'}">M</button>
+      </div>
+    </div>
+    <div style="font-size:22px;font-weight:700;color:var(--t1);line-height:1">${breakEven != null ? fmt(breakEven) : '—'}</div>
+    <div style="font-size:11px;color:var(--t3);margin-top:3px">${helpMap[scope]}</div>
+    ${scaledRevenue > 0 && breakEven != null ? `<div style="font-size:11px;color:${scaledRevenue >= breakEven ? '#3B6D11' : '#A32D2D'};margin-top:4px;font-weight:600">${scaledRevenue >= breakEven ? '✓ por encima' : '⚠ por debajo'} (est. ${fmt(scaledRevenue)}${label})</div>` : ''}
+  `;
+}
+
+function setBreakEvenScope(scope) {
+  state.breakEvenScope = scope;
+  // Recomputamos solo el card del break-even, no toda la página
+  const monthlyEst = parseFloat(document.querySelector('#break-even-card')?.dataset.monthlyEst || 0);
+  loadBreakEvenCard(monthlyEst);
 }
 
 // Fallback Turno 3: solo prime_cost (cuando full_cost_summary no existe)
