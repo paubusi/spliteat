@@ -2920,7 +2920,7 @@
       <div id="rtab-kpis" class="body" style="overflow-y:auto">
         <select id="kpi-filter" style="display:none"><option value="0" selected>Hoy</option><option value="7">7d</option><option value="30">30d</option><option value="90">3m</option><option value="all">Todo</option></select>
         <!-- Date filter bar -->
-        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap">
+        <div id="kpi-filter-bar" style="display:flex;align-items:center;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap">
           <div style="font-size:16px;font-weight:600;color:var(--t1);flex:1">Resumen</div>
           <div style="display:flex;gap:.25rem;flex-wrap:wrap">
             <button class="kpi-period-btn on" data-val="0" onclick="setKpiPeriod(0)">Hoy</button>
@@ -14259,14 +14259,30 @@ async function switchToRestaurant(restaurantId, name) {
   const fab = document.getElementById('admin-notif-fab');
   if (fab) fab.style.display = (restaurantId === 'group') ? 'none' : 'flex';
 
+  // Sprint Costes Turno 8b fix — re-renderizar tabs ANTES de showAdminTab
+  // Sin esto las tabs ocultas en grupo siguen ocultas al volver a un local,
+  // y las tabs visibles en local siguen visibles al pasar a grupo.
+  renderAdminTabs();
+
+  // Limpiar el dashboard de grupo si venimos de él (evita queries con id='group')
+  if (restaurantId !== 'group') {
+    const gh = document.getElementById('group-dashboard');
+    if (gh) gh.style.display = 'none';
+    // Restaurar visibilidad de bloques individuales que loadGroupDashboard pudo ocultar
+    ['kpi-grid','kpi-foodcost-block','rtab-platos','rtab-historial','kpi-ai-block','kpi-loading'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = '';
+    });
+  }
+
   // Detectar tab activo y re-loguear
   const activeTab = document.querySelector('.adm-nav.on')?.dataset?.tab;
   if (restaurantId === 'group') {
-    showAdminTab('reportes'); // siempre trendeat en vista grupo (sub-tab 'kpis' interno)
+    showAdminTab('reportes'); // siempre trendeat en vista grupo
   } else {
-    // Si venimos de vista grupo y el tab activo era 'reportes', mantenerlo;
-    // si no, ir a encurso por defecto.
-    const safeTab = (activeTab && activeTab !== 'reportes') ? activeTab : (activeTab === 'reportes' ? 'reportes' : 'encurso');
+    // Si venimos de vista grupo (donde solo se mostraba 'reportes'),
+    // mantener 'reportes' al cambiar a un local; en cambio si el activo era válido, conservarlo.
+    const safeTab = activeTab || 'encurso';
     showAdminTab(safeTab);
     if (safeTab === 'encurso') loadEncurso();
   }
@@ -20866,14 +20882,30 @@ async function loadGroupDashboard() {
   const lbSem = _groupSemaphore('labor',    totals.labor_cost_pct);
   const ebSem = _groupSemaphore('ebitda',   totals.ebitda_pct);
 
+  // Nombre del grupo: priorizar el de owner si parece un nombre comercial,
+  // pero como fallback (caso owner.name == nombre de un restaurante) construir
+  // un título a partir de los locales: "Mi grupo (3 locales)" + lista debajo.
+  const restNames = restaurants.map(r => r.name).filter(Boolean);
+  const ownerName = state.owner?.name || '';
+  // Heurística: si el owner.name coincide exactamente con uno de los restaurantes,
+  // es un nombre legacy mal migrado — usar título genérico.
+  const ownerNameIsRestaurant = restNames.some(n => n && n.toLowerCase() === ownerName.toLowerCase());
+  const groupTitle = (ownerName && !ownerNameIsRestaurant) ? ownerName : 'Mi grupo';
+  const restListLabel = restNames.length
+    ? restNames.length <= 3
+        ? restNames.join(' · ')
+        : `${restNames.slice(0, 2).join(' · ')} +${restNames.length - 2} más`
+    : '';
+
   const headerHtml = `
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;flex-wrap:wrap">
       <div style="flex:1;min-width:0">
         <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:600">🏢 Vista grupo</div>
-        <div style="font-size:18px;font-weight:600;color:var(--t1);margin-top:2px">${escHtml(state.owner?.name || 'Mi grupo')}</div>
+        <div style="font-size:18px;font-weight:600;color:var(--t1);margin-top:2px">${escHtml(groupTitle)}</div>
         <div style="font-size:12px;color:var(--t3);margin-top:2px">
           ${totals.restaurant_count_active ?? 0} de ${totals.restaurant_count ?? restaurants.length} locales con actividad · ${escHtml(periodLabel)}
         </div>
+        ${restListLabel ? `<div style="font-size:11px;color:var(--t3);margin-top:4px;font-style:italic">${escHtml(restListLabel)}</div>` : ''}
       </div>
       <button class="btn btn-ghost btn-sm" onclick="openRestaurantSwitcher()" style="flex-shrink:0">⇄ Cambiar de local</button>
     </div>`;
