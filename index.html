@@ -2948,6 +2948,11 @@
         </div>
         <div id="kpi-loading" style="text-align:center;padding:.75rem;color:var(--t3);font-size:13px;display:none">Cargando...</div>
 
+        <!-- Sprint Costes Turno 2 — Foodcost teórico/manual -->
+        <div id="kpi-foodcost-block" style="display:none;margin-top:1rem;border-top:1px solid var(--bd);padding-top:1rem">
+          <div style="font-size:14px;font-weight:600;margin-bottom:.65rem">🍳 Foodcost del periodo</div>
+        </div>
+
         <!-- Margen por plato (nuevo KPI) -->
         <div style="margin-top:1rem;border-top:1px solid var(--bd);padding-top:1rem">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem">
@@ -14575,6 +14580,7 @@ function openAjustesSection(section) {
     content.innerHTML = renderPerfilContent();
     loadRestaurantProfile();
   } else if (section === 'costes') {
+    content.setAttribute('data-costes-container', '1');
     renderCostesSection(content);
   } else if (section === 'metodos-pago') {
     renderMetodosPagoSection(content);
@@ -15430,14 +15436,123 @@ function renderPerfilContent() {
 
 async function renderCostesSection(container) {
   container.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3)">Cargando...</div>';
-  const { data: items } = await sb.from('menu_items').select('id,name,price,cost_price,category')
-    .eq('restaurant_id', state.adminRestaurantId).eq('active', true).order('category').order('name');
+
+  // Sprint Costes — usar la vista menu_items_with_cost que ya incluye coste teórico
+  const { data: items, error } = await sb.from('menu_items_with_cost')
+    .select('id,name,price,cost_manual,cost_theoretical,category_id,category_name,foodcost_manual_pct,foodcost_theoretical_pct,deviation_pct,has_recipe')
+    .eq('restaurant_id', state.adminRestaurantId).eq('active', true)
+    .order('category_name').order('name');
+  if (error) {
+    // Fallback si la vista aún no existe (SQL no ejecutado)
+    return _renderCostesSectionLegacy(container);
+  }
   if (!items?.length) { container.innerHTML = '<div class="notice">No hay platos activos</div>'; return; }
 
-  const cats = [...new Set(items.map(i => i.category || 'otros'))];
-  let html = `<div style="font-size:12px;color:var(--t2);margin-bottom:1rem;line-height:1.5;background:var(--bg2);padding:.65rem;border-radius:var(--r-sm)">
-    Introduce el coste de materia prima por plato. El margen se calculará automáticamente en el Dashboard → Resumen.
-  </div>`;
+  // KPIs agregados
+  const withRecipe = items.filter(i => i.has_recipe).length;
+  const noCost = items.filter(i => i.cost_manual == null).length;
+  const withDeviation = items.filter(i => i.deviation_pct != null && i.deviation_pct > 15).length;
+
+  const cats = [...new Set(items.map(i => i.category_name || 'Otros'))];
+
+  let html = `
+    <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap">
+      <div style="flex:1;min-width:120px;background:var(--bg2);border-radius:var(--r-sm);padding:.65rem .85rem">
+        <div style="font-size:11px;color:var(--t3);margin-bottom:2px">📖 Con receta</div>
+        <div style="font-size:18px;font-weight:700;color:var(--brand-d)">${withRecipe} <span style="font-size:11px;color:var(--t3);font-weight:400">/ ${items.length}</span></div>
+      </div>
+      <div style="flex:1;min-width:120px;background:var(--bg2);border-radius:var(--r-sm);padding:.65rem .85rem">
+        <div style="font-size:11px;color:var(--t3);margin-bottom:2px">⚠ Sin coste manual</div>
+        <div style="font-size:18px;font-weight:700;color:${noCost > 0 ? '#A32D2D' : 'var(--brand-d)'}">${noCost}</div>
+      </div>
+      <div style="flex:1;min-width:120px;background:var(--bg2);border-radius:var(--r-sm);padding:.65rem .85rem">
+        <div style="font-size:11px;color:var(--t3);margin-bottom:2px">📊 Desviación >15%</div>
+        <div style="font-size:18px;font-weight:700;color:${withDeviation > 0 ? '#C26B0A' : 'var(--brand-d)'}">${withDeviation}</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--t2);margin-bottom:1rem;line-height:1.5;background:var(--bg2);padding:.65rem;border-radius:var(--r-sm)">
+      <strong>Coste manual</strong> es el oficial (usado en KPIs). <strong>Coste teórico</strong> se calcula automáticamente desde la receta. Si difieren mucho, revisa la receta o el coste manual.
+    </div>`;
+
+  cats.forEach(cat => {
+    const catItems = items.filter(i => (i.category_name || 'Otros') === cat);
+    html += `<div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin:.85rem 0 .35rem">${cat}</div>`;
+    catItems.forEach(item => {
+      const cm = item.cost_manual;
+      const ct = item.cost_theoretical;
+      const fcManual = item.foodcost_manual_pct;
+      const fcTheor  = item.foodcost_theoretical_pct;
+      const dev = item.deviation_pct;
+
+      // Color del foodcost según rangos hostelería: <30 verde, 30-35 ámbar, >35 rojo
+      const fcColor = pct => pct == null ? 'var(--t3)' : pct < 30 ? '#3B6D11' : pct <= 35 ? '#C26B0A' : '#A32D2D';
+
+      // Bloque coste teórico (informativo, no editable)
+      let theorBlock;
+      if (!item.has_recipe) {
+        theorBlock = `<span style="font-size:10px;color:var(--t3);font-style:italic">sin receta</span>`;
+      } else if (ct == null) {
+        theorBlock = `<span style="font-size:10px;color:#C26B0A">receta incompleta</span>`;
+      } else {
+        const syncBtn = (cm == null || (dev != null && dev > 5))
+          ? `<button onclick="syncCostFromTheoretical('${item.id}', ${ct})" title="Copiar a coste manual" style="background:none;border:none;cursor:pointer;color:var(--brand);font-size:11px;padding:0 2px">↻</button>`
+          : '';
+        theorBlock = `
+          <div style="text-align:right;font-size:11px;line-height:1.3">
+            <div style="color:var(--t2)">Auto: <strong style="color:var(--t1)">${ct.toFixed(2)}€</strong> ${syncBtn}</div>
+            ${fcTheor != null ? `<div style="color:${fcColor(fcTheor)};font-weight:600">${fcTheor}%</div>` : ''}
+          </div>`;
+      }
+
+      // Warning desviación
+      const warning = (dev != null && dev > 15)
+        ? `<div style="font-size:10px;color:#C26B0A;background:#FFF3E0;border-radius:99px;padding:1px 7px;display:inline-flex;align-items:center;gap:3px">⚠ ${dev}% desv.</div>`
+        : '';
+
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:.6rem 0;border-bottom:1px solid var(--bd)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500">${escHtml(item.name)}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
+            <span style="font-size:11px;color:var(--t3)">PVP ${fmt(parseFloat(item.price))}</span>
+            ${warning}
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:4px">
+          <span style="font-size:10px;color:var(--t3)">Manual:</span>
+          <input type="number" step="0.01" min="0" value="${cm != null ? cm : ''}" placeholder="0.00"
+            data-item-id="${item.id}"
+            style="width:64px;padding:5px 7px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-size:13px;font-family:inherit;text-align:right"
+            onchange="saveCostPriceAndRefresh('${item.id}',this.value)"
+            onfocus="this.style.borderColor='var(--brand)'" onblur="this.style.borderColor='var(--bd2)'">
+          ${fcManual != null ? `<span style="font-size:11px;font-weight:600;color:${fcColor(fcManual)};min-width:34px;text-align:right">${fcManual}%</span>` : '<span style="min-width:34px"></span>'}
+        </div>
+        <div style="min-width:90px">${theorBlock}</div>
+      </div>`;
+    });
+  });
+  container.innerHTML = html;
+}
+
+// Helper: copia coste teórico al manual
+async function syncCostFromTheoretical(itemId, theoreticalCost) {
+  await sb.from('menu_items').update({ cost_price: theoreticalCost }).eq('id', itemId);
+  notify('Coste sincronizado', 'success');
+  // Recargar la sección
+  const container = document.querySelector('[data-costes-container]');
+  if (container) renderCostesSection(container);
+  else if (typeof loadCostesEditor === 'function') loadCostesEditor();
+}
+
+// Wrapper: guarda y refresca para que se actualicen los % de foodcost
+async function saveCostPriceAndRefresh(itemId, value) {
+  await saveCostPrice(itemId, value);
+  // Refresca solo si el contenedor está visible
+  const container = document.querySelector('[data-costes-container]');
+  if (container) renderCostesSection(container);
+}
+
+// Versión legacy: si la vista aún no existe en BD, mostrar UI antigua
+async function _renderCostesSectionLegacy(container) {
   cats.forEach(cat => {
     const catItems = items.filter(i => (i.category || 'otros') === cat);
     html += `<div style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin:.85rem 0 .35rem">${cat}</div>`;
@@ -19587,6 +19702,74 @@ async function loadKPIs() {
   document.getElementById('kpi-spliteat-rate').textContent = adoptionRate + '%';
   renderCustomKPIs();
   loadMargenKPIs(); // poblar la sección "💹 Margen por plato"
+  loadFoodcostKPI(); // Sprint Costes — foodcost teórico/manual del periodo
+}
+
+// Sprint Costes Turno 2 — KPI de foodcost
+async function loadFoodcostKPI() {
+  if (!state.adminRestaurantId) return;
+  const el = document.getElementById('kpi-foodcost-block');
+  if (!el) return;
+
+  // Determinar periodo desde el estado actual
+  const period = state.kpiPeriod ?? 0;
+  const now = new Date();
+  let from;
+  if (period === 'all') from = new Date('2020-01-01');
+  else {
+    const days = parseInt(period) || 0;
+    from = new Date(now);
+    from.setHours(0,0,0,0);
+    if (days > 0) from.setDate(from.getDate() - days);
+  }
+
+  try {
+    const { data, error } = await sb.rpc('foodcost_summary', {
+      p_restaurant_id: state.adminRestaurantId,
+      p_from: from.toISOString(),
+      p_to: now.toISOString()
+    });
+    if (error) { console.warn('[loadFoodcostKPI]', error); el.style.display = 'none'; return; }
+
+    const fcManual = data?.foodcost_manual_pct;
+    const fcTheor  = data?.foodcost_theoretical_pct;
+    const noCost   = data?.dishes_without_manual_cost || 0;
+    const noRecipe = data?.dishes_without_recipe || 0;
+    const sold     = data?.dishes_sold || 0;
+
+    if (sold === 0) {
+      el.style.display = 'none';
+      return;
+    }
+
+    const colorFor = pct => pct == null ? 'var(--t3)' : pct < 30 ? '#3B6D11' : pct <= 35 ? '#C26B0A' : '#A32D2D';
+    const labelFor = pct => pct == null ? 'sin datos' : pct < 30 ? 'saludable' : pct <= 35 ? 'ajustado' : 'alto';
+
+    el.style.display = 'block';
+    el.innerHTML = `
+      <div style="font-size:14px;font-weight:600;margin-bottom:.65rem">🍳 Foodcost del periodo</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+        <div class="kpi-card" style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.85rem">
+          <div style="font-size:11px;color:var(--t3);margin-bottom:4px">📊 Foodcost manual</div>
+          <div style="font-size:22px;font-weight:700;color:${colorFor(fcManual)}">${fcManual != null ? fcManual + '%' : '—'}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px">${fcManual != null ? labelFor(fcManual) : 'configura costes'}</div>
+        </div>
+        <div class="kpi-card" style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:.85rem">
+          <div style="font-size:11px;color:var(--t3);margin-bottom:4px">📖 Foodcost teórico</div>
+          <div style="font-size:22px;font-weight:700;color:${colorFor(fcTheor)}">${fcTheor != null ? fcTheor + '%' : '—'}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px">${fcTheor != null ? 'desde recetas' : 'completa recetas'}</div>
+        </div>
+      </div>
+      ${(noCost > 0 || noRecipe > 0) ? `
+      <div style="background:#FFF3E0;border:1px solid #C26B0A;border-radius:var(--r-sm);padding:.5rem .75rem;margin-top:.5rem;font-size:11px;color:#854F0B;line-height:1.4">
+        ${noCost > 0 ? `<div>⚠ ${noCost} ${noCost===1?'plato vendido sin coste manual':'platos vendidos sin coste manual'}</div>` : ''}
+        ${noRecipe > 0 ? `<div>📖 ${noRecipe} ${noRecipe===1?'plato sin receta':'platos sin receta'}</div>` : ''}
+      </div>` : ''}
+    `;
+  } catch (e) {
+    console.warn('[loadFoodcostKPI]', e);
+    el.style.display = 'none';
+  }
 }
 
 // ── CUSTOM KPIs ──
