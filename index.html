@@ -64,6 +64,9 @@
   /* Footer landing: solo visible cuando body tiene clase landing-mode */
   .landing-footer { display: none !important; }
   body.landing-mode .landing-footer { display: block !important; }
+  /* Badge de rol manageat: solo visible dentro de manageat */
+  .manageat-only { display: none !important; }
+  body.manageat-active .manageat-only { display: block !important; }
   #s0:not(.active) { display: none !important; }
   #s-kitchen { max-width: 100% !important; width: 100% !important; }
   /* Sprint Costes Turno 8a — Picker de restaurante full-width */
@@ -2253,6 +2256,11 @@
       <div class="logo">cook<em style="color:var(--accent);font-style:normal">eat</em></div>
       <div style="display:flex;align-items:center;gap:10px">
         <div class="live-badge"><div class="live-dot"></div><span id="k-rest-name">—</span></div>
+        <!-- Botón Cambiar zonas — siempre visible -->
+        <button onclick="openCookeatZonesChange()" id="k-zones-btn" title="Gestionar zonas de trabajo"
+          style="display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:99px;border:1px solid var(--bd2);background:var(--bg);color:var(--t1);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s">
+          <span style="font-size:14px">📍</span><span>Zonas</span>
+        </button>
         <!-- Botón Ajustes en cabecera (engranaje, no tab) -->
         <button onclick="openKitchenAjustes()" id="k-ajustes-btn" title="Ajustes — Carta y tiempos"
           style="display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:99px;border:1px solid var(--bd2);background:var(--bg);color:var(--t1);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s">
@@ -2353,7 +2361,7 @@
     <div class="hdr" style="width:100%;padding:1rem 2rem">
       <div style="max-width:1200px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between">
         <button class="back-btn" onclick="go('s0')">← Inicio</button>
-        <div class="logo">spliteat</div>
+        <div class="logo">split<em style="color:var(--accent);font-style:normal">eat</em></div>
         <div style="width:60px"></div>
       </div>
     </div>
@@ -2386,7 +2394,7 @@
     <div class="hdr" style="width:100%;padding:1rem 2rem">
       <div style="max-width:1200px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between">
         <button class="back-btn" onclick="restaurantLogout()">← Salir</button>
-        <div class="logo">spliteat</div>
+        <div class="logo">split<em style="color:var(--accent);font-style:normal">eat</em></div>
         <button id="hub-switch-local-btn" onclick="hubSwitchLocal()" style="background:none;border:1px solid var(--bd);border-radius:8px;padding:.4rem .75rem;font-size:12px;color:var(--t2);cursor:pointer;display:none">⇄ Cambiar local</button>
       </div>
     </div>
@@ -14711,6 +14719,10 @@ function restaurantLogout() {
   _restaurantSession = null;
   _employeesCache = null;
   _activeEmployee = null;
+  // Limpiar badge de rol manageat (queda visible si no se borra)
+  const badge = document.getElementById('manageat-role-badge');
+  if (badge) badge.remove();
+  document.body.classList.remove('manageat-active');
   try { localStorage.removeItem('spliteat.restaurantSession'); } catch (e) {}
   go('s0');
 }
@@ -14980,16 +14992,56 @@ async function _enterModuleAfterPin(emp) {
   }
 
   if (module === 'serveat') {
+    // _finishWaiterLogin es una función ANIDADA dentro de waiterLogin (no accesible globalmente).
+    // Replicamos el flujo necesario aquí: setear globals, marcar activo, ir a s-waiter,
+    // cargar mesas/notif/heartbeat, y disparar prompt de control horario.
     _waiterId = emp.id;
     _waiterName = emp.name;
     _waiterRestaurantId = _restaurantSession.restaurantId;
+    _waiterLoginAt = Date.now();
     state.adminRestaurantId = _restaurantSession.restaurantId;
-    try { await sb.from('waiters').update({ is_active: true, last_seen_at: new Date().toISOString() }).eq('id', emp.id); } catch(e){}
-    if (typeof _finishWaiterLogin === 'function') {
-      await _finishWaiterLogin({ id: emp.id, name: emp.name, restaurant_id: _restaurantSession.restaurantId });
-    } else {
-      go('s-waiter');
+
+    // Marcar activo en BD
+    try {
+      await sb.from('waiters').update({
+        is_active: true,
+        last_login_at: new Date().toISOString(),
+        last_seen_at: new Date().toISOString()
+      }).eq('id', emp.id);
+    } catch(e) { console.warn('[serveat update activo]', e); }
+
+    // Auto-logout tras 12h de inactividad
+    if (window._waiterAutoLogoutTimer) clearTimeout(window._waiterAutoLogoutTimer);
+    window._waiterAutoLogoutTimer = setTimeout(() => {
+      if (typeof waiterLogout === 'function') waiterLogout();
+      if (typeof showToast === 'function') showToast('Sesión caducada', 'Inicia sesión de nuevo');
+    }, 12 * 60 * 60 * 1000);
+
+    // Heartbeat (mantiene last_seen_at actualizado mientras serveat está abierto)
+    if (typeof _doHeartbeat === 'function') {
+      try { await _doHeartbeat(); } catch(e){}
+      if (window._waiterHeartbeatTimer) clearInterval(window._waiterHeartbeatTimer);
+      window._waiterHeartbeatTimer = setInterval(() => { try { _doHeartbeat(); } catch(e){} }, 60 * 1000);
     }
+
+    // Cargar nombre del restaurante para el header
+    _waiterRestaurantName = _restaurantSession.restaurantName || '';
+
+    // Mostrar nombre en el badge
+    const nameBadge = document.getElementById('waiter-name-badge');
+    if (nameBadge) nameBadge.textContent = emp.name;
+
+    // Navegar y cargar UI
+    go('s-waiter');
+    if (typeof loadWaiterMesas === 'function') loadWaiterMesas();
+    if (typeof loadWaiterTableSelects === 'function') loadWaiterTableSelects();
+    if (typeof subscribeWaiterNotifications === 'function') subscribeWaiterNotifications();
+
+    // Sprint Control horario: disparar prompt de fichaje (RD-ley 8/2019)
+    if (typeof promptClockInIfNeeded === 'function') {
+      setTimeout(() => promptClockInIfNeeded(emp.id), 400);
+    }
+
     return;
   }
 
@@ -15067,12 +15119,14 @@ function applyManageatPermissions(role) {
   if (!badge) {
     badge = document.createElement('div');
     badge.id = 'manageat-role-badge';
+    badge.className = 'manageat-only';
     badge.style.cssText = 'position:fixed;top:14px;right:80px;background:var(--brand-d);color:#fff;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;z-index:500;font-family:inherit';
     document.body.appendChild(badge);
   }
   const empName = _activeEmployee?.name || '';
   badge.textContent = `${role === 'owner' ? '🔑' : '👤'} ${_roleBadge(role)}${empName ? ' · ' + empName : ''}`;
-  badge.style.display = (typeof currentScreen !== 'undefined' && currentScreen?.startsWith('s-admin-app')) ? 'block' : 'block';
+  // El badge se controla via CSS .manageat-only (solo visible cuando body tiene clase manageat-active)
+  document.body.classList.add('manageat-active');
 }
 
 // ── Restaurar sesión al cargar ────────────────────────────────────
@@ -15264,6 +15318,11 @@ function adminLogout() {
   state.owner = null;  // Sprint Costes Turno 6
   state.adminEmail = null; // Sprint Costes Turno 8a
   state.activeRestaurantId = null; // Sprint Costes Turno 8a
+  // Sprint Refactor Login: limpiar badge de rol y empleado activo
+  const roleBadge = document.getElementById('manageat-role-badge');
+  if (roleBadge) roleBadge.remove();
+  document.body.classList.remove('manageat-active');
+  if (typeof _activeEmployee !== 'undefined') _activeEmployee = null;
   const tabBar = document.querySelector('#s-admin .tab-bar');
   if (tabBar) tabBar.style.display = '';
   const logo = document.querySelector('#s-admin .hdr .logo');
