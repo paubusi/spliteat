@@ -10116,6 +10116,46 @@ async function _notifyChiefRequired() {
   notify(msg, 'info');
 }
 
+// Sprint Refactor — Heartbeat genérico de staff. Mantiene last_seen_at actualizado en BD
+// para que manageat (sala) muestre quién está realmente conectado en cualquier módulo.
+// Sin esto, cookeat/manageat marcaban is_active una vez y luego pasaban a "reciente"/"offline"
+// al pasar 3 minutos aunque siguieran abiertos.
+let _staffHeartbeatTimer = null;
+let _staffHeartbeatVisHandler = null;
+let _staffHeartbeatId = null;
+
+async function _startStaffHeartbeat(empId) {
+  if (!empId) return;
+  _stopStaffHeartbeat();
+  _staffHeartbeatId = empId;
+
+  const tick = async () => {
+    if (!_staffHeartbeatId) return;
+    try {
+      await sb.from('waiters').update({
+        last_seen_at: new Date().toISOString(),
+        is_active: true
+      }).eq('id', _staffHeartbeatId);
+    } catch (e) { /* no bloquear UI por fallo de heartbeat */ }
+  };
+
+  await tick();  // pulso inmediato
+  _staffHeartbeatTimer = setInterval(tick, 60 * 1000);
+
+  // Refrescar al volver visible la pestaña (browsers pausan setInterval en background)
+  _staffHeartbeatVisHandler = () => { if (!document.hidden) tick(); };
+  document.addEventListener('visibilitychange', _staffHeartbeatVisHandler);
+}
+
+function _stopStaffHeartbeat() {
+  if (_staffHeartbeatTimer) { clearInterval(_staffHeartbeatTimer); _staffHeartbeatTimer = null; }
+  if (_staffHeartbeatVisHandler) {
+    document.removeEventListener('visibilitychange', _staffHeartbeatVisHandler);
+    _staffHeartbeatVisHandler = null;
+  }
+  _staffHeartbeatId = null;
+}
+
 async function setOrderStatus(dishId, status) {
   // #4: manageat has read-only visibility — only cookeat can change kitchen status
   // Sprint Refactor: defensa adicional — si hay cocinero identificado (kitchenUserId)
@@ -11487,8 +11527,15 @@ async function _doClockOutAndLogout() {
 // Sprint Refactor: equivalente a _waiterLogoutWithoutShift pero para cocina.
 // Limpia state, badge y vuelve al hub (o landing si no hay sesión de restaurante).
 async function _kitchenLogoutWithoutShift() {
-  // Limpiar zonas activas en BD
+  // Sprint Refactor: parar heartbeat ANTES de marcar inactivo, para que un tick rezagado no
+  // vuelva a marcar is_active=true.
+  _stopStaffHeartbeat();
+  // Marcar como inactivo en BD
   if (state.kitchenUserId) {
+    try {
+      await sb.from('waiters').update({ is_active: false, last_seen_at: null }).eq('id', state.kitchenUserId);
+    } catch (e) { /* non-blocking */ }
+    // Limpiar zonas activas en BD
     try {
       await sb.from('waiter_active_zones').delete().eq('waiter_id', state.kitchenUserId);
     } catch (e) { /* non-blocking */ }
@@ -12234,6 +12281,8 @@ async function exportEquipoMonthlyReport() {
 
 
 async function _waiterLogoutWithoutShift() {
+  // Sprint Refactor: parar heartbeat ANTES de marcar inactivo
+  _stopStaffHeartbeat();
   if (_waiterId) {
     await sb.from('waiters').update({ is_active: false, last_seen_at: null }).eq('id', _waiterId);
   }
@@ -15156,6 +15205,10 @@ async function _enterModuleAfterPin(emp) {
     if (emp.role === 'manager' && typeof promptClockInIfNeeded === 'function') {
       setTimeout(() => promptClockInIfNeeded(emp.id), 700);
     }
+
+    // Sprint Refactor: heartbeat para que el manager/owner aparezca como "online" en sala
+    _startStaffHeartbeat(emp.id);
+
     return;
   }
 
@@ -15186,10 +15239,12 @@ async function _enterModuleAfterPin(emp) {
     }, 12 * 60 * 60 * 1000);
 
     // Heartbeat (mantiene last_seen_at actualizado mientras serveat está abierto)
+    // Sprint Refactor: usamos el helper centralizado para coherencia con cookeat/manageat
+    _startStaffHeartbeat(emp.id);
+
+    // (legacy fallback — algunos códigos viejos comprueban window._waiterHeartbeatTimer)
     if (typeof _doHeartbeat === 'function') {
       try { await _doHeartbeat(); } catch(e){}
-      if (window._waiterHeartbeatTimer) clearInterval(window._waiterHeartbeatTimer);
-      window._waiterHeartbeatTimer = setInterval(() => { try { _doHeartbeat(); } catch(e){} }, 60 * 1000);
     }
 
     // Cargar nombre del restaurante para el header
@@ -15258,6 +15313,10 @@ async function _enterModuleAfterPin(emp) {
     if (typeof promptClockInIfNeeded === 'function') {
       setTimeout(() => promptClockInIfNeeded(emp.id), 600);
     }
+
+    // Sprint Refactor: heartbeat para que el cocinero aparezca como "online" en sala (manageat)
+    _startStaffHeartbeat(emp.id);
+
     return;
   }
 
@@ -15530,7 +15589,15 @@ async function adminLogout() {
 }
 
 // Logout real de manageat (sin pasar por clock-out check, llamado tras clock-out o para owner)
-function _adminLogoutWithoutShift() {
+async function _adminLogoutWithoutShift() {
+  // Sprint Refactor: parar heartbeat ANTES de marcar inactivo
+  _stopStaffHeartbeat();
+  // Marcar empleado como inactivo si era manager (owner queda fuera del control)
+  if (state.adminEmployeeId && state.adminRole !== 'admin') {
+    try {
+      await sb.from('waiters').update({ is_active: false, last_seen_at: null }).eq('id', state.adminEmployeeId);
+    } catch(e) { /* non-blocking */ }
+  }
   state.adminRestaurantId = null;
   state.adminRestaurantName = '';
   state.adminRole = 'admin';
@@ -21452,12 +21519,16 @@ async function loadWaiterStatusBar() {
   }
 
   // Sub-Sprint A.4+A.6: agrupar por rol
+  // Sprint Refactor: añadidos 'cook' y 'owner' (5 roles oficiales: owner/manager/kitchen_chief/cook/waiter).
+  // Sin esto Carlos (cook) y Pau (owner) caían en "Otros".
   const roleConfig = {
-    'manager':       { label: 'Manager',     order: 1 },
-    'kitchen_chief': { label: 'Cocina',      order: 2 },
-    'chef':          { label: 'Cocina',      order: 2 },
-    'floor_chief':   { label: 'Sala',        order: 3 },
-    'waiter':        { label: 'Sala',        order: 3 }
+    'owner':         { label: 'Dirección',   order: 0 },
+    'manager':       { label: 'Dirección',   order: 0 },
+    'kitchen_chief': { label: 'Cocina',      order: 1 },
+    'chef':          { label: 'Cocina',      order: 1 }, // legacy
+    'cook':          { label: 'Cocina',      order: 1 },
+    'floor_chief':   { label: 'Sala',        order: 2 }, // legacy
+    'waiter':        { label: 'Sala',        order: 2 }
   };
   const groups = {};
   waiters.forEach(w => {
