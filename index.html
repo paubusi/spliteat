@@ -69,6 +69,17 @@
   /* Sprint Costes Turno 8a — Picker de restaurante full-width */
   #s-restaurant-picker { max-width: none !important; width: 100vw !important; margin: 0 !important; }
   #s-restaurant-picker.active { position: fixed !important; inset: 0 !important; overflow-y: auto; display: flex !important; flex-direction: column !important; }
+  /* Sprint Refactor Login v2 — Pantallas nuevas full-width en desktop */
+  #s-modules-hub,
+  #s-employee-select,
+  #s-admin-login {
+    max-width: none !important; width: 100vw !important; margin: 0 !important;
+  }
+  #s-modules-hub.active,
+  #s-employee-select.active,
+  #s-admin-login.active {
+    position: fixed !important; inset: 0 !important; overflow-y: auto; display: flex !important; flex-direction: column !important;
+  }
   #s0.active ~ *:not(#cookies-banner):not(#cookies-settings-modal) { pointer-events: none; }
 
   /* #1: Pantallas de login en desktop — solo el .body se centra, el .hdr ocupa todo el ancho
@@ -14701,19 +14712,33 @@ async function _renderEmployeeSelect(module) {
     return;
   }
 
+  // Cache para event delegation
+  grid._employeesData = filtered;
+
   const colors = ['#085041','#D85A30','#5b8def','#9c7cb1','#6fa05f','#c97e3a','#3a6b8f','#b94552'];
   grid.innerHTML = filtered.map((e, idx) => {
     const initials = (e.name || '?').split(' ').map(s => s[0]||'').join('').slice(0,2).toUpperCase();
     const color = colors[idx % colors.length];
     const roleBadge = _roleBadge(e.role);
-    return `<button onclick="_selectEmployeeForPin('${e.id}',${JSON.stringify(e.name)},'${e.role}')"
-              style="background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:1rem .65rem;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:.5rem;font-family:inherit;transition:transform .12s,border-color .12s"
-              onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--bd)'">
+    return `<button class="emp-card" data-emp-idx="${idx}"
+              style="background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:1rem .65rem;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:.5rem;font-family:inherit;transition:transform .12s,border-color .12s">
       <div style="width:50px;height:50px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-size:18px;font-weight:700">${initials}</div>
       <div style="font-size:13px;font-weight:600;color:var(--t1);text-align:center;line-height:1.2">${escHtml(e.name)}</div>
       <div style="font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em">${roleBadge}</div>
     </button>`;
   }).join('');
+
+  // Event delegation — robusto frente a caracteres especiales en nombres
+  grid.querySelectorAll('.emp-card').forEach(card => {
+    card.addEventListener('mouseover', () => { card.style.borderColor = 'var(--brand)'; });
+    card.addEventListener('mouseout', () => { card.style.borderColor = 'var(--bd)'; });
+    card.addEventListener('click', () => {
+      const idx = parseInt(card.dataset.empIdx, 10);
+      const emp = filtered[idx];
+      if (!emp) return;
+      _selectEmployeeForPin(emp.id, emp.name, emp.role);
+    });
+  });
 }
 
 function _roleBadge(role) {
