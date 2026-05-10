@@ -14449,8 +14449,10 @@ async function _validatePin() {
 // (No reseteamos automáticamente — el flujo correcto es que el manager lo cambie
 // desde manageat con su credencial. Esto evita ataques de reset masivo.)
 function _showPinForgotModal() {
-  // Cerrar el keypad para no solapar
+  // Cerrar el keypad para no solapar — soportamos los 2 flujos: legacy (cookeat-pin-overlay)
+  // y Sprint Refactor (rest-pin-modal).
   document.getElementById('cookeat-pin-overlay')?.remove();
+  document.getElementById('rest-pin-modal')?.remove();
 
   const overlay = document.createElement('div');
   overlay.id = 'cookeat-pin-forgot-overlay';
@@ -14480,8 +14482,19 @@ function _showPinForgotModal() {
 
 function _closePinForgotAndReturn() {
   document.getElementById('cookeat-pin-forgot-overlay')?.remove();
-  // Volver al selector de personal (no al keypad — porque el cocinero
-  // puede haber cambiado de idea y querer probar con otro usuario)
+  // Sprint Refactor: si hay sesión de restaurante activa, volver al selector de empleados
+  // del nuevo flujo (no al staff grid legacy).
+  if (typeof _restaurantSession !== 'undefined' && _restaurantSession && typeof _renderEmployeeSelect === 'function') {
+    _activeEmployee = null;
+    if (_pendingModule) {
+      _renderEmployeeSelect(_pendingModule);
+    } else {
+      // Sin módulo pendiente → volver al hub
+      if (typeof _showModulesHub === 'function') _showModulesHub();
+    }
+    return;
+  }
+  // Fallback al flujo legacy (cookeat staff grid)
   _cookeatStaffSelected = null;
   go('s-cookeat-staff');
 }
@@ -14979,6 +14992,10 @@ function _showPinModal(empId, empName, empRole) {
       <div id="rest-pin-err" style="display:none;font-size:12px;color:var(--accent);margin-bottom:.5rem;min-height:16px"></div>
       <div id="rest-pin-keypad" style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-bottom:.85rem"></div>
       <button class="btn btn-secondary" onclick="document.getElementById('rest-pin-modal')?.remove()" style="width:100%">Cancelar</button>
+      <button onclick="_showPinForgotModal()"
+        style="margin-top:.85rem;background:none;border:none;color:var(--brand-d);font-size:13px;cursor:pointer;font-family:inherit;text-decoration:underline">
+        He olvidado mi PIN
+      </button>
     </div>
   `;
   document.body.appendChild(overlay);
@@ -15116,16 +15133,22 @@ async function _enterModuleAfterPin(emp) {
       go('s-modules-hub');
       return;
     }
-    state.adminRestaurantId = _restaurantSession.restaurantId;
-    state.adminRestaurantName = _restaurantSession.restaurantName;
-    state.adminRole = emp.role; // 'owner' o 'manager'
-    state.adminEmployeeId = emp.id;
-    state.adminEmployeeName = emp.name;
+    // CRÍTICO: enterAdminApp() resetea state.adminRole = 'admin' internamente,
+    // así que primero llamamos a enterAdminApp() y DESPUÉS sobrescribimos el role
+    // y el empleado activo. Si lo hacemos en orden inverso se pierden los datos
+    // y luego adminLogout() no detecta al manager (cae al rama 'owner u otros').
     if (typeof enterAdminApp === 'function') {
       enterAdminApp(_restaurantSession.restaurantId, _restaurantSession.restaurantName);
     } else {
+      state.adminRestaurantId = _restaurantSession.restaurantId;
+      state.adminRestaurantName = _restaurantSession.restaurantName;
       go('s-admin-app');
     }
+    // AHORA sobrescribir con los datos del empleado (Sprint Refactor)
+    state.adminRole = emp.role; // 'owner' o 'manager'
+    state.adminEmployeeId = emp.id;
+    state.adminEmployeeName = emp.name;
+
     // Aplicar permisos de UI tras entrar
     setTimeout(() => { try { applyManageatPermissions(emp.role); } catch(e){} }, 200);
 
