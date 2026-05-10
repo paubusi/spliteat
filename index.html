@@ -61,6 +61,9 @@
   /* #s0: solo full-screen cuando está activo. Cuando no, OCULTO del layout. */
   #s0 { max-width: none !important; width: 100vw !important; margin: 0 !important; z-index: 1; }
   #s0.active { position: fixed !important; inset: 0 !important; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex !important; }
+  /* Footer landing: solo visible cuando estamos en la landing #s0 */
+  body > footer { display: none; }
+  body:has(#s0.active) > footer { display: block; }
   #s0:not(.active) { display: none !important; }
   #s-kitchen { max-width: 100% !important; width: 100% !important; }
   /* Sprint Costes Turno 8a — Picker de restaurante full-width */
@@ -1437,8 +1440,8 @@
     <div style="background:#085041;border-radius:16px;padding:1.75rem 1.5rem;text-align:center">
       <div style="font-family:'Fraunces',serif;font-size:1.4rem;font-weight:700;color:#fff;margin-bottom:.5rem">¿Tu restaurante quiere empezar?</div>
       <p style="font-size:13px;color:rgba(255,255,255,.7);margin-bottom:1.25rem;line-height:1.5">Escríbenos y lo tenemos funcionando este mismo día.</p>
-      <a href="/cdn-cgi/l/email-protection#81e9eeede0c1f2f1ede8f5e4e0f5afe4f2" style="display:inline-block;background:#D85A30;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:.75rem 2rem;border-radius:99px;font-family:'DM Sans',sans-serif">
-        <span class="__cf_email__" data-cfemail="e981868588a99a9985809d8c889dc78c9a">[email&#160;protected]</span>
+      <a id="hero-contact-cta" href="#" style="display:inline-block;background:#D85A30;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:.75rem 2rem;border-radius:99px;font-family:'DM Sans',sans-serif">
+        <span id="hero-contact-cta-text">Escríbenos</span>
       </a>
       <div style="margin-top:.85rem">
         <button onclick="go('s-admin-login')" style="background:none;border:none;color:rgba(255,255,255,.6);font-size:12px;cursor:pointer;font-family:inherit;text-decoration:underline">
@@ -1557,7 +1560,7 @@
           <div style="display:flex;flex-direction:column;gap:5px">
             <a onclick="document.getElementById('s0-productos').scrollIntoView({behavior:'smooth'})" style="font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;text-decoration:none">La suite</a>
             <a onclick="document.getElementById('s0-precios').scrollIntoView({behavior:'smooth'})" style="font-size:13px;color:rgba(255,255,255,.6);cursor:pointer;text-decoration:none">Precios</a>
-            <a href="/cdn-cgi/l/email-protection#c3abacafa283b0b3afaab7a6a2b7eda6b0" style="font-size:13px;color:rgba(255,255,255,.6);text-decoration:none">Contacto</a>
+            <a id="footer-contact-link" href="#" style="font-size:13px;color:rgba(255,255,255,.6);text-decoration:none">Contacto</a>
           </div>
         </div>
         <div>
@@ -2395,6 +2398,11 @@
         onkeydown="if(event.key==='Enter') kitchenLogin()"></div>
       <button class="btn btn-primary mt" onclick="kitchenLogin()">Entrar a cocina →</button>
       <div id="kitchen-err" class="notice notice-err" style="display:none"></div>
+      <button onclick="kitchenForgotPassword()" style="margin-top:.75rem;width:100%;background:none;border:none;color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit;text-decoration:underline">
+        He olvidado mi contraseña
+      </button>
+      <hr style="margin-top:1.25rem">
+      <p class="muted center" style="font-size:12px">¿Aún no tienes cuenta? <a href="https://calendly.com/pau-busquets-spliteat/30min" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:underline;font-weight:500">Reserva una demo →</a></p>
     </div>
   </div>
 
@@ -2473,6 +2481,11 @@
         onkeydown="if(event.key==='Enter') stockeatLogin()"></div>
       <button class="btn btn-primary mt" onclick="stockeatLogin()">Entrar a stockeat →</button>
       <div id="stockeat-err" class="notice notice-err" style="display:none"></div>
+      <button onclick="stockeatForgotPassword()" style="margin-top:.75rem;width:100%;background:none;border:none;color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit;text-decoration:underline">
+        He olvidado mi contraseña
+      </button>
+      <hr style="margin-top:1.25rem">
+      <p class="muted center" style="font-size:12px">¿Aún no tienes cuenta? <a href="https://calendly.com/pau-busquets-spliteat/30min" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:underline;font-weight:500">Reserva una demo →</a></p>
     </div>
   </div>
 
@@ -2512,8 +2525,11 @@
         onkeydown="if(event.key==='Enter') adminLogin()"></div>
       <button class="btn btn-primary mt" onclick="adminLogin()">Entrar</button>
       <div id="admin-err" class="notice notice-err" style="display:none"></div>
+      <button onclick="adminForgotPassword()" style="margin-top:.75rem;width:100%;background:none;border:none;color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit;text-decoration:underline">
+        He olvidado mi contraseña
+      </button>
       <hr>
-      <p class="muted center" style="font-size:12px">¿Aún no tienes cuenta? Escribe a <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="85edeae9e4c5f6f5e9ecf1e0e4f1abe0f6">[email&#160;protected]</a></p>
+      <p class="muted center" style="font-size:12px">¿Aún no tienes cuenta? <a href="https://calendly.com/pau-busquets-spliteat/30min" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:underline;font-weight:500">Reserva una demo →</a></p>
     </div>
   </div>
 
@@ -3229,7 +3245,7 @@
         </div>
         <div style="font-size:13px;color:var(--t2);margin-bottom:1rem;line-height:1.6">
           Cover Manager es el software de reservas líder en España. Para conectarlo necesitas una API Key que Cover Manager proporciona a sus partners.<br><br>
-          Solicita acceso en <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="ee9e8f9c9a808b9c9d86879e9dae8d81988b9c838f808f898b9cc08d8183">[email&#160;protected]</a></strong> mencionando spliteat.
+          Solicita acceso en <strong><span class="email-build" data-u="info" data-d="covermanager.com"></span></strong> mencionando spliteat.
         </div>
         <div class="field">
           <label>API Key de Cover Manager</label>
@@ -11034,18 +11050,103 @@ async function waiterLogin() {
 
 async function waiterForgotPassword() {
   const email = document.getElementById('waiter-email')?.value?.trim();
-  if (!email) {
-    notify('Introduce tu email primero, luego pulsa "He olvidado mi contraseña".');
-    return;
-  }
-  const { data: waiter } = await sb.from('waiters')
-    .select('id, name, restaurant_id').eq('email', email).maybeSingle();
-  if (!waiter) {
-    notify('No se encontró ningún empleado con ese email. Contacta con el administrador.');
-    return;
-  }
-  notify(`Contacta con el responsable de tu restaurante para que restablezca tu contraseña desde el panel manageat → Gestión → Camareros.`);
+  await _showForgotPasswordFlow(email, 'serveat');
 }
+
+// ════════════════════════════════════════════════════════════════
+// RESET DE CONTRASEÑA — flujo unificado para los 4 módulos
+// (manageat, cookeat, stockeat, serveat)
+// Usa Supabase Auth resetPasswordForEmail. Si la cuenta no existe en
+// auth.users (caso legacy: solo está en restaurants/waiters con
+// password_hash propio), informamos al usuario sin filtrar info.
+// ════════════════════════════════════════════════════════════════
+async function _showForgotPasswordFlow(prefilledEmail, originModule) {
+  const moduleLabel = {
+    'manageat': 'manageat',
+    'cookeat': 'cookeat',
+    'stockeat': 'stockeat',
+    'serveat': 'serveat'
+  }[originModule] || 'el panel';
+
+  // Modal con input de email
+  const overlay = document.createElement('div');
+  overlay.id = 'forgot-pwd-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;display:flex;align-items:center;justify-content:center;padding:1rem';
+  overlay.innerHTML = ''
+    + '<div style="background:var(--card);border-radius:var(--r-lg);padding:1.5rem;max-width:400px;width:100%">'
+    +   '<div style="font-family:\'Fraunces\',serif;font-size:20px;font-weight:700;color:var(--t1);margin-bottom:.5rem">🔐 Recuperar contraseña</div>'
+    +   '<div style="font-size:13px;color:var(--t2);margin-bottom:1rem;line-height:1.5">'
+    +     'Introduce el email asociado a tu cuenta de <strong>' + moduleLabel + '</strong>. '
+    +     'Te enviaremos un enlace para crear una nueva contraseña.'
+    +   '</div>'
+    +   '<div class="field">'
+    +     '<label>Email</label>'
+    +     '<input id="fpwd-email" type="email" placeholder="tucorreo@restaurante.com" autocomplete="email" '
+    +       'value="' + escHtml(prefilledEmail || '') + '">'
+    +   '</div>'
+    +   '<div id="fpwd-msg" style="display:none;font-size:12px;padding:.5rem .75rem;border-radius:8px;margin-bottom:.5rem"></div>'
+    +   '<div style="display:flex;gap:.5rem;margin-top:.75rem">'
+    +     '<button class="btn btn-secondary" onclick="document.getElementById(\'forgot-pwd-overlay\')?.remove()" style="flex:1">Cancelar</button>'
+    +     '<button class="btn btn-primary" onclick="_submitForgotPassword(\'' + originModule + '\')" id="fpwd-submit-btn" style="flex:1">Enviar enlace</button>'
+    +   '</div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+  // Foco en el input
+  setTimeout(() => document.getElementById('fpwd-email')?.focus(), 50);
+  // Enter envía
+  document.getElementById('fpwd-email')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') _submitForgotPassword(originModule);
+  });
+}
+
+async function _submitForgotPassword(originModule) {
+  const email = document.getElementById('fpwd-email')?.value?.trim();
+  const msg = document.getElementById('fpwd-msg');
+  const btn = document.getElementById('fpwd-submit-btn');
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (msg) {
+      msg.style.display = 'block';
+      msg.style.background = 'rgba(216,90,48,.12)';
+      msg.style.color = '#D85A30';
+      msg.textContent = '⚠ Introduce un email válido';
+    }
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
+
+  try {
+    // Supabase Auth resetPasswordForEmail. El correo lleva un token y redirige
+    // a /?reset=1 donde el SPA muestra el formulario de nueva contraseña.
+    const redirectTo = window.location.origin + '/?reset=1&module=' + encodeURIComponent(originModule);
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+    if (error) throw error;
+
+    // Mensaje genérico (no confirmamos si el email existe o no por seguridad)
+    if (msg) {
+      msg.style.display = 'block';
+      msg.style.background = 'rgba(16,150,90,.12)';
+      msg.style.color = 'var(--brand-d)';
+      msg.innerHTML = '✓ Si la cuenta existe, te enviaremos un enlace en breve. Revisa tu bandeja y la carpeta de spam.';
+    }
+    if (btn) { btn.style.display = 'none'; }
+    // Auto-cerrar tras 4s
+    setTimeout(() => document.getElementById('forgot-pwd-overlay')?.remove(), 4000);
+  } catch (err) {
+    console.error('[forgotPassword]', err);
+    if (msg) {
+      msg.style.display = 'block';
+      msg.style.background = 'rgba(216,90,48,.12)';
+      msg.style.color = '#D85A30';
+      msg.textContent = '⚠ No se pudo enviar el enlace. Inténtalo de nuevo en unos minutos.';
+    }
+    if (btn) { btn.disabled = false; btn.textContent = 'Enviar enlace'; }
+  }
+}
+
+// Wrappers para que cada módulo use su email pre-rellenado
+function adminForgotPassword()    { _showForgotPasswordFlow(document.getElementById('admin-email')?.value?.trim(),    'manageat'); }
+function kitchenForgotPassword()  { _showForgotPasswordFlow(document.getElementById('kitchen-email')?.value?.trim(),  'cookeat'); }
+function stockeatForgotPassword() { _showForgotPasswordFlow(document.getElementById('stockeat-email')?.value?.trim(), 'stockeat'); }
 
 // ════════════════════════════════════════════════════════════════
 // SPRINT CONTROL HORARIO — Fichaje empleados (RD-ley 8/2019)
@@ -26178,6 +26279,38 @@ function initLanding() {
     document.getElementById('nav-link-productos')?.style && (document.getElementById('nav-link-productos').style.display = 'inline');
     document.getElementById('nav-link-precios')?.style && (document.getElementById('nav-link-precios').style.display = 'inline');
   }
+  // Reconstruir emails en runtime (evita que Vercel/Cloudflare los ofusque a [email protected])
+  _buildEmailsRuntime();
+}
+
+// Construye los mailtos en JS post-render. Vercel/Cloudflare solo ofuscan emails
+// que aparecen "en bruto" en el HTML servido — al construirse en cliente quedan limpios.
+function _buildEmailsRuntime() {
+  // Hero CTA: "¿Tu restaurante quiere empezar?" → mailto:hola@spliteat.es
+  const heroCta = document.getElementById('hero-contact-cta');
+  const heroTxt = document.getElementById('hero-contact-cta-text');
+  if (heroCta) {
+    const u = 'hola', d = 'spliteat.es';
+    heroCta.setAttribute('href', `mailto:${u}@${d}?subject=Quiero%20empezar%20con%20spliteat`);
+    if (heroTxt) heroTxt.textContent = `${u}@${d}`;
+  }
+  // Footer: "Contacto" → mailto:hola@spliteat.es
+  const footerLink = document.getElementById('footer-contact-link');
+  if (footerLink) {
+    const u = 'hola', d = 'spliteat.es';
+    footerLink.setAttribute('href', `mailto:${u}@${d}`);
+  }
+  // Cualquier <span class="email-build" data-u="..." data-d="..."> se transforma en <a>
+  document.querySelectorAll('.email-build').forEach(el => {
+    const u = el.getAttribute('data-u');
+    const d = el.getAttribute('data-d');
+    if (!u || !d) return;
+    const a = document.createElement('a');
+    a.href = `mailto:${u}@${d}`;
+    a.textContent = `${u}@${d}`;
+    a.style.color = 'inherit';
+    el.replaceWith(a);
+  });
 }
 
 // AEPD compliance — mostrar banner si NO hay consentimiento explícito.
@@ -27082,6 +27215,16 @@ if (document.readyState === 'loading') {
 }
 
 restoreSession().then(restored => {
+  // ════════════════════════════════════════════════════════════════
+  // RESET PASSWORD — si venimos del email de reset (?reset=1)
+  // Supabase ya nos ha autenticado vía hash fragment con tipo=recovery
+  // Mostrar formulario para definir nueva contraseña
+  // ════════════════════════════════════════════════════════════════
+  const _resetParams = new URLSearchParams(window.location.search);
+  if (_resetParams.get('reset') === '1') {
+    _showResetPasswordForm(_resetParams.get('module') || 'manageat');
+    return;
+  }
   if (!restored) {
     // Check for ?r= calleat param BEFORE mesa QR
     const _initParams = new URLSearchParams(window.location.search);
@@ -27093,6 +27236,70 @@ restoreSession().then(restored => {
     }
   }
 });
+
+// ════════════════════════════════════════════════════════════════
+// RESET PASSWORD FORM — pantalla post-click email de recuperación
+// ════════════════════════════════════════════════════════════════
+function _showResetPasswordForm(originModule) {
+  const overlay = document.createElement('div');
+  overlay.id = 'reset-pwd-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:#F3F7F5;z-index:9000;display:flex;align-items:center;justify-content:center;padding:1rem';
+  overlay.innerHTML = ''
+    + '<div style="background:#fff;border-radius:16px;padding:2rem 1.5rem;max-width:400px;width:100%;box-shadow:0 4px 24px rgba(0,0,0,.08)">'
+    +   '<div style="font-family:\'Fraunces\',serif;font-size:24px;font-weight:700;color:#085041;margin-bottom:.4rem;text-align:center">🔐 Nueva contraseña</div>'
+    +   '<div style="font-size:13px;color:#5A7168;margin-bottom:1.25rem;line-height:1.5;text-align:center">'
+    +     'Define una contraseña nueva para acceder a <strong>' + escHtml(originModule) + '</strong>.'
+    +   '</div>'
+    +   '<div class="field"><label>Nueva contraseña</label>'
+    +     '<input id="rpwd-new" type="password" placeholder="mínimo 6 caracteres" autocomplete="new-password">'
+    +   '</div>'
+    +   '<div class="field"><label>Repítela</label>'
+    +     '<input id="rpwd-confirm" type="password" placeholder="repite la contraseña" autocomplete="new-password">'
+    +   '</div>'
+    +   '<div id="rpwd-msg" style="display:none;font-size:12px;padding:.5rem .75rem;border-radius:8px;margin-bottom:.5rem"></div>'
+    +   '<button class="btn btn-primary" onclick="_submitResetPassword(\'' + originModule + '\')" id="rpwd-submit-btn" style="width:100%;margin-top:.75rem">Guardar contraseña</button>'
+    + '</div>';
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById('rpwd-new')?.focus(), 50);
+}
+
+async function _submitResetPassword(originModule) {
+  const newPwd = document.getElementById('rpwd-new')?.value || '';
+  const confirm = document.getElementById('rpwd-confirm')?.value || '';
+  const msg = document.getElementById('rpwd-msg');
+  const btn = document.getElementById('rpwd-submit-btn');
+  const showErr = (txt) => {
+    if (msg) {
+      msg.style.display = 'block';
+      msg.style.background = 'rgba(216,90,48,.12)';
+      msg.style.color = '#D85A30';
+      msg.textContent = '⚠ ' + txt;
+    }
+  };
+  if (newPwd.length < 6) { showErr('La contraseña debe tener al menos 6 caracteres'); return; }
+  if (newPwd !== confirm) { showErr('Las contraseñas no coinciden'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+  try {
+    const { error } = await sb.auth.updateUser({ password: newPwd });
+    if (error) throw error;
+    // Limpiar URL y redirigir al login del módulo correspondiente
+    window.history.replaceState({}, '', window.location.pathname);
+    document.getElementById('reset-pwd-overlay')?.remove();
+    notify('✓ Contraseña actualizada. Inicia sesión con la nueva.');
+    // Llevar al login correcto según módulo
+    const targetScreen = {
+      'manageat': 's-admin-login-form',
+      'cookeat':  's-kitchen-login',
+      'stockeat': 's-stockeat-login',
+      'serveat':  's-waiter-select'
+    }[originModule] || 's-admin-login';
+    setTimeout(() => go(targetScreen), 300);
+  } catch (err) {
+    console.error('[resetPwd]', err);
+    showErr('No se pudo actualizar. El enlace puede haber caducado — solicita uno nuevo.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar contraseña'; }
+  }
+}
 
 // ══════════════════════════════════════════════════════════════════
 // STOCKEAT — Módulo de inventario, recetas y costes
