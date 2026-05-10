@@ -61,9 +61,9 @@
   /* #s0: solo full-screen cuando está activo. Cuando no, OCULTO del layout. */
   #s0 { max-width: none !important; width: 100vw !important; margin: 0 !important; z-index: 1; }
   #s0.active { position: fixed !important; inset: 0 !important; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex !important; }
-  /* Footer landing: solo visible cuando estamos en la landing #s0 */
-  body > footer { display: none; }
-  body:has(#s0.active) > footer { display: block; }
+  /* Footer landing: solo visible cuando body tiene clase landing-mode */
+  body > footer { display: none !important; }
+  body.landing-mode > footer { display: block !important; }
   #s0:not(.active) { display: none !important; }
   #s-kitchen { max-width: 100% !important; width: 100% !important; }
   /* Sprint Costes Turno 8a — Picker de restaurante full-width */
@@ -823,7 +823,7 @@
 </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
-<body>
+<body class="landing-mode">
 
 <!-- Botón acceso restaurante — compatible iOS 12 -->
 <div id="offline-banner">📵 Sin conexión — mostrando datos guardados</div>
@@ -2559,6 +2559,8 @@
       <button onclick="waiterForgotPassword()" style="margin-top:.75rem;width:100%;background:none;border:none;color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit;text-decoration:underline">
         He olvidado mi contraseña
       </button>
+      <hr style="margin-top:1.25rem">
+      <p class="muted center" style="font-size:12px">¿Aún no tienes cuenta? <a href="https://calendly.com/pau-busquets-spliteat/30min" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:underline;font-weight:500">Reserva una demo →</a></p>
     </div>
   </div>
 
@@ -4681,6 +4683,8 @@ function s3CtaAction() {
 
 
 function go(screenId) {
+  // Footer landing: solo visible cuando estamos en la landing pública (s0)
+  document.body.classList.toggle('landing-mode', screenId === 's0');
   // Dark mode para pantallas del comensal
   const dinerScreens = ['s1-qr','s2-room','s3-dishes','s4-summary','s5-pay','s6-done'];
   setDinerMode(dinerScreens.includes(screenId));
