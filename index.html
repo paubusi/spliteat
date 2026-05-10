@@ -10080,8 +10080,16 @@ function subscribeKitchenRealtime() {
 }
 
 async function setOrderStatus(dishId, status) {
+  console.log('[setOrderStatus]', { dishId, status, adminRole: state.adminRole, kitchenUserId: state.kitchenUserId });
   // #4: manageat has read-only visibility — only cookeat can change kitchen status
-  if (state.adminRole === 'admin') {
+  // Sprint Refactor: defensa adicional — si hay cocinero identificado (kitchenUserId)
+  // o estamos en pantalla de cocina, permitir aunque state.adminRole se haya quedado en 'admin'
+  // por cambios de pantalla. Solo bloquear si REALMENTE estamos en manageat.
+  const isInKitchenScreen = document.getElementById('s-kitchen')?.classList.contains('active');
+  const hasKitchenUser = !!state.kitchenUserId;
+  const isManageatViewing = (state.adminRole === 'admin' || state.adminRole === 'manager' || state.adminRole === 'owner')
+    && !isInKitchenScreen && !hasKitchenUser;
+  if (isManageatViewing) {
     notify('La gestión de cocina es exclusiva de cookeat. Desde manageat solo hay visibilidad.', 'info');
     return;
   }
@@ -20275,8 +20283,15 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
 
 // ── FIRE NEXT COURSE — marca pase listo y notifica camarero ──
 async function fireNextCourse(roomId, course, dishIds) {
+  console.log('[fireNextCourse]', { roomId, course, dishIds, adminRole: state.adminRole, kitchenUserId: state.kitchenUserId });
   // #4: manageat read-only guard — only cookeat can fire courses
-  if (state.adminRole === 'admin') return;
+  // Sprint Refactor: defensa adicional — si hay cocinero identificado o estamos
+  // en pantalla de cocina, permitir aunque state.adminRole se haya quedado en otro estado.
+  const isInKitchenScreen = document.getElementById('s-kitchen')?.classList.contains('active');
+  const hasKitchenUser = !!state.kitchenUserId;
+  const isManageatViewing = (state.adminRole === 'admin' || state.adminRole === 'manager' || state.adminRole === 'owner')
+    && !isInKitchenScreen && !hasKitchenUser;
+  if (isManageatViewing) return;
 
   // #8-F4: Escalated check — 1) any active waiters? 2) assigned waiter active?
   const restId = state.adminRestaurantId || state.kitchenRestaurantId;
@@ -20561,7 +20576,12 @@ function renderKDSKanban(dishes, roomTableMap, tablesById, prepTimeByItem) {
 // Confirmar/marcar como listo todos los platos de una mesa de golpe
 async function setAllOrderStatus(dishIds, status) {
   // #4: manageat read-only guard
-  if (state.adminRole === 'admin') return;
+  // Sprint Refactor: misma defensa que setOrderStatus / fireNextCourse
+  const isInKitchenScreen = document.getElementById('s-kitchen')?.classList.contains('active');
+  const hasKitchenUser = !!state.kitchenUserId;
+  const isManageatViewing = (state.adminRole === 'admin' || state.adminRole === 'manager' || state.adminRole === 'owner')
+    && !isInKitchenScreen && !hasKitchenUser;
+  if (isManageatViewing) return;
 
   // Sprint A.3: auto_deliver — si el modo está activo y se pide 'ready',
   // saltamos directo a 'delivered' para el camarero
