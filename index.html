@@ -12330,9 +12330,11 @@ async function loadWaiterPlano(myRoomsByTable, myRooms, tablesById, dishesByRoom
       const size = seats <= 2 ? 60 : seats <= 4 ? 76 : 92;
       const isRound = t.shape === 'round';
       const radius = isRound ? '50%' : '12px';
-      const onClick = room
-        ? `openWaiterDrawer('${room.id}')`
-        : `openNewTableModal(${t.number})`;
+      const onClick = (room && st.code === 'cleaning')
+        ? `confirmTableCleanFromServeat('${room.id}', '${t.number}')`
+        : room
+          ? `openWaiterDrawer('${room.id}')`
+          : `openNewTableModal(${t.number})`;
       return `<div onclick="${onClick}"
         style="position:absolute;left:${x}%;top:${y}%;transform:translate(-50%,-50%);
         width:${size}px;height:${size}px;background:${st.bg};border:1.5px solid rgba(0,0,0,.08);
@@ -12363,9 +12365,11 @@ async function loadWaiterPlano(myRoomsByTable, myRooms, tablesById, dishesByRoom
     const st = deriveStatus(room);
     const guests = room ? (guestsByRoom[room.id] || []) : [];
     const total = room ? parseFloat(room.total_amount || 0).toFixed(2) : null;
-    const onClick = room
-      ? `openWaiterDrawer('${room.id}')`
-      : `openNewTableModal(${t.number})`;
+    const onClick = (room && st.code === 'cleaning')
+      ? `confirmTableCleanFromServeat('${room.id}', '${t.number}')`
+      : room
+        ? `openWaiterDrawer('${room.id}')`
+        : `openNewTableModal(${t.number})`;
     return `
       <div onclick="${onClick}"
         style="background:${st.bg};border-radius:14px;padding:.75rem;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;min-height:110px;transition:transform .15s ease,box-shadow .15s ease;border:1.5px solid rgba(0,0,0,.04)"
@@ -12392,6 +12396,55 @@ async function loadWaiterPlano(myRoomsByTable, myRooms, tablesById, dishesByRoom
 // ══════════════════════════════════════════════════════════════════
 let _drawerRoomId = null;
 let _drawerRoom = null;
+
+// Versión de confirmTableClean para uso desde serveat (refresca loadWaiterMesas en vez de loadFloorPlan)
+async function confirmTableCleanFromServeat(roomId, tableNum) {
+  // Confirmación rápida
+  if (typeof confirmModal === 'function') {
+    const ok = await confirmModal(`¿Marcar Mesa ${tableNum} como limpia y lista?`);
+    if (!ok) return;
+  } else {
+    if (!confirm(`¿Marcar Mesa ${tableNum} como limpia y lista?`)) return;
+  }
+  // Cierre + marcado limpia
+  try {
+    if (typeof _closeRoomWithInvoice === 'function') {
+      await _closeRoomWithInvoice(roomId, {
+        needs_cleaning: false,
+        cleaned_at: new Date().toISOString(),
+        cleaning_requested_at: null,
+      });
+    } else {
+      // Fallback directo
+      await sb.from('rooms').update({
+        closed: true,
+        needs_cleaning: false,
+        cleaned_at: new Date().toISOString(),
+        cleaning_requested_at: null,
+        closed_at: new Date().toISOString(),
+      }).eq('id', roomId);
+    }
+  } catch (e) {
+    console.warn('[confirmTableCleanFromServeat]', e);
+  }
+
+  // Notificar broadcast a manageat
+  try {
+    const { data: room } = await sb.from('rooms')
+      .select('table_id,assigned_waiter_id,waiter_id,restaurant_id').eq('id', roomId).maybeSingle();
+    const restId = room?.restaurant_id || _waiterRestaurantId;
+    if (restId) {
+      sb.channel('manageat-' + restId).send({
+        type: 'broadcast', event: 'table_cleaned',
+        payload: { roomId, tableLabel: `Mesa ${tableNum}` }
+      }).catch(()=>{});
+    }
+  } catch(e) {}
+
+  if (typeof showToast === 'function') showToast(`Mesa ${tableNum} lista`, 'Lista para nuevos comensales');
+  // Refrescar plano serveat
+  if (typeof loadWaiterMesas === 'function') loadWaiterMesas();
+}
 
 async function openWaiterDrawer(roomId, initialTab) {
   console.log('[openWaiterDrawer] start', roomId, 'tab:', initialTab || 'pedido');
@@ -14944,8 +14997,18 @@ async function _enterModuleAfterPin(emp) {
     state.kitchenRestaurantId = _restaurantSession.restaurantId;
     state.cookeatStaffId = emp.id;
     state.cookeatStaffName = emp.name;
-    if (typeof loadCookeatZonesForStaff === 'function') {
-      await loadCookeatZonesForStaff(emp.id, emp.name);
+    // Setear identidad del cocinero (necesario si el modo zonas pro está activo)
+    state.kitchenUserId = emp.id;
+    state.kitchenUserName = emp.name;
+    state.kitchenUserRole = (emp.role === 'kitchen_chief') ? 'kitchen_chief' : 'chef';
+    // Llamar a la función real de inicialización de cocina
+    if (typeof openKitchen === 'function') {
+      try {
+        await openKitchen(_restaurantSession.restaurantId, _restaurantSession.restaurantName);
+      } catch (e) {
+        console.warn('[openKitchen]', e);
+        go('s-kitchen');
+      }
     } else {
       go('s-kitchen');
     }
