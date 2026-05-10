@@ -9076,27 +9076,18 @@ function _resolveDishZone(dish) {
 }
 
 async function kitchenLogout() {
-  // Sub-Sprint A.4+A.6: si había cocinero logueado, limpiar sus zonas activas en BD
+  // Sprint Control horario: si tiene shift activo, ofrecer clock-out antes de cerrar sesión
   if (state.kitchenUserId) {
     try {
-      await sb.from('waiter_active_zones').delete().eq('waiter_id', state.kitchenUserId);
-    } catch (e) { /* non-blocking */ }
+      const { data } = await sb.rpc('get_active_shift', { p_waiter_id: state.kitchenUserId });
+      if (data?.active) {
+        promptClockOut();
+        return;  // El user decide en el modal (cerrar turno o cancelar)
+      }
+    } catch (e) { /* non-blocking — si la RPC falla, seguir con logout */ }
   }
-  state.kitchenRestaurantId = null;
-  state.kitchenRestaurantName = '';
-  state.kitchenUserId = null;
-  state.kitchenUserName = '';
-  state.kitchenUserRole = 'chef';
-  state.kitchenActiveZoneIds = [];
-  state.adminRole = 'admin'; // reset to default
-  // Sprint Refactor: si la sesión del restaurante sigue activa, volver al hub. Si no, ir a landing.
-  if (typeof _restaurantSession !== 'undefined' && _restaurantSession) {
-    if (typeof _showModulesHub === 'function') {
-      _showModulesHub();
-      return;
-    }
-  }
-  go('s0');
+  // Sin shift activo → logout directo
+  return _kitchenLogoutWithoutShift();
 }
 
 async function loadKitchenOrders() {
@@ -11390,12 +11381,16 @@ function _stopClockInBadge() {
 
 // Modal de cierre de sesión / clock-out
 async function promptClockOut() {
-  if (!_waiterId) return;
+  // Sprint Refactor: detectar quién tiene shift activo — camarero (_waiterId) o cocinero (state.kitchenUserId)
+  const activeUserId = _waiterId || state.kitchenUserId;
+  if (!activeUserId) return;
   // Comprobar si tiene shift activo
-  const { data } = await sb.rpc('get_active_shift', { p_waiter_id: _waiterId });
+  const { data } = await sb.rpc('get_active_shift', { p_waiter_id: activeUserId });
   if (!data?.active) {
-    // Sin fichaje activo → logout normal
-    return _waiterLogoutWithoutShift();
+    // Sin fichaje activo → logout normal según contexto
+    if (_waiterId) return _waiterLogoutWithoutShift();
+    if (state.kitchenUserId) return _kitchenLogoutWithoutShift();
+    return;
   }
 
   document.getElementById('clockout-modal')?.remove();
@@ -11442,13 +11437,47 @@ async function promptClockOut() {
 }
 
 async function _doClockOutAndLogout() {
-  const { data, error } = await sb.rpc('clock_out', { p_waiter_id: _waiterId, p_notes: null });
+  // Sprint Refactor: detectar contexto (waiter o cocinero)
+  const activeUserId = _waiterId || state.kitchenUserId;
+  if (!activeUserId) return;
+  const { data, error } = await sb.rpc('clock_out', { p_waiter_id: activeUserId, p_notes: null });
   if (error) { notify('Error: ' + error.message, 'error'); return; }
   if (data?.error) { notify(data.error, 'error'); return; }
   document.getElementById('clockout-modal')?.remove();
   _stopClockInBadge();
   showToast('✓ Salida fichada', `${data.worked_minutes} min trabajados`);
-  setTimeout(() => _waiterLogoutWithoutShift(), 600);
+  // Logout según contexto
+  setTimeout(() => {
+    if (_waiterId) return _waiterLogoutWithoutShift();
+    if (state.kitchenUserId) return _kitchenLogoutWithoutShift();
+  }, 600);
+}
+
+// Sprint Refactor: equivalente a _waiterLogoutWithoutShift pero para cocina.
+// Limpia state, badge y vuelve al hub (o landing si no hay sesión de restaurante).
+async function _kitchenLogoutWithoutShift() {
+  // Limpiar zonas activas en BD
+  if (state.kitchenUserId) {
+    try {
+      await sb.from('waiter_active_zones').delete().eq('waiter_id', state.kitchenUserId);
+    } catch (e) { /* non-blocking */ }
+  }
+  _stopClockInBadge();
+  state.kitchenRestaurantId = null;
+  state.kitchenRestaurantName = '';
+  state.kitchenUserId = null;
+  state.kitchenUserName = '';
+  state.kitchenUserRole = 'chef';
+  state.kitchenActiveZoneIds = [];
+  state.adminRole = 'admin';
+  // Sprint Refactor: si la sesión del restaurante sigue activa, volver al hub
+  if (typeof _restaurantSession !== 'undefined' && _restaurantSession) {
+    if (typeof _showModulesHub === 'function') {
+      _showModulesHub();
+      return;
+    }
+  }
+  go('s0');
 }
 
 // Logout sin tocar shift (función original renombrada)
