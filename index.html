@@ -2256,11 +2256,6 @@
       <div class="logo">cook<em style="color:var(--accent);font-style:normal">eat</em></div>
       <div style="display:flex;align-items:center;gap:10px">
         <div class="live-badge"><div class="live-dot"></div><span id="k-rest-name">—</span></div>
-        <!-- Botón Cambiar zonas — siempre visible -->
-        <button onclick="openCookeatZonesChange()" id="k-zones-btn" title="Gestionar zonas de trabajo"
-          style="display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:99px;border:1px solid var(--bd2);background:var(--bg);color:var(--t1);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s">
-          <span style="font-size:14px">📍</span><span>Zonas</span>
-        </button>
         <!-- Botón Ajustes en cabecera (engranaje, no tab) -->
         <button onclick="openKitchenAjustes()" id="k-ajustes-btn" title="Ajustes — Carta y tiempos"
           style="display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:99px;border:1px solid var(--bd2);background:var(--bg);color:var(--t1);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s">
@@ -9092,6 +9087,13 @@ async function kitchenLogout() {
   state.kitchenUserRole = 'chef';
   state.kitchenActiveZoneIds = [];
   state.adminRole = 'admin'; // reset to default
+  // Sprint Refactor: si la sesión del restaurante sigue activa, volver al hub. Si no, ir a landing.
+  if (typeof _restaurantSession !== 'undefined' && _restaurantSession) {
+    if (typeof _showModulesHub === 'function') {
+      _showModulesHub();
+      return;
+    }
+  }
   go('s0');
 }
 
@@ -12126,6 +12128,13 @@ async function _waiterLogoutWithoutShift() {
   _stopClockInBadge();
   _waiterId = null; _waiterName = null;
   _waiterRestaurantId = null; _waiterCart = [];
+  // Sprint Refactor: si la sesión del restaurante sigue activa, volver al hub.
+  if (typeof _restaurantSession !== 'undefined' && _restaurantSession) {
+    if (typeof _showModulesHub === 'function') {
+      _showModulesHub();
+      return;
+    }
+  }
   go('s0');
 }
 
@@ -14452,7 +14461,19 @@ function cookeatBackToStaff() {
   // Reset selección parcial pero conservar el restaurantId
   _cookeatStaffSelected = null;
   _cookeatSelectedZoneIds = [];
-  loadCookeatStaffGrid();
+  // Sprint Refactor: si entró por el flujo nuevo (PIN del hub), volver al selector de empleados de cookeat
+  // — no al grid viejo de cocineros que requiere email+password del flujo legacy.
+  if (typeof _restaurantSession !== 'undefined' && _restaurantSession) {
+    _pendingModule = 'cookeat';
+    if (typeof _renderEmployeeSelect === 'function') {
+      _renderEmployeeSelect('cookeat');
+      return;
+    }
+  }
+  // Fallback al flujo legacy (cuando entró por kitchenLogin con email+pwd)
+  if (typeof loadCookeatStaffGrid === 'function') {
+    loadCookeatStaffGrid();
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -21505,17 +21526,16 @@ function _renderActiveZonesBar() {
   const chips = document.getElementById('k-active-zones-chips');
   if (!bar || !chips) return;
 
-  const zonesEnabled = state.kitchenConfig?.kitchen_zones_enabled;
   const activeIds = state.kitchenActiveZoneIds || [];
   const zonesById = state.kitchenZoneMaps?.zonesById || {};
 
-  // Solo mostrar la barra en modo cocina pro CON zonas activas
-  if (!zonesEnabled || activeIds.length === 0) {
-    bar.style.display = 'none';
+  // Sprint Refactor: barra SIEMPRE visible para que el cocinero pueda gestionar zonas en cualquier momento.
+  // Si no hay zonas activas, mostrar un mensaje invitando a configurar.
+  bar.style.display = 'flex';
+  if (activeIds.length === 0) {
+    chips.innerHTML = '<span style="font-size:12px;color:var(--t3);font-style:italic">Sin zonas activas</span>';
     return;
   }
-
-  bar.style.display = 'flex';
   chips.innerHTML = activeIds.map(zid => {
     const z = zonesById[zid];
     if (!z) return '';
@@ -22810,7 +22830,7 @@ async function generateAIKpi() {
     submitBtn.innerHTML = '⏳ Generando...';
   }
   resultEl.style.display = 'block';
-  resultEl.innerHTML = `<div style="text-align:center;padding:1rem;color:var(--t3);font-size:12px">Pensando... Claude está diseñando tu KPI ✨</div>`;
+  resultEl.innerHTML = `<div style="text-align:center;padding:1rem;color:var(--t3);font-size:12px">Diseñando tu KPI... ✨</div>`;
 
   try {
     const url = `${SUPA_URL}/functions/v1/kpi-generator`;
@@ -22831,9 +22851,18 @@ async function generateAIKpi() {
     const data = await res.json();
 
     if (!res.ok || data.error) {
+      // Traducir errores técnicos a mensajes user-friendly
+      const rawError = (data.error || '').toString();
+      let userMsg = 'No se pudo generar el KPI. Inténtalo de nuevo o reformula la pregunta.';
+      if (rawError.includes('inseguro') || rawError.includes('unsafe') || rawError.toLowerCase().includes('numerator')) {
+        userMsg = 'No se pudo generar este KPI con los datos disponibles. Prueba a reformular la pregunta de forma más específica.';
+      } else if (rawError.toLowerCase().includes('rate') || rawError.toLowerCase().includes('limit')) {
+        userMsg = 'Demasiadas peticiones — espera unos segundos e inténtalo de nuevo.';
+      } else if (rawError.toLowerCase().includes('timeout')) {
+        userMsg = 'La generación tardó demasiado. Inténtalo de nuevo.';
+      }
       resultEl.innerHTML = `<div style="background:#FFEAEA;color:#A32D2D;padding:.75rem;border-radius:var(--r-sm);font-size:12px;line-height:1.5">
-        ❌ Error: ${escHtml(data.error || 'Error desconocido')}
-        ${data.detail ? `<div style="font-size:10px;margin-top:4px;opacity:.8">${escHtml(data.detail.slice(0,200))}</div>` : ''}
+        ❌ ${escHtml(userMsg)}
       </div>`;
       return;
     }
