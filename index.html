@@ -3017,23 +3017,44 @@
         </div>
       </div>
 
-      <!-- #4: Waiter active/inactive status — Sala tab only -->
-      <div id="waiter-status-bar" style="padding:.65rem 1.25rem;border-top:1px solid var(--bd);flex-shrink:0">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
-          <div style="font-size:12px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.05em">Personal</div>
-          <button onclick="loadWaiterStatusBar()" style="font-size:11px;color:var(--t3);background:none;border:none;cursor:pointer;font-family:inherit">↻</button>
+      <!-- #4: Waiter active/inactive status — Sala tab only — COLAPSABLE -->
+      <div id="waiter-status-bar" style="border-top:1px solid var(--bd);flex-shrink:0">
+        <button id="waiter-status-toggle" onclick="toggleSalaSection('waiter-status')"
+          style="width:100%;background:none;border:none;padding:.6rem 1.25rem;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:inherit;text-align:left">
+          <div style="display:flex;align-items:center;gap:.5rem">
+            <span style="font-size:13px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.05em">Personal</span>
+            <span id="waiter-status-summary" style="font-size:12px;color:var(--t3);font-weight:500">— cargando</span>
+          </div>
+          <span id="waiter-status-arrow" style="font-size:11px;color:var(--t3);transition:transform .15s">▼</span>
+        </button>
+        <div id="waiter-status-content" style="display:none;padding:0 1.25rem .75rem">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:.4rem">
+            <button onclick="loadWaiterStatusBar()" style="font-size:11px;color:var(--t3);background:none;border:none;cursor:pointer;font-family:inherit">↻ Actualizar</button>
+          </div>
+          <div id="waiter-status-list"></div>
         </div>
-        <div id="waiter-status-list"></div>
       </div>
 
-      <!-- calleat: cola de espera -->
-    <div id="calleat-section" style="padding:.75rem 1.25rem;border-top:1px solid var(--bd);flex-shrink:0">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
-        <div style="font-size:13px;font-weight:600">🪑 call<span style="color:#D85A30">eat</span> — Lista de espera <span id="calleat-badge" style="display:none;background:var(--brand);color:#fff;border-radius:99px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:4px">0</span></div>
-        <button onclick="loadCalleatQueue()" style="font-size:11px;color:var(--t2);background:none;border:none;cursor:pointer;font-family:inherit">↻ Actualizar</button>
+      <!-- calleat: cola de espera — COLAPSABLE -->
+      <div id="calleat-section" style="border-top:1px solid var(--bd);flex-shrink:0">
+        <button id="calleat-section-toggle" onclick="toggleSalaSection('calleat-section')"
+          style="width:100%;background:none;border:none;padding:.6rem 1.25rem;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:inherit;text-align:left">
+          <div style="display:flex;align-items:center;gap:.5rem">
+            <span style="font-size:13px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.05em">🪑 call<span style="color:#D85A30;text-transform:none">eat</span></span>
+            <span id="calleat-section-summary" style="font-size:12px;color:var(--t3);font-weight:500">— sin espera</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:.5rem">
+            <span id="calleat-badge" style="display:none;background:var(--brand);color:#fff;border-radius:99px;padding:1px 7px;font-size:10px;font-weight:700">0</span>
+            <span id="calleat-section-arrow" style="font-size:11px;color:var(--t3);transition:transform .15s">▼</span>
+          </div>
+        </button>
+        <div id="calleat-section-content" style="display:none;padding:0 1.25rem .75rem">
+          <div style="display:flex;justify-content:flex-end;margin-bottom:.4rem">
+            <button onclick="loadCalleatQueue()" style="font-size:11px;color:var(--t2);background:none;border:none;cursor:pointer;font-family:inherit">↻ Actualizar</button>
+          </div>
+          <div id="calleat-queue-list" style="max-height:200px;overflow-y:auto"></div>
+        </div>
       </div>
-      <div id="calleat-queue-list" style="max-height:200px;overflow-y:auto"></div>
-    </div>
 
     <div id="mesa-detail-panel" style="display:none;position:absolute;right:0;top:110px;bottom:0;width:280px;background:var(--card);border-left:1px solid var(--bd);z-index:50;overflow-y:auto;padding:1rem;box-shadow:-4px 0 16px rgba(0,0,0,.08)">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
@@ -14520,12 +14541,14 @@ async function _showLocalPickerForHub() {
     return;
   }
 
-  // Render como tarjetas que llevan al HUB de cada local
-  const cards = restaurants.map(r => {
+  // Cache de los restaurantes para uso en click handler
+  list._restaurantsData = restaurants;
+
+  // Render como tarjetas (sin onclick inline para evitar problemas de escape)
+  const cards = restaurants.map((r, idx) => {
     const initial = (r.restaurant_name || '?').charAt(0).toUpperCase();
-    return `<div onclick="_pickLocalForHub('${r.restaurant_id}', ${JSON.stringify(r.restaurant_name)})"
-      style="background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:1.25rem;cursor:pointer;transition:transform .12s,border-color .12s"
-      onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--bd)'">
+    return `<div data-rest-idx="${idx}" class="picker-rest-card"
+      style="background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:1.25rem;cursor:pointer;transition:transform .12s,border-color .12s">
       <div style="width:48px;height:48px;border-radius:10px;background:var(--brand-d);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-size:24px;font-weight:700;margin-bottom:.75rem">${initial}</div>
       <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--t1);margin-bottom:.35rem">${escHtml(r.restaurant_name)}</div>
       <div style="font-size:12px;color:var(--t3)">🔑 Propietario</div>
@@ -14533,10 +14556,10 @@ async function _showLocalPickerForHub() {
     </div>`;
   }).join('');
 
-  // Vista grupo (solo si owner real)
+  // Vista grupo (solo si owner con 2+ locales)
   let groupCard = '';
   if (state.owner?.id && restaurants.length >= 2) {
-    groupCard = `<div onclick="enterGroupView()"
+    groupCard = `<div data-rest-idx="group" class="picker-rest-card"
       style="background:transparent;border:1px dashed var(--bd);border-radius:14px;padding:1.25rem;cursor:pointer">
       <div style="width:48px;height:48px;border-radius:10px;background:var(--t3);color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:.75rem">📊</div>
       <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--t2);margin-bottom:.35rem">Vista grupo</div>
@@ -14545,7 +14568,29 @@ async function _showLocalPickerForHub() {
     </div>`;
   }
 
-  if (list) list.innerHTML = cards + groupCard;
+  if (list) {
+    list.innerHTML = cards + groupCard;
+    // Event delegation — UN solo handler para todas las cards
+    list.querySelectorAll('.picker-rest-card').forEach(card => {
+      card.addEventListener('mouseover', () => { card.style.borderColor = 'var(--brand)'; });
+      card.addEventListener('mouseout', () => { card.style.borderColor = card.dataset.restIdx === 'group' ? 'var(--bd)' : 'var(--bd)'; });
+      card.addEventListener('click', async () => {
+        const idx = card.dataset.restIdx;
+        if (idx === 'group') {
+          // Vista grupo: usar flujo legacy
+          state.activeRestaurantId = 'group';
+          state.adminRestaurantName = 'Vista grupo';
+          if (typeof enterAdminApp === 'function') {
+            enterAdminApp('group', 'Vista grupo');
+          }
+          return;
+        }
+        const rest = restaurants[parseInt(idx, 10)];
+        if (!rest) return;
+        await _pickLocalForHub(rest.restaurant_id, rest.restaurant_name);
+      });
+    });
+  }
 }
 
 async function _pickLocalForHub(restaurantId, restaurantName) {
@@ -14558,6 +14603,7 @@ async function _pickLocalForHub(restaurantId, restaurantName) {
   try { localStorage.setItem('spliteat.restaurantSession', JSON.stringify(_restaurantSession)); } catch(e){}
   state.adminRestaurantId = restaurantId;
   state.adminRestaurantName = restaurantName;
+  state.activeRestaurantId = restaurantId;
   await _preloadEmployees();
   _showModulesHub();
 }
@@ -21007,6 +21053,7 @@ async function loadWaiterStatusBar() {
     el.innerHTML = '<div style="font-size:12px;color:var(--t3)">Sin personal configurado</div>';
     const warningEl = document.getElementById('no-waiter-warning');
     if (warningEl) warningEl.style.display = 'flex';
+    _updateWaiterStatusSummary([], 0);
     return;
   }
   // Sub-Sprint A.4+A.6 — el warning "sin camareros activos" solo aplica a roles de SALA
@@ -21064,6 +21111,54 @@ async function loadWaiterStatusBar() {
       </div>
     </div>
   `).join('');
+
+  // Actualizar summary de la fila colapsable
+  const activeCount = waiters.filter(w => isWaiterOnline(w)).length;
+  _updateWaiterStatusSummary(waiters, activeCount);
+}
+
+// Helper: actualiza el resumen de personal en la fila colapsable
+function _updateWaiterStatusSummary(waiters, activeCount) {
+  const sumEl = document.getElementById('waiter-status-summary');
+  if (!sumEl) return;
+  const total = waiters.length;
+  if (total === 0) {
+    sumEl.textContent = '— sin personal';
+    sumEl.style.color = 'var(--t3)';
+    return;
+  }
+  if (activeCount === 0) {
+    sumEl.innerHTML = `<span style="color:#B8860B">⚠ 0 en línea</span> · ${total} configurado${total > 1 ? 's' : ''}`;
+    return;
+  }
+  sumEl.innerHTML = `<span style="color:var(--brand)">●</span> ${activeCount} en línea · ${total} en plantilla`;
+}
+
+// Toggle expandible de las secciones colapsables (Personal / calleat)
+function toggleSalaSection(sectionKey) {
+  const content = document.getElementById(sectionKey + '-content');
+  const arrow = document.getElementById(sectionKey + '-arrow');
+  if (!content) return;
+  const isOpen = content.style.display !== 'none';
+  content.style.display = isOpen ? 'none' : 'block';
+  if (arrow) arrow.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+  // Persistir preferencia
+  try { localStorage.setItem('spliteat.sala.' + sectionKey, isOpen ? 'closed' : 'open'); } catch(e){}
+}
+
+// Restaurar estado expandido/colapsado de las secciones de sala al cargar
+function _restoreSalaSectionsState() {
+  ['waiter-status', 'calleat-section'].forEach(key => {
+    try {
+      const pref = localStorage.getItem('spliteat.sala.' + key);
+      if (pref === 'open') {
+        const content = document.getElementById(key + '-content');
+        const arrow = document.getElementById(key + '-arrow');
+        if (content) content.style.display = 'block';
+        if (arrow) arrow.style.transform = 'rotate(180deg)';
+      }
+    } catch(e){}
+  });
 }
 
 // Sub-Sprint A.4+A.6: resolver el nombre que mostrar en el KDS para un dish.
@@ -21397,6 +21492,9 @@ async function loadFloorPlan() {
   const plan = document.getElementById('floor-plan');
   const loading = document.getElementById('floor-loading');
   if (loading) loading.style.display = 'flex';
+
+  // Restaurar estado expandido/colapsado de las secciones colapsables (Personal / calleat)
+  if (typeof _restoreSalaSectionsState === 'function') _restoreSalaSectionsState();
 
   const floorFilter = document.getElementById('floor-view')?.value || 'all';
 
@@ -24411,6 +24509,18 @@ async function loadCalleatQueue() {
 
   const count = document.getElementById('calleat-badge');
   if (count) { count.textContent = queue?.length || 0; count.style.display = queue?.length ? 'inline' : 'none'; }
+
+  // Actualizar summary de la fila colapsable
+  const sumEl = document.getElementById('calleat-section-summary');
+  if (sumEl) {
+    const total = queue?.length || 0;
+    if (total === 0) {
+      sumEl.textContent = '— sin espera';
+      sumEl.style.color = 'var(--t3)';
+    } else {
+      sumEl.innerHTML = `<span style="color:var(--brand)">●</span> ${total} mesa${total > 1 ? 's' : ''} en espera`;
+    }
+  }
 
   if (!queue?.length) {
     el.innerHTML = '<div class="empty"><div class="empty-icon">🪑</div><div class="empty-text">Sin grupos esperando</div></div>';
