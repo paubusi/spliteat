@@ -9387,28 +9387,36 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
           const ids = grp.items.map(x => `'${x.id}'`).join(',');
 
           // Sprint A.4: kitchen_chief gate — si está activo, bloquear botón "listo"
-          // si el usuario actual no es kitchen_chief
+          // si el usuario actual no es kitchen_chief.
+          // UX: en lugar de <button disabled> con tooltip nativo (invisible en móvil),
+          // dejamos el botón clickable pero el onclick muestra notify clara.
           const chiefRequired = !!state.kitchenConfig?.kitchen_chief_required;
           const userIsChief   = state.kitchenUserRole === 'kitchen_chief';
           const chiefBlocks   = chiefRequired && !userIsChief;
-          const disabledStyle = chiefBlocks
-            ? 'opacity:.5;cursor:not-allowed;' : 'cursor:pointer;';
-          const disabledAttr  = chiefBlocks
-            ? 'disabled title="Requiere jefe de cocina"' : '';
+          const blockedStyle  = chiefBlocks
+            ? 'opacity:.55;cursor:pointer;' : 'cursor:pointer;';
+          const blockedClick  = chiefBlocks
+            ? `onclick="_notifyChiefRequired();event.stopPropagation()"` : '';
 
           // Sprint A.1: kds_one_click_mode — un solo click "✓ Listo" desde 'sent'
           // (saltando 'making'). En auto-deliver irá a 'delivered' directamente.
           if (state.kitchenConfig?.kds_one_click_mode) {
             if (ks === 'sent' || ks === 'making') {
-              btn = `<button ${disabledAttr} onclick="[${ids}].forEach(id=>setOrderStatus(id,'ready'))"
-                style="padding:4px 12px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;${disabledStyle}font-family:inherit;flex-shrink:0">✓ Listo</button>`;
+              btn = chiefBlocks
+                ? `<button ${blockedClick} style="padding:4px 12px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;${blockedStyle}font-family:inherit;flex-shrink:0">🔒 Listo</button>`
+                : `<button onclick="[${ids}].forEach(id=>setOrderStatus(id,'ready'))"
+                    style="padding:4px 12px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;${blockedStyle}font-family:inherit;flex-shrink:0">✓ Listo</button>`;
             }
           } else {
             // Modo clásico: 2 clicks (Prep → Listo)
             if (ks === 'sent') btn = `<button onclick="[${ids}].forEach(id=>setOrderStatus(id,'making'))"
               style="padding:4px 12px;border-radius:99px;border:none;background:var(--brand);color:#fff;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;flex-shrink:0">→ Prep.</button>`;
-            else if (ks === 'making') btn = `<button ${disabledAttr} onclick="[${ids}].forEach(id=>setOrderStatus(id,'ready'))"
-              style="padding:4px 12px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;${disabledStyle}font-family:inherit;flex-shrink:0">✓ Listo</button>`;
+            else if (ks === 'making') {
+              btn = chiefBlocks
+                ? `<button ${blockedClick} style="padding:4px 12px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;${blockedStyle}font-family:inherit;flex-shrink:0">🔒 Listo</button>`
+                : `<button onclick="[${ids}].forEach(id=>setOrderStatus(id,'ready'))"
+                    style="padding:4px 12px;border-radius:99px;border:none;background:#3B6D11;color:#fff;font-size:11px;font-weight:500;${blockedStyle}font-family:inherit;flex-shrink:0">✓ Listo</button>`;
+            }
           }
         }
 
@@ -9441,12 +9449,12 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
       // #4: manageat read-only
       if (!isDone && !isWaiting && state.adminRole !== 'admin') {
 
-        // Sprint A.4: kitchen_chief gate — el botón de "Pase listo" requiere jefe de cocina
+        // Sprint A.4: kitchen_chief gate — el botón de "Pase listo" requiere jefe de cocina.
+        // UX: en lugar de disabled+tooltip, dejamos clickable y mostramos notify al click.
         const chiefRequired = !!state.kitchenConfig?.kitchen_chief_required;
         const userIsChief   = state.kitchenUserRole === 'kitchen_chief';
         const chiefBlocks   = chiefRequired && !userIsChief;
-        const dStyle        = chiefBlocks ? 'opacity:.5;cursor:not-allowed;' : 'cursor:pointer;';
-        const dAttr         = chiefBlocks ? 'disabled title="Requiere jefe de cocina"' : '';
+        const dStyle        = chiefBlocks ? 'opacity:.55;cursor:pointer;' : 'cursor:pointer;';
 
         // Sprint A.1: kds_one_click_mode — un único botón "Pase listo" sin paso intermedio.
         // Importante: usa fireNextCourse() (no setAllOrderStatus directo) para PRESERVAR
@@ -9468,9 +9476,13 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
             const label = state.kitchenConfig?.auto_deliver_enabled
               ? '✓ Pase servido — avisar camarero'
               : '✓ Pase listo — avisar camarero';
-            action = `<button ${dAttr} onclick="fireNextCourse('${roomId}',${course},[${allActiveIds}])"
+            const blockedLabel = '🔒 Pase listo — requiere jefe de cocina';
+            const onClick = chiefBlocks
+              ? `_notifyChiefRequired()`
+              : `fireNextCourse('${roomId}',${course},[${allActiveIds}])`;
+            action = `<button onclick="${onClick}"
               style="width:100%;margin-top:.4rem;padding:8px;border-radius:6px;border:none;background:#3B6D11;color:#fff;font-size:12px;font-weight:500;${dStyle}font-family:inherit">
-              ${label}
+              ${chiefBlocks ? blockedLabel : label}
             </button>`;
           }
         } else {
@@ -9479,10 +9491,15 @@ function renderKitchenPases(el, dishes, roomTableMap, tablesById, prepByItem) {
             style="width:100%;margin-top:.4rem;padding:8px;border-radius:6px;border:none;background:var(--brand);color:#fff;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">
             → Todos a preparación
           </button>`;
-          else if (makingIds) action = `<button ${dAttr} onclick="fireNextCourse('${roomId}',${course},[${makingIds}])"
-            style="width:100%;margin-top:.4rem;padding:8px;border-radius:6px;border:none;background:#3B6D11;color:#fff;font-size:12px;font-weight:500;${dStyle}font-family:inherit">
-            Pase listo — avisar camarero
-          </button>`;
+          else if (makingIds) {
+            const onClick = chiefBlocks
+              ? `_notifyChiefRequired()`
+              : `fireNextCourse('${roomId}',${course},[${makingIds}])`;
+            action = `<button onclick="${onClick}"
+              style="width:100%;margin-top:.4rem;padding:8px;border-radius:6px;border:none;background:#3B6D11;color:#fff;font-size:12px;font-weight:500;${dStyle}font-family:inherit">
+              ${chiefBlocks ? '🔒 Pase listo — requiere jefe de cocina' : 'Pase listo — avisar camarero'}
+            </button>`;
+          }
         }
       }
 
@@ -10079,8 +10096,34 @@ function subscribeKitchenRealtime() {
   state.realtimeSubs.push(sub);
 }
 
+// Sprint A.4 UX: aviso amigable cuando un cocinero raso intenta confirmar un pase
+// pero la config requiere jefe de cocina. Se llama desde el onclick del botón bloqueado.
+async function _notifyChiefRequired() {
+  // Buscar quién es el jefe de cocina activo en el restaurante
+  let msg = 'Solo el jefe de cocina puede confirmar pases.';
+  try {
+    const restId = state.kitchenRestaurantId || state.adminRestaurantId;
+    if (restId) {
+      const { data } = await sb.from('waiters')
+        .select('name,is_active')
+        .eq('restaurant_id', restId)
+        .eq('role', 'kitchen_chief')
+        .eq('active', true);
+      const chiefs = data || [];
+      const activeChiefs = chiefs.filter(c => c.is_active);
+      if (activeChiefs.length > 0) {
+        msg = `Pídele a ${activeChiefs.map(c => c.name).join(' o ')} que confirme.`;
+      } else if (chiefs.length > 0) {
+        msg = `${chiefs.map(c => c.name).join(' o ')} debe entrar a cookeat para confirmar el pase.`;
+      } else {
+        msg = 'No hay jefe de cocina configurado. Avisa al encargado.';
+      }
+    }
+  } catch (e) { /* silent */ }
+  notify(msg, 'info');
+}
+
 async function setOrderStatus(dishId, status) {
-  console.log('[setOrderStatus]', { dishId, status, adminRole: state.adminRole, kitchenUserId: state.kitchenUserId });
   // #4: manageat has read-only visibility — only cookeat can change kitchen status
   // Sprint Refactor: defensa adicional — si hay cocinero identificado (kitchenUserId)
   // o estamos en pantalla de cocina, permitir aunque state.adminRole se haya quedado en 'admin'
@@ -20283,7 +20326,6 @@ function renderKDSPases(dishes, roomTableMap, tablesById, prepTimeByItem) {
 
 // ── FIRE NEXT COURSE — marca pase listo y notifica camarero ──
 async function fireNextCourse(roomId, course, dishIds) {
-  console.log('[fireNextCourse]', { roomId, course, dishIds, adminRole: state.adminRole, kitchenUserId: state.kitchenUserId });
   // #4: manageat read-only guard — only cookeat can fire courses
   // Sprint Refactor: defensa adicional — si hay cocinero identificado o estamos
   // en pantalla de cocina, permitir aunque state.adminRole se haya quedado en otro estado.
