@@ -11348,17 +11348,21 @@ async function _doClockIn(waiterId) {
 }
 
 // Badge de fichaje — pinta tanto en serveat (#shift-badge) como en cookeat (#k-shift-badge).
+// En manageat se crea dinámicamente como elemento fixed (junto al role-badge).
 // Solo uno será visible a la vez según la pantalla activa, pero pintamos ambos por simplicidad.
 function _startClockInBadge(clockInAt) {
   if (_clockInBadgeTimer) clearInterval(_clockInBadgeTimer);
   const since = new Date(clockInAt).getTime();
 
   function tick() {
-    const minutes = Math.floor((Date.now() - since) / 60000);
+    // Math.max(0, ...) evita valores negativos cuando el reloj del cliente
+    // está unos segundos atrasado respecto al servidor (clockInAt viene de Supabase server-side).
+    const minutes = Math.max(0, Math.floor((Date.now() - since) / 60000));
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
     const txt = h > 0 ? `${h}h ${m}m` : `${m}m`;
     const html = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#3B6D11;margin-right:5px;animation:pulse 1.5s infinite"></span>${txt}`;
+    // serveat + cookeat (badges estáticos en HTML)
     ['shift-badge', 'k-shift-badge'].forEach(id => {
       const badge = document.getElementById(id);
       if (!badge) return;
@@ -11366,6 +11370,19 @@ function _startClockInBadge(clockInAt) {
       badge.innerHTML = html;
       badge.setAttribute('data-since', since);
     });
+    // manageat: crear dinámicamente si no existe (solo si estamos en s-admin)
+    let mBadge = document.getElementById('m-shift-badge');
+    if (!mBadge) {
+      mBadge = document.createElement('div');
+      mBadge.id = 'm-shift-badge';
+      mBadge.className = 'manageat-only';
+      mBadge.title = 'Click para fichar salida';
+      mBadge.onclick = () => promptClockOut();
+      mBadge.style.cssText = 'position:fixed;top:14px;right:230px;background:#EAF3DE;color:#3B6D11;border:1px solid #C8E0AB;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;z-index:500;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center';
+      document.body.appendChild(mBadge);
+    }
+    mBadge.innerHTML = html;
+    mBadge.setAttribute('data-since', since);
   }
   tick();
   _clockInBadgeTimer = setInterval(tick, 60000);
@@ -11377,12 +11394,17 @@ function _stopClockInBadge() {
     const badge = document.getElementById(id);
     if (badge) badge.style.display = 'none';
   });
+  // manageat badge: eliminarlo (no solo ocultarlo, igual que el role-badge)
+  const mBadge = document.getElementById('m-shift-badge');
+  if (mBadge) mBadge.remove();
 }
 
 // Modal de cierre de sesión / clock-out
 async function promptClockOut() {
-  // Sprint Refactor: detectar quién tiene shift activo — camarero (_waiterId) o cocinero (state.kitchenUserId)
-  const activeUserId = _waiterId || state.kitchenUserId;
+  // Sprint Refactor: detectar quién tiene shift activo — camarero (_waiterId), cocinero (state.kitchenUserId)
+  // o manager en manageat (state.adminEmployeeId con role 'manager').
+  const isManagerWorking = state.adminRole === 'manager' && state.adminEmployeeId;
+  const activeUserId = _waiterId || state.kitchenUserId || (isManagerWorking ? state.adminEmployeeId : null);
   if (!activeUserId) return;
   // Comprobar si tiene shift activo
   const { data } = await sb.rpc('get_active_shift', { p_waiter_id: activeUserId });
@@ -11390,6 +11412,7 @@ async function promptClockOut() {
     // Sin fichaje activo → logout normal según contexto
     if (_waiterId) return _waiterLogoutWithoutShift();
     if (state.kitchenUserId) return _kitchenLogoutWithoutShift();
+    if (isManagerWorking) return _adminLogoutWithoutShift();
     return;
   }
 
@@ -11437,8 +11460,9 @@ async function promptClockOut() {
 }
 
 async function _doClockOutAndLogout() {
-  // Sprint Refactor: detectar contexto (waiter o cocinero)
-  const activeUserId = _waiterId || state.kitchenUserId;
+  // Sprint Refactor: detectar contexto (waiter, cocinero o manager en manageat)
+  const isManagerWorking = state.adminRole === 'manager' && state.adminEmployeeId;
+  const activeUserId = _waiterId || state.kitchenUserId || (isManagerWorking ? state.adminEmployeeId : null);
   if (!activeUserId) return;
   const { data, error } = await sb.rpc('clock_out', { p_waiter_id: activeUserId, p_notes: null });
   if (error) { notify('Error: ' + error.message, 'error'); return; }
@@ -11450,6 +11474,7 @@ async function _doClockOutAndLogout() {
   setTimeout(() => {
     if (_waiterId) return _waiterLogoutWithoutShift();
     if (state.kitchenUserId) return _kitchenLogoutWithoutShift();
+    if (isManagerWorking) return _adminLogoutWithoutShift();
   }, 600);
 }
 
@@ -15097,6 +15122,11 @@ async function _enterModuleAfterPin(emp) {
     }
     // Aplicar permisos de UI tras entrar
     setTimeout(() => { try { applyManageatPermissions(emp.role); } catch(e){} }, 200);
+
+    // Sprint Control horario (RD-ley 8/2019): manager ficha — owner NO (es propietario, no empleado por cuenta ajena).
+    if (emp.role === 'manager' && typeof promptClockInIfNeeded === 'function') {
+      setTimeout(() => promptClockInIfNeeded(emp.id), 700);
+    }
     return;
   }
 
@@ -15447,9 +15477,33 @@ function enterAdminApp(restaurantId, restaurantName) {
 }
 
 function adminLogout() {
+  // Sprint Control horario: si manager tiene shift activo, ofrecer clock-out antes de cerrar.
+  // Owner queda excluido (es propietario, no empleado por cuenta ajena).
+  if (state.adminRole === 'manager' && state.adminEmployeeId) {
+    const empId = state.adminEmployeeId;
+    sb.rpc('get_active_shift', { p_waiter_id: empId }).then(({ data }) => {
+      if (data?.active) {
+        promptClockOut();
+      } else {
+        _adminLogoutWithoutShift();
+      }
+    }).catch(() => {
+      // Si la RPC falla, seguir con logout (no bloquear)
+      _adminLogoutWithoutShift();
+    });
+    return;
+  }
+  // Owner u otros casos: logout directo sin tocar fichaje
+  _adminLogoutWithoutShift();
+}
+
+// Logout real de manageat (sin pasar por clock-out check, llamado tras clock-out o para owner)
+function _adminLogoutWithoutShift() {
   state.adminRestaurantId = null;
   state.adminRestaurantName = '';
   state.adminRole = 'admin';
+  state.adminEmployeeId = null;
+  state.adminEmployeeName = '';
   state.owner = null;  // Sprint Costes Turno 6
   state.adminEmail = null; // Sprint Costes Turno 8a
   state.activeRestaurantId = null; // Sprint Costes Turno 8a
@@ -15466,6 +15520,13 @@ function adminLogout() {
   const fab = document.getElementById('admin-notif-fab');
   if (fab) fab.style.display = 'none';
   closeAdminNotifPanel();
+  // Sprint Refactor: si la sesión del restaurante sigue activa, volver al hub. Si no, ir a landing.
+  if (typeof _restaurantSession !== 'undefined' && _restaurantSession) {
+    if (typeof _showModulesHub === 'function') {
+      _showModulesHub();
+      return;
+    }
+  }
   go('s0');
 }
 
