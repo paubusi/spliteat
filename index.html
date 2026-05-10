@@ -2339,12 +2339,14 @@
   ════════════════════════════════════════ -->
   <!-- LOGIN DEL RESTAURANTE — credenciales del tenant -->
   <div class="screen" id="s-admin-login">
-    <div class="hdr">
-      <button class="back-btn" onclick="go('s0')">← Inicio</button>
-      <div class="logo">spliteat</div>
-      <div style="width:60px"></div>
+    <div class="hdr" style="width:100%;padding:1rem 2rem">
+      <div style="max-width:1200px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between">
+        <button class="back-btn" onclick="go('s0')">← Inicio</button>
+        <div class="logo">spliteat</div>
+        <div style="width:60px"></div>
+      </div>
     </div>
-    <div class="body">
+    <div class="body" style="max-width:480px;margin:0 auto;width:100%;padding:2rem 1.5rem 4rem;flex:1">
       <h2 style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:var(--brand-d);letter-spacing:-.5px;margin-bottom:.25rem">Acceso al restaurante</h2>
       <p class="subtitle">Identifícate con las credenciales de tu local</p>
       <div class="spacer"></div>
@@ -2370,14 +2372,16 @@
 
   <!-- HUB DE MÓDULOS — post-login del restaurante -->
   <div class="screen" id="s-modules-hub">
-    <div class="hdr">
-      <button class="back-btn" onclick="restaurantLogout()">← Salir</button>
-      <div class="logo">spliteat</div>
-      <div style="width:60px"></div>
+    <div class="hdr" style="width:100%;padding:1rem 2rem">
+      <div style="max-width:1200px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between">
+        <button class="back-btn" onclick="restaurantLogout()">← Salir</button>
+        <div class="logo">spliteat</div>
+        <button id="hub-switch-local-btn" onclick="hubSwitchLocal()" style="background:none;border:1px solid var(--bd);border-radius:8px;padding:.4rem .75rem;font-size:12px;color:var(--t2);cursor:pointer;display:none">⇄ Cambiar local</button>
+      </div>
     </div>
-    <div class="body">
-      <h2 style="font-family:'Fraunces',serif;font-size:24px;font-weight:700;color:var(--brand-d);letter-spacing:-.5px;margin-bottom:.25rem" id="hub-restname">Bienvenido</h2>
-      <p class="subtitle">¿Qué módulo necesitas?</p>
+    <div class="body" style="max-width:560px;margin:0 auto;width:100%;padding:2rem 1.5rem 4rem;flex:1">
+      <h2 style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:var(--brand-d);letter-spacing:-.5px;margin-bottom:.25rem;text-align:center" id="hub-restname">Bienvenido</h2>
+      <p class="subtitle" style="text-align:center">¿Qué módulo necesitas?</p>
       <div class="spacer"></div>
       <button class="btn btn-primary" onclick="enterModuleFromHub('serveat')" style="margin-bottom:.65rem">
         <span style="font-family:'Fraunces',serif;font-size:20px;letter-spacing:-.5px;color:#fff">serv<em style="color:#FF8C5A;font-style:normal">eat</em></span>&ensp;<span style="font-size:13px;font-weight:400;opacity:.85">— Camareros</span>
@@ -2392,25 +2396,26 @@
         <span style="font-family:'Fraunces',serif;font-size:20px;letter-spacing:-.5px;color:var(--brand-d)">manag<em style="color:var(--accent);font-style:normal">eat</em></span>&ensp;<span style="font-size:13px;color:var(--t2)">— Administración</span>
       </button>
       <p class="muted center" style="font-size:11px;margin-top:1.5rem;line-height:1.5">
-        💡 Para sala/cocina/stock se pide PIN del empleado.<br>
-        Manageat entra directo (ya estás autenticado).
+        🔒 Todos los módulos requieren PIN del empleado.
       </p>
     </div>
   </div>
 
-  <!-- SELECTOR DE EMPLEADO (genérico, para todos los módulos no-admin) -->
+  <!-- SELECTOR DE EMPLEADO (genérico para todos los módulos) -->
   <div class="screen" id="s-employee-select">
-    <div class="hdr">
-      <button class="back-btn" onclick="go('s-modules-hub')">← Volver al hub</button>
-      <div class="logo" id="emp-sel-logo"></div>
-      <div style="width:60px"></div>
+    <div class="hdr" style="width:100%;padding:1rem 2rem">
+      <div style="max-width:1200px;margin:0 auto;width:100%;display:flex;align-items:center;justify-content:space-between">
+        <button class="back-btn" onclick="go('s-modules-hub')">← Volver al hub</button>
+        <div class="logo" id="emp-sel-logo"></div>
+        <div style="width:60px"></div>
+      </div>
     </div>
-    <div class="body" style="padding:1.5rem 1rem">
-      <div style="text-align:center;margin-bottom:1.25rem">
-        <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--t1);margin-bottom:.25rem">¿Quién entra?</div>
+    <div class="body" style="max-width:1000px;margin:0 auto;width:100%;padding:2rem 1.5rem 4rem;flex:1">
+      <div style="text-align:center;margin-bottom:1.5rem">
+        <div style="font-family:'Fraunces',serif;font-size:24px;font-weight:700;color:var(--t1);margin-bottom:.25rem">¿Quién entra?</div>
         <div id="emp-sel-restname" style="font-size:13px;color:var(--t3)"></div>
       </div>
-      <div id="emp-sel-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.75rem">
+      <div id="emp-sel-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.85rem">
         <div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--t3)">Cargando empleados...</div>
       </div>
       <div id="emp-sel-empty" style="display:none;text-align:center;padding:2rem 1rem;color:var(--t3);font-size:13px"></div>
@@ -14401,24 +14406,35 @@ function renderAdminTabs() {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// SPRINT REFACTOR LOGIN — Login único restaurante + Hub módulos + PIN
+// SPRINT REFACTOR LOGIN v2 — Login + multi-local + Hub + PIN universal
 // ══════════════════════════════════════════════════════════════════
 //
 // Flujo:
 //   1. s-admin-login → email+pwd del restaurante (restaurantLogin)
-//   2. s-modules-hub → 4 módulos (manageat directo, otros vía PIN)
-//   3. s-employee-select (módulos no-admin) → empleados con avatares
-//   4. PIN modal → validar pin_hash → entrar al módulo
+//   2. Si owner tiene 2+ locales → s-restaurant-picker
+//      Si solo 1 → directo al hub
+//   3. s-modules-hub → 4 módulos (TODOS requieren PIN, incluso manageat)
+//   4. s-employee-select → empleados con avatares
+//   5. PIN modal con teclado virtual numérico → entrada al módulo
+//
+// Permisos manageat:
+//   - Owner: ve todo (costes, márgenes, Verifactu, configuración)
+//   - Manager: cuadrante, reservas, carta, mesas, reportes diarios
 //
 // Estado global:
-//   _restaurantSession = { restaurantId, restaurantName, email }
+//   _restaurantSession   = { restaurantId, restaurantName, email }
+//   _employeesCache      = array de empleados precargados al login
+//   _activeEmployee      = empleado actualmente autenticado por PIN
+//   _pendingModule       = módulo esperando PIN
 //
 // ══════════════════════════════════════════════════════════════════
 
 let _restaurantSession = null;
-let _pendingModule = null; // qué módulo está esperando PIN
+let _employeesCache = null;
+let _activeEmployee = null;
+let _pendingModule = null;
 
-// Login del restaurante (email+pwd) — primer paso
+// ── Login del restaurante ─────────────────────────────────────────
 async function restaurantLogin() {
   const email = document.getElementById('rest-email')?.value?.trim();
   const pass = document.getElementById('rest-pass')?.value;
@@ -14433,7 +14449,6 @@ async function restaurantLogin() {
     if (errEl) { errEl.textContent = 'Restaurante no encontrado.'; errEl.style.display = 'block'; }
     return;
   }
-  // Validar password (compatible con sistema actual)
   const _hashMatch = data.password_hash && data.password_hash === pass;
   const _plainMatch = data.password && data.password === pass;
   const _noPass = !data.password_hash && !data.password;
@@ -14441,82 +14456,173 @@ async function restaurantLogin() {
     if (errEl) { errEl.textContent = 'Contraseña incorrecta.'; errEl.style.display = 'block'; }
     return;
   }
-  // Session creada
   _restaurantSession = {
     restaurantId: data.id,
     restaurantName: data.name,
     email: email
   };
-  // Persistir en localStorage para que sobreviva refresh
+  try { localStorage.setItem('spliteat.restaurantSession', JSON.stringify(_restaurantSession)); } catch (e) {}
+
+  // Cargar info de owner (multi-restaurante)
+  state.adminEmail = email;
   try {
-    localStorage.setItem('spliteat.restaurantSession', JSON.stringify(_restaurantSession));
-  } catch (e) {}
-  // Mostrar hub
+    const { data: ownerData } = await sb.rpc('get_owner_for_restaurant', {
+      p_restaurant_id: data.id
+    });
+    if (ownerData && ownerData.owner_id) {
+      state.owner = {
+        id: ownerData.owner_id,
+        name: ownerData.owner_name,
+        legal_name: ownerData.owner_legal_name,
+        nif: ownerData.owner_nif,
+        restaurant_count: ownerData.restaurant_count || 1
+      };
+    }
+  } catch (e) { state.owner = null; }
+
+  // Si owner tiene 2+ locales → picker primero
+  if (state.owner && state.owner.restaurant_count >= 2) {
+    _showLocalPickerForHub();
+  } else {
+    // Solo 1 local → cargar empleados y mostrar hub
+    await _preloadEmployees();
+    _showModulesHub();
+  }
+}
+
+// ── Multilocal: picker antes del hub ──────────────────────────────
+async function _showLocalPickerForHub() {
+  go('s-restaurant-picker');
+  const list = document.getElementById('picker-list');
+  const ownerLabel = document.getElementById('picker-owner-name');
+  if (ownerLabel) ownerLabel.textContent = state.owner?.name ? `Grupo: ${state.owner.name}` : '';
+  if (!state.adminEmail) {
+    if (list) list.innerHTML = '<div class="notice notice-warn">Sesión no iniciada.</div>';
+    return;
+  }
+  let restaurants = [];
+  try {
+    const { data, error } = await sb.rpc('list_restaurants_for_admin', { p_admin_email: state.adminEmail });
+    if (error) throw error;
+    restaurants = data || [];
+  } catch (e) { console.warn('[list_restaurants_for_admin]', e); }
+
+  // Fallback
+  if (!restaurants.length && state.owner?.id) {
+    try {
+      const { data } = await sb.from('restaurants').select('id, name').eq('owner_id', state.owner.id);
+      restaurants = (data || []).map(r => ({ restaurant_id: r.id, restaurant_name: r.name }));
+    } catch (e) {}
+  }
+
+  if (!restaurants.length) {
+    if (list) list.innerHTML = '<div class="notice notice-warn">No se encontraron restaurantes para este usuario.</div>';
+    return;
+  }
+
+  // Render como tarjetas que llevan al HUB de cada local
+  const cards = restaurants.map(r => {
+    const initial = (r.restaurant_name || '?').charAt(0).toUpperCase();
+    return `<div onclick="_pickLocalForHub('${r.restaurant_id}', ${JSON.stringify(r.restaurant_name)})"
+      style="background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:1.25rem;cursor:pointer;transition:transform .12s,border-color .12s"
+      onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--bd)'">
+      <div style="width:48px;height:48px;border-radius:10px;background:var(--brand-d);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-size:24px;font-weight:700;margin-bottom:.75rem">${initial}</div>
+      <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--t1);margin-bottom:.35rem">${escHtml(r.restaurant_name)}</div>
+      <div style="font-size:12px;color:var(--t3)">🔑 Propietario</div>
+      <div style="font-size:13px;color:var(--brand);margin-top:.75rem;font-weight:500">Entrar →</div>
+    </div>`;
+  }).join('');
+
+  // Vista grupo (solo si owner real)
+  let groupCard = '';
+  if (state.owner?.id && restaurants.length >= 2) {
+    groupCard = `<div onclick="enterGroupView()"
+      style="background:transparent;border:1px dashed var(--bd);border-radius:14px;padding:1.25rem;cursor:pointer">
+      <div style="width:48px;height:48px;border-radius:10px;background:var(--t3);color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:.75rem">📊</div>
+      <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--t2);margin-bottom:.35rem">Vista grupo</div>
+      <div style="font-size:12px;color:var(--t3)">Resumen consolidado de los ${restaurants.length} restaurantes</div>
+      <div style="font-size:13px;color:var(--brand);margin-top:.75rem;font-weight:500">Ver consolidado →</div>
+    </div>`;
+  }
+
+  if (list) list.innerHTML = cards + groupCard;
+}
+
+async function _pickLocalForHub(restaurantId, restaurantName) {
+  // Actualizar la sesión al local elegido
+  _restaurantSession = {
+    ..._restaurantSession,
+    restaurantId: restaurantId,
+    restaurantName: restaurantName
+  };
+  try { localStorage.setItem('spliteat.restaurantSession', JSON.stringify(_restaurantSession)); } catch(e){}
+  state.adminRestaurantId = restaurantId;
+  state.adminRestaurantName = restaurantName;
+  await _preloadEmployees();
   _showModulesHub();
 }
 
+// Botón "Cambiar local" en el hub (solo visible si owner con 2+ locales)
+async function hubSwitchLocal() {
+  _showLocalPickerForHub();
+}
+
+// ── Pre-carga empleados (cache) ───────────────────────────────────
+async function _preloadEmployees() {
+  if (!_restaurantSession) return;
+  try {
+    const { data, error } = await sb.from('waiters')
+      .select('id, name, role, allowed_modules, pin_hash, active')
+      .eq('restaurant_id', _restaurantSession.restaurantId)
+      .eq('active', true)
+      .order('name', { ascending: true });
+    if (error) throw error;
+    _employeesCache = data || [];
+  } catch (e) {
+    console.warn('[preloadEmployees]', e);
+    _employeesCache = [];
+  }
+}
+
+// ── Hub de módulos ────────────────────────────────────────────────
 function _showModulesHub() {
   if (!_restaurantSession) { go('s-admin-login'); return; }
   const lbl = document.getElementById('hub-restname');
   if (lbl) lbl.textContent = `Bienvenido a ${_restaurantSession.restaurantName}`;
+  // Mostrar botón "Cambiar local" solo si owner con 2+ locales
+  const switchBtn = document.getElementById('hub-switch-local-btn');
+  if (switchBtn) {
+    switchBtn.style.display = (state.owner && state.owner.restaurant_count >= 2) ? 'block' : 'none';
+  }
   go('s-modules-hub');
 }
 
 function restaurantLogout() {
   _restaurantSession = null;
+  _employeesCache = null;
+  _activeEmployee = null;
   try { localStorage.removeItem('spliteat.restaurantSession'); } catch (e) {}
   go('s0');
 }
 
-// Click en módulo desde hub
+// ── Click módulo desde hub ────────────────────────────────────────
 async function enterModuleFromHub(module) {
   if (!_restaurantSession) { go('s-admin-login'); return; }
-
-  // Manageat: entra directo (ya autenticado con email+pwd del restaurante)
-  if (module === 'manageat') {
-    // Reutilizar el flujo existente de adminLogin pero sin pedir credenciales otra vez
-    state.adminRestaurantId = _restaurantSession.restaurantId;
-    state.adminRestaurantName = _restaurantSession.restaurantName;
-    state.adminRole = 'admin';
-    state.adminEmail = _restaurantSession.email;
-    // Cargar info owner (multi-restaurante)
-    try {
-      const { data: ownerData } = await sb.rpc('get_owner_for_restaurant', {
-        p_restaurant_id: _restaurantSession.restaurantId
-      });
-      if (ownerData && ownerData.owner_id) {
-        state.owner = {
-          id: ownerData.owner_id,
-          name: ownerData.owner_name,
-          legal_name: ownerData.owner_legal_name,
-          nif: ownerData.owner_nif,
-          restaurant_count: ownerData.restaurant_count || 1
-        };
-      }
-    } catch (e) { state.owner = null; }
-    if (state.owner && state.owner.restaurant_count >= 2) {
-      showRestaurantPicker();
-    } else {
-      enterAdminApp(_restaurantSession.restaurantId, _restaurantSession.restaurantName);
-    }
-    return;
-  }
-
-  // Resto: serveat / cookeat / stockeat → selector de empleado con PIN
+  // TODOS los módulos pasan por selector empleado + PIN (incluso manageat)
   _pendingModule = module;
   await _renderEmployeeSelect(module);
 }
 
-// Renderiza selector de empleados según módulo
+// ── Selector empleados (usa cache si existe) ─────────────────────
 async function _renderEmployeeSelect(module) {
   go('s-employee-select');
-  // Logo del módulo
   const logoEl = document.getElementById('emp-sel-logo');
   if (logoEl) {
     const logos = {
       'serveat': 'serv<em style="color:var(--accent);font-style:normal">eat</em>',
       'cookeat': 'cook<em style="color:var(--accent);font-style:normal">eat</em>',
-      'stockeat': 'stock<em style="color:var(--accent);font-style:normal">eat</em>'
+      'stockeat': 'stock<em style="color:var(--accent);font-style:normal">eat</em>',
+      'manageat': 'manag<em style="color:var(--accent);font-style:normal">eat</em>'
     };
     logoEl.innerHTML = logos[module] || module;
   }
@@ -14525,24 +14631,16 @@ async function _renderEmployeeSelect(module) {
   const grid = document.getElementById('emp-sel-grid');
   const empty = document.getElementById('emp-sel-empty');
   if (!grid) return;
-  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--t3)">Cargando empleados...</div>';
   if (empty) empty.style.display = 'none';
 
-  // Cargar empleados que tengan acceso a este módulo
-  const { data: emps, error } = await sb.from('waiters')
-    .select('id, name, role, allowed_modules, pin_hash')
-    .eq('restaurant_id', _restaurantSession.restaurantId)
-    .eq('active', true)
-    .order('name', { ascending: true });
-
-  if (error) {
-    console.warn('[employees]', error);
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--accent)">Error cargando empleados</div>';
-    return;
+  // Si no hay cache, fetch + filtrado
+  if (!_employeesCache) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--t3)">Cargando empleados...</div>';
+    await _preloadEmployees();
   }
 
-  // Filtrar por allowed_modules
-  const filtered = (emps || []).filter(e => {
+  const allEmps = _employeesCache || [];
+  const filtered = allEmps.filter(e => {
     if (!e.allowed_modules || !Array.isArray(e.allowed_modules)) return false;
     return e.allowed_modules.includes(module);
   });
@@ -14552,18 +14650,17 @@ async function _renderEmployeeSelect(module) {
     if (empty) {
       empty.style.display = 'block';
       empty.innerHTML = `Aún no hay empleados con acceso a <strong>${module}</strong>.<br>
-        <span style="font-size:12px">Crea uno desde manageat → Ajustes → Camareros.</span>`;
+        <span style="font-size:12px">Crea uno desde manageat → Ajustes → Personal.</span>`;
     }
     return;
   }
 
-  // Renderizar avatares
-  const colors = ['#085041','#D85A30','#5b8def','#9c7cb1','#6fa05f','#c97e3a'];
+  const colors = ['#085041','#D85A30','#5b8def','#9c7cb1','#6fa05f','#c97e3a','#3a6b8f','#b94552'];
   grid.innerHTML = filtered.map((e, idx) => {
     const initials = (e.name || '?').split(' ').map(s => s[0]||'').join('').slice(0,2).toUpperCase();
     const color = colors[idx % colors.length];
     const roleBadge = _roleBadge(e.role);
-    return `<button onclick="_selectEmployeeForPin('${e.id}','${escHtml(e.name)}','${e.role}')"
+    return `<button onclick="_selectEmployeeForPin('${e.id}',${JSON.stringify(e.name)},'${e.role}')"
               style="background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:1rem .65rem;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:.5rem;font-family:inherit;transition:transform .12s,border-color .12s"
               onmouseover="this.style.borderColor='var(--brand)'" onmouseout="this.style.borderColor='var(--bd)'">
       <div style="width:50px;height:50px;border-radius:50%;background:${color};color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-size:18px;font-weight:700">${initials}</div>
@@ -14575,7 +14672,7 @@ async function _renderEmployeeSelect(module) {
 
 function _roleBadge(role) {
   return ({
-    'owner': 'Owner',
+    'owner': 'Propietario',
     'manager': 'Encargado',
     'kitchen_chief': 'Jefe cocina',
     'cook': 'Cocinero',
@@ -14583,7 +14680,7 @@ function _roleBadge(role) {
   })[role] || role;
 }
 
-// Empleado seleccionado → modal PIN
+// ── PIN: selector empleado → modal con teclado virtual ───────────
 function _selectEmployeeForPin(empId, empName, empRole) {
   _showPinModal(empId, empName, empRole);
 }
@@ -14593,103 +14690,192 @@ function _showPinModal(empId, empName, empRole) {
   const overlay = document.createElement('div');
   overlay.id = 'rest-pin-modal';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;display:flex;align-items:center;justify-content:center;padding:1rem';
-  overlay.innerHTML = ''
-    + '<div style="background:var(--card);border-radius:var(--r-lg);padding:1.5rem 1.25rem;max-width:340px;width:100%;text-align:center">'
-    +   '<div style="font-family:\'Fraunces\',serif;font-size:20px;font-weight:700;color:var(--t1);margin-bottom:.25rem">¡Hola, ' + escHtml(empName) + '!</div>'
-    +   '<div style="font-size:12px;color:var(--t3);margin-bottom:1rem">' + _roleBadge(empRole) + '</div>'
-    +   '<div style="font-size:13px;color:var(--t2);margin-bottom:.85rem">Introduce tu PIN de 4 dígitos</div>'
-    +   '<input id="rest-pin-input" type="tel" inputmode="numeric" maxlength="4" '
-    +     'style="width:140px;text-align:center;font-size:24px;letter-spacing:8px;padding:.65rem;border:1px solid var(--bd);border-radius:8px;margin-bottom:.85rem" '
-    +     'autocomplete="off">'
-    +   '<div id="rest-pin-err" style="display:none;font-size:12px;color:var(--accent);margin-bottom:.5rem"></div>'
-    +   '<div style="display:flex;gap:.5rem">'
-    +     '<button class="btn btn-secondary" onclick="document.getElementById(\'rest-pin-modal\')?.remove()" style="flex:1">Cancelar</button>'
-    +     '<button class="btn btn-primary" onclick="_validatePin(\'' + empId + '\',\'' + escHtml(empName).replace(/'/g, "\\'") + '\',\'' + empRole + '\')" style="flex:1">Entrar</button>'
-    +   '</div>'
-    + '</div>';
+
+  const safeName = String(empName).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  overlay.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg);padding:1.5rem 1.25rem;max-width:340px;width:100%;text-align:center">
+      <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--t1);margin-bottom:.25rem">¡Hola, ${escHtml(empName)}!</div>
+      <div style="font-size:12px;color:var(--t3);margin-bottom:1rem">${_roleBadge(empRole)}</div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:.85rem">Introduce tu PIN de 4 dígitos</div>
+      <div id="rest-pin-display" style="display:flex;justify-content:center;gap:.65rem;margin-bottom:1rem">
+        ${[0,1,2,3].map(i => `<div class="rest-pin-dot" data-i="${i}" style="width:18px;height:18px;border-radius:50%;border:2px solid var(--brand-d);background:transparent;transition:background .15s"></div>`).join('')}
+      </div>
+      <div id="rest-pin-err" style="display:none;font-size:12px;color:var(--accent);margin-bottom:.5rem;min-height:16px"></div>
+      <div id="rest-pin-keypad" style="display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-bottom:.85rem"></div>
+      <button class="btn btn-secondary" onclick="document.getElementById('rest-pin-modal')?.remove()" style="width:100%">Cancelar</button>
+    </div>
+  `;
   document.body.appendChild(overlay);
-  const input = document.getElementById('rest-pin-input');
-  if (input) {
-    setTimeout(() => input.focus(), 50);
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') _validatePin(empId, empName, empRole);
+
+  // Renderizar teclado numérico custom (estilo POS) — orden aleatorio para más privacidad opcional
+  const keypad = document.getElementById('rest-pin-keypad');
+  const digits = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+  keypad.innerHTML = digits.map(d => {
+    if (d === '') return '<div></div>';
+    const isBackspace = d === '⌫';
+    const fontSize = isBackspace ? '20px' : '24px';
+    return `<button data-digit="${d}"
+              style="background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:1rem 0;font-size:${fontSize};font-weight:600;color:var(--t1);cursor:pointer;font-family:inherit;-webkit-tap-highlight-color:transparent;transition:background .12s"
+              ontouchstart="this.style.background='var(--bd)'" ontouchend="this.style.background='var(--bg)'"
+              onmousedown="this.style.background='var(--bd)'" onmouseup="this.style.background='var(--bg)'" onmouseleave="this.style.background='var(--bg)'">
+              ${d}
+            </button>`;
+  }).join('');
+
+  // Estado del PIN
+  let pinBuffer = '';
+  const updateDots = () => {
+    overlay.querySelectorAll('.rest-pin-dot').forEach((dot, i) => {
+      dot.style.background = i < pinBuffer.length ? 'var(--brand-d)' : 'transparent';
     });
-  }
+  };
+  const errEl = document.getElementById('rest-pin-err');
+  const showErr = (msg) => { if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; } };
+  const clearErr = () => { if (errEl) errEl.style.display = 'none'; };
+
+  keypad.querySelectorAll('button[data-digit]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      clearErr();
+      const d = btn.dataset.digit;
+      if (d === '⌫') {
+        pinBuffer = pinBuffer.slice(0, -1);
+        updateDots();
+        return;
+      }
+      if (pinBuffer.length >= 4) return;
+      pinBuffer += d;
+      updateDots();
+      // Auto-validar al llegar a 4 dígitos
+      if (pinBuffer.length === 4) {
+        const result = await _validatePinCode(empId, pinBuffer);
+        if (!result.ok) {
+          // Animación de error: vibrar + reset
+          showErr(result.message);
+          pinBuffer = '';
+          updateDots();
+          // Pequeña vibración visual
+          const dotsRow = document.getElementById('rest-pin-display');
+          if (dotsRow) {
+            dotsRow.style.transform = 'translateX(-8px)';
+            setTimeout(() => dotsRow.style.transform = 'translateX(8px)', 80);
+            setTimeout(() => dotsRow.style.transform = 'translateX(0)', 160);
+          }
+        } else {
+          document.getElementById('rest-pin-modal')?.remove();
+          await _enterModuleAfterPin(result.employee);
+        }
+      }
+    });
+  });
+
+  // Soporte teclado físico (testing en desktop)
+  const keyHandler = async (e) => {
+    if (!document.getElementById('rest-pin-modal')) {
+      document.removeEventListener('keydown', keyHandler);
+      return;
+    }
+    if (e.key === 'Escape') {
+      document.getElementById('rest-pin-modal')?.remove();
+      document.removeEventListener('keydown', keyHandler);
+      return;
+    }
+    if (e.key === 'Backspace') {
+      pinBuffer = pinBuffer.slice(0, -1);
+      updateDots();
+      clearErr();
+      return;
+    }
+    if (/^\d$/.test(e.key) && pinBuffer.length < 4) {
+      clearErr();
+      pinBuffer += e.key;
+      updateDots();
+      if (pinBuffer.length === 4) {
+        const result = await _validatePinCode(empId, pinBuffer);
+        if (!result.ok) {
+          showErr(result.message);
+          pinBuffer = '';
+          updateDots();
+        } else {
+          document.getElementById('rest-pin-modal')?.remove();
+          document.removeEventListener('keydown', keyHandler);
+          await _enterModuleAfterPin(result.employee);
+        }
+      }
+    }
+  };
+  document.addEventListener('keydown', keyHandler);
 }
 
-async function _validatePin(empId, empName, empRole) {
-  const pin = document.getElementById('rest-pin-input')?.value?.trim();
-  const errEl = document.getElementById('rest-pin-err');
-  if (errEl) errEl.style.display = 'none';
+async function _validatePinCode(empId, pin) {
   if (!pin || pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-    if (errEl) { errEl.style.display = 'block'; errEl.textContent = 'PIN inválido (4 dígitos)'; }
-    return;
+    return { ok: false, message: 'PIN inválido' };
   }
-  // Verificar PIN contra DB
   const { data: emp, error } = await sb.from('waiters')
     .select('id, name, role, pin_hash, pin_locked_until, allowed_modules')
     .eq('id', empId).maybeSingle();
-  if (error || !emp) {
-    if (errEl) { errEl.style.display = 'block'; errEl.textContent = 'Empleado no encontrado'; }
-    return;
-  }
-  // Bloqueo temporal por intentos fallidos
+  if (error || !emp) return { ok: false, message: 'Empleado no encontrado' };
   if (emp.pin_locked_until && new Date(emp.pin_locked_until) > new Date()) {
-    if (errEl) {
-      errEl.style.display = 'block';
-      errEl.textContent = 'Cuenta bloqueada temporalmente. Espera unos minutos.';
-    }
-    return;
+    return { ok: false, message: 'Cuenta bloqueada — espera unos minutos' };
   }
-  // Validar
   if (emp.pin_hash !== pin) {
-    // Incrementar intentos fallidos
-    try {
-      await sb.rpc('register_failed_pin_attempt', { p_waiter_id: empId }).catch(()=>{});
-    } catch (e) {}
-    if (errEl) { errEl.style.display = 'block'; errEl.textContent = 'PIN incorrecto'; }
-    return;
+    try { await sb.rpc('register_failed_pin_attempt', { p_waiter_id: empId }); } catch (e) {}
+    return { ok: false, message: 'PIN incorrecto' };
   }
-  // ✓ PIN OK → cerrar modal y entrar al módulo
-  document.getElementById('rest-pin-modal')?.remove();
-  await _enterModuleAfterPin(emp);
-}
-
-async function _enterModuleAfterPin(emp) {
-  const module = _pendingModule;
-  // Reset attempts on successful login
+  // Reset attempts on success
   try {
     await sb.from('waiters').update({ pin_attempts: 0, last_login_at: new Date().toISOString() }).eq('id', emp.id);
   } catch (e) {}
+  return { ok: true, employee: emp };
+}
+
+// ── Entrada al módulo tras PIN OK ────────────────────────────────
+async function _enterModuleAfterPin(emp) {
+  _activeEmployee = emp;
+  const module = _pendingModule;
+
+  if (module === 'manageat') {
+    // Solo owner/manager pueden entrar (doble check defensivo)
+    if (!['owner','manager'].includes(emp.role)) {
+      alert('No tienes permisos para acceder a la administración');
+      go('s-modules-hub');
+      return;
+    }
+    state.adminRestaurantId = _restaurantSession.restaurantId;
+    state.adminRestaurantName = _restaurantSession.restaurantName;
+    state.adminRole = emp.role; // 'owner' o 'manager'
+    state.adminEmployeeId = emp.id;
+    state.adminEmployeeName = emp.name;
+    if (typeof enterAdminApp === 'function') {
+      enterAdminApp(_restaurantSession.restaurantId, _restaurantSession.restaurantName);
+    } else {
+      go('s-admin-app');
+    }
+    // Aplicar permisos de UI tras entrar
+    setTimeout(() => { try { applyManageatPermissions(emp.role); } catch(e){} }, 200);
+    return;
+  }
 
   if (module === 'serveat') {
-    // Reutilizar flujo existente: setear _waiterId, _waiterName, _waiterRestaurantId
     _waiterId = emp.id;
     _waiterName = emp.name;
     _waiterRestaurantId = _restaurantSession.restaurantId;
     state.adminRestaurantId = _restaurantSession.restaurantId;
-    // Marcar activo
     try { await sb.from('waiters').update({ is_active: true, last_seen_at: new Date().toISOString() }).eq('id', emp.id); } catch(e){}
-    // Llamar al finalizador de login original si existe
     if (typeof _finishWaiterLogin === 'function') {
       await _finishWaiterLogin({ id: emp.id, name: emp.name, restaurant_id: _restaurantSession.restaurantId });
     } else {
-      // Fallback
       go('s-waiter');
     }
     return;
   }
 
   if (module === 'cookeat') {
-    // Reutilizar flujo cookeat: ir a selector de zonas con cocinero ya identificado
     state.kitchenRestaurantId = _restaurantSession.restaurantId;
     state.cookeatStaffId = emp.id;
     state.cookeatStaffName = emp.name;
-    // Si existe la pantalla de selección de zonas, ir allí
     if (typeof loadCookeatZonesForStaff === 'function') {
       await loadCookeatZonesForStaff(emp.id, emp.name);
     } else {
-      // Entrar directo a cocina sin filtro de zonas
       go('s-kitchen');
     }
     return;
@@ -14699,12 +14885,14 @@ async function _enterModuleAfterPin(emp) {
     state.stockeatRestaurantId = _restaurantSession.restaurantId;
     state.stockeatEmployeeId = emp.id;
     state.stockeatEmployeeName = emp.name;
-    // Llamar al inicializador del módulo si existe
-    if (typeof enterStockeat === 'function') {
-      await enterStockeat(_restaurantSession.restaurantId);
-    } else if (typeof loadStockeat === 'function') {
-      await loadStockeat();
-      go('s-stockeat');
+    // openStockeat es la función real de inicialización
+    if (typeof openStockeat === 'function') {
+      try {
+        await openStockeat(_restaurantSession.restaurantId, _restaurantSession.restaurantName);
+      } catch (e) {
+        console.warn('[openStockeat]', e);
+        go('s-stockeat');
+      }
     } else {
       go('s-stockeat');
     }
@@ -14712,13 +14900,52 @@ async function _enterModuleAfterPin(emp) {
   }
 }
 
-// Restaurar sesión del restaurante al cargar la app
+// ── Permisos manageat por rol ────────────────────────────────────
+function applyManageatPermissions(role) {
+  // Tabs/secciones que solo ve owner
+  const ownerOnlySelectors = [
+    '[data-tab="costes"]',
+    '[data-tab="margenes"]',
+    '[data-tab="verifactu"]',
+    '[data-tab="facturas"]',
+    '[data-tab="config"]',
+    '[data-tab="stripe"]',
+    '#atab-costes',
+    '#atab-margenes',
+    '#atab-verifactu',
+    '#atab-facturas',
+    '#atab-stripe',
+    '#manage-costes-section',
+    '.owner-only'
+  ];
+  if (role === 'manager') {
+    ownerOnlySelectors.forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => { el.style.display = 'none'; });
+    });
+  } else {
+    // Owner: mostrar todo (resetear)
+    ownerOnlySelectors.forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => { el.style.display = ''; });
+    });
+  }
+  // Badge en topbar de manageat con rol activo
+  let badge = document.getElementById('manageat-role-badge');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.id = 'manageat-role-badge';
+    badge.style.cssText = 'position:fixed;top:14px;right:80px;background:var(--brand-d);color:#fff;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;z-index:500;font-family:inherit';
+    document.body.appendChild(badge);
+  }
+  const empName = _activeEmployee?.name || '';
+  badge.textContent = `${role === 'owner' ? '🔑' : '👤'} ${_roleBadge(role)}${empName ? ' · ' + empName : ''}`;
+  badge.style.display = (typeof currentScreen !== 'undefined' && currentScreen?.startsWith('s-admin-app')) ? 'block' : 'block';
+}
+
+// ── Restaurar sesión al cargar ────────────────────────────────────
 function _restoreRestaurantSession() {
   try {
     const raw = localStorage.getItem('spliteat.restaurantSession');
-    if (raw) {
-      _restaurantSession = JSON.parse(raw);
-    }
+    if (raw) _restaurantSession = JSON.parse(raw);
   } catch (e) { _restaurantSession = null; }
 }
 _restoreRestaurantSession();
@@ -18873,38 +19100,53 @@ async function loadAdminWaitersInline() {
   const { data: waiters } = await sb.from('waiters').select('*').eq('restaurant_id', state.adminRestaurantId).eq('active', true).order('role').order('name');
   if (!waiters?.length) { el.innerHTML = '<div class="notice">No hay miembros del equipo. Añade el primero.</div>'; return; }
 
-  // Sub-Sprint A.4+A.6: agrupar por rol y mostrar badge
+  // Sprint Refactor Login: 5 roles definitivos
   const roleLabels = {
-    'manager':       { label: 'Manager',         color: '#444441' },
-    'kitchen_chief': { label: 'Jefe de cocina',  color: '#854F0B' },
-    'chef':          { label: 'Cocinero',        color: '#C2563D' },
-    'waiter':        { label: 'Camarero',        color: '#085041' }
+    'owner':         { label: 'Propietario',   color: '#085041', usesPwd: true,  usesPin: true  },
+    'manager':       { label: 'Encargado',     color: '#444441', usesPwd: true,  usesPin: true  },
+    'kitchen_chief': { label: 'Jefe de cocina',color: '#854F0B', usesPwd: false, usesPin: true  },
+    'cook':          { label: 'Cocinero',      color: '#C2563D', usesPwd: false, usesPin: true  },
+    'chef':          { label: 'Cocinero',      color: '#C2563D', usesPwd: false, usesPin: true  }, // legacy
+    'waiter':        { label: 'Camarero',      color: '#085041', usesPwd: false, usesPin: true  }
   };
-  const order = ['manager', 'kitchen_chief', 'chef', 'waiter'];
+  const order = ['owner', 'manager', 'kitchen_chief', 'cook', 'chef', 'waiter'];
   const grouped = {};
   waiters.forEach(w => { const r = w.role || 'waiter'; if (!grouped[r]) grouped[r] = []; grouped[r].push(w); });
 
   let html = '';
   order.forEach(role => {
     if (!grouped[role]) return;
-    const info = roleLabels[role] || { label: role, color: 'var(--t2)' };
+    const info = roleLabels[role] || { label: role, color: 'var(--t2)', usesPwd: false, usesPin: true };
     html += '<div class="sec-label" style="margin-top:.6rem;display:flex;align-items:center;gap:6px">'
       + '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + info.color + '"></span>'
       + info.label + ' <span style="color:var(--t3);font-weight:400">(' + grouped[role].length + ')</span>'
       + '</div>';
     grouped[role].forEach(w => {
-      const isCook = role === 'chef' || role === 'kitchen_chief';
-      const accessLabel = isCook ? 'PIN' : 'Contraseña';
-      const credEmail = w.email ? '<div style="font-size:12px;color:var(--t2)">' + escHtml(w.email) + '</div>' : (isCook ? '<div style="font-size:11px;color:var(--t3);font-style:italic">Acceso solo por PIN</div>' : '');
+      // Owner y Manager: muestran email + tienen contraseña + PIN (para módulos no-admin)
+      // Resto: solo PIN
+      const isAdmin = role === 'owner' || role === 'manager';
+      const credEmail = isAdmin && w.email
+        ? '<div style="font-size:12px;color:var(--t2)">' + escHtml(w.email) + '</div>'
+        : '<div style="font-size:11px;color:var(--t3);font-style:italic">Acceso solo por PIN</div>';
+
+      // Botones de credenciales
+      let credButtons = '';
+      if (info.usesPin) {
+        credButtons += '<button onclick="promptResetWaiterPin(\'' + w.id + '\',\'' + escHtml(w.name).replace(/'/g, '&#39;') + '\')" style="padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit">🔢 PIN</button>';
+      }
+      if (info.usesPwd) {
+        credButtons += '<button onclick="promptResetWaiterPwd(\'' + w.id + '\',\'' + escHtml(w.name).replace(/'/g, '&#39;') + '\',\'' + role + '\')" style="padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit">🔑 Contraseña</button>';
+      }
+
       html += '<div class="card" style="margin-bottom:.4rem;padding:.65rem .85rem">'
         + '<div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem">'
         +   '<div style="flex:1;min-width:0">'
         +     '<div style="font-size:14px;font-weight:500">' + escHtml(w.name) + '</div>'
         +     credEmail
         +   '</div>'
-        +   '<div style="display:flex;gap:4px;flex-shrink:0">'
+        +   '<div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">'
         +     '<button onclick="openEditMemberModal(\'' + w.id + '\')" title="Editar" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer">✏️</button>'
-        +     '<button onclick="promptResetWaiterPwd(\'' + w.id + '\',\'' + escHtml(w.name).replace(/'/g, '&#39;') + '\',\'' + role + '\')" style="padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit">🔑 ' + accessLabel + '</button>'
+        +     credButtons
         +     '<button onclick="deleteWaiterInline(\'' + w.id + '\')" title="Eliminar" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer">✕</button>'
         +   '</div>'
         + '</div>'
@@ -18912,6 +19154,21 @@ async function loadAdminWaitersInline() {
     });
   });
   el.innerHTML = html;
+}
+
+// Sprint Refactor Login: cambiar PIN de un empleado
+async function promptResetWaiterPin(waiterId, waiterName) {
+  const newPin = prompt(`Nuevo PIN de 4 dígitos para ${waiterName}:`);
+  if (!newPin) return;
+  if (!/^\d{4}$/.test(newPin)) { alert('El PIN debe ser exactamente 4 dígitos.'); return; }
+  const { error } = await sb.from('waiters').update({
+    pin_hash: newPin,
+    pin_attempts: 0,
+    pin_locked_until: null
+  }).eq('id', waiterId);
+  if (error) { alert('Error al actualizar PIN: ' + error.message); return; }
+  alert(`✓ PIN de ${waiterName} actualizado a ${newPin}`);
+  loadAdminWaitersInline();
 }
 
 function showAddWaiterFormAjustes() {
