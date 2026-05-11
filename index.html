@@ -3685,7 +3685,18 @@
           </div>
         </div>
 
-        <!-- Sprint Permisos T2 Revisión: Personal movido a tab Equipo -->
+        <!-- Puente: indicar al usuario que Personal vive ahora en Equipo -->
+        <div class="settings-section">
+          <div class="settings-section-header">Equipo</div>
+          <div class="settings-row" onclick="showAdminTab('equipo')" style="cursor:pointer">
+            <span class="settings-row-icon">🧑‍🍳</span>
+            <div class="settings-row-content">
+              <div class="settings-row-title">Personal y permisos</div>
+              <div class="settings-row-desc">Camareros, cocineros, control horario, roles personalizados y permisos por rol — en la pestaña <strong>Equipo</strong></div>
+            </div>
+            <span class="settings-row-arrow">→ Equipo</span>
+          </div>
+        </div>
 
         <!-- Perfil del restaurante -->
         <div class="settings-section">
@@ -3772,8 +3783,6 @@
             <span id="fiscal-status-badge" class="settings-row-arrow" style="font-size:10px;font-weight:600;color:var(--accent)">●</span>
           </div>
         </div>
-
-        <!-- Sprint Permisos T2 Revisión: Permisos movido a tab Equipo -->
 
       </div>
 
@@ -15889,7 +15898,11 @@ function showAdminTab(name) {
   if (name === 'cocina') loadAdminOrders();
   if (name === 'reservas') initReservasTab();
   if (name === 'reportes') { loadKPIs(); showReportesTab('kpis'); }
-  if (name === 'equipo') loadEquipoDashboard();
+  if (name === 'equipo') {
+    loadEquipoDashboard();
+    // Sprint Roles Custom T2: asegurar que el sub-tab activo es 'horario' al entrar
+    if (typeof showEquipoSubtab === 'function') showEquipoSubtab('horario');
+  }
   if (name === 'stockeat') {
     // El nodo #atab-stockeat puede haber sido movido al módulo independiente.
     // Lo restauramos a su sitio original y activamos modo solo-lectura.
@@ -16937,80 +16950,165 @@ const PERMISSION_GROUPS = [
 
 // Estado en memoria mientras se edita
 let _editingPermissions = null;
-let _editingRole = 'manager'; // por ahora solo se configuran permisos de 'manager'
+// Estado: qué rol estamos editando
+// Puede ser un rol técnico ('manager','kitchen_chief','cook','waiter')
+// o un rol custom (entonces _editingCustomRoleId tiene el UUID)
+let _editingRole = 'manager';
+let _editingCustomRoleId = null;
 
 async function renderPermissionsSection(content) {
   if (!content) return;
-  content.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3)">Cargando permisos...</div>';
+  content.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3)">Cargando...</div>';
 
-  // Cargar permisos actuales del rol manager para este restaurante
+  // 1) Cargar lista de roles custom del restaurante
+  await _loadCustomRoles(true);
+
+  // 2) Cargar permisos del rol que estamos editando
+  await _loadEditingPermissions();
+
+  // 3) Renderizar
+  _renderPermissionsUI(content);
+}
+
+async function _loadEditingPermissions() {
   try {
-    const { data } = await sb.rpc('get_manageat_permissions', {
+    const params = {
       p_restaurant_id: state.adminRestaurantId,
-      p_role: _editingRole
-    });
+      p_role: _editingCustomRoleId ? null : _editingRole,
+      p_custom_role_id: _editingCustomRoleId || null
+    };
+    const { data } = await sb.rpc('get_manageat_permissions', params);
     _editingPermissions = data || {};
   } catch (e) {
     console.warn('[permissions] error cargando:', e);
     _editingPermissions = {};
   }
+}
 
-  // Construir UI: header + grupos + footer con Guardar/Resetear
+function _renderPermissionsUI(content) {
+  if (!content) return;
+
+  // Título del rol que estamos editando
+  let editingLabel;
+  if (_editingCustomRoleId) {
+    const cr = _getCustomRole(_editingCustomRoleId);
+    editingLabel = cr ? (cr.icon || '👤') + ' ' + escHtml(cr.display_name) : 'Rol custom';
+  } else {
+    editingLabel = {
+      manager: '🧑‍💼 Encargado',
+      kitchen_chief: '👨‍🍳 Jefe de cocina',
+      cook: '🍳 Cocinero',
+      waiter: '🛎 Camarero'
+    }[_editingRole] || _editingRole;
+  }
+
   let html = '';
 
-  // Header explicativo
+  // ─── Header explicativo ───
   html += '<div style="background:var(--bg);border:1px solid var(--bd2);border-radius:var(--r-md);padding:.85rem 1rem;margin-bottom:1rem;font-size:13px;color:var(--t2);line-height:1.5">'
-    +   '🔑 Como propietario, decides qué puede ver y hacer el <strong>Encargado</strong> dentro de manageat. '
-    +   'El propietario siempre ve todo y no se puede limitar.'
+    +   '🔑 Como propietario, decides qué puede ver y hacer cada rol dentro de manageat. '
+    +   'Puedes editar los roles base o crear roles personalizados para tu operativa.'
     + '</div>';
 
-  // Selector de rol (placeholder — por ahora solo 'manager', el día que añadamos más roles editables va aquí)
-  html += '<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:1.25rem">'
-    +   '<div style="font-size:13px;color:var(--t3)">Configurando permisos de:</div>'
-    +   '<div style="background:var(--brand-l);color:var(--brand-d);padding:5px 12px;border-radius:99px;font-size:13px;font-weight:600">👤 Encargado</div>'
-    + '</div>';
+  // ─── Selector de rol a editar ───
+  html += '<div style="margin-bottom:1.25rem">'
+    +   '<label style="font-size:11px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:.5rem">Editando permisos de</label>'
+    +   '<select id="perm-role-selector" onchange="_onRoleSelectorChange(this.value)" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">'
+    +     '<optgroup label="Roles base">'
+    +       '<option value="base:manager"' + (!_editingCustomRoleId && _editingRole==='manager' ? ' selected' : '') + '>🧑‍💼 Encargado</option>'
+    +       '<option value="base:kitchen_chief"' + (!_editingCustomRoleId && _editingRole==='kitchen_chief' ? ' selected' : '') + '>👨‍🍳 Jefe de cocina</option>'
+    +       '<option value="base:cook"' + (!_editingCustomRoleId && _editingRole==='cook' ? ' selected' : '') + '>🍳 Cocinero</option>'
+    +       '<option value="base:waiter"' + (!_editingCustomRoleId && _editingRole==='waiter' ? ' selected' : '') + '>🛎 Camarero</option>'
+    +     '</optgroup>';
 
-  // Grupos
-  PERMISSION_GROUPS.forEach((group, gIdx) => {
+  if (_customRoles.length > 0) {
+    html += '<optgroup label="Roles personalizados">';
+    _customRoles.forEach(cr => {
+      const sel2 = (cr.id === _editingCustomRoleId) ? ' selected' : '';
+      html += '<option value="custom:' + cr.id + '"' + sel2 + '>' + (cr.icon || '👤') + ' ' + escHtml(cr.display_name) + ' (base: ' + cr.base_role + ')</option>';
+    });
+    html += '</optgroup>';
+  }
+  html += '</select></div>';
+
+  // ─── Sección: Gestionar roles personalizados ───
+  html += '<details style="margin-bottom:1.25rem;background:var(--card);border:1px solid var(--bd2);border-radius:var(--r-md);overflow:hidden">'
+    +   '<summary style="padding:.75rem 1rem;cursor:pointer;font-size:13px;font-weight:600;color:var(--t1);user-select:none">⚙️ Gestionar roles personalizados (' + _customRoles.length + ')</summary>'
+    +   '<div style="padding:0 1rem 1rem">'
+    +     '<div style="font-size:12px;color:var(--t3);margin-bottom:.75rem;line-height:1.4">Crea roles específicos para tu operativa (Sumiller, Maître, 2º jefe de cocina...). Cada rol hereda permisos de un rol base pero puede tener su propia configuración.</div>'
+    +     '<button class="btn btn-primary btn-sm" onclick="openCustomRoleModal(null)" style="margin-bottom:.75rem">+ Crear rol personalizado</button>'
+    +     '<div id="custom-roles-list">';
+  if (_customRoles.length === 0) {
+    html += '<div style="text-align:center;padding:1rem;color:var(--t3);font-size:13px">No hay roles personalizados aún</div>';
+  } else {
+    _customRoles.forEach(cr => {
+      html += '<div style="display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;background:var(--bg);border:1px solid var(--bd2);border-radius:var(--r-sm);margin-bottom:.4rem">'
+        + '<span style="font-size:18px;flex-shrink:0">' + (cr.icon || '👤') + '</span>'
+        + '<div style="flex:1;min-width:0">'
+          + '<div style="font-size:13px;font-weight:600;color:var(--t1)">' + escHtml(cr.display_name) + '</div>'
+          + '<div style="font-size:11px;color:var(--t3)">Base: ' + cr.base_role + (cr.description ? ' · ' + escHtml(cr.description) : '') + '</div>'
+        + '</div>'
+        + '<button onclick="openCustomRoleModal(\'' + cr.id + '\')" title="Editar" style="background:none;border:1px solid var(--bd2);border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:12px;color:var(--t2)">✏️</button>'
+        + '<button onclick="deleteCustomRole(\'' + cr.id + '\')" title="Eliminar" style="background:none;border:1px solid var(--bd2);border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:13px;color:var(--t3)">✕</button>'
+        + '</div>';
+    });
+  }
+  html += '</div></div></details>';
+
+  // ─── 18 toggles para el rol seleccionado ───
+  html += '<div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem">Permisos de ' + editingLabel + '</div>';
+
+  PERMISSION_GROUPS.forEach(group => {
     html += '<div style="margin-bottom:1.25rem">'
-      +   '<div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.35rem">' + escHtml(group.title) + '</div>'
-      +   '<div style="font-size:12px;color:var(--t3);margin-bottom:.65rem;line-height:1.4">' + escHtml(group.desc) + '</div>'
-      +   '<div style="background:var(--card);border:1px solid var(--bd2);border-radius:var(--r-md);overflow:hidden">';
-
+      + '<div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.35rem">' + escHtml(group.title) + '</div>'
+      + '<div style="font-size:12px;color:var(--t3);margin-bottom:.65rem;line-height:1.4">' + escHtml(group.desc) + '</div>'
+      + '<div style="background:var(--card);border:1px solid var(--bd2);border-radius:var(--r-md);overflow:hidden">';
     group.items.forEach((item, iIdx) => {
-      const checked = _editingPermissions[item.key] !== false; // default true si no existe
+      const checked = _editingPermissions[item.key] !== false;
       const isLast = iIdx === group.items.length - 1;
       html += '<label for="perm-' + item.key + '" style="display:flex;align-items:center;gap:.75rem;padding:.7rem .9rem;cursor:pointer;' + (isLast ? '' : 'border-bottom:1px solid var(--bd2)') + '">'
-        +     '<span style="font-size:18px;flex-shrink:0">' + item.icon + '</span>'
-        +     '<div style="flex:1;min-width:0">'
-        +       '<div style="font-size:14px;font-weight:500;color:var(--t1);line-height:1.3">' + escHtml(item.label) + '</div>'
-        +       '<div style="font-size:11px;color:var(--t3);line-height:1.4;margin-top:1px">' + escHtml(item.desc) + '</div>'
-        +     '</div>'
-        +     '<input type="checkbox" id="perm-' + item.key + '" data-perm-key="' + item.key + '"'
-        +       (checked ? ' checked' : '')
-        +       ' onchange="_onPermissionToggle(this)"'
-        +       ' style="width:42px;height:24px;cursor:pointer;flex-shrink:0;accent-color:var(--brand);appearance:none;-webkit-appearance:none;background:' + (checked ? 'var(--brand)' : 'var(--bd2)') + ';border-radius:99px;position:relative;transition:background .15s">'
-        +   '</label>';
+        + '<span style="font-size:18px;flex-shrink:0">' + item.icon + '</span>'
+        + '<div style="flex:1;min-width:0">'
+        +   '<div style="font-size:14px;font-weight:500;color:var(--t1);line-height:1.3">' + escHtml(item.label) + '</div>'
+        +   '<div style="font-size:11px;color:var(--t3);line-height:1.4;margin-top:1px">' + escHtml(item.desc) + '</div>'
+        + '</div>'
+        + '<input type="checkbox" id="perm-' + item.key + '" data-perm-key="' + item.key + '"' + (checked ? ' checked' : '')
+        + ' onchange="_onPermissionToggle(this)"'
+        + ' style="width:42px;height:24px;cursor:pointer;flex-shrink:0;accent-color:var(--brand);appearance:none;-webkit-appearance:none;background:' + (checked ? 'var(--brand)' : 'var(--bd2)') + ';border-radius:99px;position:relative;transition:background .15s">'
+        + '</label>';
     });
-
     html += '</div></div>';
   });
 
-  // Footer: botones
+  // Footer
   html += '<div style="display:flex;gap:.5rem;margin-top:1.5rem;padding:.85rem 0;border-top:1px solid var(--bd2);position:sticky;bottom:0;background:var(--bg)">'
-    +   '<button class="btn btn-primary" onclick="savePermissions()" style="flex:1">Guardar permisos</button>'
-    +   '<button class="btn btn-secondary" onclick="resetPermissionsToDefaults()" style="flex:1">↻ Restablecer</button>'
+    + '<button class="btn btn-primary" onclick="savePermissions()" style="flex:1">Guardar permisos</button>'
+    + '<button class="btn btn-secondary" onclick="resetPermissionsToDefaults()" style="flex:1">↻ Restablecer</button>'
     + '</div>';
 
   content.innerHTML = html;
-
-  // Pequeño touch UX: estilar el toggle pseudo-iOS
   _stylePermissionToggles();
 }
 
-// Toggle iOS-style usando el checkbox nativo (sin librerías)
+// Cambio de rol en el selector → recargar permisos y re-render
+async function _onRoleSelectorChange(value) {
+  if (!value) return;
+  const [kind, id] = value.split(':');
+  if (kind === 'base') {
+    _editingRole = id;
+    _editingCustomRoleId = null;
+  } else if (kind === 'custom') {
+    const cr = _getCustomRole(id);
+    _editingRole = cr ? cr.base_role : 'manager';
+    _editingCustomRoleId = id;
+  }
+  await _loadEditingPermissions();
+  // Buscar el contenedor activo (puede ser pane Equipo o panel Ajustes)
+  const cont = document.getElementById('eq-pane-permisos') || document.getElementById('ajustes-panel-content');
+  _renderPermissionsUI(cont);
+}
+
 function _stylePermissionToggles() {
-  // CSS adicional inyectado solo una vez
   if (document.getElementById('permission-toggle-css')) return;
   const style = document.createElement('style');
   style.id = 'permission-toggle-css';
@@ -17039,56 +17137,47 @@ function _onPermissionToggle(checkbox) {
   const value = checkbox.checked;
   if (!_editingPermissions) _editingPermissions = {};
   _editingPermissions[key] = value;
-  // Visual feedback: cambiar background del checkbox según estado
   checkbox.style.background = value ? 'var(--brand)' : 'var(--bd2)';
 }
 
 async function savePermissions() {
-  if (!_editingPermissions) {
-    notify('No hay cambios para guardar', 'info');
-    return;
-  }
-  if (!state.adminRestaurantId) {
-    notify('No hay restaurante activo', 'error');
-    return;
-  }
-  if (!_isOwnerSession()) {
-    notify('Solo el propietario puede modificar permisos', 'error');
-    return;
-  }
+  if (!_editingPermissions) { notify('No hay cambios para guardar', 'info'); return; }
+  if (!state.adminRestaurantId) { notify('No hay restaurante activo', 'error'); return; }
+  if (!_isOwnerSession()) { notify('Solo el propietario puede modificar permisos', 'error'); return; }
 
-  // Construir payload con TODAS las keys (los toggles ausentes son true por default)
-  const payload = { restaurant_id: state.adminRestaurantId, role: _editingRole };
+  const payload = { restaurant_id: state.adminRestaurantId };
+  if (_editingCustomRoleId) {
+    payload.role = null;
+    payload.custom_role_id = _editingCustomRoleId;
+  } else {
+    payload.role = _editingRole;
+    payload.custom_role_id = null;
+  }
   PERMISSION_GROUPS.forEach(group => {
     group.items.forEach(item => {
       payload[item.key] = _editingPermissions[item.key] !== false;
     });
   });
 
-  // Upsert sobre (restaurant_id, role) — la fila ya existe (creada por el SQL del Turno 1)
+  const onConflictCol = _editingCustomRoleId ? 'custom_role_id' : 'restaurant_id,role';
   const { error } = await sb.from('manageat_permissions')
-    .upsert(payload, { onConflict: 'restaurant_id,role' });
+    .upsert(payload, { onConflict: onConflictCol });
 
-  if (error) {
-    notify('Error al guardar: ' + error.message, 'error');
-    return;
-  }
-
+  if (error) { notify('Error al guardar: ' + error.message, 'error'); return; }
   notify('✓ Permisos actualizados', 'success');
 
-  // Aplicación en vivo: si la sesión actual es manager (poco probable porque solo owner ve este panel,
-  // pero por seguridad), recargar permisos. En el caso normal, los cambios se aplicarán
-  // la próxima vez que el manager entre.
-  if (_manageatActiveRole === _editingRole) {
+  // Aplicación en vivo si la sesión es ese rol
+  if (!_editingCustomRoleId && _manageatActiveRole === _editingRole) {
     await _loadManageatPermissions(_editingRole);
     await applyManageatPermissions(_editingRole);
+  } else if (_editingCustomRoleId && _activeCustomRoleId === _editingCustomRoleId) {
+    await _loadManageatPermissions(_manageatActiveRole, _editingCustomRoleId);
+    await applyManageatPermissions(_manageatActiveRole);
   }
 }
 
 async function resetPermissionsToDefaults() {
-  if (!(await confirmModal('¿Restablecer los permisos del Encargado a los valores por defecto recomendados?'))) return;
-
-  // Defaults seguros (mismos que en el SQL al crear la fila)
+  if (!(await confirmModal('¿Restablecer los permisos a los valores por defecto recomendados?'))) return;
   const defaults = {
     view_sala: true, view_reservas: true, view_calleat: true,
     view_cocina: true, view_trends: true, view_fiscal: false,
@@ -17098,25 +17187,141 @@ async function resetPermissionsToDefaults() {
     ajustes_fiscal: false, ajustes_zonas: true, ajustes_cocina_modos: true,
     ajustes_reservas_config: true
   };
-
   _editingPermissions = { ...defaults };
-
-  // Re-render para reflejar los nuevos valores en los toggles
-  const content = document.getElementById('ajustes-panel-content');
-  if (content) {
-    // Reescribir los checkboxes sin reload completo (mantenemos scroll)
-    PERMISSION_GROUPS.forEach(group => {
-      group.items.forEach(item => {
-        const cb = document.getElementById('perm-' + item.key);
-        if (cb) {
-          cb.checked = defaults[item.key];
-          cb.style.background = defaults[item.key] ? 'var(--brand)' : 'var(--bd2)';
-        }
-      });
+  PERMISSION_GROUPS.forEach(group => {
+    group.items.forEach(item => {
+      const cb = document.getElementById('perm-' + item.key);
+      if (cb) {
+        cb.checked = defaults[item.key];
+        cb.style.background = defaults[item.key] ? 'var(--brand)' : 'var(--bd2)';
+      }
     });
+  });
+  notify('Cambios sin guardar. Pulsa "Guardar permisos" para aplicar.', 'info');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// CRUD de roles custom — Modal de creación / edición
+// ══════════════════════════════════════════════════════════════════
+function openCustomRoleModal(customRoleId) {
+  const editing = customRoleId ? _getCustomRole(customRoleId) : null;
+  const isEdit = !!editing;
+  const html = `
+    <div style="background:rgba(0,0,0,.55);position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:9999;padding:1rem" id="cr-modal-bg" onclick="if(event.target.id==='cr-modal-bg')closeCustomRoleModal()">
+      <div style="background:var(--card);border-radius:var(--r);box-shadow:0 18px 60px rgba(0,0,0,.35);padding:1.25rem;width:100%;max-width:440px;max-height:90vh;overflow:auto">
+        <div style="font-size:16px;font-weight:700;color:var(--t1);margin-bottom:1rem">${isEdit ? 'Editar' : 'Crear'} rol personalizado</div>
+        <div class="field">
+          <label>Nombre visible</label>
+          <input id="cr-name" type="text" value="${isEdit ? escHtml(editing.display_name) : ''}" placeholder="ej. Sumiller, Maître, 2º Jefe de Cocina">
+        </div>
+        <div class="field">
+          <label>Icono (emoji)</label>
+          <input id="cr-icon" type="text" maxlength="4" value="${isEdit ? (editing.icon || '👤') : '👤'}" placeholder="👤" style="width:80px">
+        </div>
+        <div class="field">
+          <label>Descripción (opcional)</label>
+          <input id="cr-desc" type="text" value="${isEdit && editing.description ? escHtml(editing.description) : ''}" placeholder="ej. Especialista en vinos">
+        </div>
+        <div class="field">
+          <label>Rol base (define qué app puede abrir)</label>
+          <select id="cr-base" ${isEdit ? 'disabled title="No se puede cambiar el rol base una vez creado"' : ''} style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
+            <option value="manager"${isEdit && editing.base_role==='manager' ? ' selected' : ''}>🧑‍💼 Encargado (manageat limitado)</option>
+            <option value="kitchen_chief"${isEdit && editing.base_role==='kitchen_chief' ? ' selected' : ''}>👨‍🍳 Jefe de cocina (cookeat)</option>
+            <option value="cook"${isEdit && editing.base_role==='cook' ? ' selected' : ''}>🍳 Cocinero (cookeat)</option>
+            <option value="waiter"${isEdit && editing.base_role==='waiter' ? ' selected' : ''}>🛎 Camarero (serveat)</option>
+          </select>
+          <div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.4">Hereda los permisos del rol base. Después podrás personalizar los 18 toggles individualmente.</div>
+        </div>
+        <div style="display:flex;gap:.5rem;margin-top:1rem">
+          <button class="btn btn-primary" onclick="saveCustomRole('${customRoleId || ''}')" style="flex:1">${isEdit ? 'Guardar cambios' : 'Crear rol'}</button>
+          <button class="btn btn-secondary" onclick="closeCustomRoleModal()" style="flex:1">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  `;
+  let host = document.getElementById('cr-modal-host');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'cr-modal-host';
+    document.body.appendChild(host);
+  }
+  host.innerHTML = html;
+  setTimeout(() => { document.getElementById('cr-name')?.focus(); }, 50);
+}
+
+function closeCustomRoleModal() {
+  const host = document.getElementById('cr-modal-host');
+  if (host) host.innerHTML = '';
+}
+
+async function saveCustomRole(customRoleId) {
+  const name = document.getElementById('cr-name')?.value?.trim();
+  const icon = document.getElementById('cr-icon')?.value?.trim() || '👤';
+  const desc = document.getElementById('cr-desc')?.value?.trim() || null;
+  const baseRole = document.getElementById('cr-base')?.value;
+
+  if (!name) { notify('El nombre es obligatorio', 'error'); return; }
+  if (!baseRole) { notify('El rol base es obligatorio', 'error'); return; }
+
+  if (customRoleId) {
+    // Actualización (no cambia base_role)
+    const { error } = await sb.from('custom_roles')
+      .update({ display_name: name, icon, description: desc })
+      .eq('id', customRoleId);
+    if (error) { notify('Error: ' + error.message, 'error'); return; }
+    notify('✓ Rol actualizado', 'success');
+  } else {
+    // Creación
+    const { error } = await sb.from('custom_roles').insert({
+      restaurant_id: state.adminRestaurantId,
+      display_name: name,
+      icon, description: desc,
+      base_role: baseRole,
+      is_active: true
+    });
+    if (error) { notify('Error: ' + error.message, 'error'); return; }
+    notify('✓ Rol creado', 'success');
   }
 
-  notify('Cambios sin guardar. Pulsa "Guardar permisos" para aplicar.', 'info');
+  closeCustomRoleModal();
+  await _loadCustomRoles(true);
+  // Re-render del panel de permisos
+  const cont = document.getElementById('eq-pane-permisos') || document.getElementById('ajustes-panel-content');
+  if (cont) _renderPermissionsUI(cont);
+}
+
+async function deleteCustomRole(customRoleId) {
+  const cr = _getCustomRole(customRoleId);
+  if (!cr) return;
+
+  // Verificar si hay empleados asignados a este rol
+  const { count } = await sb.from('waiters')
+    .select('id', { count: 'exact', head: true })
+    .eq('custom_role_id', customRoleId);
+
+  let msg = `¿Eliminar el rol "${cr.display_name}"?`;
+  if (count && count > 0) {
+    msg += `\n\n⚠️ Hay ${count} empleado${count === 1 ? '' : 's'} asignado${count === 1 ? '' : 's'} a este rol. Pasarán a usar el rol base (${cr.base_role}) sin nombre personalizado.`;
+  }
+  if (!(await confirmModal(msg))) return;
+
+  // Soft delete: marcar como inactivo (preserva integridad referencial)
+  const { error } = await sb.from('custom_roles')
+    .update({ is_active: false })
+    .eq('id', customRoleId);
+  if (error) { notify('Error: ' + error.message, 'error'); return; }
+  notify('✓ Rol eliminado', 'success');
+
+  // Si estábamos editando este rol custom, volver a su base
+  if (_editingCustomRoleId === customRoleId) {
+    _editingRole = cr.base_role;
+    _editingCustomRoleId = null;
+  }
+
+  await _loadCustomRoles(true);
+  await _loadEditingPermissions();
+  const cont = document.getElementById('eq-pane-permisos') || document.getElementById('ajustes-panel-content');
+  if (cont) _renderPermissionsUI(cont);
 }
 
 // #8-F1: Payment methods config section
@@ -20170,6 +20375,8 @@ async function deleteTable(tableId) {
 async function loadAdminWaitersInline() {
   const el = document.getElementById('ajustes-waiters-list');
   if (!el) return;
+  // Sprint Roles Custom: cargar custom_roles para mostrar los badges
+  await _loadCustomRoles();
   const { data: waiters } = await sb.from('waiters').select('*').eq('restaurant_id', state.adminRestaurantId).eq('active', true).order('role').order('name');
   if (!waiters?.length) { el.innerHTML = '<div class="notice">No hay miembros del equipo. Añade el primero.</div>'; return; }
 
@@ -20237,7 +20444,10 @@ async function loadAdminWaitersInline() {
       html += '<div class="card" style="margin-bottom:.4rem;padding:.65rem .85rem">'
         + '<div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem">'
         +   '<div style="flex:1;min-width:0">'
-        +     '<div style="font-size:14px;font-weight:500">' + escHtml(w.name) + '</div>'
+        +     '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+        +       '<div style="font-size:14px;font-weight:500">' + escHtml(w.name) + '</div>'
+        +       (w.custom_role_id && _getCustomRole(w.custom_role_id) ? '<span style="font-size:10px;font-weight:600;background:var(--brand-l);color:var(--brand-d);border-radius:99px;padding:2px 8px">' + (_getCustomRole(w.custom_role_id).icon || '👤') + ' ' + escHtml(_getCustomRole(w.custom_role_id).display_name) + '</span>' : '')
+        +     '</div>'
         +     credEmail
         +   '</div>'
         +   '<div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">'
@@ -20492,6 +20702,15 @@ async function openEditMemberModal(waiterId) {
     +     '<option value="waiter"' + (role === 'waiter' ? ' selected' : '') + '>Camarero / Jefe de sala (serveat)</option>'
     +   '</select>'
 
+    // Sprint Roles Custom T2: select adicional de rol custom (poblado tras render)
+    +   '<div id="em-custom-role-wrap" style="display:none;margin-bottom:1rem">'
+    +     '<label style="display:block;font-size:12px;color:var(--t2);margin-bottom:4px;font-weight:500">Rol específico <span style="font-weight:400;color:var(--t3)">(opcional)</span></label>'
+    +     '<select id="em-custom-role" style="width:100%;padding:10px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card)">'
+    +       '<option value="">— Sin rol específico —</option>'
+    +     '</select>'
+    +     '<div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.4">Los roles específicos heredan del rol base pero con nombre y/o permisos personalizados.</div>'
+    +   '</div>'
+
     +   '<label id="em-email-label" style="display:' + (isCook ? 'none' : 'block') + ';font-size:12px;color:var(--t2);margin-bottom:4px;font-weight:500">Email <span style="font-weight:400;color:var(--t3)">(opcional)</span></label>'
     +   '<input id="em-email" type="email" value="' + escHtml(w.email || '') + '" '
     +     'style="display:' + (isCook ? 'none' : 'block') + ';width:100%;padding:10px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-size:14px;font-family:inherit;margin-bottom:1rem;background:var(--card);color:var(--t1)">'
@@ -20518,16 +20737,36 @@ async function openEditMemberModal(waiterId) {
     +   '</div>'
     + '</div>';
   document.body.appendChild(overlay);
+  // Sprint Roles Custom T2: poblar select de rol custom
+  setTimeout(() => _populateEditCustomRoleSelect(role, w.custom_role_id || null), 30);
+}
+
+async function _populateEditCustomRoleSelect(baseRole, selectedCustomRoleId) {
+  const wrap = document.getElementById('em-custom-role-wrap');
+  const sel = document.getElementById('em-custom-role');
+  if (!wrap || !sel) return;
+  if (baseRole === 'owner') { wrap.style.display = 'none'; return; }
+  await _loadCustomRoles();
+  const matching = _customRoles.filter(cr => cr.base_role === baseRole && cr.is_active);
+  if (matching.length === 0) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  let html = '<option value="">— Sin rol específico —</option>';
+  matching.forEach(cr => {
+    const isSel = (cr.id === selectedCustomRoleId) ? ' selected' : '';
+    html += '<option value="' + cr.id + '"' + isSel + '>' + (cr.icon || '👤') + ' ' + escHtml(cr.display_name) + '</option>';
+  });
+  sel.innerHTML = html;
 }
 
 function _onEditMemberRoleChange() {
   const role = document.getElementById('em-role')?.value || 'waiter';
-  // Cook roles: sin email (acceso solo por PIN)
   const isCook = role === 'chef' || role === 'kitchen_chief' || role === 'cook';
   const lbl = document.getElementById('em-email-label');
   const inp = document.getElementById('em-email');
   if (lbl) lbl.style.display = isCook ? 'none' : 'block';
   if (inp) inp.style.display = isCook ? 'none' : 'block';
+  // Repoblar custom roles cuando se cambia base role (reset selección)
+  _populateEditCustomRoleSelect(role, null);
 }
 
 function _pickMemberColor(color) {
@@ -20543,6 +20782,8 @@ async function saveMemberEdit(waiterId) {
   const email = document.getElementById('em-email')?.value?.trim() || null;
   const avatar_color = document.getElementById('em-color')?.value || '#085041';
   const active = !!document.getElementById('em-active')?.checked;
+  // Sprint Roles Custom T2: capturar custom_role_id (puede ser '' si se quitó)
+  const customRoleId = document.getElementById('em-custom-role')?.value || null;
 
   if (!name) { notify('El nombre no puede estar vacío', 'error'); return; }
 
@@ -20585,7 +20826,7 @@ async function saveMemberEdit(waiterId) {
     if (existing) { notify('Ya existe otro miembro con ese email', 'error'); return; }
   }
 
-  const updates = { name, role, email: isCook ? null : email, avatar_color, active };
+  const updates = { name, role, email: isCook ? null : email, avatar_color, active, custom_role_id: customRoleId || null };
 
   // Sprint Costes Turno 3 — tarifa por hora (KPI labor cost)
   const hourlyRateRaw = document.getElementById('em-hourly-rate')?.value?.trim();
