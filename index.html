@@ -3765,6 +3765,19 @@
           </div>
         </div>
 
+        <!-- Sprint Permisos Turno 2 — Permisos por rol (solo owner) -->
+        <div class="settings-section" data-ajustes-section="permisos">
+          <div class="settings-section-header">Seguridad</div>
+          <div class="settings-row" data-ajustes-section="permisos" onclick="openAjustesSection('permisos')">
+            <span class="settings-row-icon">🔐</span>
+            <div class="settings-row-content">
+              <div class="settings-row-title">Permisos por rol</div>
+              <div class="settings-row-desc">Configura qué puede ver y hacer cada encargado de tu restaurante</div>
+            </div>
+            <span class="settings-row-arrow">›</span>
+          </div>
+        </div>
+
       </div>
 
       <!-- Ajustes panels (shown inline when row clicked) -->
@@ -16613,7 +16626,8 @@ function openAjustesSection(section) {
     'cocina-modos': 'Modos de KDS',
     'fiscal': 'Datos fiscales y certificado',
     'costes-fijos': 'Costes fijos del restaurante',
-    'costes-compartidos': 'Costes compartidos entre restaurantes'
+    'costes-compartidos': 'Costes compartidos entre restaurantes',
+    'permisos': 'Permisos por rol'
   };
   if (title) title.textContent = titles[section] || section;
 
@@ -16687,7 +16701,7 @@ function openAjustesSection(section) {
         <div class="field"><label>Nombre</label><input id="awf-name" type="text" placeholder="ej. Carlos" autocomplete="off"></div>
         <div class="field"><label>Rol</label>
           <select id="awf-role" onchange="_onRoleChangeAwf()" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
-            <option value="owner">Propietario (manageat + todo)</option>
+            <option value="owner">Propietario (manageat completo)</option>
             <option value="manager">Encargado (manageat limitado)</option>
             <option value="kitchen_chief">Jefe de cocina (cookeat)</option>
             <option value="cook">Cocinero (cookeat)</option>
@@ -16722,6 +16736,8 @@ function openAjustesSection(section) {
     renderFixedCostsSection(content);
   } else if (section === 'costes-compartidos') {
     renderSharedCostsSection(content);
+  } else if (section === 'permisos') {
+    renderPermissionsSection(content);
   } else {
     content.innerHTML = `<div class="notice notice-warn">Sección "${titles[section]}" — próximamente</div>`;
   }
@@ -16734,6 +16750,235 @@ function closeAjustesPanel() {
   if (list) list.style.display = 'block';
   // Refresh disabled count
   loadAdminCarta();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SPRINT PERMISOS TURNO 2 — Panel "Permisos por rol"
+// Solo visible para owner. 18 toggles agrupados por área.
+// ══════════════════════════════════════════════════════════════════
+
+// Estructura: grupos de toggles con label, descripción, key (permiso BD)
+const PERMISSION_GROUPS = [
+  {
+    title: 'Pestañas principales',
+    desc: 'Qué secciones aparecen en la barra lateral del encargado',
+    items: [
+      { key: 'view_sala',     icon: '🏠', label: 'Sala',     desc: 'Floor plan y mesas en curso' },
+      { key: 'view_reservas', icon: '📅', label: 'Reservas', desc: 'bookeat — gestión de reservas' },
+      { key: 'view_calleat',  icon: '🪑', label: 'Espera',   desc: 'calleat — lista de espera virtual' },
+      { key: 'view_cocina',   icon: '🍳', label: 'Cocina',   desc: 'Vista de pedidos en curso (read-only)' },
+      { key: 'view_trends',   icon: '📊', label: 'Trends',   desc: 'KPIs, análisis y tendencias' },
+      { key: 'view_fiscal',   icon: '📄', label: 'Fiscal',   desc: 'Facturas, tickets e IVA' },
+      { key: 'view_stock',    icon: '📦', label: 'Stock',    desc: 'Inventario y recetas' },
+      { key: 'view_equipo',   icon: '⏱',  label: 'Horario',  desc: 'Control horario y partes de jornada' },
+    ]
+  },
+  {
+    title: 'Ajustes — operativa diaria',
+    desc: 'Configuración que el encargado necesita para el día a día',
+    items: [
+      { key: 'ajustes_carta',           icon: '📋', label: 'Carta',                 desc: 'Platos, categorías e importación con IA' },
+      { key: 'ajustes_mesas',           icon: '🗺',  label: 'Mesas',                 desc: 'Añadir, numerar y configurar mesas' },
+      { key: 'ajustes_personal',        icon: '🧑‍🍳', label: 'Personal',              desc: 'Camareros, cocineros, PINs (sin tocar owners)' },
+      { key: 'ajustes_reservas_config', icon: '📅', label: 'Configuración reservas', desc: 'URL pública, aforo, horarios' },
+      { key: 'ajustes_zonas',           icon: '🍳', label: 'Zonas de cocina',       desc: 'Partidas y asignación a categorías' },
+      { key: 'ajustes_cocina_modos',    icon: '⚡', label: 'Modos de KDS',          desc: '1-click, auto-entrega, jefe de cocina, modo pro' },
+    ]
+  },
+  {
+    title: 'Ajustes — datos sensibles del negocio',
+    desc: 'Áreas que normalmente solo el propietario gestiona',
+    items: [
+      { key: 'ajustes_perfil', icon: '📝', label: 'Perfil del restaurante', desc: 'Nombre, dirección, datos del local' },
+      { key: 'ajustes_costes', icon: '💰', label: 'Costes',                 desc: 'Costes fijos y compartidos' },
+      { key: 'ajustes_pagos',  icon: '💳', label: 'Métodos de pago',         desc: 'Stripe, Bizum, tarjeta, efectivo' },
+      { key: 'ajustes_fiscal', icon: '🧾', label: 'Datos fiscales',          desc: 'CIF, certificado digital, Verifactu' },
+    ]
+  }
+];
+
+// Estado en memoria mientras se edita
+let _editingPermissions = null;
+let _editingRole = 'manager'; // por ahora solo se configuran permisos de 'manager'
+
+async function renderPermissionsSection(content) {
+  if (!content) return;
+  content.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--t3)">Cargando permisos...</div>';
+
+  // Cargar permisos actuales del rol manager para este restaurante
+  try {
+    const { data } = await sb.rpc('get_manageat_permissions', {
+      p_restaurant_id: state.adminRestaurantId,
+      p_role: _editingRole
+    });
+    _editingPermissions = data || {};
+  } catch (e) {
+    console.warn('[permissions] error cargando:', e);
+    _editingPermissions = {};
+  }
+
+  // Construir UI: header + grupos + footer con Guardar/Resetear
+  let html = '';
+
+  // Header explicativo
+  html += '<div style="background:var(--bg);border:1px solid var(--bd2);border-radius:var(--r-md);padding:.85rem 1rem;margin-bottom:1rem;font-size:13px;color:var(--t2);line-height:1.5">'
+    +   '🔑 Como propietario, decides qué puede ver y hacer el <strong>Encargado</strong> dentro de manageat. '
+    +   'El propietario siempre ve todo y no se puede limitar.'
+    + '</div>';
+
+  // Selector de rol (placeholder — por ahora solo 'manager', el día que añadamos más roles editables va aquí)
+  html += '<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:1.25rem">'
+    +   '<div style="font-size:13px;color:var(--t3)">Configurando permisos de:</div>'
+    +   '<div style="background:var(--brand-l);color:var(--brand-d);padding:5px 12px;border-radius:99px;font-size:13px;font-weight:600">👤 Encargado</div>'
+    + '</div>';
+
+  // Grupos
+  PERMISSION_GROUPS.forEach((group, gIdx) => {
+    html += '<div style="margin-bottom:1.25rem">'
+      +   '<div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.35rem">' + escHtml(group.title) + '</div>'
+      +   '<div style="font-size:12px;color:var(--t3);margin-bottom:.65rem;line-height:1.4">' + escHtml(group.desc) + '</div>'
+      +   '<div style="background:var(--card);border:1px solid var(--bd2);border-radius:var(--r-md);overflow:hidden">';
+
+    group.items.forEach((item, iIdx) => {
+      const checked = _editingPermissions[item.key] !== false; // default true si no existe
+      const isLast = iIdx === group.items.length - 1;
+      html += '<label for="perm-' + item.key + '" style="display:flex;align-items:center;gap:.75rem;padding:.7rem .9rem;cursor:pointer;' + (isLast ? '' : 'border-bottom:1px solid var(--bd2)') + '">'
+        +     '<span style="font-size:18px;flex-shrink:0">' + item.icon + '</span>'
+        +     '<div style="flex:1;min-width:0">'
+        +       '<div style="font-size:14px;font-weight:500;color:var(--t1);line-height:1.3">' + escHtml(item.label) + '</div>'
+        +       '<div style="font-size:11px;color:var(--t3);line-height:1.4;margin-top:1px">' + escHtml(item.desc) + '</div>'
+        +     '</div>'
+        +     '<input type="checkbox" id="perm-' + item.key + '" data-perm-key="' + item.key + '"'
+        +       (checked ? ' checked' : '')
+        +       ' onchange="_onPermissionToggle(this)"'
+        +       ' style="width:42px;height:24px;cursor:pointer;flex-shrink:0;accent-color:var(--brand);appearance:none;-webkit-appearance:none;background:' + (checked ? 'var(--brand)' : 'var(--bd2)') + ';border-radius:99px;position:relative;transition:background .15s">'
+        +   '</label>';
+    });
+
+    html += '</div></div>';
+  });
+
+  // Footer: botones
+  html += '<div style="display:flex;gap:.5rem;margin-top:1.5rem;padding:.85rem 0;border-top:1px solid var(--bd2);position:sticky;bottom:0;background:var(--bg)">'
+    +   '<button class="btn btn-primary" onclick="savePermissions()" style="flex:1">Guardar permisos</button>'
+    +   '<button class="btn btn-secondary" onclick="resetPermissionsToDefaults()" style="flex:1">↻ Restablecer</button>'
+    + '</div>';
+
+  content.innerHTML = html;
+
+  // Pequeño touch UX: estilar el toggle pseudo-iOS
+  _stylePermissionToggles();
+}
+
+// Toggle iOS-style usando el checkbox nativo (sin librerías)
+function _stylePermissionToggles() {
+  // CSS adicional inyectado solo una vez
+  if (document.getElementById('permission-toggle-css')) return;
+  const style = document.createElement('style');
+  style.id = 'permission-toggle-css';
+  style.textContent = `
+    input[type="checkbox"][data-perm-key]::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0,0,0,.2);
+      transition: transform .15s;
+    }
+    input[type="checkbox"][data-perm-key]:checked::after {
+      transform: translateX(18px);
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function _onPermissionToggle(checkbox) {
+  const key = checkbox.dataset.permKey;
+  const value = checkbox.checked;
+  if (!_editingPermissions) _editingPermissions = {};
+  _editingPermissions[key] = value;
+  // Visual feedback: cambiar background del checkbox según estado
+  checkbox.style.background = value ? 'var(--brand)' : 'var(--bd2)';
+}
+
+async function savePermissions() {
+  if (!_editingPermissions) {
+    notify('No hay cambios para guardar', 'info');
+    return;
+  }
+  if (!state.adminRestaurantId) {
+    notify('No hay restaurante activo', 'error');
+    return;
+  }
+  if (!_isOwnerSession()) {
+    notify('Solo el propietario puede modificar permisos', 'error');
+    return;
+  }
+
+  // Construir payload con TODAS las keys (los toggles ausentes son true por default)
+  const payload = { restaurant_id: state.adminRestaurantId, role: _editingRole };
+  PERMISSION_GROUPS.forEach(group => {
+    group.items.forEach(item => {
+      payload[item.key] = _editingPermissions[item.key] !== false;
+    });
+  });
+
+  // Upsert sobre (restaurant_id, role) — la fila ya existe (creada por el SQL del Turno 1)
+  const { error } = await sb.from('manageat_permissions')
+    .upsert(payload, { onConflict: 'restaurant_id,role' });
+
+  if (error) {
+    notify('Error al guardar: ' + error.message, 'error');
+    return;
+  }
+
+  notify('✓ Permisos actualizados', 'success');
+
+  // Aplicación en vivo: si la sesión actual es manager (poco probable porque solo owner ve este panel,
+  // pero por seguridad), recargar permisos. En el caso normal, los cambios se aplicarán
+  // la próxima vez que el manager entre.
+  if (_manageatActiveRole === _editingRole) {
+    await _loadManageatPermissions(_editingRole);
+    await applyManageatPermissions(_editingRole);
+  }
+}
+
+async function resetPermissionsToDefaults() {
+  if (!(await confirmModal('¿Restablecer los permisos del Encargado a los valores por defecto recomendados?'))) return;
+
+  // Defaults seguros (mismos que en el SQL al crear la fila)
+  const defaults = {
+    view_sala: true, view_reservas: true, view_calleat: true,
+    view_cocina: true, view_trends: true, view_fiscal: false,
+    view_stock: true, view_equipo: true,
+    ajustes_carta: true, ajustes_mesas: true, ajustes_personal: true,
+    ajustes_perfil: false, ajustes_costes: false, ajustes_pagos: false,
+    ajustes_fiscal: false, ajustes_zonas: true, ajustes_cocina_modos: true,
+    ajustes_reservas_config: true
+  };
+
+  _editingPermissions = { ...defaults };
+
+  // Re-render para reflejar los nuevos valores en los toggles
+  const content = document.getElementById('ajustes-panel-content');
+  if (content) {
+    // Reescribir los checkboxes sin reload completo (mantenemos scroll)
+    PERMISSION_GROUPS.forEach(group => {
+      group.items.forEach(item => {
+        const cb = document.getElementById('perm-' + item.key);
+        if (cb) {
+          cb.checked = defaults[item.key];
+          cb.style.background = defaults[item.key] ? 'var(--brand)' : 'var(--bd2)';
+        }
+      });
+    });
+  }
+
+  notify('Cambios sin guardar. Pulsa "Guardar permisos" para aplicar.', 'info');
 }
 
 // #8-F1: Payment methods config section
@@ -20074,7 +20319,7 @@ async function openEditMemberModal(waiterId) {
     +   '<label style="display:block;font-size:12px;color:var(--t2);margin-bottom:4px;font-weight:500">Rol' + (isSelfEdit ? ' <span style="font-weight:400;color:var(--t3)">(no puedes cambiar tu propio rol)</span>' : '') + '</label>'
     +   '<select id="em-role" onchange="_onEditMemberRoleChange()"' + roleSelectDisabled + ' style="width:100%;padding:10px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);margin-bottom:1rem' + (isSelfEdit ? ';opacity:0.6;cursor:not-allowed' : '') + '">'
     // Sprint Permisos Turno 1: opción "Propietario" SOLO disponible si la sesión activa es owner
-    + (isManagerSession ? '' : '<option value="owner"' + (role === 'owner' ? ' selected' : '') + '>Propietario (manageat + todo)</option>')
+    + (isManagerSession ? '' : '<option value="owner"' + (role === 'owner' ? ' selected' : '') + '>Propietario (manageat completo)</option>')
     +     '<option value="manager"' + (role === 'manager' ? ' selected' : '') + '>Encargado (manageat limitado)</option>'
     +     '<option value="kitchen_chief"' + (role === 'kitchen_chief' ? ' selected' : '') + '>Jefe de cocina (cookeat)</option>'
     +     '<option value="cook"' + (role === 'cook' ? ' selected' : '') + '>Cocinero (cookeat)</option>'
