@@ -10139,6 +10139,8 @@ async function _startStaffHeartbeat(empId, empRole) {
     } catch (e) { /* silent */ }
   }
 
+  console.log('[heartbeat] start — empId:', empId, 'role:', _staffHeartbeatRole);
+
   const tick = async () => {
     if (!_staffHeartbeatId) return;
     try {
@@ -10151,18 +10153,34 @@ async function _startStaffHeartbeat(empId, empRole) {
         if (!isOwner) {
           const { data } = await sb.rpc('get_active_shift', { p_waiter_id: _staffHeartbeatId });
           shouldBeActive = !!data?.active;
+          console.log('[heartbeat] tick — role:', _staffHeartbeatRole, 'shift active:', shouldBeActive);
+        } else {
+          console.log('[heartbeat] tick — owner exento, marcando activo');
         }
-      } catch (e) { /* si la RPC falla, tratar como activo para no penalizar */ }
+      } catch (e) {
+        console.warn('[heartbeat] RPC error:', e);
+      }
 
-      await sb.from('waiters').update({
+      const { error: updErr } = await sb.from('waiters').update({
         last_seen_at: new Date().toISOString(),
         is_active: shouldBeActive
       }).eq('id', _staffHeartbeatId);
-    } catch (e) { /* no bloquear UI por fallo de heartbeat */ }
+      if (updErr) console.warn('[heartbeat] update error:', updErr);
+    } catch (e) { console.warn('[heartbeat] excepción:', e); }
   };
 
   await tick();  // pulso inmediato
   _staffHeartbeatTimer = setInterval(tick, 60 * 1000);
+
+  // Tras el primer tick, refrescar Personal en sala (si está visible) para que
+  // el empleado que acaba de entrar aparezca como online inmediatamente,
+  // sin esperar a que se vuelva a abrir la pestaña.
+  setTimeout(() => {
+    try {
+      // loadEncurso renderea el floor plan + summary del personal
+      if (typeof loadEncurso === 'function') loadEncurso();
+    } catch(e) { /* silent */ }
+  }, 500);
 
   // Refrescar al volver visible la pestaña (browsers pausan setInterval en background)
   _staffHeartbeatVisHandler = () => { if (!document.hidden) tick(); };
@@ -11367,14 +11385,14 @@ function stockeatForgotPassword() { _showForgotPasswordFlow(document.getElementB
 let _clockInBadgeTimer = null;
 
 // Prompt clock-in al login si no hay fichaje activo
-async function promptClockInIfNeeded(waiterId) {
+async function promptClockInIfNeeded(waiterId, waiterName) {
   if (!waiterId) { console.warn('[promptClockIn] sin waiterId'); return; }
   try {
     const { data, error } = await sb.rpc('get_active_shift', { p_waiter_id: waiterId });
     if (error) {
       console.warn('[promptClockIn] RPC error, asumiendo no fichado:', error);
       // Si la RPC falla, asumimos que NO está fichado y mostramos modal igualmente
-      _showClockInModal(waiterId);
+      _showClockInModal(waiterId, waiterName);
       return;
     }
     if (data?.active) {
@@ -11384,18 +11402,19 @@ async function promptClockInIfNeeded(waiterId) {
       return;
     }
     console.log('[promptClockIn] sin shift activo → mostrar modal');
-    _showClockInModal(waiterId);
+    _showClockInModal(waiterId, waiterName);
   } catch (e) {
     console.warn('[promptClockIn] excepción:', e);
     // Fallback: mostrar el modal igualmente
-    try { _showClockInModal(waiterId); } catch(_){}
+    try { _showClockInModal(waiterId, waiterName); } catch(_){}
   }
 }
 
-function _showClockInModal(waiterId) {
+function _showClockInModal(waiterId, waiterName) {
   document.getElementById('clockin-modal')?.remove();
-  // Sprint Refactor: el nombre puede venir de varias fuentes según el módulo
-  const empName = (typeof _waiterName !== 'undefined' && _waiterName)
+  // Sprint Refactor: el nombre puede venir explícito o por fallback a globals/state.
+  const empName = waiterName
+    || (typeof _waiterName !== 'undefined' && _waiterName)
     || state.adminEmployeeName
     || state.kitchenUserName
     || state.cookeatStaffName
@@ -15254,7 +15273,7 @@ async function _enterModuleAfterPin(emp) {
 
     // Sprint Control horario (RD-ley 8/2019): manager ficha — owner NO (es propietario, no empleado por cuenta ajena).
     if (emp.role === 'manager' && typeof promptClockInIfNeeded === 'function') {
-      setTimeout(() => promptClockInIfNeeded(emp.id), 700);
+      setTimeout(() => promptClockInIfNeeded(emp.id, emp.name), 700);
     }
 
     // Sprint Refactor: heartbeat para que el manager/owner aparezca como "online" en sala
@@ -15313,7 +15332,7 @@ async function _enterModuleAfterPin(emp) {
 
     // Sprint Control horario: disparar prompt de fichaje (RD-ley 8/2019)
     if (typeof promptClockInIfNeeded === 'function') {
-      setTimeout(() => promptClockInIfNeeded(emp.id), 400);
+      setTimeout(() => promptClockInIfNeeded(emp.id, emp.name), 400);
     }
 
     return;
@@ -15362,7 +15381,7 @@ async function _enterModuleAfterPin(emp) {
 
     // Sprint Control horario (RD-ley 8/2019): aplica también a cocina
     if (typeof promptClockInIfNeeded === 'function') {
-      setTimeout(() => promptClockInIfNeeded(emp.id), 600);
+      setTimeout(() => promptClockInIfNeeded(emp.id, emp.name), 600);
     }
 
     // Sprint Refactor: heartbeat para que el cocinero aparezca como "online" en sala (manageat)
@@ -25203,13 +25222,20 @@ async function cancelCalleatEntry(entryId) {
 let _calleatRealtimeChannel = null;
 function subscribeCalleatRealtime() {
   if (!state.adminRestaurantId) return;
-  // Idempotente: si ya estaba suscrito al mismo restaurante, no re-suscribir
-  // (Supabase lanza "cannot add postgres_changes callbacks after subscribe()" si se duplica)
   const channelName = 'calleat-admin-' + state.adminRestaurantId;
-  if (_calleatRealtimeChannel && _calleatRealtimeChannel.topic === 'realtime:' + channelName) {
-    return; // ya activo
-  }
-  // Si había uno de otro restaurante, desuscribir primero
+
+  // Supabase cachea channels por nombre. Si pides sb.channel(name) dos veces, devuelve la misma
+  // instancia ya suscrita y .on() falla con "cannot add postgres_changes callbacks after subscribe()".
+  // Comprobar primero si Supabase ya tiene un channel con ese topic.
+  try {
+    const existing = sb.getChannels?.()?.find(c => c.topic === 'realtime:' + channelName);
+    if (existing) {
+      _calleatRealtimeChannel = existing;
+      return; // ya activo, no hacer nada
+    }
+  } catch(e) { /* fallback abajo */ }
+
+  // Si había uno de otro restaurante en nuestra ref, desuscribir primero
   if (_calleatRealtimeChannel) {
     try { sb.removeChannel(_calleatRealtimeChannel); } catch(e){}
     _calleatRealtimeChannel = null;
