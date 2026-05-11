@@ -3592,6 +3592,20 @@
 
     <!-- TAB EQUIPO — Control horario empleados (RD-ley 8/2019) -->
     <div id="atab-equipo" style="display:none;flex-direction:column;height:calc(100dvh - 57px);overflow-y:auto">
+      <!-- Sub-navegación: Control horario / Personal / Permisos (owner) -->
+      <div style="padding:.5rem 1.25rem 0;background:var(--card);flex-shrink:0;border-bottom:1px solid var(--bd)">
+        <div style="display:flex;gap:.25rem;overflow-x:auto;-webkit-overflow-scrolling:touch">
+          <button id="eq-subtab-horario" onclick="showEquipoSubtab('horario')"
+            style="padding:9px 14px;border:none;background:none;border-bottom:2px solid var(--brand);color:var(--brand-d);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">⏱ Control horario</button>
+          <button id="eq-subtab-personal" onclick="showEquipoSubtab('personal')"
+            style="padding:9px 14px;border:none;background:none;border-bottom:2px solid transparent;color:var(--t2);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap">🧑‍🍳 Personal</button>
+          <button id="eq-subtab-permisos" class="owner-only" onclick="showEquipoSubtab('permisos')"
+            style="padding:9px 14px;border:none;background:none;border-bottom:2px solid transparent;color:var(--t2);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap">🔐 Permisos</button>
+        </div>
+      </div>
+
+      <!-- Pane Control horario -->
+      <div id="eq-pane-horario">
       <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--bd);background:var(--card);flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:.65rem;flex-wrap:wrap">
         <div>
           <div style="font-size:16px;font-weight:600">⏱ control<em style="color:#D85A30;font-style:normal">eat</em></div>
@@ -3630,6 +3644,11 @@
 
       <!-- Detalle empleado (modal-like inline) -->
       <div id="equipo-detail" style="display:none;padding:0 1.25rem 1rem"></div>
+      </div>
+      <!-- Pane Personal (renderizado lazy) -->
+      <div id="eq-pane-personal" style="display:none;padding:1rem 1.25rem"></div>
+      <!-- Pane Permisos (solo owner, renderizado lazy) -->
+      <div id="eq-pane-permisos" style="display:none;padding:1rem 1.25rem"></div>
     </div>
 
     <div id="atab-gestion" style="display:none;flex-direction:column;height:calc(100dvh - 57px);overflow-y:auto">
@@ -3666,18 +3685,7 @@
           </div>
         </div>
 
-        <!-- Equipo -->
-        <div class="settings-section">
-          <div class="settings-section-header">Equipo</div>
-          <div class="settings-row" data-ajustes-section="camareros" onclick="openAjustesSection('camareros')">
-            <span class="settings-row-icon">🧑‍🍳</span>
-            <div class="settings-row-content">
-              <div class="settings-row-title">Personal</div>
-              <div class="settings-row-desc">Camareros, cocineros, jefe de sala, jefe de cocina · accesos, PIN y roles</div>
-            </div>
-            <span class="settings-row-arrow">›</span>
-          </div>
-        </div>
+        <!-- Sprint Permisos T2 Revisión: Personal movido a tab Equipo -->
 
         <!-- Perfil del restaurante -->
         <div class="settings-section">
@@ -3765,18 +3773,7 @@
           </div>
         </div>
 
-        <!-- Sprint Permisos Turno 2 — Permisos por rol (solo owner) -->
-        <div class="settings-section" data-ajustes-section="permisos">
-          <div class="settings-section-header">Seguridad</div>
-          <div class="settings-row" data-ajustes-section="permisos" onclick="openAjustesSection('permisos')">
-            <span class="settings-row-icon">🔐</span>
-            <div class="settings-row-content">
-              <div class="settings-row-title">Permisos por rol</div>
-              <div class="settings-row-desc">Configura qué puede ver y hacer cada encargado de tu restaurante</div>
-            </div>
-            <span class="settings-row-arrow">›</span>
-          </div>
-        </div>
+        <!-- Sprint Permisos T2 Revisión: Permisos movido a tab Equipo -->
 
       </div>
 
@@ -15534,6 +15531,11 @@ async function applyManageatPermissions(role) {
     el.style.display = _isOwnerSession() ? '' : 'none';
   });
 
+  // Sprint Permisos T2 Revisión: elementos con .owner-only solo visibles para owner
+  document.querySelectorAll('.owner-only').forEach(el => {
+    el.style.display = _isOwnerSession() ? '' : 'none';
+  });
+
   // Badge en topbar de manageat con rol activo
   let badge = document.getElementById('manageat-role-badge');
   if (!badge) {
@@ -16748,8 +16750,86 @@ function closeAjustesPanel() {
   const list = document.querySelector('#atab-gestion > div:nth-child(2)');
   if (panel) panel.style.display = 'none';
   if (list) list.style.display = 'block';
-  // Refresh disabled count
   loadAdminCarta();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SPRINT PERMISOS T2 Revisión — Sub-tabs internas de Equipo
+// Equipo = Control horario | Personal | Permisos (solo owner)
+// ══════════════════════════════════════════════════════════════════
+function showEquipoSubtab(subtab) {
+  if (subtab === 'permisos' && !_isOwnerSession()) {
+    notify('Solo el propietario puede gestionar permisos.', 'error');
+    return;
+  }
+  ['horario','personal','permisos'].forEach(t => {
+    const btn = document.getElementById('eq-subtab-' + t);
+    if (!btn) return;
+    if (t === subtab) {
+      btn.style.borderBottom = '2px solid var(--brand)';
+      btn.style.color = 'var(--brand-d)';
+      btn.style.fontWeight = '600';
+    } else {
+      btn.style.borderBottom = '2px solid transparent';
+      btn.style.color = 'var(--t2)';
+      btn.style.fontWeight = '500';
+    }
+  });
+  const panes = {
+    horario: document.getElementById('eq-pane-horario'),
+    personal: document.getElementById('eq-pane-personal'),
+    permisos: document.getElementById('eq-pane-permisos'),
+  };
+  Object.entries(panes).forEach(([t, el]) => {
+    if (el) el.style.display = (t === subtab) ? '' : 'none';
+  });
+  if (subtab === 'personal') renderEquipoPersonalPane();
+  else if (subtab === 'permisos') renderEquipoPermisosPane();
+}
+
+async function renderEquipoPersonalPane() {
+  const pane = document.getElementById('eq-pane-personal');
+  if (!pane) return;
+  pane.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;gap:.5rem;flex-wrap:wrap">
+      <div>
+        <div style="font-size:17px;font-weight:600;color:var(--t1)">Personal del restaurante</div>
+        <div style="font-size:12px;color:var(--t3);margin-top:3px;line-height:1.4">Crea perfiles para todo el equipo: camareros, cocineros, jefe de cocina. Cada rol tiene su propia app de acceso: <strong>serveat</strong> para sala, <strong>cookeat</strong> para cocina.</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="showAddWaiterFormAjustes()">+ Añadir miembro</button>
+    </div>
+    <div id="add-waiter-form-ajustes" style="display:none" class="card">
+      <div class="field"><label>Nombre</label><input id="awf-name" type="text" placeholder="ej. Carlos" autocomplete="off"></div>
+      <div class="field"><label>Rol</label>
+        <select id="awf-role" onchange="_onRoleChangeAwf()" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
+          <option value="owner">Propietario (manageat completo)</option>
+          <option value="manager">Encargado (manageat limitado)</option>
+          <option value="kitchen_chief">Jefe de cocina (cookeat)</option>
+          <option value="cook">Cocinero (cookeat)</option>
+          <option value="waiter" selected>Camarero / Jefe de sala (serveat)</option>
+        </select>
+        <div style="font-size:11px;color:var(--t3);margin-top:.35rem;line-height:1.4" id="awf-role-hint">Camarero: gestiona mesas y cobros desde serveat. Jefe de sala: mismo rol con responsabilidad de turno.</div>
+      </div>
+      <div class="field" id="awf-email-field"><label>Email</label><input id="awf-email" type="email" placeholder="carlos@restaurante.com" autocomplete="off"></div>
+      <div class="field" id="awf-password-field"><label id="awf-password-label">Contraseña temporal</label><input id="awf-password" type="password" placeholder="mín. 6 caracteres" autocomplete="new-password" inputmode="text"></div>
+      <div style="display:flex;gap:.5rem;margin-top:.5rem">
+        <button class="btn btn-primary btn-sm" onclick="saveWaiterAjustes()">Guardar</button>
+        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('add-waiter-form-ajustes').style.display='none'">Cancelar</button>
+      </div>
+    </div>
+    <div id="ajustes-waiters-list"><div style="text-align:center;padding:2rem;color:var(--t3)">Cargando...</div></div>
+  `;
+  loadAdminWaitersInline();
+}
+
+async function renderEquipoPermisosPane() {
+  const pane = document.getElementById('eq-pane-permisos');
+  if (!pane) return;
+  if (!_isOwnerSession()) {
+    pane.innerHTML = '<div class="notice notice-warn">Solo el propietario puede gestionar permisos.</div>';
+    return;
+  }
+  await renderPermissionsSection(pane);
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -20075,9 +20155,10 @@ async function loadAdminWaitersInline() {
 
       // Sprint Permisos Turno 1: si la sesión es manager, ocultar botones editar/borrar
       // sobre owners (mejor UX que mostrar error tras click)
-      // Fuente robusta: chequear varias variables, no solo _manageatActiveRole.
       const sessionRoleInline = _manageatActiveRole || state.adminRole || _activeEmployee?.role;
-      const isManagerSession = sessionRoleInline === 'manager';
+      // Sprint Permisos T2 fix: owner SIEMPRE puede editarlo todo, incluido a sí mismo.
+      const isOwnerSessionInline = sessionRoleInline === 'owner';
+      const isManagerSession = !isOwnerSessionInline && sessionRoleInline === 'manager';
       const targetIsOwner = role === 'owner';
       const isSelf = (w.id === state.adminEmployeeId || w.id === _activeEmployee?.id);
       const blockActions = isManagerSession && (targetIsOwner);
@@ -20281,7 +20362,9 @@ async function openEditMemberModal(waiterId) {
   // Fuente de verdad ROBUSTA: chequear varias variables, no solo _manageatActiveRole
   // que puede no estar cargado si el usuario hace clic rápido tras login.
   const sessionRole = _manageatActiveRole || state.adminRole || _activeEmployee?.role;
-  const isManagerSession = sessionRole === 'manager';
+  // Owner SIEMPRE puede editarlo todo (incluido a sí mismo y a otros owners)
+  const isOwnerSession_em = sessionRole === 'owner';
+  const isManagerSession = !isOwnerSession_em && sessionRole === 'manager';
   const isEditingOwner = role === 'owner';
 
   if (isManagerSession && isEditingOwner) {
