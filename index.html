@@ -15421,10 +15421,54 @@ async function _enterModuleAfterPin(emp) {
 // Sprint Permisos Turno 1: cache de permisos del usuario activo en manageat
 let _manageatPermissions = null; // {view_sala, view_fiscal, ajustes_costes, ...}
 let _manageatActiveRole = null;
+// Sprint Roles Custom: cache de roles custom del restaurante
+let _customRoles = [];
+let _activeCustomRoleId = null;
+
+async function _loadCustomRoles(forceRefresh = false) {
+  if (!forceRefresh && _customRoles.length > 0) return _customRoles;
+  if (!state.adminRestaurantId) return [];
+  try {
+    const { data, error } = await sb.from("custom_roles")
+      .select("id, display_name, description, icon, base_role, is_active")
+      .eq("restaurant_id", state.adminRestaurantId)
+      .eq("is_active", true)
+      .order("display_name");
+    if (error) throw error;
+    _customRoles = data || [];
+    return _customRoles;
+  } catch (e) {
+    console.warn("[custom_roles] error cargando:", e);
+    _customRoles = [];
+    return [];
+  }
+}
+
+function _getCustomRole(customRoleId) {
+  if (!customRoleId || !_customRoles.length) return null;
+  return _customRoles.find(cr => cr.id === customRoleId) || null;
+}
+
+function _employeeRoleLabel(w) {
+  if (w && w.custom_role_id) {
+    const cr = _getCustomRole(w.custom_role_id);
+    if (cr) return (cr.icon ? cr.icon + " " : "") + cr.display_name;
+  }
+  const role = w?.role || "waiter";
+  return ({
+    "owner":         "🔑 Propietario",
+    "manager":       "🧑‍💼 Encargado",
+    "kitchen_chief": "👨‍🍳 Jefe de cocina",
+    "cook":          "🍳 Cocinero",
+    "chef":          "🍳 Cocinero",
+    "waiter":        "🛎 Camarero"
+  })[role] || role;
+}
 
 // Carga permisos del rol actual desde BD (con cache por sesión)
-async function _loadManageatPermissions(role) {
-  // Owner siempre tiene todo (regla fija de negocio, no configurable)
+async function _loadManageatPermissions(role, customRoleId = null) {
+  _loadCustomRoles();
+  _activeCustomRoleId = customRoleId || null;
   if (role === 'owner') {
     _manageatActiveRole = 'owner';
     _manageatPermissions = {
@@ -15439,11 +15483,12 @@ async function _loadManageatPermissions(role) {
     return _manageatPermissions;
   }
 
-  // Manager: leer de BD via RPC
+  // Manager o rol custom: leer de BD via RPC
   try {
     const { data, error } = await sb.rpc('get_manageat_permissions', {
       p_restaurant_id: state.adminRestaurantId,
-      p_role: role
+      p_role: customRoleId ? null : role,
+      p_custom_role_id: customRoleId || null
     });
     if (error) throw error;
     _manageatActiveRole = role;
@@ -16710,6 +16755,12 @@ function openAjustesSection(section) {
             <option value="waiter" selected>Camarero / Jefe de sala (serveat)</option>
           </select>
           <div style="font-size:11px;color:var(--t3);margin-top:.35rem;line-height:1.4" id="awf-role-hint">Camarero: gestiona mesas y cobros desde serveat. Jefe de sala: mismo rol con responsabilidad de turno.</div>
+          <div id="awf-custom-role-wrap" style="display:none;margin-top:.5rem">
+            <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:3px">Rol específico (opcional)</label>
+            <select id="awf-custom-role" style="padding:9px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:13px;background:var(--card);width:100%">
+              <option value="">— Sin rol específico (usar plantilla base) —</option>
+            </select>
+          </div>
         </div>
         <div class="field" id="awf-email-field"><label>Email</label><input id="awf-email" type="email" placeholder="carlos@restaurante.com" autocomplete="off"></div>
         <div class="field" id="awf-password-field"><label id="awf-password-label">Contraseña temporal</label><input id="awf-password" type="password" placeholder="mín. 6 caracteres" autocomplete="new-password" inputmode="text"></div>
@@ -16808,6 +16859,13 @@ async function renderEquipoPersonalPane() {
           <option value="cook">Cocinero (cookeat)</option>
           <option value="waiter" selected>Camarero / Jefe de sala (serveat)</option>
         </select>
+        <div id="awf-custom-role-wrap" style="display:none;margin-top:.5rem">
+          <label style="font-size:11px;color:var(--t3);display:block;margin-bottom:3px">Rol específico (opcional)</label>
+          <select id="awf-custom-role" style="padding:9px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:13px;background:var(--card);width:100%">
+            <option value="">— Sin rol específico (usar plantilla base) —</option>
+          </select>
+          <div style="font-size:11px;color:var(--t3);margin-top:3px;line-height:1.4">Los roles específicos heredan permisos del rol base pero muestran un nombre y/o permisos personalizados.</div>
+        </div>
         <div style="font-size:11px;color:var(--t3);margin-top:.35rem;line-height:1.4" id="awf-role-hint">Camarero: gestiona mesas y cobros desde serveat. Jefe de sala: mismo rol con responsabilidad de turno.</div>
       </div>
       <div class="field" id="awf-email-field"><label>Email</label><input id="awf-email" type="email" placeholder="carlos@restaurante.com" autocomplete="off"></div>
@@ -20280,6 +20338,28 @@ function _onRoleChangeAwf() {
     }
     if (emailField) emailField.style.display = '';
   }
+  _populateCustomRoleSelect(role);
+}
+
+async function _populateCustomRoleSelect(baseRole, selectedCustomRoleId = null) {
+  const wrap = document.getElementById('awf-custom-role-wrap');
+  const sel = document.getElementById('awf-custom-role');
+  if (!wrap || !sel) return;
+  if (baseRole === 'owner') { wrap.style.display = 'none'; return; }
+  await _loadCustomRoles();
+  const matching = _customRoles.filter(cr => cr.base_role === baseRole && cr.is_active);
+  if (matching.length === 0) {
+    wrap.style.display = 'none';
+    sel.innerHTML = '<option value="">— Sin rol específico —</option>';
+    return;
+  }
+  wrap.style.display = '';
+  let html = '<option value="">— Sin rol específico (usar plantilla base) —</option>';
+  matching.forEach(cr => {
+    const isSel = (cr.id === selectedCustomRoleId) ? ' selected' : '';
+    html += '<option value="' + cr.id + '"' + isSel + '>' + (cr.icon || '👤') + ' ' + escHtml(cr.display_name) + '</option>';
+  });
+  sel.innerHTML = html;
 }
 
 async function saveWaiterAjustes() {
@@ -20287,6 +20367,7 @@ async function saveWaiterAjustes() {
   const email = document.getElementById('awf-email')?.value?.trim();
   const password = document.getElementById('awf-password')?.value;
   const role = document.getElementById('awf-role')?.value || 'waiter';
+  const customRoleId = document.getElementById('awf-custom-role')?.value || null;
 
   // Sprint Permisos Turno 1: manager NO puede crear owners (defensa frontend, BD valida vía RLS)
   // Fuente robusta: chequear varias variables, no solo _manageatActiveRole.
@@ -20328,6 +20409,7 @@ async function saveWaiterAjustes() {
     email: (isPinRole ? null : email),
     password,
     role,
+    custom_role_id: customRoleId || null,
     avatar_color,
     active: true,
     is_active: false,
@@ -30936,10 +31018,4 @@ document.addEventListener('keydown', (e) => {
         <button onclick="rejectAllFromSettings()" style="flex:1;background:#fff;border:1px solid #e0e0da;color:#5A7168;font-size:13px;padding:9px;border-radius:99px;cursor:pointer;font-family:inherit">Rechazar todas</button>
         <button onclick="acceptAllFromSettings()" style="flex:1;background:#fff;border:1px solid #e0e0da;color:#085041;font-size:13px;font-weight:500;padding:9px;border-radius:99px;cursor:pointer;font-family:inherit">Aceptar todas</button>
       </div>
-      <a href="/cookies" style="font-size:11px;color:#9A9990;text-align:center;text-decoration:underline;margin-top:2px">Ver política de cookies completa</a>
-    </div>
-  </div>
-</div>
-
-</body>
-</html>
+      <a href="/cookies" style="font-size:11px;color:#9A9990;text-align:center;text-decoration:underline
