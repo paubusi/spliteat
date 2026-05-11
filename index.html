@@ -10132,9 +10132,23 @@ async function _startStaffHeartbeat(empId) {
   const tick = async () => {
     if (!_staffHeartbeatId) return;
     try {
+      // Sprint Refactor: el heartbeat solo marca is_active=true SI hay shift activo (control horario).
+      // Si el empleado entró pero no fichó (eligió "Ahora no"), aparece en sala como "reciente"
+      // (gris/amarillo) — coherente con el RD-ley 8/2019: técnicamente no está trabajando.
+      // Owner queda fuera del control horario → siempre se marca activo.
+      let shouldBeActive = true;
+      try {
+        // Owner está exento del fichaje (no es empleado por cuenta ajena)
+        const isOwner = state.adminRole === 'owner';
+        if (!isOwner) {
+          const { data } = await sb.rpc('get_active_shift', { p_waiter_id: _staffHeartbeatId });
+          shouldBeActive = !!data?.active;
+        }
+      } catch (e) { /* si la RPC falla, tratar como activo para no penalizar */ }
+
       await sb.from('waiters').update({
         last_seen_at: new Date().toISOString(),
-        is_active: true
+        is_active: shouldBeActive
       }).eq('id', _staffHeartbeatId);
     } catch (e) { /* no bloquear UI por fallo de heartbeat */ }
   };
@@ -11385,6 +11399,16 @@ async function _doClockIn(waiterId) {
   document.getElementById('clockin-modal')?.remove();
   showToast('✓ Entrada fichada', new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }));
   _startClockInBadge(data.clock_in_at);
+  // Sprint Refactor: forzar tick inmediato del heartbeat para que aparezca como ACTIVO en sala
+  // sin esperar al siguiente intervalo de 60s. El heartbeat ya valida el shift internamente.
+  if (typeof _staffHeartbeatId !== 'undefined' && _staffHeartbeatId) {
+    try {
+      await sb.from('waiters').update({
+        is_active: true,
+        last_seen_at: new Date().toISOString()
+      }).eq('id', _staffHeartbeatId);
+    } catch (e) { /* non-blocking */ }
+  }
 }
 
 // Badge de fichaje — pinta tanto en serveat (#shift-badge) como en cookeat (#k-shift-badge).
