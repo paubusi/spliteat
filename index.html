@@ -3643,7 +3643,7 @@
         <!-- Carta -->
         <div class="settings-section">
           <div class="settings-section-header">Carta</div>
-          <div class="settings-row" onclick="openAjustesSection('carta')">
+          <div class="settings-row" data-ajustes-section="carta" onclick="openAjustesSection(\'carta\')">
             <span class="settings-row-icon">📋</span>
             <div class="settings-row-content">
               <div class="settings-row-title">Gestionar carta</div>
@@ -3656,7 +3656,7 @@
         <!-- Mesas -->
         <div class="settings-section">
           <div class="settings-section-header">Mesas</div>
-          <div class="settings-row" onclick="openAjustesSection('mesas')">
+          <div class="settings-row" data-ajustes-section="mesas" onclick="openAjustesSection(\'mesas\')">
             <span class="settings-row-icon">🗺</span>
             <div class="settings-row-content">
               <div class="settings-row-title">Gestionar mesas</div>
@@ -3669,7 +3669,7 @@
         <!-- Equipo -->
         <div class="settings-section">
           <div class="settings-section-header">Equipo</div>
-          <div class="settings-row" onclick="openAjustesSection('camareros')">
+          <div class="settings-row" data-ajustes-section="camareros" onclick="openAjustesSection(\'camareros\')">
             <span class="settings-row-icon">🧑‍🍳</span>
             <div class="settings-row-content">
               <div class="settings-row-title">Personal</div>
@@ -3682,7 +3682,7 @@
         <!-- Perfil del restaurante -->
         <div class="settings-section">
           <div class="settings-section-header">Restaurante</div>
-          <div class="settings-row" onclick="openAjustesSection('perfil')">
+          <div class="settings-row" data-ajustes-section="perfil" onclick="openAjustesSection(\'perfil\')">
             <span class="settings-row-icon">📝</span>
             <div class="settings-row-content">
               <div class="settings-row-title">Perfil y datos fiscales</div>
@@ -3690,7 +3690,7 @@
             </div>
             <span class="settings-row-arrow">›</span>
           </div>
-          <div class="settings-row" onclick="openAjustesSection('reservas-config')">
+          <div class="settings-row" data-ajustes-section="reservas-config" onclick="openAjustesSection(\'reservas-config\')">
             <span class="settings-row-icon">📅</span>
             <div class="settings-row-content">
               <div class="settings-row-title">Configuración de reservas</div>
@@ -3699,7 +3699,7 @@
             <span class="settings-row-arrow">›</span>
           </div>
           <!-- #8-F1: Payment methods config -->
-          <div class="settings-row" onclick="openAjustesSection('metodos-pago')">
+          <div class="settings-row" data-ajustes-section="metodos-pago" onclick="openAjustesSection(\'metodos-pago\')">
             <span class="settings-row-icon">💳</span>
             <div class="settings-row-content">
               <div class="settings-row-title">Métodos de pago aceptados</div>
@@ -3712,7 +3712,7 @@
         <!-- Sprint Costes Turno 5 — Costes fijos -->
         <div class="settings-section">
           <div class="settings-section-header">Finanzas</div>
-          <div class="settings-row" onclick="openAjustesSection('costes-fijos')">
+          <div class="settings-row" data-ajustes-section="costes-fijos" onclick="openAjustesSection(\'costes-fijos\')">
             <span class="settings-row-icon">💰</span>
             <div class="settings-row-content">
               <div class="settings-row-title">Costes fijos</div>
@@ -3721,7 +3721,7 @@
             <span class="settings-row-arrow">›</span>
           </div>
           <!-- Sprint Costes Turno 7 — Costes compartidos -->
-          <div class="settings-row" onclick="openAjustesSection('costes-compartidos')">
+          <div class="settings-row" data-ajustes-section="costes-compartidos" onclick="openAjustesSection(\'costes-compartidos\')">
             <span class="settings-row-icon">🔗</span>
             <div class="settings-row-content">
               <div class="settings-row-title">Costes compartidos</div>
@@ -3734,7 +3734,7 @@
         <!-- Sub-Sprint A.4+A.6: Cocina (zonas + modos KDS) -->
         <div class="settings-section">
           <div class="settings-section-header">Cocina</div>
-          <div class="settings-row" onclick="openAjustesSection('zonas')">
+          <div class="settings-row" data-ajustes-section="zonas" onclick="openAjustesSection(\'zonas\')">
             <span class="settings-row-icon">🍳</span>
             <div class="settings-row-content">
               <div class="settings-row-title">Zonas de cocina</div>
@@ -3742,7 +3742,7 @@
             </div>
             <span class="settings-row-arrow">›</span>
           </div>
-          <div class="settings-row" onclick="openAjustesSection('cocina-modos')">
+          <div class="settings-row" data-ajustes-section="cocina-modos" onclick="openAjustesSection(\'cocina-modos\')">
             <span class="settings-row-icon">⚡</span>
             <div class="settings-row-content">
               <div class="settings-row-title">Modos de KDS</div>
@@ -3755,7 +3755,7 @@
         <!-- Sprint H — Datos fiscales (Verifactu) -->
         <div class="settings-section">
           <div class="settings-section-header">Facturación legal</div>
-          <div class="settings-row" onclick="openAjustesSection('fiscal')">
+          <div class="settings-row" data-ajustes-section="fiscal" onclick="openAjustesSection(\'fiscal\')">
             <span class="settings-row-icon">🧾</span>
             <div class="settings-row-content">
               <div class="settings-row-title">Datos fiscales y certificado</div>
@@ -15402,33 +15402,119 @@ async function _enterModuleAfterPin(emp) {
 }
 
 // ── Permisos manageat por rol ────────────────────────────────────
-function applyManageatPermissions(role) {
-  // Tabs/secciones que solo ve owner
-  const ownerOnlySelectors = [
-    '[data-tab="costes"]',
-    '[data-tab="margenes"]',
-    '[data-tab="verifactu"]',
-    '[data-tab="facturas"]',
-    '[data-tab="config"]',
-    '[data-tab="stripe"]',
-    '#atab-costes',
-    '#atab-margenes',
-    '#atab-verifactu',
-    '#atab-facturas',
-    '#atab-stripe',
-    '#manage-costes-section',
-    '.owner-only'
-  ];
-  if (role === 'manager') {
-    ownerOnlySelectors.forEach(sel => {
-      document.querySelectorAll(sel).forEach(el => { el.style.display = 'none'; });
-    });
-  } else {
-    // Owner: mostrar todo (resetear)
-    ownerOnlySelectors.forEach(sel => {
-      document.querySelectorAll(sel).forEach(el => { el.style.display = ''; });
-    });
+// Sprint Permisos Turno 1: cache de permisos del usuario activo en manageat
+let _manageatPermissions = null; // {view_sala, view_fiscal, ajustes_costes, ...}
+let _manageatActiveRole = null;
+
+// Carga permisos del rol actual desde BD (con cache por sesión)
+async function _loadManageatPermissions(role) {
+  // Owner siempre tiene todo (regla fija de negocio, no configurable)
+  if (role === 'owner') {
+    _manageatActiveRole = 'owner';
+    _manageatPermissions = {
+      view_sala: true, view_reservas: true, view_calleat: true,
+      view_cocina: true, view_trends: true, view_fiscal: true,
+      view_stock: true, view_equipo: true,
+      ajustes_carta: true, ajustes_mesas: true, ajustes_personal: true,
+      ajustes_perfil: true, ajustes_costes: true, ajustes_pagos: true,
+      ajustes_fiscal: true, ajustes_zonas: true, ajustes_cocina_modos: true,
+      ajustes_reservas_config: true
+    };
+    return _manageatPermissions;
   }
+
+  // Manager: leer de BD via RPC
+  try {
+    const { data, error } = await sb.rpc('get_manageat_permissions', {
+      p_restaurant_id: state.adminRestaurantId,
+      p_role: role
+    });
+    if (error) throw error;
+    _manageatActiveRole = role;
+    _manageatPermissions = data || {};
+    return _manageatPermissions;
+  } catch (e) {
+    console.warn('[permissions] error cargando, uso defaults manager:', e);
+    // Fallback: defaults seguros para manager
+    _manageatActiveRole = role;
+    _manageatPermissions = {
+      view_sala: true, view_reservas: true, view_calleat: true,
+      view_cocina: true, view_trends: true, view_fiscal: false,
+      view_stock: true, view_equipo: true,
+      ajustes_carta: true, ajustes_mesas: true, ajustes_personal: true,
+      ajustes_perfil: false, ajustes_costes: false, ajustes_pagos: false,
+      ajustes_fiscal: false, ajustes_zonas: true, ajustes_cocina_modos: true,
+      ajustes_reservas_config: true
+    };
+    return _manageatPermissions;
+  }
+}
+
+// Helper sincrónico para checks en línea (devuelve true por defecto si no cargado)
+function _canDo(permission) {
+  if (!_manageatPermissions) return true;
+  return _manageatPermissions[permission] !== false;
+}
+
+// Helper para saber si el rol activo es owner (regla fija: solo owner puede ciertas cosas)
+function _isOwnerSession() {
+  return _manageatActiveRole === 'owner';
+}
+
+async function applyManageatPermissions(role) {
+  // Cargar permisos (async, pero los selectores se aplican abajo)
+  await _loadManageatPermissions(role);
+  const perms = _manageatPermissions;
+
+  // Mapping permiso → selectores reales (tabs sidebar desktop + mobile + paneles)
+  const permissionMap = {
+    view_sala:               ['[data-tab="encurso"]'],
+    view_reservas:           ['[data-tab="reservas"]'],
+    view_calleat:            ['[data-tab="calleat"]'],
+    view_cocina:             ['[data-tab="cocina"]'],
+    view_trends:             ['[data-tab="reportes"]'],
+    view_fiscal:             ['[data-tab="facturas"]'],
+    view_stock:              ['[data-tab="stockeat"]'],
+    view_equipo:             ['[data-tab="equipo"]'],
+  };
+
+  // Aplicar visibilidad a tabs principales
+  Object.entries(permissionMap).forEach(([perm, selectors]) => {
+    const visible = !!perms[perm];
+    selectors.forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => {
+        el.style.display = visible ? '' : 'none';
+      });
+    });
+  });
+
+  // Aplicar visibilidad a sub-secciones de Ajustes (gestion)
+  const ajustesSectionMap = {
+    ajustes_carta:           ['[data-ajustes-section="carta"]'],
+    ajustes_mesas:           ['[data-ajustes-section="mesas"]'],
+    ajustes_personal:        ['[data-ajustes-section="camareros"]'],
+    ajustes_perfil:          ['[data-ajustes-section="perfil"]'],
+    ajustes_costes:          ['[data-ajustes-section="costes-fijos"]', '[data-ajustes-section="costes-compartidos"]'],
+    ajustes_pagos:           ['[data-ajustes-section="metodos-pago"]'],
+    ajustes_fiscal:          ['[data-ajustes-section="fiscal"]'],
+    ajustes_zonas:           ['[data-ajustes-section="zonas"]'],
+    ajustes_cocina_modos:    ['[data-ajustes-section="cocina-modos"]'],
+    ajustes_reservas_config: ['[data-ajustes-section="reservas-config"]'],
+  };
+  Object.entries(ajustesSectionMap).forEach(([perm, selectors]) => {
+    const visible = !!perms[perm];
+    selectors.forEach(sel => {
+      document.querySelectorAll(sel).forEach(el => {
+        el.style.display = visible ? '' : 'none';
+      });
+    });
+  });
+
+  // Tab "Permisos" en Ajustes: solo visible para owner
+  document.querySelectorAll('[data-ajustes-section="permisos"]').forEach(el => {
+    el.style.display = _isOwnerSession() ? '' : 'none';
+  });
+
   // Badge en topbar de manageat con rol activo
   let badge = document.getElementById('manageat-role-badge');
   if (!badge) {
@@ -15438,10 +15524,17 @@ function applyManageatPermissions(role) {
     badge.style.cssText = 'position:fixed;top:14px;right:80px;background:var(--brand-d);color:#fff;padding:4px 10px;border-radius:99px;font-size:11px;font-weight:600;z-index:500;font-family:inherit';
     document.body.appendChild(badge);
   }
-  const empName = _activeEmployee?.name || '';
+  const empName = _activeEmployee?.name || state.adminEmployeeName || '';
   badge.textContent = `${role === 'owner' ? '🔑' : '👤'} ${_roleBadge(role)}${empName ? ' · ' + empName : ''}`;
-  // El badge se controla via CSS .manageat-only (solo visible cuando body tiene clase manageat-active)
   document.body.classList.add('manageat-active');
+
+  // Sprint Permisos: setear contexto de sesión en Postgres para RLS
+  try {
+    await sb.rpc('set_session_context', {
+      p_emp_id: _activeEmployee?.id || state.adminEmployeeId || null,
+      p_role: role
+    });
+  } catch(e) { /* set_session_context puede no existir aún → silent */ }
 }
 
 // ── Restaurar sesión al cargar ────────────────────────────────────
@@ -15695,6 +15788,19 @@ async function _adminLogoutWithoutShift() {
 // ADMIN TABS
 // ══════════════════════════════════════════════════════
 function showAdminTab(name) {
+  // Sprint Permisos Turno 1: defensa frontend — bloquear acceso a tabs sin permiso
+  const tabPermMap = {
+    'encurso': 'view_sala', 'reservas': 'view_reservas', 'calleat': 'view_calleat',
+    'cocina': 'view_cocina', 'reportes': 'view_trends', 'facturas': 'view_fiscal',
+    'stockeat': 'view_stock', 'equipo': 'view_equipo',
+    // 'gestion' (Ajustes) accesible para todos; permisos de sub-secciones se chequean en openAjustesSection
+  };
+  const req = tabPermMap[name];
+  if (req && _manageatPermissions && _manageatPermissions[req] === false) {
+    notify('No tienes permiso para acceder a esta pestaña.', 'error');
+    return;
+  }
+
   closeMobileSidebar();
   // Sprint B: 'stockeat' ahora vuelve como tab de vista lectura en manageat.
   ['encurso','gestion','cocina','reservas','reportes','facturas','calleat','notificaciones','stockeat','equipo'].forEach(t => {
@@ -16460,6 +16566,32 @@ function toggleMargenInfo() {
 
 // ── Ajustes panel navigation ──
 function openAjustesSection(section) {
+  // Sprint Permisos Turno 1: defensa frontend — si el usuario manipuló DOM para
+  // hacer clic en una sección bloqueada, abortamos. (La verdad final está en RLS.)
+  const sectionPermissionMap = {
+    'carta': 'ajustes_carta',
+    'mesas': 'ajustes_mesas',
+    'camareros': 'ajustes_personal',
+    'perfil': 'ajustes_perfil',
+    'reservas-config': 'ajustes_reservas_config',
+    'metodos-pago': 'ajustes_pagos',
+    'costes-fijos': 'ajustes_costes',
+    'costes-compartidos': 'ajustes_costes',
+    'zonas': 'ajustes_zonas',
+    'cocina-modos': 'ajustes_cocina_modos',
+    'fiscal': 'ajustes_fiscal',
+    // 'permisos' solo accesible para owner (chequeado abajo)
+  };
+  const requiredPerm = sectionPermissionMap[section];
+  if (requiredPerm && _manageatPermissions && _manageatPermissions[requiredPerm] === false) {
+    notify('No tienes permiso para acceder a esta sección.', 'error');
+    return;
+  }
+  if (section === 'permisos' && !_isOwnerSession()) {
+    notify('Solo el propietario puede gestionar permisos.', 'error');
+    return;
+  }
+
   const panel = document.getElementById('ajustes-panel');
   const title = document.getElementById('ajustes-panel-title');
   const content = document.getElementById('ajustes-panel-content');
@@ -19690,6 +19822,26 @@ async function loadAdminWaitersInline() {
         credButtons += '<button onclick="promptResetWaiterPwd(\'' + w.id + '\',\'' + escHtml(w.name).replace(/'/g, '&#39;') + '\',\'' + role + '\')" style="padding:4px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer;font-family:inherit">🔑 Contraseña</button>';
       }
 
+      // Sprint Permisos Turno 1: si la sesión es manager, ocultar botones editar/borrar
+      // sobre owners (mejor UX que mostrar error tras click)
+      const isManagerSession = _manageatActiveRole === 'manager';
+      const targetIsOwner = role === 'owner';
+      const isSelf = (w.id === state.adminEmployeeId || w.id === _activeEmployee?.id);
+      const blockActions = isManagerSession && (targetIsOwner);
+      const blockDelete = isManagerSession && (targetIsOwner || isSelf);
+
+      const editBtn = blockActions
+        ? '<button title="Solo el propietario puede editar a otro propietario" disabled style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:11px;cursor:not-allowed;opacity:0.4">✏️</button>'
+        : '<button onclick="openEditMemberModal(\'' + w.id + '\')" title="Editar" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer">✏️</button>';
+
+      const deleteBtn = blockDelete
+        ? '<button title="' + (isSelf ? 'No puedes eliminarte a ti mismo' : 'Solo el propietario puede eliminar a otro propietario') + '" disabled style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:not-allowed;opacity:0.4">✕</button>'
+        : '<button onclick="deleteWaiterInline(\'' + w.id + '\')" title="Eliminar" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer">✕</button>';
+
+      // Botones de credenciales (PIN/Contraseña): también bloqueados si target es owner y sesión manager
+      let credButtonsFiltered = credButtons;
+      if (blockActions) credButtonsFiltered = ''; // sin botones de credenciales para owners cuando manager
+
       html += '<div class="card" style="margin-bottom:.4rem;padding:.65rem .85rem">'
         + '<div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem">'
         +   '<div style="flex:1;min-width:0">'
@@ -19697,9 +19849,9 @@ async function loadAdminWaitersInline() {
         +     credEmail
         +   '</div>'
         +   '<div style="display:flex;gap:4px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">'
-        +     '<button onclick="openEditMemberModal(\'' + w.id + '\')" title="Editar" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t2);font-size:11px;cursor:pointer">✏️</button>'
-        +     credButtons
-        +     '<button onclick="deleteWaiterInline(\'' + w.id + '\')" title="Eliminar" style="width:26px;height:26px;border-radius:50%;border:1px solid var(--bd2);background:var(--bg);color:var(--t3);font-size:12px;cursor:pointer">✕</button>'
+        +     editBtn
+        +     credButtonsFiltered
+        +     deleteBtn
         +   '</div>'
         + '</div>'
         + '</div>';
@@ -19726,6 +19878,21 @@ async function promptResetWaiterPin(waiterId, waiterName) {
 function showAddWaiterFormAjustes() {
   const f = document.getElementById('add-waiter-form-ajustes');
   if (f) f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  // Sprint Permisos Turno 1: si la sesión es manager, ocultar la opción "Propietario"
+  // (manager NO puede crear owners). Esto se aplica cada vez que se abre el form
+  // porque el rol activo puede cambiar entre aperturas.
+  const sel = document.getElementById('awf-role');
+  if (sel) {
+    const ownerOption = sel.querySelector('option[value="owner"]');
+    if (ownerOption) {
+      ownerOption.style.display = (_manageatActiveRole === 'manager') ? 'none' : '';
+      // Si está seleccionada y manager, mover selección a manager
+      if (_manageatActiveRole === 'manager' && sel.value === 'owner') {
+        sel.value = 'manager';
+        if (typeof _onRoleChangeAwf === 'function') _onRoleChangeAwf();
+      }
+    }
+  }
 }
 
 // Sub-Sprint A.4+A.6: cambia el form según el rol seleccionado
@@ -19785,6 +19952,13 @@ async function saveWaiterAjustes() {
   const email = document.getElementById('awf-email')?.value?.trim();
   const password = document.getElementById('awf-password')?.value;
   const role = document.getElementById('awf-role')?.value || 'waiter';
+
+  // Sprint Permisos Turno 1: manager NO puede crear owners (defensa frontend, BD valida vía RLS)
+  if (_manageatActiveRole === 'manager' && role === 'owner') {
+    notify('Solo el propietario puede crear otro propietario.', 'error');
+    return;
+  }
+
   // Sprint Refactor: waiter, cook, chef, kitchen_chief usan PIN; owner/manager usan email+pwd
   const isPinRole = role === 'chef' || role === 'kitchen_chief' || role === 'cook' || role === 'waiter';
 
@@ -19843,10 +20017,26 @@ async function openEditMemberModal(waiterId) {
   if (!w) { notify('Miembro no encontrado', 'error'); return; }
 
   const role = w.role || 'waiter';
+  // Sprint Permisos Turno 1: regla de negocio FIJA — manager NO puede:
+  //   1. Editar a un owner (incluido el owner principal del restaurante)
+  //   2. Promocionar a nadie a owner (la opción "Propietario" se oculta)
+  //   3. Auto-editarse para escalar privilegios — el rol queda read-only para el manager
+  const isManagerSession = _manageatActiveRole === 'manager';
+  const isEditingOwner = role === 'owner';
+
+  if (isManagerSession && isEditingOwner) {
+    notify('Solo el propietario puede editar a otro propietario.', 'error');
+    return;
+  }
+
   // Roles de cocina (sin email): chef legacy + kitchen_chief + cook nuevo del Sprint Refactor
   const isCook = role === 'chef' || role === 'kitchen_chief' || role === 'cook';
   const palette = ['#085041','#3D7BC2','#C2563D','#854F0B','#7A4F8C','#27500A','#A32D2D'];
   const currentColor = w.avatar_color || palette[0];
+
+  // Si soy manager editándome a mí mismo, NO puedo cambiar mi propio rol
+  const isSelfEdit = isManagerSession && (waiterId === state.adminEmployeeId || waiterId === _activeEmployee?.id);
+  const roleSelectDisabled = isSelfEdit ? ' disabled title="No puedes cambiar tu propio rol"' : '';
 
   document.getElementById('edit-member-overlay')?.remove();
   const overlay = document.createElement('div');
@@ -19861,9 +20051,10 @@ async function openEditMemberModal(waiterId) {
     +   '<input id="em-name" type="text" maxlength="60" value="' + escHtml(w.name || '') + '" '
     +     'style="width:100%;padding:10px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-size:14px;font-family:inherit;margin-bottom:1rem;background:var(--card);color:var(--t1)">'
 
-    +   '<label style="display:block;font-size:12px;color:var(--t2);margin-bottom:4px;font-weight:500">Rol</label>'
-    +   '<select id="em-role" onchange="_onEditMemberRoleChange()" style="width:100%;padding:10px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);margin-bottom:1rem">'
-    +     '<option value="owner"' + (role === 'owner' ? ' selected' : '') + '>Propietario (manageat + todo)</option>'
+    +   '<label style="display:block;font-size:12px;color:var(--t2);margin-bottom:4px;font-weight:500">Rol' + (isSelfEdit ? ' <span style="font-weight:400;color:var(--t3)">(no puedes cambiar tu propio rol)</span>' : '') + '</label>'
+    +   '<select id="em-role" onchange="_onEditMemberRoleChange()"' + roleSelectDisabled + ' style="width:100%;padding:10px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);margin-bottom:1rem' + (isSelfEdit ? ';opacity:0.6;cursor:not-allowed' : '') + '">'
+    // Sprint Permisos Turno 1: opción "Propietario" SOLO disponible si la sesión activa es owner
+    + (isManagerSession ? '' : '<option value="owner"' + (role === 'owner' ? ' selected' : '') + '>Propietario (manageat + todo)</option>')
     +     '<option value="manager"' + (role === 'manager' ? ' selected' : '') + '>Encargado (manageat limitado)</option>'
     +     '<option value="kitchen_chief"' + (role === 'kitchen_chief' ? ' selected' : '') + '>Jefe de cocina (cookeat)</option>'
     +     '<option value="cook"' + (role === 'cook' ? ' selected' : '') + '>Cocinero (cookeat)</option>'
@@ -19924,6 +20115,30 @@ async function saveMemberEdit(waiterId) {
   const active = !!document.getElementById('em-active')?.checked;
 
   if (!name) { notify('El nombre no puede estar vacío', 'error'); return; }
+
+  // Sprint Permisos Turno 1: defensa frontend (la BD también validará via RLS).
+  // Manager NO puede promocionar a nadie a 'owner', ni cambiar su propio rol.
+  const isManagerSession = _manageatActiveRole === 'manager';
+  if (isManagerSession && role === 'owner') {
+    notify('Solo el propietario puede asignar el rol de propietario.', 'error');
+    return;
+  }
+  if (isManagerSession && (waiterId === state.adminEmployeeId || waiterId === _activeEmployee?.id)) {
+    // Comprobar que el rol NO ha cambiado (auto-edición)
+    const { data: current } = await sb.from('waiters').select('role').eq('id', waiterId).maybeSingle();
+    if (current && current.role !== role) {
+      notify('No puedes cambiar tu propio rol.', 'error');
+      return;
+    }
+  }
+  // Manager NO puede editar a un owner (defensa adicional por si el modal se abrió de algún flujo extraño)
+  if (isManagerSession) {
+    const { data: target } = await sb.from('waiters').select('role').eq('id', waiterId).maybeSingle();
+    if (target?.role === 'owner') {
+      notify('Solo el propietario puede editar a otro propietario.', 'error');
+      return;
+    }
+  }
 
   const isCook = role === 'chef' || role === 'kitchen_chief' || role === 'cook';
   // Validar email solo si es no-cook y se ha introducido algo
@@ -20062,6 +20277,19 @@ async function _doResetPwd(waiterId, waiterName, isCook) {
 }
 
 async function deleteWaiterInline(waiterId) {
+  // Sprint Permisos Turno 1: manager NO puede borrar owners
+  if (_manageatActiveRole === 'manager') {
+    const { data: target } = await sb.from('waiters').select('role,name').eq('id', waiterId).maybeSingle();
+    if (target?.role === 'owner') {
+      notify('Solo el propietario puede eliminar a otro propietario.', 'error');
+      return;
+    }
+    // Auto-eliminación
+    if (waiterId === state.adminEmployeeId || waiterId === _activeEmployee?.id) {
+      notify('No puedes eliminarte a ti mismo.', 'error');
+      return;
+    }
+  }
   if (!(await confirmModal('¿Eliminar este camarero? Esta acción no se puede deshacer.'))) return;
   await _cleanAndDeleteWaiter(waiterId);
   loadAdminWaitersInline();
