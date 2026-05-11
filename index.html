@@ -10123,23 +10123,31 @@ async function _notifyChiefRequired() {
 let _staffHeartbeatTimer = null;
 let _staffHeartbeatVisHandler = null;
 let _staffHeartbeatId = null;
+let _staffHeartbeatRole = null; // Sprint Refactor: cacheamos el rol para detectar owner correctamente
 
-async function _startStaffHeartbeat(empId) {
+async function _startStaffHeartbeat(empId, empRole) {
   if (!empId) return;
   _stopStaffHeartbeat();
   _staffHeartbeatId = empId;
+  _staffHeartbeatRole = empRole || null;
+
+  // Si no nos pasaron el rol, intentar leerlo de BD (fallback)
+  if (!_staffHeartbeatRole) {
+    try {
+      const { data } = await sb.from('waiters').select('role').eq('id', empId).maybeSingle();
+      _staffHeartbeatRole = data?.role || null;
+    } catch (e) { /* silent */ }
+  }
 
   const tick = async () => {
     if (!_staffHeartbeatId) return;
     try {
       // Sprint Refactor: el heartbeat solo marca is_active=true SI hay shift activo (control horario).
-      // Si el empleado entró pero no fichó (eligió "Ahora no"), aparece en sala como "reciente"
-      // (gris/amarillo) — coherente con el RD-ley 8/2019: técnicamente no está trabajando.
-      // Owner queda fuera del control horario → siempre se marca activo.
+      // Owner queda fuera del control horario (no es empleado por cuenta ajena) → siempre activo.
+      // Resto de roles: aparece activo solo si fichó entrada. Si no, "reciente" gris.
       let shouldBeActive = true;
       try {
-        // Owner está exento del fichaje (no es empleado por cuenta ajena)
-        const isOwner = state.adminRole === 'owner';
+        const isOwner = _staffHeartbeatRole === 'owner';
         if (!isOwner) {
           const { data } = await sb.rpc('get_active_shift', { p_waiter_id: _staffHeartbeatId });
           shouldBeActive = !!data?.active;
@@ -10168,6 +10176,7 @@ function _stopStaffHeartbeat() {
     _staffHeartbeatVisHandler = null;
   }
   _staffHeartbeatId = null;
+  _staffHeartbeatRole = null;
 }
 
 async function setOrderStatus(dishId, status) {
@@ -11359,27 +11368,45 @@ let _clockInBadgeTimer = null;
 
 // Prompt clock-in al login si no hay fichaje activo
 async function promptClockInIfNeeded(waiterId) {
+  if (!waiterId) { console.warn('[promptClockIn] sin waiterId'); return; }
   try {
     const { data, error } = await sb.rpc('get_active_shift', { p_waiter_id: waiterId });
-    if (error) { console.warn('[promptClockIn]', error); return; }
+    if (error) {
+      console.warn('[promptClockIn] RPC error, asumiendo no fichado:', error);
+      // Si la RPC falla, asumimos que NO está fichado y mostramos modal igualmente
+      _showClockInModal(waiterId);
+      return;
+    }
     if (data?.active) {
       // Ya tiene shift activo → solo arrancar el badge
+      console.log('[promptClockIn] shift activo desde', data.clock_in_at);
       _startClockInBadge(data.clock_in_at);
       return;
     }
+    console.log('[promptClockIn] sin shift activo → mostrar modal');
     _showClockInModal(waiterId);
-  } catch (e) { console.warn('[promptClockIn]', e); }
+  } catch (e) {
+    console.warn('[promptClockIn] excepción:', e);
+    // Fallback: mostrar el modal igualmente
+    try { _showClockInModal(waiterId); } catch(_){}
+  }
 }
 
 function _showClockInModal(waiterId) {
   document.getElementById('clockin-modal')?.remove();
+  // Sprint Refactor: el nombre puede venir de varias fuentes según el módulo
+  const empName = (typeof _waiterName !== 'undefined' && _waiterName)
+    || state.adminEmployeeName
+    || state.kitchenUserName
+    || state.cookeatStaffName
+    || '';
   const el = document.createElement('div');
   el.id = 'clockin-modal';
   el.style.cssText = 'position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:1rem';
   el.innerHTML = `
     <div style="background:var(--card);border-radius:var(--r-lg);padding:1.75rem 1.5rem;max-width:380px;width:100%;text-align:center;animation:fadeIn .2s">
       <div style="font-size:48px;line-height:1;margin-bottom:.5rem">⏰</div>
-      <div style="font-family:'Fraunces',serif;font-size:21px;font-weight:700;color:var(--t1);margin-bottom:.4rem">¡Hola, ${escHtml(_waiterName || '')}!</div>
+      <div style="font-family:'Fraunces',serif;font-size:21px;font-weight:700;color:var(--t1);margin-bottom:.4rem">¡Hola${empName ? ', ' + escHtml(empName) : ''}!</div>
       <div style="font-size:14px;color:var(--t2);margin-bottom:1.5rem;line-height:1.5">¿Empiezas tu turno ahora?</div>
       <button class="btn btn-primary" onclick="_doClockIn('${waiterId}')" style="width:100%;margin-bottom:.5rem">✓ Fichar entrada</button>
       <button onclick="document.getElementById('clockin-modal').remove()"
@@ -15231,7 +15258,7 @@ async function _enterModuleAfterPin(emp) {
     }
 
     // Sprint Refactor: heartbeat para que el manager/owner aparezca como "online" en sala
-    _startStaffHeartbeat(emp.id);
+    _startStaffHeartbeat(emp.id, emp.role);
 
     return;
   }
@@ -15264,7 +15291,7 @@ async function _enterModuleAfterPin(emp) {
 
     // Heartbeat (mantiene last_seen_at actualizado mientras serveat está abierto)
     // Sprint Refactor: usamos el helper centralizado para coherencia con cookeat/manageat
-    _startStaffHeartbeat(emp.id);
+    _startStaffHeartbeat(emp.id, emp.role);
 
     // (legacy fallback — algunos códigos viejos comprueban window._waiterHeartbeatTimer)
     if (typeof _doHeartbeat === 'function') {
@@ -15339,7 +15366,7 @@ async function _enterModuleAfterPin(emp) {
     }
 
     // Sprint Refactor: heartbeat para que el cocinero aparezca como "online" en sala (manageat)
-    _startStaffHeartbeat(emp.id);
+    _startStaffHeartbeat(emp.id, emp.role);
 
     return;
   }
@@ -25173,8 +25200,21 @@ async function cancelCalleatEntry(entryId) {
 }
 
 // Auto-subscribe calleat realtime in manageat when sala tab open
+let _calleatRealtimeChannel = null;
 function subscribeCalleatRealtime() {
-  sb.channel('calleat-admin-' + state.adminRestaurantId)
+  if (!state.adminRestaurantId) return;
+  // Idempotente: si ya estaba suscrito al mismo restaurante, no re-suscribir
+  // (Supabase lanza "cannot add postgres_changes callbacks after subscribe()" si se duplica)
+  const channelName = 'calleat-admin-' + state.adminRestaurantId;
+  if (_calleatRealtimeChannel && _calleatRealtimeChannel.topic === 'realtime:' + channelName) {
+    return; // ya activo
+  }
+  // Si había uno de otro restaurante, desuscribir primero
+  if (_calleatRealtimeChannel) {
+    try { sb.removeChannel(_calleatRealtimeChannel); } catch(e){}
+    _calleatRealtimeChannel = null;
+  }
+  _calleatRealtimeChannel = sb.channel(channelName)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'calleat_queue',
         filter: `restaurant_id=eq.${state.adminRestaurantId}` }, () => {
       loadCalleatQueue();
