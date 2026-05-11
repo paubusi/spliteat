@@ -15260,6 +15260,12 @@ async function _enterModuleAfterPin(emp) {
     state.adminEmployeeId = emp.id;
     state.adminEmployeeName = emp.name;
 
+    // Sprint Permisos Turno 1: setear el rol activo de manageat SINCRÓNICAMENTE,
+    // antes de cualquier setTimeout o flujo async. Si esperamos a applyManageatPermissions,
+    // el usuario puede hacer clic en Editar miembro antes de que termine y los chequeos
+    // de "isManagerSession" fallan (null !== 'manager' → permite cambiar rol a owner).
+    _manageatActiveRole = emp.role;
+
     // Aplicar permisos de UI tras entrar
     setTimeout(() => { try { applyManageatPermissions(emp.role); } catch(e){} }, 200);
 
@@ -19824,7 +19830,9 @@ async function loadAdminWaitersInline() {
 
       // Sprint Permisos Turno 1: si la sesión es manager, ocultar botones editar/borrar
       // sobre owners (mejor UX que mostrar error tras click)
-      const isManagerSession = _manageatActiveRole === 'manager';
+      // Fuente robusta: chequear varias variables, no solo _manageatActiveRole.
+      const sessionRoleInline = _manageatActiveRole || state.adminRole || _activeEmployee?.role;
+      const isManagerSession = sessionRoleInline === 'manager';
       const targetIsOwner = role === 'owner';
       const isSelf = (w.id === state.adminEmployeeId || w.id === _activeEmployee?.id);
       const blockActions = isManagerSession && (targetIsOwner);
@@ -19878,16 +19886,17 @@ async function promptResetWaiterPin(waiterId, waiterName) {
 function showAddWaiterFormAjustes() {
   const f = document.getElementById('add-waiter-form-ajustes');
   if (f) f.style.display = f.style.display === 'none' ? 'block' : 'none';
-  // Sprint Permisos Turno 1: si la sesión es manager, ocultar la opción "Propietario"
-  // (manager NO puede crear owners). Esto se aplica cada vez que se abre el form
-  // porque el rol activo puede cambiar entre aperturas.
+  // Sprint Permisos Turno 1: si la sesión es manager, ocultar la opción "Propietario".
+  // Fuente robusta: usar varias variables, no solo _manageatActiveRole.
+  const sessionRole = _manageatActiveRole || state.adminRole || _activeEmployee?.role;
+  const isManager = sessionRole === 'manager';
   const sel = document.getElementById('awf-role');
   if (sel) {
     const ownerOption = sel.querySelector('option[value="owner"]');
     if (ownerOption) {
-      ownerOption.style.display = (_manageatActiveRole === 'manager') ? 'none' : '';
+      ownerOption.style.display = isManager ? 'none' : '';
       // Si está seleccionada y manager, mover selección a manager
-      if (_manageatActiveRole === 'manager' && sel.value === 'owner') {
+      if (isManager && sel.value === 'owner') {
         sel.value = 'manager';
         if (typeof _onRoleChangeAwf === 'function') _onRoleChangeAwf();
       }
@@ -19954,7 +19963,9 @@ async function saveWaiterAjustes() {
   const role = document.getElementById('awf-role')?.value || 'waiter';
 
   // Sprint Permisos Turno 1: manager NO puede crear owners (defensa frontend, BD valida vía RLS)
-  if (_manageatActiveRole === 'manager' && role === 'owner') {
+  // Fuente robusta: chequear varias variables, no solo _manageatActiveRole.
+  const sessionRoleAwf = _manageatActiveRole || state.adminRole || _activeEmployee?.role;
+  if (sessionRoleAwf === 'manager' && role === 'owner') {
     notify('Solo el propietario puede crear otro propietario.', 'error');
     return;
   }
@@ -20021,7 +20032,11 @@ async function openEditMemberModal(waiterId) {
   //   1. Editar a un owner (incluido el owner principal del restaurante)
   //   2. Promocionar a nadie a owner (la opción "Propietario" se oculta)
   //   3. Auto-editarse para escalar privilegios — el rol queda read-only para el manager
-  const isManagerSession = _manageatActiveRole === 'manager';
+  //
+  // Fuente de verdad ROBUSTA: chequear varias variables, no solo _manageatActiveRole
+  // que puede no estar cargado si el usuario hace clic rápido tras login.
+  const sessionRole = _manageatActiveRole || state.adminRole || _activeEmployee?.role;
+  const isManagerSession = sessionRole === 'manager';
   const isEditingOwner = role === 'owner';
 
   if (isManagerSession && isEditingOwner) {
@@ -20037,6 +20052,11 @@ async function openEditMemberModal(waiterId) {
   // Si soy manager editándome a mí mismo, NO puedo cambiar mi propio rol
   const isSelfEdit = isManagerSession && (waiterId === state.adminEmployeeId || waiterId === _activeEmployee?.id);
   const roleSelectDisabled = isSelfEdit ? ' disabled title="No puedes cambiar tu propio rol"' : '';
+
+  // "chef" es rol legacy del histórico. Si el miembro ya lo tiene, lo mostramos
+  // como opción seleccionada para no perder el dato, pero NUNCA aparece como opción
+  // elegible si no era ya su rol.
+  const showChefLegacy = (role === 'chef');
 
   document.getElementById('edit-member-overlay')?.remove();
   const overlay = document.createElement('div');
@@ -20058,7 +20078,7 @@ async function openEditMemberModal(waiterId) {
     +     '<option value="manager"' + (role === 'manager' ? ' selected' : '') + '>Encargado (manageat limitado)</option>'
     +     '<option value="kitchen_chief"' + (role === 'kitchen_chief' ? ' selected' : '') + '>Jefe de cocina (cookeat)</option>'
     +     '<option value="cook"' + (role === 'cook' ? ' selected' : '') + '>Cocinero (cookeat)</option>'
-    +     '<option value="chef"' + (role === 'chef' ? ' selected' : '') + '>Cocinero · legacy (cookeat)</option>'
+    + (showChefLegacy ? '<option value="chef" selected>Cocinero (legacy)</option>' : '')
     +     '<option value="waiter"' + (role === 'waiter' ? ' selected' : '') + '>Camarero / Jefe de sala (serveat)</option>'
     +   '</select>'
 
@@ -20118,7 +20138,9 @@ async function saveMemberEdit(waiterId) {
 
   // Sprint Permisos Turno 1: defensa frontend (la BD también validará via RLS).
   // Manager NO puede promocionar a nadie a 'owner', ni cambiar su propio rol.
-  const isManagerSession = _manageatActiveRole === 'manager';
+  // Fuente robusta: chequear varias variables, no solo _manageatActiveRole.
+  const sessionRole = _manageatActiveRole || state.adminRole || _activeEmployee?.role;
+  const isManagerSession = sessionRole === 'manager';
   if (isManagerSession && role === 'owner') {
     notify('Solo el propietario puede asignar el rol de propietario.', 'error');
     return;
@@ -20278,7 +20300,9 @@ async function _doResetPwd(waiterId, waiterName, isCook) {
 
 async function deleteWaiterInline(waiterId) {
   // Sprint Permisos Turno 1: manager NO puede borrar owners
-  if (_manageatActiveRole === 'manager') {
+  // Fuente robusta: chequear varias variables.
+  const sessionRoleDel = _manageatActiveRole || state.adminRole || _activeEmployee?.role;
+  if (sessionRoleDel === 'manager') {
     const { data: target } = await sb.from('waiters').select('role,name').eq('id', waiterId).maybeSingle();
     if (target?.role === 'owner') {
       notify('Solo el propietario puede eliminar a otro propietario.', 'error');
