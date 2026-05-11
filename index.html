@@ -10139,7 +10139,7 @@ async function _startStaffHeartbeat(empId, empRole) {
     } catch (e) { /* silent */ }
   }
 
-  console.log('[heartbeat] start — empId:', empId, 'role:', _staffHeartbeatRole);
+  console.log('[heartbeat] start —', empId, 'role:', _staffHeartbeatRole);
 
   const tick = async () => {
     if (!_staffHeartbeatId) return;
@@ -10153,9 +10153,6 @@ async function _startStaffHeartbeat(empId, empRole) {
         if (!isOwner) {
           const { data } = await sb.rpc('get_active_shift', { p_waiter_id: _staffHeartbeatId });
           shouldBeActive = !!data?.active;
-          console.log('[heartbeat] tick — role:', _staffHeartbeatRole, 'shift active:', shouldBeActive);
-        } else {
-          console.log('[heartbeat] tick — owner exento, marcando activo');
         }
       } catch (e) {
         console.warn('[heartbeat] RPC error:', e);
@@ -11391,21 +11388,16 @@ async function promptClockInIfNeeded(waiterId, waiterName) {
     const { data, error } = await sb.rpc('get_active_shift', { p_waiter_id: waiterId });
     if (error) {
       console.warn('[promptClockIn] RPC error, asumiendo no fichado:', error);
-      // Si la RPC falla, asumimos que NO está fichado y mostramos modal igualmente
       _showClockInModal(waiterId, waiterName);
       return;
     }
     if (data?.active) {
-      // Ya tiene shift activo → solo arrancar el badge
-      console.log('[promptClockIn] shift activo desde', data.clock_in_at);
       _startClockInBadge(data.clock_in_at);
       return;
     }
-    console.log('[promptClockIn] sin shift activo → mostrar modal');
     _showClockInModal(waiterId, waiterName);
   } catch (e) {
     console.warn('[promptClockIn] excepción:', e);
-    // Fallback: mostrar el modal igualmente
     try { _showClockInModal(waiterId, waiterName); } catch(_){}
   }
 }
@@ -16557,9 +16549,11 @@ function openAjustesSection(section) {
         <div class="field"><label>Nombre</label><input id="awf-name" type="text" placeholder="ej. Carlos" autocomplete="off"></div>
         <div class="field"><label>Rol</label>
           <select id="awf-role" onchange="_onRoleChangeAwf()" style="padding:10px 12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);width:100%">
-            <option value="waiter">Camarero / Jefe de sala (serveat)</option>
-            <option value="chef">Cocinero (cookeat)</option>
+            <option value="owner">Propietario (manageat + todo)</option>
+            <option value="manager">Encargado (manageat limitado)</option>
             <option value="kitchen_chief">Jefe de cocina (cookeat)</option>
+            <option value="cook">Cocinero (cookeat)</option>
+            <option value="waiter" selected>Camarero / Jefe de sala (serveat)</option>
           </select>
           <div style="font-size:11px;color:var(--t3);margin-top:.35rem;line-height:1.4" id="awf-role-hint">Camarero: gestiona mesas y cobros desde serveat. Jefe de sala: mismo rol con responsabilidad de turno.</div>
         </div>
@@ -19742,10 +19736,25 @@ function _onRoleChangeAwf() {
   const passInp = document.getElementById('awf-password');
   const emailField = document.getElementById('awf-email-field');
 
-  if (role === 'chef' || role === 'kitchen_chief') {
-    if (hint) hint.textContent = role === 'kitchen_chief'
-      ? 'Jefe de cocina: confirma pases listos, gestiona platos del KDS y supervisa la cocina.'
-      : 'Cocinero: marca platos como listos en cookeat, filtrado por sus zonas activas.';
+  // Sprint Refactor: 5 roles
+  // owner/manager → email + password (entran por manageat con login del restaurante)
+  // kitchen_chief/cook/chef → PIN 4 dígitos (entran por cookeat)
+  // waiter → PIN 4 dígitos también (Sprint Refactor cambió esto; antes era email+pwd)
+  const isPinRole = role === 'chef' || role === 'kitchen_chief' || role === 'cook' || role === 'waiter';
+
+  if (role === 'owner') {
+    if (hint) hint.textContent = 'Propietario: acceso total a manageat, multi-local, costes, Verifactu y facturas. Exento de fichaje obligatorio.';
+  } else if (role === 'manager') {
+    if (hint) hint.textContent = 'Encargado: acceso a manageat limitado (sin costes, Verifactu ni facturas). Ficha control horario.';
+  } else if (role === 'kitchen_chief') {
+    if (hint) hint.textContent = 'Jefe de cocina: confirma pases listos, gestiona platos del KDS y supervisa la cocina.';
+  } else if (role === 'cook' || role === 'chef') {
+    if (hint) hint.textContent = 'Cocinero: marca platos como listos en cookeat, filtrado por sus zonas activas.';
+  } else {
+    if (hint) hint.textContent = 'Camarero / Jefe de sala: gestiona mesas, cobros y atención desde serveat. El "jefe de sala" es el camarero con responsabilidad de turno (mismo rol técnicamente).';
+  }
+
+  if (isPinRole) {
     if (passLbl) passLbl.textContent = 'PIN (4 dígitos)';
     if (passInp) {
       passInp.type = 'tel';
@@ -19755,9 +19764,9 @@ function _onRoleChangeAwf() {
       passInp.pattern = '[0-9]{4}';
       passInp.value = '';
     }
-    if (emailField) emailField.style.display = 'none'; // los cocineros no necesitan email para login PIN
+    if (emailField) emailField.style.display = 'none'; // PIN-only: sin email
   } else {
-    if (hint) hint.textContent = 'Camarero / Jefe de sala: gestiona mesas, cobros y atención desde serveat. El "jefe de sala" es el camarero con responsabilidad de turno (mismo rol técnicamente).';
+    // owner / manager → email + password
     if (passLbl) passLbl.textContent = 'Contraseña temporal';
     if (passInp) {
       passInp.type = 'password';
@@ -19776,15 +19785,16 @@ async function saveWaiterAjustes() {
   const email = document.getElementById('awf-email')?.value?.trim();
   const password = document.getElementById('awf-password')?.value;
   const role = document.getElementById('awf-role')?.value || 'waiter';
-  const isCook = role === 'chef' || role === 'kitchen_chief';
+  // Sprint Refactor: waiter, cook, chef, kitchen_chief usan PIN; owner/manager usan email+pwd
+  const isPinRole = role === 'chef' || role === 'kitchen_chief' || role === 'cook' || role === 'waiter';
 
   if (!name) { notify('Escribe el nombre del miembro'); return; }
 
-  if (isCook) {
-    // Cocineros: PIN de 4 dígitos
+  if (isPinRole) {
+    // PIN de 4 dígitos
     if (!password || !/^\d{4}$/.test(password)) { notify('El PIN debe tener exactamente 4 dígitos'); return; }
   } else {
-    // Camareros: email + password >= 6
+    // owner / manager: email + password >= 6
     if (!email || !email.includes('@')) { notify('Introduce un email válido'); return; }
     if (!password || password.length < 6) { notify('La contraseña debe tener mínimo 6 caracteres'); return; }
   }
@@ -19799,24 +19809,32 @@ async function saveWaiterAjustes() {
   const palette = ['#085041','#3D7BC2','#C2563D','#854F0B','#7A4F8C','#27500A','#A32D2D'];
   const avatar_color = palette[Math.floor(Math.random() * palette.length)];
 
-  // Insert: para cocineros guardamos el PIN en password (plaintext temporal)
-  // Una edge function bcrypt lo migrará a pin_hash en el primer login (ver Turno 5/5).
+  // Sprint Refactor: roles con PIN → pin_hash (plaintext temporal, bcrypt al primer login)
+  // Sprint Refactor: roles con password → password (igual que antes)
   const insertPayload = {
     restaurant_id: state.adminRestaurantId,
     name,
-    email: email || null,
+    email: (isPinRole ? null : email),
     password,
     role,
     avatar_color,
     active: true,
-    is_active: false
+    is_active: false,
+    // Sprint Refactor: owner sees all modules, manager sees most, cook/chief only kitchen, waiter only sala
+    allowed_modules: (
+      role === 'owner' ? ['serveat','cookeat','stockeat','manageat']
+      : role === 'manager' ? ['serveat','cookeat','stockeat','manageat']
+      : role === 'kitchen_chief' ? ['cookeat','stockeat']
+      : (role === 'cook' || role === 'chef') ? ['cookeat']
+      : ['serveat']  // waiter
+    )
   };
 
   const { error } = await sb.from('waiters').insert(insertPayload);
   if (error) { notify('Error al guardar: ' + error.message); return; }
   document.getElementById('add-waiter-form-ajustes').style.display = 'none';
   loadAdminWaitersInline();
-  notify(isCook ? 'Cocinero creado. Comunícale el PIN.' : 'Miembro creado. Comunícale las credenciales.', 'success');
+  notify(isPinRole ? 'Miembro creado. Comunícale el PIN.' : 'Miembro creado. Comunícale las credenciales.', 'success');
   track('waiter_created', { restaurant_id: state.adminRestaurantId, role });
 }
 
@@ -19825,7 +19843,8 @@ async function openEditMemberModal(waiterId) {
   if (!w) { notify('Miembro no encontrado', 'error'); return; }
 
   const role = w.role || 'waiter';
-  const isCook = role === 'chef' || role === 'kitchen_chief';
+  // Roles de cocina (sin email): chef legacy + kitchen_chief + cook nuevo del Sprint Refactor
+  const isCook = role === 'chef' || role === 'kitchen_chief' || role === 'cook';
   const palette = ['#085041','#3D7BC2','#C2563D','#854F0B','#7A4F8C','#27500A','#A32D2D'];
   const currentColor = w.avatar_color || palette[0];
 
@@ -19844,9 +19863,12 @@ async function openEditMemberModal(waiterId) {
 
     +   '<label style="display:block;font-size:12px;color:var(--t2);margin-bottom:4px;font-weight:500">Rol</label>'
     +   '<select id="em-role" onchange="_onEditMemberRoleChange()" style="width:100%;padding:10px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:14px;background:var(--card);margin-bottom:1rem">'
-    +     '<option value="waiter"' + (role === 'waiter' ? ' selected' : '') + '>Camarero / Jefe de sala (serveat)</option>'
-    +     '<option value="chef"' + (role === 'chef' ? ' selected' : '') + '>Cocinero (cookeat)</option>'
+    +     '<option value="owner"' + (role === 'owner' ? ' selected' : '') + '>Propietario (manageat + todo)</option>'
+    +     '<option value="manager"' + (role === 'manager' ? ' selected' : '') + '>Encargado (manageat limitado)</option>'
     +     '<option value="kitchen_chief"' + (role === 'kitchen_chief' ? ' selected' : '') + '>Jefe de cocina (cookeat)</option>'
+    +     '<option value="cook"' + (role === 'cook' ? ' selected' : '') + '>Cocinero (cookeat)</option>'
+    +     '<option value="chef"' + (role === 'chef' ? ' selected' : '') + '>Cocinero · legacy (cookeat)</option>'
+    +     '<option value="waiter"' + (role === 'waiter' ? ' selected' : '') + '>Camarero / Jefe de sala (serveat)</option>'
     +   '</select>'
 
     +   '<label id="em-email-label" style="display:' + (isCook ? 'none' : 'block') + ';font-size:12px;color:var(--t2);margin-bottom:4px;font-weight:500">Email <span style="font-weight:400;color:var(--t3)">(opcional)</span></label>'
@@ -19879,7 +19901,8 @@ async function openEditMemberModal(waiterId) {
 
 function _onEditMemberRoleChange() {
   const role = document.getElementById('em-role')?.value || 'waiter';
-  const isCook = role === 'chef' || role === 'kitchen_chief';
+  // Cook roles: sin email (acceso solo por PIN)
+  const isCook = role === 'chef' || role === 'kitchen_chief' || role === 'cook';
   const lbl = document.getElementById('em-email-label');
   const inp = document.getElementById('em-email');
   if (lbl) lbl.style.display = isCook ? 'none' : 'block';
@@ -19902,7 +19925,7 @@ async function saveMemberEdit(waiterId) {
 
   if (!name) { notify('El nombre no puede estar vacío', 'error'); return; }
 
-  const isCook = role === 'chef' || role === 'kitchen_chief';
+  const isCook = role === 'chef' || role === 'kitchen_chief' || role === 'cook';
   // Validar email solo si es no-cook y se ha introducido algo
   if (!isCook && email && !email.includes('@')) {
     notify('Email no válido', 'error'); return;
