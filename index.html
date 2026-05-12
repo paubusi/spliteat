@@ -31076,15 +31076,60 @@ function showConfigureNewDishesModal(count) {
 
 function _goToConfigureNewDishes() {
   document.getElementById('configure-new-dishes-modal')?.remove();
-  // Activar la tab Ajustes y mostrar la sección Carta
-  if (typeof showAdminTab === 'function') showAdminTab('gestion');
-  setTimeout(() => {
-    if (typeof openAjustesSection === 'function') openAjustesSection('carta');
-    // Activar el filtro "solo sin precio" tras un breve delay
+
+  // 3 contextos posibles desde donde el usuario hace clic:
+  //   1. Stockeat standalone (módulo independiente s-stockeat)
+  //   2. Manageat con Stockeat embebido como tab (state.stockeatContext === 'admin')
+  //   3. Manageat sin pasar por Stockeat (improbable pero soportado)
+  //
+  // En todos los casos el destino es: pantalla s-admin → tab 'gestion' → sección 'carta'
+  // con el filtro "solo platos pendientes" activado.
+
+  const goToCartaSettings = () => {
+    if (typeof showAdminTab === 'function') showAdminTab('gestion');
     setTimeout(() => {
-      if (typeof _setCartaFilterPending === 'function') _setCartaFilterPending(true);
-    }, 300);
-  }, 100);
+      if (typeof openAjustesSection === 'function') openAjustesSection('carta');
+      setTimeout(() => {
+        if (typeof _setCartaFilterPending === 'function') _setCartaFilterPending(true);
+      }, 200);
+    }, 80);
+  };
+
+  // Si estamos en stockeat standalone: hay que SALIR primero y entrar a s-admin
+  if (state.stockeatContext === 'standalone') {
+    // Limpiar contexto stockeat
+    state.stockeatContext = null;
+    if (typeof _restoreStockeatNodeToManageat === 'function') {
+      _restoreStockeatNodeToManageat();
+    }
+    // Limpiar realtime stockeat
+    if (state._stockeatAlertsSub) {
+      try { sb.removeChannel(state._stockeatAlertsSub); } catch(e) {}
+      state._stockeatAlertsSub = null;
+    }
+    // Si ya hay sesión admin abierta (adminRestaurantId), ir directamente a s-admin
+    if (state.adminRestaurantId && state.adminEmployeeId) {
+      if (typeof go === 'function') go('s-admin');
+      if (typeof renderAdminTabs === 'function') renderAdminTabs();
+      setTimeout(goToCartaSettings, 150);
+    } else {
+      // No hay sesión admin → llevar al usuario al login admin
+      notify('Inicia sesión en manageat para configurar los precios', 'info');
+      if (typeof go === 'function') go('s-admin-login');
+    }
+    return;
+  }
+
+  // Si estamos en stockeat embebido en manageat (admin context) o ya en manageat:
+  // salir del modo stockeat embebido si toca + ir a ajustes
+  if (state.stockeatContext === 'admin') {
+    // Cambiar de tab dispara automáticamente el restore del nodo si toca
+    goToCartaSettings();
+    return;
+  }
+
+  // Default: ya estamos en manageat
+  goToCartaSettings();
 }
 
 // Helper notify (usa el existente del proyecto si existe)
