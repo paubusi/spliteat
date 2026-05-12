@@ -16264,7 +16264,19 @@ async function toggleItemActiveMobile(itemId, active, el) {
   if (el) el.classList.toggle('on', active);
   const card = document.getElementById('mitem-' + itemId);
   if (card) card.style.opacity = active ? '1' : '0.6';
-  await sb.from('menu_items').update({ active }).eq('id', itemId);
+  const { error } = await sb.from('menu_items').update({ active }).eq('id', itemId);
+  if (error) {
+    notify('Error: ' + (error.message || error), 'error');
+    if (el) el.classList.toggle('on', !active);
+    if (card) card.style.opacity = active ? '0.6' : '1';
+    return;
+  }
+  // Refresh dinámico tras toggle
+  if (typeof loadAdminCartaMobile === 'function' && document.getElementById('gtab-carta')) {
+    loadAdminCartaMobile();
+  }
+  if (typeof updateDisabledPlatosCount === 'function') updateDisabledPlatosCount();
+  if (typeof _refreshPendingDishesDot === 'function') _refreshPendingDishesDot();
 }
 
 async function deleteItemMobile(itemId) {
@@ -19807,27 +19819,56 @@ async function toggleItemActive(itemId, newActive, toggleEl) {
       return;
     }
   }
-  // Update UI immediately
+  // Update UI optimista
   if (toggleEl) toggleEl.classList.toggle('on', newActive);
   const card = document.getElementById('item-card-' + itemId);
   if (card) card.style.opacity = newActive ? '1' : '0.6';
+
   const { error } = await sb.from('menu_items').update({ active: newActive }).eq('id', itemId);
   if (error) {
-    notify('Error: ' + (error.message || error));
+    notify('Error: ' + (error.message || error), 'error');
     if (toggleEl) toggleEl.classList.toggle('on', !newActive);
     if (card) card.style.opacity = newActive ? '0.6' : '1';
+    return;
   }
+
+  // Refresh dinámico: recargar la lista para que el texto "Inactivo" y el banner
+  // de "N desactivados" reflejen el nuevo estado sin requerir salir y volver.
+  if (document.getElementById('ajustes-carta-list')) {
+    loadAdminCartaInline();
+  } else if (document.getElementById('admin-carta-list')) {
+    loadAdminCarta();
+  }
+  // Actualizar también el badge "N desactivados" del card "Gestionar carta" en home Ajustes
+  if (typeof updateDisabledPlatosCount === 'function') updateDisabledPlatosCount();
+  // Y el dot rojo de platos sin precio en sidebar
+  if (typeof _refreshPendingDishesDot === 'function') _refreshPendingDishesDot();
 }
 
 async function deleteItem(itemId) {
   if (!(await confirmModal('¿Eliminar este plato de la carta?'))) return;
+  // Optimistic UI: ocultar la card inmediatamente (si tiene id la encontramos)
   const card = document.getElementById('item-card-' + itemId);
   if (card) card.style.display = 'none';
+
   const { error } = await sb.from('menu_items').delete().eq('id', itemId);
   if (error) {
-    notify('Error: ' + (error.message || error));
+    notify('Error: ' + (error.message || error), 'error');
     if (card) card.style.display = '';
+    return;
   }
+
+  notify('Plato eliminado', 'success');
+  // Refrescar la lista activa según el render que esté visible.
+  // En manageat tenemos 2 vistas: loadAdminCarta (desktop legacy) y loadAdminCartaInline (Ajustes).
+  if (document.getElementById('ajustes-carta-list')) {
+    loadAdminCartaInline();
+  } else if (document.getElementById('admin-carta-list')) {
+    loadAdminCarta();
+  }
+  // Actualizar badges/contadores que dependen del recuento de platos
+  if (typeof updateDisabledPlatosCount === 'function') updateDisabledPlatosCount();
+  if (typeof _refreshPendingDishesDot === 'function') _refreshPendingDishesDot();
 }
 
 // ── FOTOS DE PLATOS ──
@@ -20282,7 +20323,7 @@ async function loadAdminCartaInline() {
       zoneBadge = `<span title="Esta zona no existe — configura una zona General en Ajustes → Cocina" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:500;background:#FCEBEB;color:#A32D2D;border:1px solid #E89C9C;border-radius:99px;padding:1px 7px;margin-top:2px">⚠️ Sin zona</span>`;
     }
     const allergenHtml = item.allergens?.length ? `<details style="margin-top:.35rem"><summary style="font-size:11px;color:var(--t3);cursor:pointer">Alérgenos (${item.allergens.length})</summary><div style="margin-top:.35rem;line-height:2">${renderAllergenPicker(item.allergens,'${item.id}')}</div></details>` : `<details style="margin-top:.35rem"><summary style="font-size:11px;color:var(--t3);cursor:pointer">+ Añadir alérgenos</summary><div style="margin-top:.35rem;line-height:2">${renderAllergenPicker([],'${item.id}')}</div></details>`;
-    return `<div class="card" style="margin-bottom:.4rem;padding:.65rem .75rem;${!item.active?'opacity:.6':''}">
+    return `<div class="card" id="item-card-${item.id}" style="margin-bottom:.4rem;padding:.65rem .75rem;${!item.active?'opacity:.6':''}">
       <div style="display:flex;align-items:center;gap:8px">
         ${item.photo_url ? `<img src="${item.photo_url}" style="width:40px;height:40px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0">` : ''}
         <div style="flex:1;min-width:0">
