@@ -3968,6 +3968,14 @@
             <div style="font-size:12px;color:var(--t2);margin-top:2px;line-height:1.5">El comensal podrá especificar cómo quiere la carne: muy poco hecho, poco hecho, al punto, hecho o muy hecho.</div>
           </div>
         </div>
+        <!-- Alérgenos: picker visual con chips -->
+        <div style="padding:.85rem 1rem;background:var(--bg2);border-radius:var(--r-sm);margin-bottom:1rem;border:1px solid var(--bd2)">
+          <div style="font-size:14px;font-weight:500;color:var(--t1);margin-bottom:4px">Alérgenos</div>
+          <div style="font-size:12px;color:var(--t2);margin-bottom:.6rem;line-height:1.5">Marca los alérgenos que contiene el plato. Esta información se mostrará al comensal en la carta.</div>
+          <div id="edit-item-allergens-picker" style="display:flex;flex-wrap:wrap;gap:4px;line-height:1.8">
+            <div style="font-size:11px;color:var(--t3)">Cargando…</div>
+          </div>
+        </div>
         <div style="display:flex;gap:.65rem;margin-top:.5rem">
           <button class="btn btn-secondary" onclick="closeEditItem()" style="flex:1">Cancelar</button>
           <button class="btn btn-primary" onclick="saveEditItem()" style="flex:2">Guardar</button>
@@ -10139,6 +10147,47 @@ async function _notifyChiefRequired() {
   notify(msg, 'info');
 }
 
+// ══════════════════════════════════════════════════════════════════
+// Sprint Auto-cierre fichajes — cron frontend que cierra shifts inactivos
+// Se ejecuta cada 5 min mientras hay sesión owner/manager activa.
+// Llama a la RPC auto_close_stale_shifts(restaurant_id, force=false).
+// Capa 2 (cierre nocturno garantizado) está en pg_cron Postgres.
+// ══════════════════════════════════════════════════════════════════
+let _autoCloseShiftsTimer = null;
+let _autoCloseShiftsLastRun = 0;
+
+function _startAutoCloseShiftsCron() {
+  _stopAutoCloseShiftsCron();
+  const tick = async () => {
+    if (!state.adminRestaurantId) return;
+    const now = Date.now();
+    if (now - _autoCloseShiftsLastRun < 4 * 60 * 1000) return;
+    _autoCloseShiftsLastRun = now;
+    try {
+      const { data, error } = await sb.rpc('auto_close_stale_shifts', {
+        p_restaurant_id: state.adminRestaurantId,
+        p_force_close_all: false
+      });
+      if (error) { console.warn('[auto-close cron]', error); return; }
+      if (data && data.length > 0) {
+        console.log('[auto-close cron] cerrados', data.length, 'shifts:', data);
+        if (typeof loadEquipoDashboard === 'function' &&
+            document.getElementById('eq-pane-horario')?.offsetParent !== null) {
+          loadEquipoDashboard();
+        }
+        notify(data.length + ' turno' + (data.length>1?'s':'') + ' auto-cerrado' + (data.length>1?'s':'') + ' por inactividad', 'info');
+      }
+    } catch (e) { console.warn('[auto-close cron] exc:', e); }
+  };
+  setTimeout(tick, 30 * 1000);
+  _autoCloseShiftsTimer = setInterval(tick, 5 * 60 * 1000);
+}
+
+function _stopAutoCloseShiftsCron() {
+  if (_autoCloseShiftsTimer) clearInterval(_autoCloseShiftsTimer);
+  _autoCloseShiftsTimer = null;
+}
+
 // Sprint Refactor — Heartbeat genérico de staff. Mantiene last_seen_at actualizado en BD
 // para que manageat (sala) muestre quién está realmente conectado en cualquier módulo.
 // Sin esto, cookeat/manageat marcaban is_active una vez y luego pasaban a "reciente"/"offline"
@@ -11454,6 +11503,24 @@ function _showClockInModal(waiterId, waiterName) {
 }
 
 async function _doClockIn(waiterId) {
+  // Sprint Auto-cierre: comprobar si el último shift se cerró automáticamente
+  try {
+    const { data: lastAuto } = await sb.rpc('get_last_auto_closed_shift', { p_waiter_id: waiterId });
+    if (lastAuto && lastAuto.length > 0) {
+      const s = lastAuto[0];
+      const closedDate = new Date(s.clock_out_at);
+      const dateStr = closedDate.toLocaleDateString('es-ES', { day:'2-digit', month:'2-digit', year:'numeric' });
+      const timeStr = closedDate.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
+      const reason = s.reason || 'inactividad';
+      const proceed = await confirmModal(
+        '⚠ Tu último turno (' + dateStr + ') se cerró automáticamente a las ' + timeStr + ' (' + reason + ').\n\n' +
+        'Si trabajaste hasta más tarde, pide al propietario o encargado que edite el horario manualmente desde Equipo → Control horario.\n\n' +
+        '¿Fichar entrada ahora?'
+      );
+      if (!proceed) return;
+    }
+  } catch (e) { /* silent — no bloquear el fichaje por esto */ }
+
   const { data, error } = await sb.rpc('clock_in', { p_waiter_id: waiterId });
   if (error) { notify('Error: ' + error.message, 'error'); return; }
   if (data?.error) { notify(data.error, 'error'); return; }
@@ -11694,6 +11761,98 @@ async function loadEquipoDashboard() {
 
   _renderEquipoKPIs();
   _renderEquipoList();
+  // Sprint Auto-cierre — banner con auto-cierres recientes + setting
+  _renderAutoCloseSection();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Sprint Auto-cierre — banner y setting en Control horario
+// ══════════════════════════════════════════════════════════════════
+async function _renderAutoCloseSection() {
+  const pane = document.getElementById('eq-pane-horario');
+  if (!pane) return;
+  let host = document.getElementById('eq-autoclose-section');
+  if (!host) {
+    // Crear el host la primera vez. Insertarlo justo encima de los KPIs
+    host = document.createElement('div');
+    host.id = 'eq-autoclose-section';
+    host.style.cssText = 'margin:0 1.25rem 1rem 1.25rem';
+    const kpis = document.getElementById('equipo-kpis');
+    if (kpis && kpis.parentElement) {
+      kpis.parentElement.insertBefore(host, kpis);
+    } else {
+      pane.appendChild(host);
+    }
+  }
+
+  // Cargar setting actual + count de auto-cierres últimos 7 días
+  let currentMinutes = 240;
+  let recentCount = 0;
+  try {
+    const { data: rest } = await sb.from('restaurants')
+      .select('shift_auto_close_minutes').eq('id', state.adminRestaurantId).maybeSingle();
+    if (rest && typeof rest.shift_auto_close_minutes === 'number') {
+      currentMinutes = rest.shift_auto_close_minutes;
+    }
+    const { data: c } = await sb.rpc('count_recent_auto_closes', {
+      p_restaurant_id: state.adminRestaurantId,
+      p_days: 7
+    });
+    if (typeof c === 'number') recentCount = c;
+  } catch (e) { console.warn('[autoclose section]', e); }
+
+  const canEdit = _isOwnerSession() || _canDo('view_equipo');
+  const hours = (currentMinutes / 60).toFixed(currentMinutes % 60 === 0 ? 0 : 1);
+
+  let alertBlock = '';
+  if (recentCount > 0) {
+    alertBlock = `<div style="background:#FFF3E0;border:1px solid #FCD9A3;border-radius:var(--r);padding:.65rem .85rem;margin-bottom:.5rem;font-size:13px;color:#854F0B;line-height:1.5">
+      ⚠ <strong>${recentCount} turno${recentCount>1?'s':''} auto-cerrado${recentCount>1?'s':''}</strong> en los últimos 7 días. Revisa la tabla de abajo (icono ⚠) y edita los horarios si fueron incorrectos.
+    </div>`;
+  }
+
+  host.innerHTML = alertBlock + `
+    <details style="background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);padding:.6rem .85rem">
+      <summary style="font-size:12px;color:var(--t2);cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between">
+        <span>⚙ Auto-cierre de turnos: <strong>${hours}h sin actividad</strong></span>
+        <span style="font-size:11px;color:var(--t3)">${canEdit ? 'Editar ›' : ''}</span>
+      </summary>
+      <div style="margin-top:.6rem;font-size:12px;color:var(--t2);line-height:1.5">
+        Los turnos que sigan abiertos sin actividad durante este tiempo se cerrarán automáticamente con el horario de la última actividad detectada. Además, cada noche a las 04:00 se cierran todos los turnos que sigan abiertos como red de seguridad.
+        ${canEdit ? `
+          <div style="display:flex;align-items:center;gap:.5rem;margin-top:.65rem;flex-wrap:wrap">
+            <label style="font-size:12px;color:var(--t2)">Cerrar tras:</label>
+            <select id="autoclose-minutes-select" onchange="_saveAutoCloseMinutes(this.value)"
+              style="padding:6px 10px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:12px;background:var(--card);cursor:pointer">
+              <option value="120" ${currentMinutes===120?'selected':''}>2 horas</option>
+              <option value="180" ${currentMinutes===180?'selected':''}>3 horas</option>
+              <option value="240" ${currentMinutes===240?'selected':''}>4 horas (recomendado)</option>
+              <option value="360" ${currentMinutes===360?'selected':''}>6 horas</option>
+              <option value="480" ${currentMinutes===480?'selected':''}>8 horas</option>
+            </select>
+          </div>
+          <div style="font-size:11px;color:var(--t3);margin-top:.45rem">💡 Si tu equipo está mucho tiempo sin tocar pantalla (cocineros), sube el umbral. Si los turnos son cortos y quieres detección precisa, bájalo.</div>
+        ` : '<div style="font-size:11px;color:var(--t3);margin-top:.5rem">Solo el propietario puede cambiar esta configuración.</div>'}
+      </div>
+    </details>
+  `;
+}
+
+async function _saveAutoCloseMinutes(minutes) {
+  const min = parseInt(minutes, 10);
+  if (isNaN(min) || min < 30 || min > 1440) {
+    notify('Valor inválido', 'error');
+    return;
+  }
+  const { error } = await sb.from('restaurants')
+    .update({ shift_auto_close_minutes: min })
+    .eq('id', state.adminRestaurantId);
+  if (error) {
+    notify('Error: ' + error.message, 'error');
+    return;
+  }
+  notify('Tiempo de auto-cierre actualizado a ' + (min/60).toFixed(min%60===0?0:1) + 'h', 'success');
+  _renderAutoCloseSection();
 }
 
 function _renderEquipoKPIs() {
@@ -15327,6 +15486,8 @@ async function _enterModuleAfterPin(emp) {
     setTimeout(() => { try { applyManageatPermissions(emp.role, emp.custom_role_id || null); } catch(e){} }, 200);
     // Sprint Stockeat — actualizar dot de platos pendientes en sidebar
     setTimeout(() => { try { _refreshPendingDishesDot(); } catch(e){} }, 500);
+    // Sprint Auto-cierre fichajes — arrancar cron del cliente
+    setTimeout(() => { try { _startAutoCloseShiftsCron(); } catch(e){} }, 1000);
 
     // Sprint Stockeat — si el usuario viene de import recetas y pidió ir a configurarlos,
     // navegar automáticamente a Ajustes → Carta con filtro pendientes
@@ -29422,8 +29583,50 @@ async function openEditItem(itemId) {
   document.getElementById('edit-item-cooking').checked = !!item?.requires_cooking_point;
   // Cargar variantes existentes (si es nuevo, lista vacía)
   _loadVariantsIntoEditor(item?.menu_item_variants || []);
+
+  // Cargar picker de alérgenos
+  const allergPicker = document.getElementById('edit-item-allergens-picker');
+  if (allergPicker) {
+    if (isNew) {
+      // Plato nuevo: estado local hasta que se guarde
+      window._editItemAllergensDraft = [];
+      allergPicker.innerHTML = _renderAllergenPickerDraft(window._editItemAllergensDraft);
+    } else {
+      // Plato existente: usa el toggle a BD ya existente
+      const currentAllergens = item?.allergens || [];
+      allergPicker.innerHTML = renderAllergenPicker(currentAllergens, item.id);
+    }
+  }
+
   document.getElementById('edit-item-err').style.display = 'none';
   document.getElementById('edit-item-modal').style.display = 'flex';
+}
+
+// Helper para platos nuevos (sin id aún): picker local que actualiza un array
+// La selección final se persiste cuando se hace INSERT en saveEditItem
+function _renderAllergenPickerDraft(currentAllergens) {
+  const current = currentAllergens || [];
+  return ALLERGENS.map(a => `
+    <label style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:99px;border:1.5px solid ${current.includes(a.id)?'var(--brand)':'var(--bd2)'};background:${current.includes(a.id)?'var(--brand-l)':'var(--card)'};cursor:pointer;font-size:11px;margin:2px">
+      <input type="checkbox" value="${a.id}" ${current.includes(a.id)?'checked':''} onchange="_toggleAllergenDraft(this)" style="display:none">
+      ${a.emoji} ${a.label}
+    </label>`).join('');
+}
+
+function _toggleAllergenDraft(checkbox) {
+  let current = window._editItemAllergensDraft || [];
+  if (checkbox.checked) {
+    current = [...new Set([...current, checkbox.value])];
+  } else {
+    current = current.filter(a => a !== checkbox.value);
+  }
+  window._editItemAllergensDraft = current;
+  // Update styling
+  const lbl = checkbox.closest('label');
+  if (lbl) {
+    lbl.style.borderColor = checkbox.checked ? 'var(--brand)' : 'var(--bd2)';
+    lbl.style.background = checkbox.checked ? 'var(--brand-l)' : 'var(--card)';
+  }
 }
 
 // ── VARIANTS EDITOR HELPERS ──
@@ -29569,11 +29772,12 @@ async function saveEditItem() {
 
   let savedItemId;
   if (isNew) {
-    // INSERT — añadir restaurant_id + active
+    // INSERT — añadir restaurant_id + active + alérgenos del draft
     const insertPayload = {
       ...updates,
       restaurant_id: state.adminRestaurantId,
-      active: true
+      active: true,
+      allergens: window._editItemAllergensDraft || []
     };
     const { data: created, error: insErr } = await sb.from('menu_items').insert(insertPayload).select('id').single();
     if (insErr) { errEl.textContent = 'Error al crear: ' + insErr.message; errEl.style.display = 'block'; return; }
