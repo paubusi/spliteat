@@ -15025,6 +15025,26 @@ async function enterModuleFromHub(module) {
 // ── Selector empleados (usa cache si existe) ─────────────────────
 async function _renderEmployeeSelect(module) {
   go('s-employee-select');
+  // Sprint Stockeat — si venimos de "Ir a configurarlos" desde stockeat,
+  // cambiar el botón "Volver al hub" por "Volver a stockeat"
+  const backBtn = document.querySelector('#s-employee-select .back-btn');
+  if (backBtn) {
+    if (window._pendingNavigateToCartaSettings) {
+      backBtn.textContent = '← Volver a stockeat';
+      backBtn.onclick = () => {
+        // Cancelar la navegación pendiente y volver a stockeat
+        window._pendingNavigateToCartaSettings = false;
+        if (typeof enterModuleFromHub === 'function') {
+          enterModuleFromHub('stockeat');
+        } else {
+          go('s-modules-hub');
+        }
+      };
+    } else {
+      backBtn.textContent = '← Volver al hub';
+      backBtn.onclick = () => go('s-modules-hub');
+    }
+  }
   const logoEl = document.getElementById('emp-sel-logo');
   if (logoEl) {
     const logos = {
@@ -15058,8 +15078,22 @@ async function _renderEmployeeSelect(module) {
     grid.innerHTML = '';
     if (empty) {
       empty.style.display = 'block';
-      empty.innerHTML = `Aún no hay empleados con acceso a <strong>${module}</strong>.<br>
-        <span style="font-size:12px">Crea uno desde manageat → Ajustes → Personal.</span>`;
+      // Sprint Stockeat — mensaje contextual si vienen de import recetas
+      if (window._pendingNavigateToCartaSettings && module === 'manageat') {
+        empty.innerHTML = `<div style="max-width:380px;margin:0 auto;text-align:left;background:#FFF3E0;border:1px solid #FCD9A3;border-radius:var(--r);padding:1rem 1.2rem">
+          <div style="font-weight:600;color:#633806;margin-bottom:.5rem">No tienes acceso a manageat</div>
+          <div style="font-size:13px;color:#854F0B;line-height:1.5">Pide al propietario que:
+            <ul style="margin:.4rem 0 0 1.2rem;padding:0">
+              <li>Entre él mismo a configurar los precios de los platos que acabas de importar</li>
+              <li>O te dé acceso a manageat desde Ajustes → Equipo → Permisos</li>
+            </ul>
+          </div>
+          <div style="font-size:11px;color:#7A5800;margin-top:.65rem;padding-top:.65rem;border-top:1px solid #FCD9A3">💡 Las recetas están guardadas. Los platos no se mostrarán al comensal hasta que tengan precio.</div>
+        </div>`;
+      } else {
+        empty.innerHTML = `Aún no hay empleados con acceso a <strong>${module}</strong>.<br>
+          <span style="font-size:12px">Crea uno desde manageat → Ajustes → Personal.</span>`;
+      }
     }
     return;
   }
@@ -15293,6 +15327,23 @@ async function _enterModuleAfterPin(emp) {
     setTimeout(() => { try { applyManageatPermissions(emp.role, emp.custom_role_id || null); } catch(e){} }, 200);
     // Sprint Stockeat — actualizar dot de platos pendientes en sidebar
     setTimeout(() => { try { _refreshPendingDishesDot(); } catch(e){} }, 500);
+
+    // Sprint Stockeat — si el usuario viene de import recetas y pidió ir a configurarlos,
+    // navegar automáticamente a Ajustes → Carta con filtro pendientes
+    if (window._pendingNavigateToCartaSettings) {
+      window._pendingNavigateToCartaSettings = false;
+      setTimeout(() => {
+        try {
+          if (typeof showAdminTab === 'function') showAdminTab('gestion');
+          setTimeout(() => {
+            if (typeof openAjustesSection === 'function') openAjustesSection('carta');
+            setTimeout(() => {
+              if (typeof _setCartaFilterPending === 'function') _setCartaFilterPending(true);
+            }, 200);
+          }, 100);
+        } catch(e) { console.warn('[goto carta settings]', e); }
+      }, 700);
+    }
 
     // Sprint Control horario (RD-ley 8/2019): manager ficha — owner NO (es propietario, no empleado por cuenta ajena).
     if (emp.role === 'manager' && typeof promptClockInIfNeeded === 'function') {
@@ -31077,59 +31128,47 @@ function showConfigureNewDishesModal(count) {
 function _goToConfigureNewDishes() {
   document.getElementById('configure-new-dishes-modal')?.remove();
 
-  // 3 contextos posibles desde donde el usuario hace clic:
-  //   1. Stockeat standalone (módulo independiente s-stockeat)
-  //   2. Manageat con Stockeat embebido como tab (state.stockeatContext === 'admin')
-  //   3. Manageat sin pasar por Stockeat (improbable pero soportado)
-  //
-  // En todos los casos el destino es: pantalla s-admin → tab 'gestion' → sección 'carta'
-  // con el filtro "solo platos pendientes" activado.
+  // Acción común tras llegar a manageat: ir a Ajustes → Carta con filtro pendientes
+  // Usamos un flag global porque el flujo de manageat tarda (login PIN + render tabs).
+  window._pendingNavigateToCartaSettings = true;
 
-  const goToCartaSettings = () => {
-    if (typeof showAdminTab === 'function') showAdminTab('gestion');
-    setTimeout(() => {
-      if (typeof openAjustesSection === 'function') openAjustesSection('carta');
-      setTimeout(() => {
-        if (typeof _setCartaFilterPending === 'function') _setCartaFilterPending(true);
-      }, 200);
-    }, 80);
-  };
+  // Contextos:
+  //   1. Stockeat standalone (módulo independiente): usar enterModuleFromHub('manageat')
+  //      que abre el selector de empleado/PIN — el usuario solo elige perfil y entra
+  //   2. Stockeat embebido en manageat (state.stockeatContext === 'admin'): cambio tab directo
+  //   3. Ya en manageat sin stockeat: cambio tab directo
 
-  // Si estamos en stockeat standalone: hay que SALIR primero y entrar a s-admin
   if (state.stockeatContext === 'standalone') {
-    // Limpiar contexto stockeat
+    // Limpiar contexto y realtime stockeat
     state.stockeatContext = null;
     if (typeof _restoreStockeatNodeToManageat === 'function') {
       _restoreStockeatNodeToManageat();
     }
-    // Limpiar realtime stockeat
     if (state._stockeatAlertsSub) {
       try { sb.removeChannel(state._stockeatAlertsSub); } catch(e) {}
       state._stockeatAlertsSub = null;
     }
-    // Si ya hay sesión admin abierta (adminRestaurantId), ir directamente a s-admin
-    if (state.adminRestaurantId && state.adminEmployeeId) {
-      if (typeof go === 'function') go('s-admin');
-      if (typeof renderAdminTabs === 'function') renderAdminTabs();
-      setTimeout(goToCartaSettings, 150);
+    // Usar el flujo estándar de selección de empleado para manageat
+    // (preserva la sesión del restaurante; solo pide elegir perfil y PIN)
+    if (typeof enterModuleFromHub === 'function' && _restaurantSession) {
+      enterModuleFromHub('manageat');
     } else {
-      // No hay sesión admin → llevar al usuario al login admin
-      notify('Inicia sesión en manageat para configurar los precios', 'info');
-      if (typeof go === 'function') go('s-admin-login');
+      // Fallback: ir al hub si no hay sesión de restaurante
+      notify('Inicia sesión para configurar los precios', 'info');
+      if (typeof go === 'function') go('s-modules-hub');
     }
     return;
   }
 
-  // Si estamos en stockeat embebido en manageat (admin context) o ya en manageat:
-  // salir del modo stockeat embebido si toca + ir a ajustes
-  if (state.stockeatContext === 'admin') {
-    // Cambiar de tab dispara automáticamente el restore del nodo si toca
-    goToCartaSettings();
-    return;
-  }
-
-  // Default: ya estamos en manageat
-  goToCartaSettings();
+  // Contextos 2 y 3: ya estamos en manageat, solo cambiar de tab
+  if (typeof showAdminTab === 'function') showAdminTab('gestion');
+  setTimeout(() => {
+    if (typeof openAjustesSection === 'function') openAjustesSection('carta');
+    setTimeout(() => {
+      if (typeof _setCartaFilterPending === 'function') _setCartaFilterPending(true);
+    }, 200);
+    window._pendingNavigateToCartaSettings = false;
+  }, 80);
 }
 
 // Helper notify (usa el existente del proyecto si existe)
