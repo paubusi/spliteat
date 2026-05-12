@@ -3846,7 +3846,10 @@
             <div style="font-size:17px;font-weight:600;color:var(--t1)">Recetas</div>
             <div style="font-size:12px;color:var(--t2);margin-top:2px">Toca un plato para editar su receta · el coste se calcula solo</div>
           </div>
-          <button onclick="openSuggestRecipesFlow()" style="padding:9px 14px;border-radius:var(--r);border:1px solid var(--brand);background:var(--brand-l);color:var(--brand-d);font-size:12px;cursor:pointer;font-family:inherit;font-weight:500;flex-shrink:0">🤖 Generar con IA</button>
+          <div style="display:flex;gap:.4rem;flex-wrap:wrap;flex-shrink:0">
+            <button onclick="openImportRecipesFlow()" style="padding:9px 14px;border-radius:var(--r);border:1px solid var(--brand);background:var(--brand-l);color:var(--brand-d);font-size:12px;cursor:pointer;font-family:inherit;font-weight:500">📷 Importar desde foto / PDF</button>
+            <button onclick="openSuggestRecipesFlow()" style="padding:9px 14px;border-radius:var(--r);border:1px solid var(--bd2);background:var(--card);color:var(--t2);font-size:12px;cursor:pointer;font-family:inherit;font-weight:500">🤖 Sugerir con IA</button>
+          </div>
         </div>
         <div id="stk-rec-list" style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;min-height:200px"></div>
       </div>
@@ -14973,7 +14976,7 @@ async function _preloadEmployees() {
   if (!_restaurantSession) return;
   try {
     const { data, error } = await sb.from('waiters')
-      .select('id, name, role, allowed_modules, pin_hash, active')
+      .select('id, name, role, custom_role_id, allowed_modules, pin_hash, active')
       .eq('restaurant_id', _restaurantSession.restaurantId)
       .eq('active', true)
       .order('name', { ascending: true });
@@ -15234,7 +15237,7 @@ async function _validatePinCode(empId, pin) {
     return { ok: false, message: 'PIN inválido' };
   }
   const { data: emp, error } = await sb.from('waiters')
-    .select('id, name, role, pin_hash, pin_locked_until, allowed_modules')
+    .select('id, name, role, custom_role_id, pin_hash, pin_locked_until, allowed_modules')
     .eq('id', empId).maybeSingle();
   if (error || !emp) return { ok: false, message: 'Empleado no encontrado' };
   if (emp.pin_locked_until && new Date(emp.pin_locked_until) > new Date()) {
@@ -15285,8 +15288,8 @@ async function _enterModuleAfterPin(emp) {
     // de "isManagerSession" fallan (null !== 'manager' → permite cambiar rol a owner).
     _manageatActiveRole = emp.role;
 
-    // Aplicar permisos de UI tras entrar
-    setTimeout(() => { try { applyManageatPermissions(emp.role); } catch(e){} }, 200);
+    // Aplicar permisos de UI tras entrar (con custom_role_id si tiene)
+    setTimeout(() => { try { applyManageatPermissions(emp.role, emp.custom_role_id || null); } catch(e){} }, 200);
 
     // Sprint Control horario (RD-ley 8/2019): manager ficha — owner NO (es propietario, no empleado por cuenta ajena).
     if (emp.role === 'manager' && typeof promptClockInIfNeeded === 'function') {
@@ -15531,9 +15534,9 @@ function _isOwnerSession() {
   return _manageatActiveRole === 'owner';
 }
 
-async function applyManageatPermissions(role) {
+async function applyManageatPermissions(role, customRoleId = null) {
   // Cargar permisos (async, pero los selectores se aplican abajo)
-  await _loadManageatPermissions(role);
+  await _loadManageatPermissions(role, customRoleId);
   const perms = _manageatPermissions;
 
   // Mapping permiso → selectores reales (tabs sidebar desktop + mobile + paneles)
@@ -15600,7 +15603,22 @@ async function applyManageatPermissions(role) {
     document.body.appendChild(badge);
   }
   const empName = _activeEmployee?.name || state.adminEmployeeName || '';
-  badge.textContent = `${role === 'owner' ? '🔑' : '👤'} ${_roleBadge(role)}${empName ? ' · ' + empName : ''}`;
+  // Sprint Roles Custom T3: si el empleado tiene custom_role_id, mostrar display_name e icono
+  let badgeLabel;
+  const empCustomRoleId = _activeEmployee?.custom_role_id || null;
+  if (empCustomRoleId) {
+    // Asegurar que tenemos los custom roles cargados
+    if (!_customRoles.length) await _loadCustomRoles();
+    const cr = _getCustomRole(empCustomRoleId);
+    if (cr) {
+      badgeLabel = (cr.icon || '👤') + ' ' + cr.display_name;
+    } else {
+      badgeLabel = (role === 'owner' ? '🔑 ' : '👤 ') + _roleBadge(role);
+    }
+  } else {
+    badgeLabel = (role === 'owner' ? '🔑 ' : '👤 ') + _roleBadge(role);
+  }
+  badge.textContent = `${badgeLabel}${empName ? ' · ' + empName : ''}`;
   document.body.classList.add('manageat-active');
 
   // Sprint Permisos: setear contexto de sesión en Postgres para RLS
@@ -17172,7 +17190,7 @@ async function savePermissions() {
     await applyManageatPermissions(_editingRole);
   } else if (_editingCustomRoleId && _activeCustomRoleId === _editingCustomRoleId) {
     await _loadManageatPermissions(_manageatActiveRole, _editingCustomRoleId);
-    await applyManageatPermissions(_manageatActiveRole);
+    await applyManageatPermissions(_manageatActiveRole, _editingCustomRoleId);
   }
 }
 
@@ -30387,6 +30405,142 @@ async function _saveRecipeForKey(menuItemId, key, variantId) {
 // ══════════════════════════════════════════════════════════════════
 
 let _suggestRecipes = null; // estado del modal: { recipes:[], existingIngredients:[] }
+
+// ══════════════════════════════════════════════════════════════════
+// SPRINT STOCKEAT — Importar recetas desde foto/PDF/Word con IA
+// Flujo: usuario sube archivo → analyze-recipes-from-file edge function →
+// formato igual que suggest-recipes → reusa _showSuggestPreviewModal +
+// _applySuggestedRecipes ya existentes.
+// ══════════════════════════════════════════════════════════════════
+async function openImportRecipesFlow() {
+  if (!_assertStockeatEditable()) return;
+  if (!state.adminRestaurantId) { notify('Selecciona un restaurante primero', 'error'); return; }
+
+  const existing = document.getElementById('import-recipes-modal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'import-recipes-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;display:flex;align-items:flex-end;justify-content:center';
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:540px;max-height:92vh;overflow-y:auto;padding:1.25rem 1.1rem 1.5rem;animation:slideUp .22s ease">
+      <div style="width:36px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto .85rem"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.35rem">
+        <div>
+          <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--t1)">📷 Importar recetas</div>
+          <div style="font-size:12px;color:var(--t2);margin-top:2px">Sube tus recetas desde una foto, PDF o documento Word</div>
+        </div>
+        <button onclick="document.getElementById('import-recipes-modal')?.remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+      </div>
+
+      <div style="background:var(--bg2);border-radius:var(--r);padding:.65rem .85rem;margin:.85rem 0 1rem;font-size:12px;color:var(--t2);line-height:1.5">
+        💡 <strong>Cómo funciona:</strong> sube una foto o un documento con tus recetas (escaneo de un recetario, foto de tu cuaderno, PDF de proveedor...). La IA extraerá platos, ingredientes y cantidades. Antes de guardar lo verás en un preview editable.
+      </div>
+
+      <input type="file" id="recipes-file-input" accept="image/*,.pdf,.doc,.docx" style="display:none" onchange="processRecipesFile(this)">
+
+      <div id="import-recipes-step-1">
+        <button class="btn btn-primary" onclick="document.getElementById('recipes-file-input').click()" style="width:100%;padding:14px">
+          📄 Seleccionar archivo
+        </button>
+        <div style="font-size:11px;color:var(--t3);margin-top:.5rem;text-align:center;line-height:1.5">
+          Formatos: JPG, PNG, HEIC, PDF, DOC, DOCX · Máx ~10 MB<br>
+          Para mejor resultado: que el texto sea legible y los platos estén separados.
+        </div>
+      </div>
+
+      <div id="import-recipes-status" style="font-size:13px;color:var(--t2);text-align:center;min-height:0;padding:.5rem 0"></div>
+
+      <div id="import-recipes-cancel" style="margin-top:1rem">
+        <button class="btn btn-secondary" onclick="document.getElementById('import-recipes-modal')?.remove()" style="width:100%">Cancelar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+}
+
+async function processRecipesFile(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  const statusEl = document.getElementById('import-recipes-status');
+  const step1 = document.getElementById('import-recipes-step-1');
+  const cancelBox = document.getElementById('import-recipes-cancel');
+  if (step1) step1.style.display = 'none';
+  if (cancelBox) cancelBox.style.display = 'none';
+  if (statusEl) statusEl.innerHTML = '<div style="display:inline-flex;align-items:center;gap:8px"><span class="spinner" style="width:14px;height:14px;border:2px solid var(--bd2);border-top-color:var(--brand);border-radius:50%;animation:spin .8s linear infinite;display:inline-block"></span>Analizando recetas con IA…</div>';
+
+  try {
+    // 1) Preparar payload según tipo de archivo
+    let fileBase64, mediaType;
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    const isImage = file.type.startsWith('image/');
+
+    if (isImage) {
+      // Imagen → comprimir cliente (reusa helper carta)
+      fileBase64 = await _compressImageToBase64(file, 1600, 0.85);
+      mediaType = 'image/jpeg';
+    } else {
+      // PDF/Word: enviar tal cual en base64
+      fileBase64 = await _fileToBase64(file);
+      mediaType = file.type || (
+        ext === 'pdf' ? 'application/pdf'
+        : ext === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        : ext === 'doc' ? 'application/msword'
+        : 'application/octet-stream'
+      );
+    }
+
+    // 2) Cargar contexto (ingredientes existentes para reuso, menu_items para matching)
+    const [ingsRes, miRes] = await Promise.all([
+      sb.from('ingredients').select('id,name,unit').eq('restaurant_id', state.adminRestaurantId).eq('is_archived', false),
+      sb.from('menu_items').select('id,name,description,categories(name)').eq('restaurant_id', state.adminRestaurantId).eq('active', true)
+    ]);
+
+    // 3) Llamar a edge function analyze-recipes-from-file
+    const res = await fetch(`${SUPA_URL}/functions/v1/analyze-recipes-from-file`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPA_KEY}` },
+      body: JSON.stringify({
+        fileBase64,
+        mediaType,
+        existing_ingredients: ingsRes.data || [],
+        existing_menu_items: (miRes.data || []).map(m => ({ id: m.id, name: m.name, description: m.description, category: m.categories?.name }))
+      })
+    });
+    const parsed = await res.json();
+    if (!res.ok) throw new Error(parsed.error || 'Error del servidor');
+
+    const recipes = parsed.recipes || [];
+    if (!recipes.length) {
+      if (statusEl) statusEl.innerHTML = '❌ No se detectaron recetas. Prueba con un archivo más claro o que tenga ingredientes listados.';
+      if (step1) step1.style.display = 'block';
+      if (cancelBox) cancelBox.style.display = 'block';
+      return;
+    }
+
+    // 4) Reutilizar el preview modal que ya tenemos
+    document.getElementById('import-recipes-modal')?.remove();
+    _showSuggestPreviewModal(recipes);
+
+  } catch (err) {
+    console.error('[import-recipes]', err);
+    if (statusEl) statusEl.innerHTML = '❌ Error: ' + (err.message || 'desconocido') + '<br><span style="font-size:11px;color:var(--t3)">Es posible que la edge function <code>analyze-recipes-from-file</code> aún no esté desplegada en Supabase.</span>';
+    if (step1) step1.style.display = 'block';
+    if (cancelBox) cancelBox.style.display = 'block';
+  }
+}
+
+// Helper: cualquier archivo → base64 (sin compresión)
+function _fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => {
+      const s = r.result || '';
+      const comma = s.indexOf(',');
+      resolve(comma >= 0 ? s.slice(comma + 1) : s);
+    };
+    r.onerror = () => reject(new Error('No se pudo leer el archivo'));
+    r.readAsDataURL(file);
+  });
+}
 
 async function openSuggestRecipesFlow() {
   if (!_assertStockeatEditable()) return;
