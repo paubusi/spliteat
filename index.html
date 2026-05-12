@@ -2923,12 +2923,13 @@
               <span class="adm-nav-sub">Control horario</span>
             </span>
           </button>
-          <button class="adm-nav" data-tab="gestion" onclick="showAdminTab('gestion')">
+          <button class="adm-nav" data-tab="gestion" onclick="showAdminTab('gestion')" style="position:relative">
             <span class="adm-nav-icon">⚙️</span>
             <span class="adm-nav-text">
               <span class="adm-nav-label">Ajustes</span>
               <span class="adm-nav-sub">Carta · Mesas · Pagos · Datos</span>
             </span>
+            <span id="ajustes-pending-dot" style="display:none;position:absolute;top:10px;right:10px;background:#E24B4A;color:#fff;border-radius:99px;min-width:18px;height:18px;padding:0 5px;font-size:11px;font-weight:700;align-items:center;justify-content:center;line-height:1"></span>
           </button>
         </nav>
 
@@ -15290,6 +15291,8 @@ async function _enterModuleAfterPin(emp) {
 
     // Aplicar permisos de UI tras entrar (con custom_role_id si tiene)
     setTimeout(() => { try { applyManageatPermissions(emp.role, emp.custom_role_id || null); } catch(e){} }, 200);
+    // Sprint Stockeat — actualizar dot de platos pendientes en sidebar
+    setTimeout(() => { try { _refreshPendingDishesDot(); } catch(e){} }, 500);
 
     // Sprint Control horario (RD-ley 8/2019): manager ficha — owner NO (es propietario, no empleado por cuenta ajena).
     if (emp.role === 'manager' && typeof promptClockInIfNeeded === 'function') {
@@ -19736,6 +19739,23 @@ async function loadAdminCarta() {
 }
 
 async function toggleItemActive(itemId, newActive, toggleEl) {
+  // Sprint Stockeat — bloquear activación de platos sin precio
+  if (newActive) {
+    const { data: item } = await sb.from('menu_items')
+      .select('price, name, menu_item_variants(id)')
+      .eq('id', itemId).maybeSingle();
+    const hasNoPrice = item && (!item.price || item.price <= 0) && (!item.menu_item_variants || !item.menu_item_variants.length);
+    if (hasNoPrice) {
+      const canSetPrices = _isOwnerSession() || _canDo('ajustes_carta');
+      const msg = canSetPrices
+        ? 'No puedes activar "' + (item?.name || 'este plato') + '" sin precio. Edítalo primero (✏️) y añade el precio o las variantes.'
+        : 'No puedes activar "' + (item?.name || 'este plato') + '" porque no tiene precio. Pide al propietario que se lo asigne.';
+      notify(msg, 'error');
+      // Revertir el toggle visual
+      if (toggleEl) toggleEl.classList.toggle('on', false);
+      return;
+    }
+  }
   // Update UI immediately
   if (toggleEl) toggleEl.classList.toggle('on', newActive);
   const card = document.getElementById('item-card-' + itemId);
@@ -20087,6 +20107,35 @@ async function _ensureCategoryWithMeta(restaurantId, name, meta) {
   return created.id;
 }
 
+// Sprint Stockeat — filtro de platos pendientes de configurar
+function _setCartaFilterPending(value) {
+  window._cartaFilterPending = !!value;
+  loadAdminCartaInline();
+}
+
+// Sprint Stockeat — actualizar dot rojo en sidebar Ajustes según platos sin precio
+async function _refreshPendingDishesDot() {
+  const dot = document.getElementById('ajustes-pending-dot');
+  if (!dot || !state.adminRestaurantId) return;
+  try {
+    // Contar platos sin precio y sin variantes
+    const { data } = await sb.from('menu_items')
+      .select('id, price, menu_item_variants(id)')
+      .eq('restaurant_id', state.adminRestaurantId);
+    if (!data) return;
+    const pending = data.filter(d =>
+      (!d.price || d.price <= 0) &&
+      (!d.menu_item_variants || d.menu_item_variants.length === 0)
+    );
+    if (pending.length > 0) {
+      dot.textContent = pending.length > 99 ? '99+' : String(pending.length);
+      dot.style.display = 'inline-flex';
+    } else {
+      dot.style.display = 'none';
+    }
+  } catch (e) { /* silent */ }
+}
+
 async function loadAdminCartaInline() {
   const el = document.getElementById('ajustes-carta-list');
   if (!el) { loadAdminCarta(); return; }
@@ -20108,10 +20157,49 @@ async function loadAdminCartaInline() {
   data.forEach(item => { const c = item.category_id || '__sin__'; if(!grouped[c]) grouped[c]=[]; grouped[c].push(item); });
 
   const disabled = data.filter(d => !d.active).length;
+  // Sprint Stockeat — platos pendientes de configurar (sin precio)
+  const pending = data.filter(d => (!d.price || d.price <= 0) && (!d.menu_item_variants || d.menu_item_variants.length === 0));
   let html = '';
-  if (disabled > 0) {
+
+  // Banner: platos sin precio (prioridad sobre desactivados)
+  if (pending.length > 0) {
+    const isFiltered = !!window._cartaFilterPending;
+    const canSetPrices = _isOwnerSession() || _canDo('ajustes_carta');
+    const subtitle = canSetPrices
+      ? 'Estos platos están desactivados y no aparecen en la carta. Edita cada uno para añadir precio, categoría y alérgenos.'
+      : 'Estos platos están desactivados y no aparecen en la carta. Pide al propietario que asigne precio, categoría y alérgenos a cada uno.';
+    html += `<div style="background:#FFF3E0;border:1.5px solid #FCD9A3;border-radius:var(--r);padding:.85rem 1rem;margin-bottom:.85rem">
+      <div style="display:flex;align-items:flex-start;gap:.75rem">
+        <div style="font-size:22px;flex-shrink:0">⚠️</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:600;color:#633806;margin-bottom:3px">${pending.length} plato${pending.length>1?'s':''} sin precio configurado</div>
+          <div style="font-size:12px;color:#854F0B;line-height:1.5">${subtitle}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:.4rem;margin-top:.65rem">
+        <button onclick="_setCartaFilterPending(${!isFiltered})" style="padding:6px 12px;border-radius:var(--r-sm);border:1px solid #C67D2C;background:${isFiltered?'#C67D2C':'#fff'};color:${isFiltered?'#fff':'#854F0B'};font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">${isFiltered ? '✓ Mostrando solo pendientes' : '🔍 Ver platos sin precio'}</button>
+        ${isFiltered ? '<button onclick="_setCartaFilterPending(false)" style="padding:6px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);color:var(--t2);font-size:12px;cursor:pointer;font-family:inherit">Mostrar todos</button>' : ''}
+      </div>
+    </div>`;
+  }
+
+  // Banner secundario: platos desactivados (solo si no hay pendientes que captar atención primero)
+  const justDisabled = disabled - pending.length;
+  if (justDisabled > 0) {
     html += `<div style="background:#FAEEDA;border:1px solid #E5A85A;border-radius:var(--r-sm);padding:.65rem .85rem;font-size:12px;color:#854F0B;margin-bottom:.75rem">
-      ⚠️ ${disabled} plato${disabled>1?'s':''} desactivado${disabled>1?'s':''}. Reactívalos cuando tengas disponibilidad.</div>`;
+      ⚠️ ${justDisabled} plato${justDisabled>1?'s':''} desactivado${justDisabled>1?'s':''}. Reactívalos cuando tengas disponibilidad.</div>`;
+  }
+
+  // Filtrar si el filtro pending está activo
+  let dataToRender = data;
+  if (window._cartaFilterPending && pending.length > 0) {
+    const pendingIds = new Set(pending.map(p => p.id));
+    dataToRender = data.filter(d => pendingIds.has(d.id));
+  }
+  // Re-agrupar con los datos filtrados (si hay filtro)
+  if (window._cartaFilterPending) {
+    Object.keys(grouped).forEach(k => delete grouped[k]);
+    dataToRender.forEach(item => { const c = item.category_id || '__sin__'; if(!grouped[c]) grouped[c]=[]; grouped[c].push(item); });
   }
   // Helper: zona efectiva del plato (override > categoría > General)
   const _effectiveZone = (item) => {
@@ -20148,7 +20236,7 @@ async function loadAdminCartaInline() {
         ${item.photo_url ? `<img src="${item.photo_url}" style="width:40px;height:40px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0">` : ''}
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:500">${escHtml(item.name)}${item.requires_cooking_point?'<span style="font-size:10px;background:#FFF3E0;color:#8B5E3C;border-radius:99px;padding:1px 6px;margin-left:4px;border:1px solid #E8C9A0">Punto</span>':''}</div>
-          <div style="font-size:11px;color:var(--t2)">${fmt(parseFloat(item.price))}${item.prep_time_minutes?' · ⏱'+item.prep_time_minutes+'m':''}${marginStr}${!item.active?' · <span style="color:var(--accent)">Inactivo</span>':''}</div>
+          <div style="font-size:11px;color:var(--t2)">${(!item.price || item.price <= 0) && (!item.menu_item_variants || !item.menu_item_variants.length) ? '<span style="background:#FCEBEB;color:#A32D2D;border:1px solid #E89C9C;border-radius:99px;padding:1px 7px;font-weight:600">⚠ Sin precio</span>' : fmt(parseFloat(item.price))}${item.prep_time_minutes?' · ⏱'+item.prep_time_minutes+'m':''}${marginStr}${!item.active?' · <span style="color:var(--accent)">Inactivo</span>':''}</div>
           ${variantsHtml}
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px">
             ${zoneBadge}
@@ -20180,6 +20268,7 @@ async function loadAdminCartaInline() {
     grouped['__sin__'].forEach(item => { html += renderItem(item); });
   }
   el.innerHTML = html;
+  _refreshPendingDishesDot();
 }
 
 async function loadAdminTablesInline() {
@@ -30785,8 +30874,36 @@ async function _applySuggestedRecipes() {
 
   // 3) Aplicar cada receta
   let applied = 0, errors = 0;
+  let createdMenuItems = 0;
   for (const r of recipes) {
     try {
+      // Sprint Stockeat — Import recetas con IA:
+      // Si la IA devolvió una receta SIN menu_item_id (porque el plato no existe en la carta),
+      // crearlo automáticamente con el nombre detectado.
+      if (!r.menu_item_id && r.menu_item_name) {
+        // Sprint Stockeat — Import recetas:
+        // Crear el plato INACTIVO (active=false) y SIN PRECIO. El owner deberá
+        // configurarlo en Ajustes → Carta antes de poder activarlo (defensa contra
+        // que un plato a 0€ se muestre al comensal por accidente).
+        const newItemPayload = {
+          restaurant_id: restId,
+          name: r.menu_item_name,
+          price: 0,           // ← el owner debe ponerlo antes de activar
+          active: false,      // ← no visible al comensal hasta configurar
+          description: r.description || null
+        };
+        const { data: created, error: eMi } = await sb.from('menu_items')
+          .insert(newItemPayload).select('id').single();
+        if (eMi) throw new Error('No se pudo crear plato "' + r.menu_item_name + '": ' + eMi.message);
+        r.menu_item_id = created.id;
+        createdMenuItems++;
+      }
+      // Si aún no hay menu_item_id, saltamos esta receta (no podemos asociarla)
+      if (!r.menu_item_id) {
+        console.warn('[apply-recipes] receta sin menu_item_id ni menu_item_name, saltando');
+        continue;
+      }
+
       // Update menu_items
       const update = { stock_mode: r.stock_mode };
       if (r.stock_mode === 'self') {
@@ -30840,16 +30957,134 @@ async function _applySuggestedRecipes() {
   }
 
   if (status) {
-    status.textContent = errors > 0
-      ? `Aplicadas ${applied}, ${errors} con errores`
-      : `✓ ${applied} recetas aplicadas`;
+    let parts = [];
+    parts.push(applied + ' receta' + (applied !== 1 ? 's' : '') + ' aplicada' + (applied !== 1 ? 's' : ''));
+    if (createdMenuItems > 0) parts.push(createdMenuItems + ' plato' + (createdMenuItems !== 1 ? 's' : '') + ' nuevo' + (createdMenuItems !== 1 ? 's' : ''));
+    if (errors > 0) parts.push(errors + ' error' + (errors !== 1 ? 'es' : ''));
+    status.textContent = (errors > 0 ? 'Aplicado: ' : '✓ ') + parts.join(' · ');
   }
 
   setTimeout(() => {
     document.getElementById('sug-preview-modal')?.remove();
-    notify(`${applied} recetas creadas con IA`, 'success');
+    let msg = applied + ' receta' + (applied !== 1 ? 's' : '') + ' creada' + (applied !== 1 ? 's' : '') + ' con IA';
+    if (createdMenuItems > 0) msg += ' (+' + createdMenuItems + ' plato' + (createdMenuItems !== 1 ? 's' : '') + ' nuevo' + (createdMenuItems !== 1 ? 's' : '') + ' en la carta)';
+    notify(msg, 'success');
     loadStockRecipes();
+    loadAdminCarta();
+    _refreshPendingDishesDot();
+
+    // Sprint Stockeat — Import recetas:
+    // Si se crearon platos nuevos, mostrar modal de guía para configurarlos
+    if (createdMenuItems > 0) {
+      showConfigureNewDishesModal(createdMenuItems);
+    }
   }, 800);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MODAL DE GUÍA tras import de recetas: lleva al owner a Ajustes→Carta
+// ══════════════════════════════════════════════════════════════════
+function showConfigureNewDishesModal(count) {
+  document.getElementById('configure-new-dishes-modal')?.remove();
+
+  // Determinar si la sesión activa puede editar precios:
+  //   - Owner: siempre puede
+  //   - Cualquier otro rol: necesita permiso 'ajustes_carta'
+  const canSetPrices = _isOwnerSession() || _canDo('ajustes_carta');
+
+  const modal = document.createElement('div');
+  modal.id = 'configure-new-dishes-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;display:flex;align-items:flex-end;justify-content:center;padding:0';
+
+  // Contenido diferente según permisos
+  let bodyHtml;
+  if (canSetPrices) {
+    // ── Owner / manager con permiso: flujo de configuración ──
+    bodyHtml = `
+      <div style="background:#FFF3E0;border:1px solid #FCD9A3;border-radius:var(--r);padding:.85rem 1rem;margin-bottom:1.25rem;font-size:13px;color:#854F0B;line-height:1.55">
+        <strong>📌 Estos platos están <u>desactivados</u></strong> y no aparecerán en la carta hasta que les pongas precio. Cada uno necesita:
+        <ul style="margin:.5rem 0 0 1.2rem;padding:0">
+          <li>Precio de venta</li>
+          <li>Categoría (Entrantes, Principales, Postres...)</li>
+          <li>Alérgenos si los tiene</li>
+        </ul>
+      </div>
+
+      <div style="background:var(--bg);border-radius:var(--r);padding:.85rem 1rem;margin-bottom:1.25rem">
+        <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem">Cómo configurarlos</div>
+        <div style="display:flex;flex-direction:column;gap:.6rem;font-size:13px;color:var(--t2);line-height:1.5">
+          <div style="display:flex;gap:.5rem"><span style="background:var(--brand);color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">1</span><div>Ve a <strong>Ajustes → Carta</strong></div></div>
+          <div style="display:flex;gap:.5rem"><span style="background:var(--brand);color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">2</span><div>Verás un aviso amarillo arriba — pulsa <strong>"Revisar platos sin precio"</strong></div></div>
+          <div style="display:flex;gap:.5rem"><span style="background:var(--brand);color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">3</span><div>Edita cada plato: precio, categoría y alérgenos</div></div>
+          <div style="display:flex;gap:.5rem"><span style="background:var(--brand);color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">4</span><div>Una vez con precio, podrás <strong>activar</strong> el plato y aparecerá en la carta</div></div>
+        </div>
+      </div>
+
+      <button onclick="_goToConfigureNewDishes()" class="btn btn-primary" style="width:100%;padding:13px;font-size:14px;font-weight:600">
+        🛠 Ir a configurarlos ahora →
+      </button>
+      <button onclick="document.getElementById('configure-new-dishes-modal')?.remove()" class="btn btn-secondary" style="width:100%;margin-top:.5rem;padding:11px">
+        Configurarlos más tarde
+      </button>`;
+  } else {
+    // ── Rol sin permiso para editar precios (jefe cocina, cook...): pedir al owner ──
+    bodyHtml = `
+      <div style="background:#E8F0FE;border:1px solid #A8C5F4;border-radius:var(--r);padding:.85rem 1rem;margin-bottom:1.25rem;font-size:13px;color:#1A4C8B;line-height:1.55">
+        <strong>📌 Las recetas están guardadas correctamente.</strong> Los platos creados están <u>desactivados</u> hasta que se les asigne un precio.
+      </div>
+
+      <div style="background:var(--bg);border-radius:var(--r);padding:1rem;margin-bottom:1.25rem">
+        <div style="font-size:13px;color:var(--t2);line-height:1.55;margin-bottom:.85rem">
+          <strong>Para que estos platos aparezcan en la carta, necesitas:</strong>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.7rem;font-size:13px;color:var(--t2);line-height:1.5">
+          <div style="display:flex;gap:.5rem;align-items:flex-start">
+            <span style="font-size:18px;flex-shrink:0">👤</span>
+            <div><strong>Pedirle al propietario</strong> que entre a <strong>Ajustes → Carta</strong> y asigne precio, categoría y alérgenos a cada plato nuevo.</div>
+          </div>
+          <div style="display:flex;gap:.5rem;align-items:flex-start">
+            <span style="font-size:18px;flex-shrink:0">🔑</span>
+            <div>O <strong>pedir permiso</strong> al propietario para gestionar la carta tú mismo (Ajustes → Equipo → Permisos → activar <strong>"Ajustes: Carta"</strong> para tu rol).</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:#FFF8E1;border:1px solid #FFE082;border-radius:var(--r-sm);padding:.7rem .85rem;font-size:12px;color:#7A5800;line-height:1.5;margin-bottom:1.25rem">
+        💡 Mientras tanto los platos no se mostrarán al comensal — están seguros desactivados.
+      </div>
+
+      <button onclick="document.getElementById('configure-new-dishes-modal')?.remove()" class="btn btn-primary" style="width:100%;padding:13px;font-size:14px;font-weight:600">
+        Entendido
+      </button>`;
+  }
+
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;padding:1.5rem 1.25rem;animation:slideUp .22s ease">
+      <div style="width:36px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto 1.25rem"></div>
+      <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem">
+        <div style="font-size:32px">🍽</div>
+        <div>
+          <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--t1);line-height:1.1">${count} plato${count !== 1 ? 's' : ''} pendiente${count !== 1 ? 's' : ''} de configurar</div>
+          <div style="font-size:13px;color:var(--t3);margin-top:3px">${canSetPrices ? 'Antes de que tus clientes los vean' : 'Pendientes del propietario'}</div>
+        </div>
+      </div>
+      ${bodyHtml}
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function _goToConfigureNewDishes() {
+  document.getElementById('configure-new-dishes-modal')?.remove();
+  // Activar la tab Ajustes y mostrar la sección Carta
+  if (typeof showAdminTab === 'function') showAdminTab('gestion');
+  setTimeout(() => {
+    if (typeof openAjustesSection === 'function') openAjustesSection('carta');
+    // Activar el filtro "solo sin precio" tras un breve delay
+    setTimeout(() => {
+      if (typeof _setCartaFilterPending === 'function') _setCartaFilterPending(true);
+    }, 300);
+  }, 100);
 }
 
 // Helper notify (usa el existente del proyecto si existe)
