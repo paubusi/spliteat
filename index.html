@@ -8087,6 +8087,18 @@ function showAccountClosed() {
       <div style="font-family:'Fraunces',serif;font-size:32px;font-weight:700;color:var(--brand-d)">${fmt(total)}</div>
       ${myTotal > 0 ? `<div style="font-size:12px;color:var(--t2);margin-top:.25rem">Tu parte: ${fmt(myTotal)}</div>` : ''}
     </div>
+    ${state.googleReviewUrl ? `
+    <div style="background:var(--card);border-radius:var(--r);padding:1.1rem 1.25rem;margin-bottom:1.5rem;width:100%;max-width:300px;border:1.5px solid #FBBC04">
+      <div style="font-size:22px;margin-bottom:.4rem">⭐️</div>
+      <div style="font-size:14px;font-weight:600;color:var(--t1);margin-bottom:.3rem;line-height:1.35">¿Qué tal la experiencia?</div>
+      <div style="font-size:12px;color:var(--t2);line-height:1.45;margin-bottom:.85rem">Si te ha gustado, una reseña nos ayuda muchísimo. ¡Solo te lleva 20 segundos!</div>
+      <a href="${escHtml(state.googleReviewUrl)}" target="_blank" rel="noopener"
+        onclick="try{track('google_review_click',{room_id:state.roomId})}catch(_){}"
+        style="display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 18px;border-radius:var(--r-sm);background:#fff;border:1.5px solid #DADCE0;color:#3C4043;font-size:14px;font-weight:600;text-decoration:none;font-family:inherit">
+        <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/><path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/><path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/><path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/></svg>
+        Dejar reseña en Google
+      </a>
+    </div>` : ''}
     <div style="display:flex;flex-direction:column;gap:.65rem;width:100%;max-width:260px">
       <button onclick="downloadTicketPDF()"
         style="padding:12px 24px;border-radius:var(--r-sm);border:2px solid var(--brand-d);background:var(--brand-d);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">
@@ -19265,6 +19277,9 @@ function renderPerfilContent() {
       <input id="prf-email" type="email" placeholder="info@restaurante.com"></div>
     <div class="field"><label>Web (opcional)</label>
       <input id="prf-web" type="url" placeholder="https://..."></div>
+    <div class="field"><label>⭐️ Enlace para reseñas en Google (opcional)</label>
+      <input id="prf-google-review" type="url" placeholder="https://g.page/r/.../review">
+      <div style="font-size:11px;color:var(--t3);margin-top:3px;line-height:1.4">Tras pagar, el comensal verá un botón "Dejar reseña en Google". Consigue el enlace en tu ficha de Google Business → Pedir reseñas.</div></div>
     <div class="field"><label>Número de serie para facturas</label>
       <input id="prf-invoice-prefix" type="text" placeholder="FAC-2024-"></div>
     <div class="field"><label>Tipo de IVA aplicado</label>
@@ -25113,7 +25128,8 @@ async function loadRestaurantProfile() {
   const fields = { nombre: data.name, nif: data.nif, dir: data.address,
     tel: data.phone, email: data.contact_email, web: data.website,
     serie: data.invoice_series || 'F-2024-', iva: data.iva_rate || 10,
-    capacity: data.capacity || 50, slug: data.booking_slug || '' };
+    capacity: data.capacity || 50, slug: data.booking_slug || '',
+    'google-review': data.google_review_url || '' };
   Object.entries(fields).forEach(([k, v]) => {
     const el = document.getElementById('prf-' + k);
     if (el && v !== null && v !== undefined) el.value = v;
@@ -25155,7 +25171,8 @@ async function saveRestaurantProfile() {
     capacity: parseInt(document.getElementById('prf-capacity')?.value || '50') || 50,
     booking_slug: slug || null,
     whatsapp_reminders_enabled: !!document.getElementById('prf-whatsapp-enabled')?.checked,
-    whatsapp_callback_phone: document.getElementById('prf-whatsapp-phone')?.value?.trim() || null
+    whatsapp_callback_phone: document.getElementById('prf-whatsapp-phone')?.value?.trim() || null,
+    google_review_url: document.getElementById('prf-google-review')?.value?.trim() || null
   };
   const { error } = await sb.from('restaurants').update(payload).eq('id', state.adminRestaurantId);
   if (error) { notify('Error: ' + (error.message || error)); return; }
@@ -26067,10 +26084,11 @@ async function enterMesa() {
     }
     // Load restaurant payment methods config
     if (state.restaurantId) {
-      sb.from('restaurants').select('payment_methods,tip_percent').eq('id', state.restaurantId).maybeSingle()
+      sb.from('restaurants').select('payment_methods,tip_percent,google_review_url').eq('id', state.restaurantId).maybeSingle()
         .then(({ data: rest }) => {
           if (rest?.payment_methods) state.paymentMethods = rest.payment_methods;
           if (rest?.tip_percent != null) state.tipPercent = rest.tip_percent;
+          if (rest?.google_review_url) state.googleReviewUrl = rest.google_review_url;  // Sprint paridad #4
         }).catch(() => {});
     }
     await loadParticipants();
