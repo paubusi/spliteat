@@ -8122,8 +8122,18 @@ async function registerPayForManual(guestId, guestName, amount, method) {
   }
 }
 
-function showAccountClosed() {
+async function showAccountClosed() {
   if (document.getElementById('account-closed-screen')) return;
+
+  // Blindaje #4: si la URL de reseña no se cargó (p.ej. cierre por realtime sin
+  // loadRoomData fresco), recuperarla de BD antes de pintar la pantalla.
+  if (!state.googleReviewUrl && state.restaurantId) {
+    try {
+      const { data: r } = await sb.from('restaurants')
+        .select('google_review_url').eq('id', state.restaurantId).maybeSingle();
+      if (r?.google_review_url) state.googleReviewUrl = r.google_review_url;
+    } catch (_) {}
+  }
 
   // #11-6: Mark room as needing cleaning + notify assigned waiter
   if (state.roomId) {
@@ -26205,10 +26215,9 @@ async function enterMesa() {
     }
     // Load restaurant payment methods config
     if (state.restaurantId) {
-      sb.from('restaurants').select('payment_methods,tip_percent,google_review_url').eq('id', state.restaurantId).maybeSingle()
+      sb.from('restaurants').select('payment_methods,google_review_url').eq('id', state.restaurantId).maybeSingle()
         .then(({ data: rest }) => {
           if (rest?.payment_methods) state.paymentMethods = rest.payment_methods;
-          if (rest?.tip_percent != null) state.tipPercent = rest.tip_percent;
           if (rest?.google_review_url) state.googleReviewUrl = rest.google_review_url;  // Sprint paridad #4
         }).catch(() => {});
     }
