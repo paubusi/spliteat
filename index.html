@@ -8143,7 +8143,7 @@ function showAccountClosed() {
             dishes: [{ name: `${tableLabel} — limpiar y preparar para nuevos clientes` }],
             assigned_waiter_id: room?.assigned_waiter_id || null,
             waiter_id: room?.waiter_id || null,
-          }).catch(() => {});
+          }).then(null, () => {}); // Fase fix: .catch inválido en builder Supabase
         }
       }).catch(() => {});
   }
@@ -8940,7 +8940,7 @@ async function callWaiterForRemaining() {
     table_label: state.restaurantName || 'Mesa',
     is_bebidas: false,
     dishes: [{ name: `Cobrar a: ${names} — Total: ${fmt(total)}` }],
-  }).catch(() => {});
+  }).then(null, () => {}); // Fase fix: .catch inválido en builder Supabase
   notify('Camarero avisado para cobrar', 'success');
 }
 
@@ -11172,7 +11172,7 @@ async function markCourseDelivered(roomId, course, isBebidas) {
               dishes: postreDrinks.map(d => ({ id: d.id, name: d.name })),
               assigned_waiter_id: roomInfo?.assigned_waiter_id || null,
               waiter_id: roomInfo?.waiter_id || null,
-            }).catch(() => {});
+            }).then(null, () => {}); // Fase fix: .catch inválido en builder Supabase
           }
         }
       }
@@ -14245,7 +14245,7 @@ async function _notifyPaymentComplete(roomId, totalAmount) {
       dishes: [{ name: `Pago completado · ${totalAmount.toFixed(2)}€ · Limpiar y preparar para nuevos comensales` }],
       assigned_waiter_id: room?.assigned_waiter_id || null,
       waiter_id: room?.waiter_id || null,
-    }).catch(() => {});
+    }).then(null, () => {}); // Fase fix: .catch inválido en builder Supabase
     // 2) Broadcast a manageat
     sb.channel('manageat-' + restId).send({
       type: 'broadcast', event: 'payment_complete',
@@ -14254,7 +14254,7 @@ async function _notifyPaymentComplete(roomId, totalAmount) {
     // 3) Marcar pendiente limpieza
     await sb.from('rooms').update({
       needs_cleaning: true, cleaning_requested_at: new Date().toISOString()
-    }).eq('id', roomId).catch(() => {});
+    }).eq('id', roomId);
   } catch(e) { console.warn('_notifyPaymentComplete error:', e); }
 }
 
@@ -21829,7 +21829,7 @@ async function confirmTableClean(roomId) {
         dishes: [{ name: `${tableLabel} limpia y lista para nuevos comensales` }],
         assigned_waiter_id: room?.assigned_waiter_id || null,
         waiter_id: room?.waiter_id || null,
-      }).catch(() => {});
+      }).then(null, () => {}); // Fase fix: .catch inválido en builder Supabase
       // Broadcast a manageat
       sb.channel('manageat-' + restId).send({
         type: 'broadcast', event: 'table_cleaned',
@@ -22443,7 +22443,7 @@ async function _doFireNextCourse(roomId, course, dishIds) {
         dishes: postreDrinks.map(d => ({ id: d.id, name: d.name })),
         assigned_waiter_id: room?.assigned_waiter_id || null,
         waiter_id: room?.waiter_id || null,
-      }).catch(() => {});
+      }).then(null, () => {}); // Fase fix: .catch inválido en builder Supabase
       console.log('[Kitchen] Notificación cafés con postre enviada:', postreDrinks.length);
     }
   }
@@ -25972,8 +25972,11 @@ function _setCleaningWarnChoice(notifyWaiter, btn) {
     // Usuario dice que ya está limpia — marcar en DB
     const roomToClean = _qrActiveRoomId || window._lastClosedRoomId;
     if (roomToClean) {
+      // sb.from().update().eq() es un thenable sin .catch() → usamos
+      // .then(ok, err) que SÍ es válido. Fire-and-forget.
       sb.from('rooms').update({ needs_cleaning: false, cleaned_at: new Date().toISOString() })
-        .eq('id', roomToClean).catch(() => {});
+        .eq('id', roomToClean)
+        .then(null, e => console.warn('_setCleaningWarnChoice update error:', e));
     }
   }
 }
