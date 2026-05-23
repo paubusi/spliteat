@@ -6851,33 +6851,39 @@ function renderDishCard(dish) {
   const isBebida = (dish.category || '').toLowerCase() === 'bebidas' || dish.course === 0;
   // Bebidas "con el postre" — esperan hasta que todos los platos de comida estén servidos
   const isWithPostre = !!dish.with_postre;
+  // Si la comida ya está servida y este café sigue pendiente → recordatorio accionable.
+  const postreReadyToServe = isWithPostre && !isDelivered && window._drawerAllFoodServed === true;
 
   // Kitchen status badge — bebidas: estado especial o Servido
   const ksBadge = isSent
     ? `<span style="font-size:10px;padding:2px 8px;border-radius:99px;font-weight:600;white-space:nowrap;background:${
-        isDelivered   ? '#EAF3DE' :
-        isWithPostre  ? '#F5EEF8' :
-        isBebida      ? '#FFF3E0' :
-        ks==='ready'  ? '#EAF3DE' :
-        ks==='making' ? '#FFF3E0' : '#EBF4FB'
+        isDelivered       ? '#EAF3DE' :
+        postreReadyToServe ? '#FDF2E0' :
+        isWithPostre      ? '#F5EEF8' :
+        isBebida          ? '#FFF3E0' :
+        ks==='ready'      ? '#EAF3DE' :
+        ks==='making'     ? '#FFF3E0' : '#EBF4FB'
       };color:${
-        isDelivered   ? '#2E7D2E' :
-        isWithPostre  ? '#7D3C98' :
-        isBebida      ? '#B7560D' :
-        ks==='ready'  ? '#2E7D2E' :
-        ks==='making' ? '#B7560D' : '#1565A8'
+        isDelivered       ? '#2E7D2E' :
+        postreReadyToServe ? '#B7560D' :
+        isWithPostre      ? '#7D3C98' :
+        isBebida          ? '#B7560D' :
+        ks==='ready'      ? '#2E7D2E' :
+        ks==='making'     ? '#B7560D' : '#1565A8'
       };border:1px solid ${
-        isDelivered   ? '#A8D5A2' :
-        isWithPostre  ? '#D7BDE2' :
-        isBebida      ? '#F5CBA7' :
-        ks==='ready'  ? '#A8D5A2' :
-        ks==='making' ? '#F5CBA7' : '#AED6F1'
+        isDelivered       ? '#A8D5A2' :
+        postreReadyToServe ? '#F5CBA7' :
+        isWithPostre      ? '#D7BDE2' :
+        isBebida          ? '#F5CBA7' :
+        ks==='ready'      ? '#A8D5A2' :
+        ks==='making'     ? '#F5CBA7' : '#AED6F1'
       }">
-        ${isDelivered  ? 'Servido' :
-          isWithPostre ? 'Con el postre' :
-          isBebida     ? 'En camino' :
-          ks==='ready' ? 'Listo' :
-          ks==='making'? 'Preparando' : 'En cocina'}
+        ${isDelivered      ? 'Servido' :
+          postreReadyToServe ? '⏰ Sírvelo con el postre' :
+          isWithPostre     ? 'Con el postre' :
+          isBebida         ? 'En camino' :
+          ks==='ready'     ? 'Listo' :
+          ks==='making'    ? 'Preparando' : 'En cocina'}
       </span>` : '';
 
   // Course badge
@@ -13130,8 +13136,21 @@ async function renderDrawerPedido() {
 
   // Cargar pedido actual con categoría
   const { data: dishes } = await sb.from('dishes')
-    .select('id,name,price,kitchen_status,course,menu_item_id')
+    .select('id,name,price,kitchen_status,course,menu_item_id,category,with_postre')
     .eq('room_id', _drawerRoomId).order('course');
+
+  // ── Café/bebida "con el postre": calcular si la comida ya está servida.
+  // Si toda la comida (no-bebida, no-with_postre) está 'delivered', el café
+  // con postre pasa a ser "servible ya" → renderDishCard muestra recordatorio.
+  if (dishes?.length) {
+    const foodDishes = dishes.filter(d =>
+      (d.category || '').toLowerCase() !== 'bebidas' && d.course !== 0 && !d.with_postre);
+    const allFoodServed = foodDishes.length > 0 &&
+      foodDishes.every(d => d.kitchen_status === 'delivered');
+    window._drawerAllFoodServed = allFoodServed;
+  } else {
+    window._drawerAllFoodServed = false;
+  }
 
   if (!dishes?.length) {
     body.innerHTML = `
@@ -13172,7 +13191,8 @@ async function renderDrawerPedido() {
     const k = `${d.name}|${parseFloat(d.price||0).toFixed(2)}|${d.kitchen_status}`;
     let g = groups[c].find(x => x.key === k);
     if (!g) {
-      g = { key: k, name: d.name, price: parseFloat(d.price||0), status: d.kitchen_status, ids: [] };
+      g = { key: k, name: d.name, price: parseFloat(d.price||0), status: d.kitchen_status, ids: [],
+            category: d.category, with_postre: !!d.with_postre };
       groups[c].push(g);
     }
     g.ids.push(d.id);
@@ -13192,14 +13212,25 @@ async function renderDrawerPedido() {
       const isReady  = g.status === 'ready';
       // Bebidas (course=0): tap directo de cualquier estado activo a delivered (no pasan por cocina)
       const isBeverage = c === 0;
-      const isTappableBeverage = isBeverage && !isServed;
+      // Café/bebida "con el postre": es bebida aunque tenga course de postre.
+      // El camarero la sirve directamente (vive en 'sent', nunca llega a 'ready').
+      const isPostreDrink = g.with_postre && !isServed;
+      // Recordatorio activo solo cuando la comida ya está servida.
+      const postreReadyToServe = isPostreDrink && window._drawerAllFoodServed === true;
+      const isTappableBeverage = (isBeverage && !isServed) || isPostreDrink;
       const isTappable = isReady || isTappableBeverage;
       const qty = g.ids.length;
       const totalPrice = (g.price * qty).toFixed(2);
       const idsAttr = g.ids.join(',');
       // Para bebidas no entregadas, mostrar badge "✓ Servir" en vez de "En cocina"
       let badgeBg = st.bg, badgeColor = st.color, badgeIcon = st.icon, badgeLabel = st.label;
-      if (isTappableBeverage) {
+      if (postreReadyToServe) {
+        // Recordatorio fuerte: la comida está servida, toca sacar el café con el postre
+        badgeBg = '#FDF2E0'; badgeColor = '#B7560D'; badgeIcon = '⏰'; badgeLabel = 'Sírvelo con el postre';
+      } else if (isPostreDrink) {
+        // Aún esperando a que se sirva la comida
+        badgeBg = '#F5EEF8'; badgeColor = '#7D3C98'; badgeIcon = '🍰'; badgeLabel = 'Con el postre';
+      } else if (isTappableBeverage) {
         badgeBg = '#FFF3E0'; badgeColor = '#B7560D'; badgeIcon = '✓'; badgeLabel = 'Toca para servir';
       }
       html += `
@@ -13245,13 +13276,23 @@ async function markGroupServed(idsCsv) {
 // Marcar TODO lo que esté 'ready' como servido (botón rápido)
 async function markAllReadyServed() {
   if (!_drawerRoomId) return;
+  // Platos de cocina listos (ready) + bebidas que el camarero sirve directamente
+  // (incl. café "con el postre", que vive en 'sent' porque no pasa por cocina).
   const { data: ready } = await sb.from('dishes')
-    .select('id').eq('room_id', _drawerRoomId).eq('kitchen_status', 'ready');
-  if (!ready?.length) { notify('No hay platos listos para servir', 'info'); return; }
+    .select('id,category,course,with_postre,kitchen_status')
+    .eq('room_id', _drawerRoomId)
+    .in('kitchen_status', ['ready', 'sent']);
+  const serveable = (ready || []).filter(d => {
+    if (d.kitchen_status === 'ready') return true; // pase de cocina listo
+    // 'sent': solo bebidas o "con el postre" (no comida que aún cocina)
+    const isBebida = (d.category || '').toLowerCase() === 'bebidas' || d.course === 0;
+    return isBebida || d.with_postre;
+  });
+  if (!serveable.length) { notify('No hay platos listos para servir', 'info'); return; }
   await sb.from('dishes')
     .update({ kitchen_status: 'delivered', delivered_at: new Date().toISOString() })
-    .in('id', ready.map(d => d.id));
-  notify(`✓ ${ready.length} ${ready.length === 1 ? 'plato servido' : 'platos servidos'}`, 'success');
+    .in('id', serveable.map(d => d.id));
+  notify(`✓ ${serveable.length} ${serveable.length === 1 ? 'plato servido' : 'platos servidos'}`, 'success');
   renderDrawerPedido();
   renderDrawerSummary(_drawerRoomId);
 }
