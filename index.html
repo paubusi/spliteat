@@ -6515,7 +6515,8 @@ async function confirmAddDish() {
     assignee_id: modalType === 'solo' ? (_modalSoloGuestId || state.myGuestId) : null,
     menu_item_id: item.id,
     course: modalCourse,
-    category: catObj?.name || null
+    category: catObj?.name || null,
+    source: 'diner' // Fase 2 — pedido originado por el comensal (sin camarero)
   };
   if (v) {
     dishPayload.variant_id   = v.id;
@@ -14078,7 +14079,8 @@ async function waiterSendOrder() {
         kitchen_status: 'sent',
         sent_at: new Date().toISOString(),
         course: meta.course,
-        assignee_id: null
+        assignee_id: null,
+        source: 'waiter' // Fase 2 — pedido tomado por el camarero
       };
       // Preservar variante si el item del cart la lleva (copa/botella, media/entera)
       if (item.variantId) wDishPayload.variant_id = item.variantId;
