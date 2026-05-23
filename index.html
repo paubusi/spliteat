@@ -1806,7 +1806,16 @@
            onwheel="if(!event.target.closest('#send-confirm-list'))event.preventDefault()">
         <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;padding:1.5rem 1.25rem;width:100%;max-width:430px;animation:slideUp .2s ease">
           <div style="font-size:16px;font-weight:500;margin-bottom:.25rem">Confirmar pedido</div>
-          <div style="font-size:13px;color:var(--t2);margin-bottom:1rem">Revisa que todo está correcto antes de enviar a cocina.</div>
+          <div style="font-size:13px;color:var(--t2);margin-bottom:.85rem">Revisa que todo está correcto antes de enviar a cocina.</div>
+          <!-- Sprint paridad #1 — Banner número de mesa (evita pedido en mesa equivocada) -->
+          <div id="send-confirm-mesa" style="display:flex;align-items:center;gap:10px;background:var(--brand-l);border:1px solid var(--brand);border-radius:var(--r-sm);padding:.7rem .85rem;margin-bottom:.9rem">
+            <span style="font-size:20px;flex-shrink:0">📍</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;color:var(--t2);line-height:1.3">Se enviará el pedido a cocina para:</div>
+              <div id="send-confirm-mesa-label" style="font-size:15px;font-weight:700;color:var(--brand-d);line-height:1.3">Mesa</div>
+              <div style="font-size:11px;color:var(--t3);line-height:1.35;margin-top:2px">Si no es tu mesa, escanea el QR de la mesa donde estás antes de enviar.</div>
+            </div>
+          </div>
           <div id="send-confirm-list" style="margin-bottom:1rem;max-height:40vh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch"></div>
           <div style="border-top:1px solid var(--bd);padding-top:.75rem;margin-bottom:1rem;display:flex;justify-content:space-between;align-items:center">
             <span style="font-size:13px;color:var(--t2)">Total del pedido</span>
@@ -7127,6 +7136,34 @@ function showSendToKitchenConfirm() {
   listEl.innerHTML = html;
   listEl.scrollTop = 0;
   document.getElementById('send-confirm-total').textContent = fmt(total);
+
+  // Sprint paridad #1 — mostrar el número de mesa actual (como Lymon)
+  // Fuentes por orden de fiabilidad: state.tableLabel (etiqueta completa) → _qrTableNum (nº del QR) → BD → genérico
+  const mesaLabelEl = document.getElementById('send-confirm-mesa-label');
+  if (mesaLabelEl) {
+    let mesaTxt = state.tableLabel
+      || (typeof _qrTableNum !== 'undefined' && _qrTableNum ? `Mesa ${_qrTableNum}` : null)
+      || 'tu mesa';
+    mesaLabelEl.textContent = mesaTxt;
+    // Fallback async: si no teníamos etiqueta fiable, intentar resolverla desde la BD
+    // (no bloquea la apertura del modal; actualiza el label en cuanto llega)
+    if (!state.tableLabel && state.roomId) {
+      (async () => {
+        try {
+          const { data: room } = await sb.from('rooms').select('table_id').eq('id', state.roomId).maybeSingle();
+          if (room?.table_id) {
+            const { data: t } = await sb.from('tables').select('number,label').eq('id', room.table_id).maybeSingle();
+            if (t) {
+              state.tableLabel = `Mesa ${t.number}${t.label ? ' — ' + t.label : ''}`;
+              const el = document.getElementById('send-confirm-mesa-label');
+              if (el) el.textContent = state.tableLabel;
+            }
+          }
+        } catch (e) { /* silencioso — ya mostramos un fallback */ }
+      })();
+    }
+  }
+
   const modal = document.getElementById('send-confirm-modal');
   modal.style.display = 'flex';
 
@@ -14026,14 +14063,19 @@ async function loadWaiterCobrar() {
           <span>Ya pagado</span><span>-${fmt(totalPagado)}</span>
         </div>` : ''}
         ${pendiente > 0 ? `
-        <div style="display:flex;gap:.5rem;margin-top:.75rem">
+        <!-- Sprint Cobro móvil — botón destacado primero -->
+        <button onclick="waiterCobrarMovil('${roomId}', ${pendiente})"
+          style="width:100%;padding:12px;border-radius:var(--r-sm);border:2px solid var(--brand);background:linear-gradient(135deg,var(--brand) 0%,var(--brand-d) 100%);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:.75rem;display:flex;align-items:center;justify-content:center;gap:8px">
+          <span style="font-size:18px">📱</span> Cobrar desde mi móvil
+        </button>
+        <div style="display:flex;gap:.5rem;margin-top:.5rem">
           <button onclick="waiterCobrarMesaCompleta('${roomId}', ${pendiente}, 'Efectivo')"
             style="flex:1;padding:10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);color:var(--t1);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">
             💶 Efectivo
           </button>
           <button onclick="waiterCobrarMesaCompleta('${roomId}', ${pendiente}, 'Tarjeta')"
-            style="flex:1;padding:10px;border-radius:var(--r-sm);border:none;background:var(--brand);color:#fff;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">
-            💳 Tarjeta
+            style="flex:1;padding:10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);color:var(--t1);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit">
+            💳 Tarjeta (datáfono)
           </button>
         </div>
         <div style="margin-top:.5rem">
@@ -14125,6 +14167,161 @@ async function _notifyPaymentComplete(roomId, totalAmount) {
       needs_cleaning: true, cleaning_requested_at: new Date().toISOString()
     }).eq('id', roomId).catch(() => {});
   } catch(e) { console.warn('_notifyPaymentComplete error:', e); }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Sprint Cobro móvil — deep links a SumUp y Bizum (vía WhatsApp)
+// El camarero usa su propio móvil para cobrar; spliteat solo deep-linka
+// a la app del proveedor con el monto pre-rellenado. Sin certificación
+// PCI/EMV. Tras volver al navegador, el camarero marca "cobrado".
+// ══════════════════════════════════════════════════════════════════
+
+// Carga la config de cobro móvil del restaurante (SumUp affiliate-key + Bizum phone)
+let _mobilePayConfig = null;
+async function _loadMobilePayConfig() {
+  if (_mobilePayConfig) return _mobilePayConfig;
+  const restId = _waiterRestaurantId || state.adminRestaurantId;
+  if (!restId) return null;
+  try {
+    const { data } = await sb.from('restaurants')
+      .select('sumup_affiliate_key, bizum_phone, phone, name')
+      .eq('id', restId).maybeSingle();
+    _mobilePayConfig = data || null;
+    return _mobilePayConfig;
+  } catch (e) { return null; }
+}
+
+// Limpia caché si el camarero cambia de restaurante
+function _resetMobilePayConfig() { _mobilePayConfig = null; }
+
+// Modal de selección de método (SumUp / Bizum)
+async function waiterCobrarMovil(roomId, amount) {
+  const cfg = await _loadMobilePayConfig();
+  const hasSumUp = !!(cfg && cfg.sumup_affiliate_key);
+  const hasBizum = !!(cfg && cfg.bizum_phone);
+
+  if (!hasSumUp && !hasBizum) {
+    notify('Para cobrar desde el móvil, pide al propietario que configure SumUp o Bizum en Ajustes → Pagos', 'info');
+    return;
+  }
+
+  const existing = document.getElementById('mobile-pay-modal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'mobile-pay-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9500;display:flex;align-items:flex-end;justify-content:center';
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:480px;padding:1.5rem 1.25rem 1.75rem;animation:slideUp .22s ease">
+      <div style="width:36px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto 1.25rem"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem">
+        <div>
+          <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--t1)">📱 Cobrar desde tu móvil</div>
+          <div style="font-size:13px;color:var(--t3);margin-top:2px">${fmt(amount)} · sin volver a caja</div>
+        </div>
+        <button onclick="document.getElementById('mobile-pay-modal')?.remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2)">✕</button>
+      </div>
+      <div style="background:var(--bg2);border-radius:var(--r-sm);padding:.65rem .85rem;margin:.85rem 0 1rem;font-size:12px;color:var(--t2);line-height:1.5">
+        Elige cómo quieres cobrar al cliente. Se abrirá la app correspondiente con el importe ya rellenado. Cuando vuelvas, confirma el pago aquí.
+      </div>
+      ${hasSumUp ? `
+        <button onclick="_launchSumUpPayment('${roomId}', ${amount})" style="width:100%;padding:14px;border-radius:var(--r);border:2px solid #1A6FE3;background:#1A6FE3;color:#fff;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:.65rem;display:flex;align-items:center;justify-content:center;gap:10px">
+          <span style="font-size:20px">💳</span> Pagar con SumUp
+        </button>
+      ` : ''}
+      ${hasBizum ? `
+        <button onclick="_launchBizumPayment('${roomId}', ${amount})" style="width:100%;padding:14px;border-radius:var(--r);border:2px solid #00B4D8;background:#00B4D8;color:#fff;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:.65rem;display:flex;align-items:center;justify-content:center;gap:10px">
+          <span style="font-size:20px">📲</span> Cobrar por Bizum
+        </button>
+      ` : ''}
+      <button onclick="document.getElementById('mobile-pay-modal')?.remove()" style="width:100%;padding:11px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);color:var(--t2);font-size:13px;cursor:pointer;font-family:inherit;margin-top:.5rem">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+// SumUp: deep link sumupmerchant://pay/1.0?...
+async function _launchSumUpPayment(roomId, amount) {
+  const cfg = await _loadMobilePayConfig();
+  if (!cfg?.sumup_affiliate_key) return;
+
+  const params = new URLSearchParams({
+    'affiliate-key': cfg.sumup_affiliate_key,
+    'total': amount.toFixed(2),  // SumUp app >=1.88 usa 'total'
+    'amount': amount.toFixed(2), // fallback para versiones antiguas
+    'currency': 'EUR',
+    'title': cfg.name || 'Cobro restaurante',
+    'foreign-tx-id': 'spliteat-' + roomId + '-' + Date.now(),
+    'skip-screen-success': 'true'
+  });
+  const url = 'sumupmerchant://pay/1.0?' + params.toString();
+
+  // Mostrar modal de confirmación post-vuelta antes de abrir
+  _showPostMobileReturnModal(roomId, amount, 'SumUp');
+  // Abrir la app (en móvil cambia de contexto; en desktop avisa)
+  try {
+    window.location.href = url;
+  } catch (e) {
+    notify('No se pudo abrir SumUp. Asegúrate de tener la app instalada.', 'error');
+  }
+}
+
+// Bizum: copia número al portapapeles + abre WhatsApp con mensaje pre-rellenado
+async function _launchBizumPayment(roomId, amount) {
+  const cfg = await _loadMobilePayConfig();
+  if (!cfg?.bizum_phone) return;
+
+  const phone = cfg.bizum_phone.replace(/[^\d+]/g, '');
+  const msg = `Hola! Tu cuenta en ${cfg.name || 'el restaurante'} es de ${fmt(amount)}. Envía un Bizum a este número: ${phone}. ¡Gracias!`;
+  const whatsappUrl = 'https://wa.me/?text=' + encodeURIComponent(msg);
+
+  // Copiar el número al portapapeles
+  try {
+    await navigator.clipboard.writeText(phone);
+    notify('Número Bizum copiado: ' + phone, 'success');
+  } catch (e) { /* clipboard puede fallar en algunos contextos */ }
+
+  // Modal de confirmación
+  _showPostMobileReturnModal(roomId, amount, 'Bizum');
+
+  // Abrir WhatsApp en otra pestaña (mejor que navigation)
+  window.open(whatsappUrl, '_blank', 'noopener');
+}
+
+// Modal que aparece tras lanzar la app externa: el camarero confirma
+function _showPostMobileReturnModal(roomId, amount, methodName) {
+  document.getElementById('mobile-pay-modal')?.remove();
+  const existing = document.getElementById('mobile-pay-confirm-modal');
+  if (existing) existing.remove();
+  const modal = document.createElement('div');
+  modal.id = 'mobile-pay-confirm-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9600;display:flex;align-items:flex-end;justify-content:center';
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:480px;padding:1.5rem 1.25rem 1.75rem;animation:slideUp .22s ease">
+      <div style="width:36px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto 1.25rem"></div>
+      <div style="text-align:center;margin-bottom:1rem">
+        <div style="font-size:42px;margin-bottom:.5rem">📱</div>
+        <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--t1)">Volviste de ${methodName}</div>
+        <div style="font-size:13px;color:var(--t3);margin-top:4px">Confirma si el pago se completó</div>
+      </div>
+      <div style="background:var(--bg2);border-radius:var(--r);padding:.85rem 1rem;margin-bottom:1rem;text-align:center">
+        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Importe</div>
+        <div style="font-family:'Fraunces',serif;font-size:26px;font-weight:700;color:var(--brand-d)">${fmt(amount)}</div>
+      </div>
+      <button onclick="_confirmMobilePayment('${roomId}', ${amount}, '${methodName}')" class="btn btn-primary" style="width:100%;padding:14px;font-size:15px;font-weight:600;margin-bottom:.5rem">
+        ✓ Pago completado
+      </button>
+      <button onclick="document.getElementById('mobile-pay-confirm-modal')?.remove();notify('Cobro cancelado','info')" class="btn btn-secondary" style="width:100%;padding:11px">
+        ✕ Pago fallido o cancelado
+      </button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+async function _confirmMobilePayment(roomId, amount, methodName) {
+  document.getElementById('mobile-pay-confirm-modal')?.remove();
+  // Registra como pago normal con el método correspondiente
+  await waiterCobrarMesaCompleta(roomId, amount, methodName);
 }
 
 async function waiterCobrarMesaCompleta(roomId, amount, method) {
@@ -18938,6 +19135,13 @@ async function renderMetodosPagoSection(container) {
     </div>`;
   }).join('');
 
+  // Sprint Cobro móvil — leer config actual de SumUp y Bizum
+  const { data: restMP } = await sb.from('restaurants')
+    .select('sumup_affiliate_key, bizum_phone')
+    .eq('id', state.adminRestaurantId).maybeSingle();
+  const sumupKey = restMP?.sumup_affiliate_key || '';
+  const bizumPhone = restMP?.bizum_phone || '';
+
   container.innerHTML = `
     <div style="font-size:13px;color:var(--t2);margin-bottom:1rem;line-height:1.5">
       Activa o desactiva los métodos de pago que acepta tu restaurante. Los comensales solo verán las opciones activas.
@@ -18946,7 +19150,78 @@ async function renderMetodosPagoSection(container) {
     <button onclick="savePaymentMethods()" class="btn btn-primary" style="width:100%;margin-top:1.25rem">
       Guardar cambios
     </button>
-    <div id="pm-save-msg" style="display:none;text-align:center;font-size:13px;color:var(--brand);margin-top:.5rem">✓ Guardado</div>`;
+    <div id="pm-save-msg" style="display:none;text-align:center;font-size:13px;color:var(--brand);margin-top:.5rem">✓ Guardado</div>
+
+    <!-- Sprint Cobro móvil — config cobro desde el móvil del camarero -->
+    <div style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--bd)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:.5rem">
+        <span style="font-size:20px">📱</span>
+        <div style="font-size:15px;font-weight:600;color:var(--t1)">Cobro desde el móvil del camarero</div>
+      </div>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:1rem;line-height:1.5">
+        Permite al camarero cobrar en la mesa abriendo SumUp o Bizum desde su propio móvil, con el importe ya rellenado. Sin volver a caja.
+      </div>
+
+      <!-- SumUp -->
+      <div style="background:var(--bg2);border-radius:var(--r);padding:.85rem 1rem;margin-bottom:.85rem">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <span style="font-size:16px">💳</span>
+          <div style="font-size:13px;font-weight:600;color:var(--t1)">SumUp</div>
+        </div>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:.5rem;line-height:1.5">
+          Pega tu <strong>affiliate-key</strong> de SumUp. La obtienes en <a href="https://me.sumup.com/developers" target="_blank" rel="noopener" style="color:var(--brand)">me.sumup.com/developers</a>. Si la dejas vacía, el botón no aparecerá.
+        </div>
+        <input id="sumup-affiliate-input" type="text" value="${escHtml(sumupKey)}"
+          placeholder="ej. abc12345-6789-..."
+          style="width:100%;padding:9px 12px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:13px;background:var(--card)">
+      </div>
+
+      <!-- Bizum -->
+      <div style="background:var(--bg2);border-radius:var(--r);padding:.85rem 1rem;margin-bottom:.85rem">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          <span style="font-size:16px">📲</span>
+          <div style="font-size:13px;font-weight:600;color:var(--t1)">Bizum del restaurante</div>
+        </div>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:.5rem;line-height:1.5">
+          Número de móvil asociado a Bizum. Cuando el camarero pulse "Cobrar por Bizum", se copiará al portapapeles y se abrirá WhatsApp con un mensaje pre-rellenado para el cliente.
+        </div>
+        <input id="bizum-phone-input" type="tel" value="${escHtml(bizumPhone)}"
+          placeholder="+34 612 345 678"
+          style="width:100%;padding:9px 12px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:13px;background:var(--card)">
+      </div>
+
+      <button onclick="saveMobilePayConfig()" class="btn btn-primary" style="width:100%;padding:11px">
+        Guardar cobro móvil
+      </button>
+      <div id="mobilepay-save-msg" style="display:none;text-align:center;font-size:12px;color:var(--brand);margin-top:.5rem">✓ Guardado</div>
+    </div>`;
+}
+
+async function saveMobilePayConfig() {
+  const sumupKey = document.getElementById('sumup-affiliate-input')?.value?.trim() || null;
+  const bizumPhone = document.getElementById('bizum-phone-input')?.value?.trim() || null;
+
+  // Validar Bizum (debe parecer un teléfono)
+  if (bizumPhone && !/^[\d\s+()-]{6,20}$/.test(bizumPhone)) {
+    notify('El número Bizum no parece válido', 'error');
+    return;
+  }
+
+  const { error } = await sb.from('restaurants')
+    .update({
+      sumup_affiliate_key: sumupKey,
+      bizum_phone: bizumPhone
+    })
+    .eq('id', state.adminRestaurantId);
+
+  if (error) { notify('Error al guardar: ' + error.message, 'error'); return; }
+
+  // Reset caché del cliente
+  if (typeof _resetMobilePayConfig === 'function') _resetMobilePayConfig();
+
+  const msg = document.getElementById('mobilepay-save-msg');
+  if (msg) { msg.style.display = 'block'; setTimeout(() => msg.style.display = 'none', 2000); }
+  notify('Cobro móvil actualizado', 'success');
 }
 
 let _payMethodsState = {};
