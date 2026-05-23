@@ -9894,9 +9894,9 @@ async function generateInvoiceFromRoom(roomId, opts = {}) {
 
     // 3) Pagos (snapshot)
     const { data: payments } = await sb.from('payments')
-      .select('amount, payment_method').eq('room_id', roomId);
+      .select('amount, method').eq('room_id', roomId);
     const paymentMethods = (payments || []).reduce((acc, p) => {
-      const m = p.payment_method || 'unknown';
+      const m = p.method || 'unknown';
       acc[m] = (acc[m] || 0) + parseFloat(p.amount || 0);
       return acc;
     }, {});
@@ -29249,8 +29249,20 @@ async function loadKPIPropinasEmbedded() {
   const el = document.getElementById('kpi-propinas-embedded');
   if (!el) return;
   const since = new Date(); since.setDate(since.getDate() - 30);
-  const { data: pays } = await sb.from('payments').select('tip_amount,created_at').eq('restaurant_id', state.adminRestaurantId).gte('created_at', since.toISOString()).not('tip_amount','is',null);
-  if (!pays?.length) { el.innerHTML = '<span style="font-size:12px;color:var(--t3)">Sin propinas en 30 días</span>'; return; }
+  // payments no tiene restaurant_id ni created_at: se vincula vía room_id→rooms,
+  // y la columna de tiempo real es paid_at. Filtramos por las rooms del restaurante.
+  const { data: rooms } = await sb.from('rooms').select('id').eq('restaurant_id', state.adminRestaurantId);
+  const roomIds = (rooms || []).map(r => r.id);
+  let pays = [];
+  if (roomIds.length) {
+    const { data } = await sb.from('payments')
+      .select('tip_amount,paid_at')
+      .in('room_id', roomIds)
+      .gte('paid_at', since.toISOString())
+      .not('tip_amount', 'is', null);
+    pays = data || [];
+  }
+  if (!pays.length) { el.innerHTML = '<span style="font-size:12px;color:var(--t3)">Sin propinas en 30 días</span>'; return; }
   const total = pays.reduce((s,p) => s + parseFloat(p.tip_amount||0), 0);
   const avg = total / pays.length;
   el.innerHTML = `<div style="display:flex;gap:.75rem;flex-wrap:wrap">
