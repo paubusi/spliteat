@@ -4528,6 +4528,7 @@ let state = {
   tipPercent: 0,
   guests: [], dishes: [], participants: {},
   menuItems: [], categories: [], restaurantId: null,
+  availabilityByItem: {}, // Fase 1 #2 — { [menuItemId]: 'out' } platos agotados
   adminRestaurantId: null, adminRestaurantName: '',
   adminRole: 'admin', // 'admin' | 'cocina'
   adminEmail: null, // Sprint Costes Turno 8a — email del admin para multi-restaurante
@@ -5614,11 +5615,74 @@ async function loadCarta() {
     .select('*, menu_item_variants(id,name,price,cost_price,sort_order,is_default)')
     .eq('restaurant_id', state.restaurantId).eq('active', true).order('sort_order');
   state.menuItems = data || [];
+  // Fase 1 #2 — Disponibilidad por stock: cargar inventario + recetas para
+  // determinar qué platos están AGOTADOS y reflejarlo en la carta del comensal.
+  await loadCartaAvailability();
   document.getElementById('carta-loading').style.display = 'none';
   if (!state.menuItems.length) {
     document.getElementById('carta-empty').style.display = 'block'; return;
   }
   renderCarta();
+}
+
+// Fase 1 #2 — Calcula state.availabilityByItem = { [menuItemId]: 'out' | 'ok' }
+// Gemelo de _stockIssuesForDish (cookeat) pero sobre el CATÁLOGO, no sobre dishes.
+// Solo marca 'out' (agotado); no expone 'low' por decisión de producto.
+async function loadCartaAvailability() {
+  state.availabilityByItem = {};
+  try {
+    // ¿Hay algún plato con control de stock? Si no, ahorramos las queries.
+    const tracked = (state.menuItems || []).filter(m => m.stock_mode && m.stock_mode !== 'none');
+    if (!tracked.length) return;
+
+    const itemIds = tracked.map(m => m.id);
+    const [{ data: invData }, { data: recipesData }] = await Promise.all([
+      sb.from('inventory_with_alerts')
+        .select('ingredient_id,qty_on_hand,is_out_of_stock')
+        .eq('restaurant_id', state.restaurantId),
+      sb.from('recipes')
+        .select('id,menu_item_id,variant_id,recipe_items(ingredient_id,quantity)')
+        .in('menu_item_id', itemIds)
+    ]);
+
+    const invByIng = new Map();
+    (invData || []).forEach(i => invByIng.set(i.ingredient_id, i));
+
+    // Recetas base por menu_item (variant_id null) — la carta muestra el plato
+    // genérico, así que evaluamos la receta base.
+    const baseRecipeByItem = new Map();
+    (recipesData || []).forEach(r => {
+      if (!r.variant_id) baseRecipeByItem.set(r.menu_item_id, r.recipe_items || []);
+    });
+    // Fallback: si no hay receta base, usa cualquier receta del plato.
+    (recipesData || []).forEach(r => {
+      if (!baseRecipeByItem.has(r.menu_item_id)) baseRecipeByItem.set(r.menu_item_id, r.recipe_items || []);
+    });
+
+    tracked.forEach(mi => {
+      let isOut = false;
+      if (mi.stock_mode === 'self' && mi.self_ingredient_id) {
+        const inv = invByIng.get(mi.self_ingredient_id);
+        if (inv) {
+          const qtyReq = mi.self_qty_per_unit || 1;
+          if (inv.is_out_of_stock || inv.qty_on_hand < qtyReq) isOut = true;
+        }
+      } else if (mi.stock_mode === 'ingredient') {
+        const items = baseRecipeByItem.get(mi.id) || [];
+        // Agotado si CUALQUIER ingrediente de la receta no llega para 1 unidad.
+        for (const ri of items) {
+          const inv = invByIng.get(ri.ingredient_id);
+          if (!inv) continue;
+          const qtyReq = parseFloat(ri.quantity) || 0;
+          if (inv.is_out_of_stock || inv.qty_on_hand < qtyReq) { isOut = true; break; }
+        }
+      }
+      if (isOut) state.availabilityByItem[mi.id] = 'out';
+    });
+  } catch (e) {
+    console.warn('loadCartaAvailability error (carta sigue sin bloqueos):', e?.message);
+    state.availabilityByItem = {};
+  }
 }
 
 function renderCarta() {
@@ -5662,6 +5726,8 @@ function renderCarta() {
       const dishes = itemDishes[item.id] || [];
       const count = dishes.length;
       const onTable = count > 0;
+      // Fase 1 #2 — Plato agotado: atenuar, badge "Agotado", bloquear añadir.
+      const isOut = (state.availabilityByItem || {})[item.id] === 'out';
 
       // Build initials row — agrupar por persona con contador para evitar saturación
       // (con 10 aguas mostrar "P×3 J×2" en vez de 10 bolitas que tapan el botón +)
@@ -5738,13 +5804,16 @@ function renderCarta() {
         }
       }
 
-      html += `<div onclick="${onTable ? `openCartaItemEdit('${item.id}')` : `openModal('${item.id}')`}"
-        style="display:flex;align-items:center;padding:.65rem .85rem;border-radius:var(--r-sm);margin-bottom:.4rem;border:1px solid ${onTable ? 'var(--brand)' : 'var(--bd)'};background:${onTable ? 'var(--brand-l)' : 'var(--card)'};cursor:pointer;transition:all .15s;gap:10px">
+      html += `<div onclick="${isOut ? '' : (onTable ? `openCartaItemEdit('${item.id}')` : `openModal('${item.id}')`)}"
+        style="display:flex;align-items:center;padding:.65rem .85rem;border-radius:var(--r-sm);margin-bottom:.4rem;border:1px solid ${isOut ? 'var(--bd)' : (onTable ? 'var(--brand)' : 'var(--bd)')};background:${isOut ? 'var(--bg2)' : (onTable ? 'var(--brand-l)' : 'var(--card)')};cursor:${isOut ? 'not-allowed' : 'pointer'};transition:all .15s;gap:10px${isOut ? ';opacity:.55' : ''}">
         ${item.photo_url
-          ? `<img src="${item.photo_url}" style="width:52px;height:52px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0">`
+          ? `<img src="${item.photo_url}" style="width:52px;height:52px;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0${isOut ? ';filter:grayscale(1)' : ''}">`
           : ''}
         <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:${onTable ? '500' : '400'};color:${onTable ? 'var(--brand-d)' : 'var(--t1)'};">${escHtml(item.name)}</div>
+          <div style="font-size:14px;font-weight:${onTable ? '500' : '400'};color:${onTable ? 'var(--brand-d)' : 'var(--t1)'};display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span>${escHtml(item.name)}</span>
+            ${isOut ? `<span style="font-size:10px;font-weight:700;color:#fff;background:var(--t3);border-radius:99px;padding:1px 7px;letter-spacing:.02em;text-transform:uppercase">Agotado</span>` : ''}
+          </div>
           <div style="font-size:12px;color:${onTable ? 'var(--brand)' : 'var(--t3)'};margin-top:1px">${(() => {
             const vs = item.menu_item_variants;
             if (vs && vs.length > 0) {
@@ -5754,11 +5823,12 @@ function renderCarta() {
             return fmt(parseFloat(item.price));
           })()}</div>
         </div>
-        ${initialsHtml}
-        ${onTable ? `<span style="font-size:13px;font-weight:700;color:var(--brand-d);min-width:16px;text-align:center">${count}</span>` : ''}
-        <div style="width:28px;height:28px;border-radius:50%;border:1.5px solid var(--brand);background:var(--brand);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;font-weight:700;color:#fff">
-          +
-        </div>
+        ${isOut ? '' : initialsHtml}
+        ${(!isOut && onTable) ? `<span style="font-size:13px;font-weight:700;color:var(--brand-d);min-width:16px;text-align:center">${count}</span>` : ''}
+        ${isOut
+          ? `<div style="width:28px;height:28px;border-radius:50%;border:1.5px solid var(--bd);background:var(--bg2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;font-weight:700;color:var(--t3)">×</div>`
+          : `<div style="width:28px;height:28px;border-radius:50%;border:1.5px solid var(--brand);background:var(--brand);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;font-weight:700;color:#fff">
+          +</div>`}
       </div>`;
     });
     html += '</div>';
@@ -6167,6 +6237,11 @@ async function deleteCartaDish(dishId) {
 function openModal(itemId) {
   const item = state.menuItems.find(i => i.id === itemId);
   if (!item) return;
+  // Fase 1 #2 — Guard: no permitir abrir un plato agotado.
+  if ((state.availabilityByItem || {})[itemId] === 'out') {
+    if (typeof notify === 'function') notify('Este plato está agotado ahora mismo', 'error');
+    return;
+  }
   // ── TURNO 3.4: Si el plato tiene variantes (Copa/Botella, Media/Entera), pickea antes ──
   const variants = (item.menu_item_variants || []).slice().sort((a,b) => (a.sort_order||0) - (b.sort_order||0));
   if (variants.length > 0) {
