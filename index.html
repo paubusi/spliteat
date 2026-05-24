@@ -11353,6 +11353,7 @@ function openWaiterNotifHistory() {
 let _waiterRestaurantId = null;
 let _waiterRestaurantName = null;
 let _waiterId = null;
+let _activeEmpRole = null; // rol del empleado activo en cualquier módulo (para botón turno owner)
 let _waiterName = null;
 let _waiterCart = []; // { menuItem, qty, type }
 let _waiterMenuItemsCache = []; // últimos menu_items cargados (con menu_item_variants) para resolver variantes en handlers
@@ -11793,6 +11794,52 @@ async function _doClockIn(waiterId) {
   }
 }
 
+// ── Botón flotante opcional "Empezar mi turno" para el owner ──
+// Aparece en CUALQUIER módulo (serveat/cookeat/stockeat/manageat) si el
+// empleado activo es owner y NO tiene turno abierto. El owner/autónomo NO
+// está obligado a fichar (RD-ley 8/2019), pero puede hacerlo voluntariamente.
+// "Acabar turno" ya está cubierto por el badge de fichaje (click → promptClockOut),
+// así que este botón solo aparece para EMPEZAR.
+function _ownerActiveId() {
+  // id del empleado activo en el módulo actual
+  return _waiterId || state.kitchenUserId || state.adminEmployeeId || state.stockeatEmployeeId || null;
+}
+
+async function _refreshOwnerShiftBtn() {
+  let btn = document.getElementById('owner-shift-fab');
+  const isOwner = _activeEmpRole === 'owner';
+  const ownerId = isOwner ? _ownerActiveId() : null;
+
+  // Sin owner activo → quitar el botón si existiera.
+  if (!ownerId) { if (btn) btn.remove(); return; }
+
+  // ¿Ya tiene turno abierto? Si sí, no mostrar (el badge ya permite acabar).
+  let hasShift = false;
+  try {
+    const { data } = await sb.rpc('get_active_shift', { p_waiter_id: ownerId });
+    hasShift = !!data?.active;
+  } catch (e) { /* asumir sin turno */ }
+
+  if (hasShift) { if (btn) btn.remove(); return; }
+
+  // Crear el botón flotante si no existe.
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.id = 'owner-shift-fab';
+    btn.onclick = _ownerStartShift;
+    btn.style.cssText = 'position:fixed;bottom:18px;left:18px;z-index:7000;padding:9px 14px;border-radius:99px;border:1px solid rgba(29,158,117,.4);background:#EAF3DE;color:#3B6D11;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(0,0,0,.15);display:inline-flex;align-items:center;gap:6px';
+    document.body.appendChild(btn);
+  }
+  btn.innerHTML = '⏱ Empezar mi turno';
+}
+
+async function _ownerStartShift() {
+  const ownerId = _ownerActiveId();
+  if (!ownerId) { notify('No se pudo identificar tu cuenta', 'error'); return; }
+  await _doClockIn(ownerId); // gestiona avisos de auto-cierre previo + badge
+  _refreshOwnerShiftBtn();   // tras fichar, ocultar el botón
+}
+
 // Badge de fichaje — pinta tanto en serveat (#shift-badge) como en cookeat (#k-shift-badge).
 // En manageat se crea dinámicamente como elemento fixed (junto al role-badge).
 // Solo uno será visible a la vez según la pantalla activa, pero pintamos ambos por simplicidad.
@@ -11849,6 +11896,10 @@ function _stopClockInBadge() {
   // manageat badge: eliminarlo (no solo ocultarlo, igual que el role-badge)
   const mBadge = document.getElementById('m-shift-badge');
   if (mBadge) mBadge.remove();
+  // Si el que acaba turno es owner, reaparecer el botón flotante "Empezar".
+  if (_activeEmpRole === 'owner' && typeof _refreshOwnerShiftBtn === 'function') {
+    setTimeout(_refreshOwnerShiftBtn, 300);
+  }
 }
 
 // Modal de cierre de sesión / clock-out
@@ -15410,6 +15461,7 @@ async function confirmCookeatZones() {
   state.kitchenUserId = w.id;
   state.kitchenUserName = w.name;
   state.kitchenUserRole = w.role;
+  _activeEmpRole = w.role;
   state.kitchenActiveZoneIds = [..._cookeatSelectedZoneIds];
 
   // Entrada al KDS (ya con state.kitchenRestaurantId del paso anterior)
@@ -15699,9 +15751,12 @@ function restaurantLogout() {
   _restaurantSession = null;
   _employeesCache = null;
   _activeEmployee = null;
+  _activeEmpRole = null;
   // Limpiar badge de rol manageat (queda visible si no se borra)
   const badge = document.getElementById('manageat-role-badge');
   if (badge) badge.remove();
+  const ownerFab = document.getElementById('owner-shift-fab');
+  if (ownerFab) ownerFab.remove();
   document.body.classList.remove('manageat-active');
   try { localStorage.removeItem('spliteat.restaurantSession'); } catch (e) {}
   go('s0');
@@ -16007,6 +16062,7 @@ async function _enterModuleAfterPin(emp) {
     }
     // AHORA sobrescribir con los datos del empleado (Sprint Refactor)
     state.adminRole = emp.role; // 'owner' o 'manager'
+    _activeEmpRole = emp.role;
     state.adminEmployeeId = emp.id;
     state.adminEmployeeName = emp.name;
 
@@ -16057,6 +16113,7 @@ async function _enterModuleAfterPin(emp) {
     // cargar mesas/notif/heartbeat, y disparar prompt de control horario.
     _waiterId = emp.id;
     _waiterName = emp.name;
+    _activeEmpRole = emp.role;
     _waiterRestaurantId = _restaurantSession.restaurantId;
     _waiterLoginAt = Date.now();
     state.adminRestaurantId = _restaurantSession.restaurantId;
@@ -16099,10 +16156,12 @@ async function _enterModuleAfterPin(emp) {
     if (typeof loadWaiterTableSelects === 'function') loadWaiterTableSelects();
     if (typeof subscribeWaiterNotifications === 'function') subscribeWaiterNotifications();
 
-    // Sprint Control horario: disparar prompt de fichaje (RD-ley 8/2019)
-    if (typeof promptClockInIfNeeded === 'function') {
+    // Sprint Control horario: disparar prompt de fichaje (RD-ley 8/2019).
+    // Owner NO (es propietario, no empleado por cuenta ajena) — ficha voluntariamente.
+    if (emp.role !== 'owner' && typeof promptClockInIfNeeded === 'function') {
       setTimeout(() => promptClockInIfNeeded(emp.id, emp.name), 400);
     }
+    if (typeof _refreshOwnerShiftBtn === 'function') setTimeout(_refreshOwnerShiftBtn, 500);
 
     return;
   }
@@ -16148,10 +16207,12 @@ async function _enterModuleAfterPin(emp) {
       }
     }
 
-    // Sprint Control horario (RD-ley 8/2019): aplica también a cocina
-    if (typeof promptClockInIfNeeded === 'function') {
+    // Sprint Control horario (RD-ley 8/2019): aplica también a cocina.
+    // Owner NO (propietario, no empleado por cuenta ajena) — ficha voluntariamente.
+    if (emp.role !== 'owner' && typeof promptClockInIfNeeded === 'function') {
       setTimeout(() => promptClockInIfNeeded(emp.id, emp.name), 600);
     }
+    if (typeof _refreshOwnerShiftBtn === 'function') setTimeout(_refreshOwnerShiftBtn, 700);
 
     // Sprint Refactor: heartbeat para que el cocinero aparezca como "online" en sala (manageat)
     _startStaffHeartbeat(emp.id, emp.role);
@@ -16163,6 +16224,7 @@ async function _enterModuleAfterPin(emp) {
     state.stockeatRestaurantId = _restaurantSession.restaurantId;
     state.stockeatEmployeeId = emp.id;
     state.stockeatEmployeeName = emp.name;
+    _activeEmpRole = emp.role;
     // openStockeat es la función real de inicialización
     if (typeof openStockeat === 'function') {
       try {
@@ -16174,6 +16236,7 @@ async function _enterModuleAfterPin(emp) {
     } else {
       go('s-stockeat');
     }
+    if (typeof _refreshOwnerShiftBtn === 'function') setTimeout(_refreshOwnerShiftBtn, 500);
     return;
   }
 }
@@ -16287,6 +16350,8 @@ async function applyManageatPermissions(role, customRoleId = null) {
   // Cargar permisos (async, pero los selectores se aplican abajo)
   await _loadManageatPermissions(role, customRoleId);
   const perms = _manageatPermissions;
+  // Botón opcional "Empezar/Acabar turno" del owner (no bloqueante).
+  if (typeof _refreshOwnerShiftBtn === 'function') _refreshOwnerShiftBtn();
 
   // Mapping permiso → selectores reales (tabs sidebar desktop + mobile + paneles)
   const permissionMap = {
