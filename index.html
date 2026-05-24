@@ -11847,7 +11847,12 @@ async function _refreshOwnerShiftBtn() {
     btn = document.createElement('button');
     btn.id = 'owner-shift-fab';
     btn.onclick = _ownerStartShift;
-    btn.style.cssText = 'position:fixed;bottom:18px;left:18px;z-index:7000;padding:9px 14px;border-radius:99px;border:1px solid rgba(29,158,117,.4);background:#EAF3DE;color:#3B6D11;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 4px 14px rgba(0,0,0,.15);display:inline-flex;align-items:center;gap:6px';
+    // Posición arriba-derecha (zona del badge de turno, nunca coexisten).
+    // En móvil estrecho, pegar más al borde para no salirse de pantalla.
+    const isNarrow = window.innerWidth < 640;
+    const rightPos = isNarrow ? '12px' : '200px';
+    const topPos = isNarrow ? '52px' : '14px'; // bajo el header en móvil
+    btn.style.cssText = `position:fixed;top:${topPos};right:${rightPos};z-index:7000;padding:6px 13px;border-radius:99px;border:1px solid rgba(29,158,117,.4);background:#EAF3DE;color:#3B6D11;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(0,0,0,.12);display:inline-flex;align-items:center;gap:5px`;
     document.body.appendChild(btn);
   }
   btn.innerHTML = '⏱ Empezar mi turno';
@@ -26682,6 +26687,14 @@ async function restoreSession() {
     state.guests = guests || [];
     state.dishes = dishes || [];
     state.payments = payments || [];
+    // Cargar config de pagos del restaurante (faltaba al restaurar → caía al
+    // default sin bizum/ticket y desaparecían tras recargar la página).
+    try {
+      const { data: rest } = await sb.from('restaurants')
+        .select('payment_methods,google_review_url').eq('id', state.restaurantId).maybeSingle();
+      if (rest?.payment_methods) state.paymentMethods = rest.payment_methods;
+      if (rest?.google_review_url) state.googleReviewUrl = rest.google_review_url;
+    } catch (e) { /* usa defaults */ }
     await loadParticipants();
     renderRoomScreen();
     subscribeRealtime();
