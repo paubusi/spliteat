@@ -64,6 +64,10 @@
   /* Footer landing: solo visible cuando body tiene clase landing-mode */
   .landing-footer { display: none !important; }
   body.landing-mode .landing-footer { display: block !important; }
+  /* FAQ acordeón: chevron rota y summary sin marcador nativo */
+  .faq-item summary::-webkit-details-marker { display: none; }
+  .faq-item[open] .faq-chevron { transform: rotate(45deg); }
+  .faq-item summary:hover { background: rgba(8,80,65,.03); }
   /* Badge de rol manageat: solo visible dentro de manageat */
   .manageat-only { display: none !important; }
   body.manageat-active .manageat-only { display: block !important; }
@@ -862,6 +866,7 @@
   <div style="display:flex;align-items:center;gap:.75rem">
     <a href="#productos" onclick="event.preventDefault();document.getElementById('s0-productos').scrollIntoView({behavior:'smooth'})" style="font-size:13px;color:#5A7168;text-decoration:none;display:none" id="nav-link-productos">Productos</a>
     <a href="#precios" onclick="event.preventDefault();document.getElementById('s0-precios').scrollIntoView({behavior:'smooth'})" style="font-size:13px;color:#5A7168;text-decoration:none;display:none" id="nav-link-precios">Precios</a>
+    <a href="#faq" onclick="event.preventDefault();document.getElementById('s0-faq').scrollIntoView({behavior:'smooth'})" style="font-size:13px;color:#5A7168;text-decoration:none;display:none" id="nav-link-faq">FAQ</a>
     <a href="#" onclick="event.preventDefault();go('s-admin-login')" style="font-size:13px;font-weight:500;color:#085041;background:rgba(8,80,65,.08);border-radius:99px;padding:7px 16px;text-decoration:none;white-space:nowrap">Acceso al restaurante →</a>
   </div>
 </nav>
@@ -1462,6 +1467,135 @@
           Ya soy cliente — acceder al panel
         </button>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ FAQ ═══════════ -->
+<section id="s0-faq" style="background:#fff;padding:4rem 1.5rem;border-bottom:1px solid #e8e8e0">
+  <div style="max-width:760px;margin:0 auto">
+    <div style="font-size:11px;font-weight:600;color:#085041;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem">Preguntas frecuentes</div>
+    <h2 style="font-family:'Fraunces',serif;font-size:clamp(1.5rem,5vw,2.2rem);font-weight:700;color:#0F1C17;line-height:1.15;letter-spacing:-.5px;margin-bottom:.5rem">Todo lo que necesitas saber</h2>
+    <p style="font-size:14px;color:#5A7168;line-height:1.65;margin-bottom:2rem;max-width:520px">
+      Las dudas más habituales antes de empezar. ¿Te queda alguna? <strong style="color:#0F1C17">Escríbenos a hola@spliteat.es</strong>.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:.6rem">
+
+      <details class="faq-item" style="background:#F3F7F5;border:1px solid #e2ebe7;border-radius:12px;padding:0;overflow:hidden">
+        <summary style="list-style:none;cursor:pointer;padding:1.1rem 1.25rem;font-size:15px;font-weight:600;color:#0F1C17;display:flex;align-items:center;justify-content:space-between;gap:1rem">
+          <span>¿Qué es spliteat?</span><span class="faq-chevron" style="color:#085041;font-size:18px;flex-shrink:0;transition:transform .2s">+</span>
+        </summary>
+        <div style="padding:0 1.25rem 1.25rem;font-size:14px;color:#5A7168;line-height:1.65">
+          spliteat es una suite española de gestión integral para restaurantes que digitaliza desde el pedido en la mesa hasta la administración del negocio, sin hardware adicional y sin tener que cambiar tu TPV. Reúne en un solo sistema todo lo que hoy pagas por separado en varias aplicaciones:
+          <ul style="margin:.75rem 0 0;padding-left:1.1rem;display:flex;flex-direction:column;gap:.4rem">
+            <li><strong style="color:#0F1C17">spliteat</strong> — el comensal escanea un QR, pide, sigue su pedido en tiempo real y paga su parte exacta desde su móvil, sin apps ni registro.</li>
+            <li><strong style="color:#0F1C17">serveat</strong> — la app del camarero: gestiona sus mesas, recibe los pases listos y cobra en segundos.</li>
+            <li><strong style="color:#0F1C17">cookeat</strong> — la pantalla de cocina (KDS): los pedidos llegan agrupados por pase y mesa, sin papel ni gritos.</li>
+            <li><strong style="color:#0F1C17">manageat</strong> — tu panel de control: carta, mesas, equipo, datos y fiscalidad en una sola pantalla. Incluye sin coste extra <strong style="color:#0F1C17">bookeat</strong> (reservas con WhatsApp), <strong style="color:#0F1C17">trendeat</strong> (KPIs y analítica), <strong style="color:#0F1C17">fiscaleat</strong> (facturación con Verifactu) y <strong style="color:#0F1C17">controleat</strong> (control horario, RD-ley 8/2019).</li>
+            <li><strong style="color:#0F1C17">stockeat</strong> — inventario inteligente conectado a la carta, con descuento automático de stock.</li>
+            <li><strong style="color:#0F1C17">calleat</strong> — lista de espera virtual: el cliente se apunta desde el móvil y recibe aviso cuando su mesa está lista.</li>
+          </ul>
+          <div style="margin-top:.75rem">Todo integrado, a precio de PYME, y conviviendo con el TPV que ya tienes.</div>
+        </div>
+      </details>
+
+      <details class="faq-item" style="background:#F3F7F5;border:1px solid #e2ebe7;border-radius:12px;padding:0;overflow:hidden">
+        <summary style="list-style:none;cursor:pointer;padding:1.1rem 1.25rem;font-size:15px;font-weight:600;color:#0F1C17;display:flex;align-items:center;justify-content:space-between;gap:1rem">
+          <span>¿En qué se diferencia spliteat de una carta digital normal?</span><span class="faq-chevron" style="color:#085041;font-size:18px;flex-shrink:0;transition:transform .2s">+</span>
+        </summary>
+        <div style="padding:0 1.25rem 1.25rem;font-size:14px;color:#5A7168;line-height:1.65">
+          Una carta digital solo muestra el menú. spliteat gestiona el flujo completo: pedido a cocina, seguimiento en tiempo real y, sobre todo, el pago social —cada comensal paga exactamente lo que ha tomado, a su nombre, desde su propio móvil. Se acabó que una persona adelante el total y persiga los bizums después.
+        </div>
+      </details>
+
+      <details class="faq-item" style="background:#F3F7F5;border:1px solid #e2ebe7;border-radius:12px;padding:0;overflow:hidden">
+        <summary style="list-style:none;cursor:pointer;padding:1.1rem 1.25rem;font-size:15px;font-weight:600;color:#0F1C17;display:flex;align-items:center;justify-content:space-between;gap:1rem">
+          <span>¿Tengo que cambiar mi TPV?</span><span class="faq-chevron" style="color:#085041;font-size:18px;flex-shrink:0;transition:transform .2s">+</span>
+        </summary>
+        <div style="padding:0 1.25rem 1.25rem;font-size:14px;color:#5A7168;line-height:1.65">
+          No. spliteat convive con tu TPV actual —no te pedimos que cambies nada. Tu TPV sigue funcionando para lo de siempre, y spliteat añade el canal QR, el pago dividido y el pedido autónomo que tu TPV no tiene. Además genera su propio ticket fiscal, así que no necesitas integrarlo técnicamente con nada.
+        </div>
+      </details>
+
+      <details class="faq-item" style="background:#F3F7F5;border:1px solid #e2ebe7;border-radius:12px;padding:0;overflow:hidden">
+        <summary style="list-style:none;cursor:pointer;padding:1.1rem 1.25rem;font-size:15px;font-weight:600;color:#0F1C17;display:flex;align-items:center;justify-content:space-between;gap:1rem">
+          <span>¿Necesitan mis clientes descargar una app?</span><span class="faq-chevron" style="color:#085041;font-size:18px;flex-shrink:0;transition:transform .2s">+</span>
+        </summary>
+        <div style="padding:0 1.25rem 1.25rem;font-size:14px;color:#5A7168;line-height:1.65">
+          No. Tus comensales no instalan nada: escanean el QR de la mesa y la carta se abre al momento en el navegador de su móvil, igual en iPhone que en Android. El restaurante sí instala la app una sola vez —también en cualquier dispositivo Apple o Android— y a partir de ahí todo funciona sin más.
+        </div>
+      </details>
+
+      <details class="faq-item" style="background:#F3F7F5;border:1px solid #e2ebe7;border-radius:12px;padding:0;overflow:hidden">
+        <summary style="list-style:none;cursor:pointer;padding:1.1rem 1.25rem;font-size:15px;font-weight:600;color:#0F1C17;display:flex;align-items:center;justify-content:space-between;gap:1rem">
+          <span>¿Cómo funciona el pago dividido desde la mesa?</span><span class="faq-chevron" style="color:#085041;font-size:18px;flex-shrink:0;transition:transform .2s">+</span>
+        </summary>
+        <div style="padding:0 1.25rem 1.25rem;font-size:14px;color:#5A7168;line-height:1.65">
+          Cada comensal se une a la mesa escaneando el QR, con su nombre, y ve su parte al instante. Para cada plato puede elegir si participa o no: las bravas para compartir se reparten solo entre quienes las tomaron, y spliteat calcula al céntimo lo que paga cada uno. Así la mesa se divide de forma exacta y justa, y cada persona paga lo suyo con Apple Pay, Google Pay, Bizum o tarjeta.
+          <div style="margin-top:.75rem">Se acabaron las discusiones a la hora de dividir y pagar la cuenta: nadie hace cálculos en la mesa ni se queda esperando. Y el camarero deja de dar vueltas pasando el datáfono seis veces o repartiendo el total a mano —la mesa se cierra sola, más rápido y sin fricción para nadie.</div>
+        </div>
+      </details>
+
+      <details class="faq-item" style="background:#F3F7F5;border:1px solid #e2ebe7;border-radius:12px;padding:0;overflow:hidden">
+        <summary style="list-style:none;cursor:pointer;padding:1.1rem 1.25rem;font-size:15px;font-weight:600;color:#0F1C17;display:flex;align-items:center;justify-content:space-between;gap:1rem">
+          <span>¿Cobráis comisión por cada pago?</span><span class="faq-chevron" style="color:#085041;font-size:18px;flex-shrink:0;transition:transform .2s">+</span>
+        </summary>
+        <div style="padding:0 1.25rem 1.25rem;font-size:14px;color:#5A7168;line-height:1.65">
+          spliteat no añade ninguna comisión propia: pagas una tarifa plana mensual, sin permanencia y sin porcentaje por pedido ni por venta. Lo único que se aplica es la comisión de la pasarela de pago (la misma que cobra cualquier datáfono o TPV al cobrar con tarjeta), y spliteat no pone nada encima. No encareces tus cobros por usarnos.
+        </div>
+      </details>
+
+      <details class="faq-item" style="background:#F3F7F5;border:1px solid #e2ebe7;border-radius:12px;padding:0;overflow:hidden">
+        <summary style="list-style:none;cursor:pointer;padding:1.1rem 1.25rem;font-size:15px;font-weight:600;color:#0F1C17;display:flex;align-items:center;justify-content:space-between;gap:1rem">
+          <span>¿Y si mis clientes son mayores o no quieren usar el móvil?</span><span class="faq-chevron" style="color:#085041;font-size:18px;flex-shrink:0;transition:transform .2s">+</span>
+        </summary>
+        <div style="padding:0 1.25rem 1.25rem;font-size:14px;color:#5A7168;line-height:1.65">
+          spliteat complementa, no sustituye. El camarero sigue pudiendo tomar el pedido y cobrar de forma tradicional para quien lo prefiera. Cada mesa elige cómo quiere pedir y pagar; spliteat está ahí para quien quiera usarlo.
+        </div>
+      </details>
+
+      <details class="faq-item" style="background:#F3F7F5;border:1px solid #e2ebe7;border-radius:12px;padding:0;overflow:hidden">
+        <summary style="list-style:none;cursor:pointer;padding:1.1rem 1.25rem;font-size:15px;font-weight:600;color:#0F1C17;display:flex;align-items:center;justify-content:space-between;gap:1rem">
+          <span>¿Qué pasa si se cae el WiFi?</span><span class="faq-chevron" style="color:#085041;font-size:18px;flex-shrink:0;transition:transform .2s">+</span>
+        </summary>
+        <div style="padding:0 1.25rem 1.25rem;font-size:14px;color:#5A7168;line-height:1.65">
+          El sistema de siempre sigue funcionando en paralelo: tu personal puede tomar pedidos y cobrar como hasta ahora. spliteat es una capa que se añade, no un punto único de fallo que te deje sin servicio.
+        </div>
+      </details>
+
+      <details class="faq-item" style="background:#F3F7F5;border:1px solid #e2ebe7;border-radius:12px;padding:0;overflow:hidden">
+        <summary style="list-style:none;cursor:pointer;padding:1.1rem 1.25rem;font-size:15px;font-weight:600;color:#0F1C17;display:flex;align-items:center;justify-content:space-between;gap:1rem">
+          <span>¿Cumple con la normativa de facturación española?</span><span class="faq-chevron" style="color:#085041;font-size:18px;flex-shrink:0;transition:transform .2s">+</span>
+        </summary>
+        <div style="padding:0 1.25rem 1.25rem;font-size:14px;color:#5A7168;line-height:1.65">
+          spliteat genera ticket y factura propios con la estructura que exige la normativa (numeración correlativa, IVA desglosado, factura completa con NIF a petición del cliente) y está preparado para Verifactu, obligatorio a partir de 2027. No dependes del TPV para emitir el justificante fiscal.
+        </div>
+      </details>
+
+      <details class="faq-item" style="background:#F3F7F5;border:1px solid #e2ebe7;border-radius:12px;padding:0;overflow:hidden">
+        <summary style="list-style:none;cursor:pointer;padding:1.1rem 1.25rem;font-size:15px;font-weight:600;color:#0F1C17;display:flex;align-items:center;justify-content:space-between;gap:1rem">
+          <span>¿Cuánto se tarda en empezar?</span><span class="faq-chevron" style="color:#085041;font-size:18px;flex-shrink:0;transition:transform .2s">+</span>
+        </summary>
+        <div style="padding:0 1.25rem 1.25rem;font-size:14px;color:#5A7168;line-height:1.65">
+          La puesta en marcha es rápida: importamos tu carta con IA en segundos —a partir de una foto o un PDF—, generas los QR de tus mesas, los colocas y listo. Sin hardware que instalar, sin formación compleja y sin permanencia.
+        </div>
+      </details>
+
+      <details class="faq-item" style="background:#F3F7F5;border:1px solid #e2ebe7;border-radius:12px;padding:0;overflow:hidden">
+        <summary style="list-style:none;cursor:pointer;padding:1.1rem 1.25rem;font-size:15px;font-weight:600;color:#0F1C17;display:flex;align-items:center;justify-content:space-between;gap:1rem">
+          <span>¿Qué hace la inteligencia artificial de spliteat?</span><span class="faq-chevron" style="color:#085041;font-size:18px;flex-shrink:0;transition:transform .2s">+</span>
+        </summary>
+        <div style="padding:0 1.25rem 1.25rem;font-size:14px;color:#5A7168;line-height:1.65">
+          La IA de spliteat te ahorra las tareas más tediosas de la gestión:
+          <ul style="margin:.75rem 0 0;padding-left:1.1rem;display:flex;flex-direction:column;gap:.4rem">
+            <li><strong style="color:#0F1C17">Importa tu carta y tus recetas en segundos</strong> a partir de una foto o un PDF —crea platos, precios, descripciones e ingredientes sin teclear nada.</li>
+            <li><strong style="color:#0F1C17">Sugiere recetas</strong> a partir de los ingredientes que tienes en stock, para aprovechar producto y dar ideas a cocina.</li>
+            <li><strong style="color:#0F1C17">Genera KPIs personalizados</strong> y te ayuda a entender tus datos —margen por plato, ticket medio, costes— sin pelearte con hojas de cálculo.</li>
+          </ul>
+          <div style="margin-top:.75rem">Todo integrado en la suite, sin herramientas externas ni configuraciones complicadas.</div>
+        </div>
+      </details>
+
     </div>
   </div>
 </section>
@@ -29600,6 +29734,7 @@ function initLanding() {
   if (window.innerWidth >= 600) {
     document.getElementById('nav-link-productos')?.style && (document.getElementById('nav-link-productos').style.display = 'inline');
     document.getElementById('nav-link-precios')?.style && (document.getElementById('nav-link-precios').style.display = 'inline');
+    document.getElementById('nav-link-faq')?.style && (document.getElementById('nav-link-faq').style.display = 'inline');
   }
   // Reconstruir emails en runtime (evita que Vercel/Cloudflare los ofusque a [email protected])
   _buildEmailsRuntime();
