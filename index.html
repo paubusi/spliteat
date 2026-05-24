@@ -1009,11 +1009,124 @@
       </div>
       <div style="text-align:right">
         <div style="font-family:'Fraunces',serif;font-size:1.8rem;font-weight:900;color:#6FE8B0;letter-spacing:-.5px;line-height:1">desde 39€<span style="font-size:13px;color:rgba(255,255,255,.6);font-weight:500">/mes</span></div>
-        <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">Plan Pro completo: 79€/mes</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">Tu precio exacto, en una demo</div>
       </div>
     </div>
   </div>
 </section>
+
+<!-- ═══════════ CALCULADORA DE AHORRO ═══════════ -->
+<section id="s0-calc" style="background:#F3F7F5;padding:4rem 1.5rem;border-bottom:1px solid #e8e8e0">
+  <div style="max-width:680px;margin:0 auto">
+    <div style="font-size:11px;font-weight:600;color:#D85A30;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem">Calcula tu ahorro</div>
+    <h2 style="font-family:'Fraunces',serif;font-size:clamp(1.5rem,5vw,2.2rem);font-weight:700;color:#0F1C17;line-height:1.15;letter-spacing:-.5px;margin-bottom:.5rem">¿Cuánto pagas hoy de más?</h2>
+    <p style="font-size:14px;color:#5A7168;line-height:1.65;margin-bottom:2rem;max-width:540px">
+      Marca lo que pagas hoy y ajusta las cifras a tu caso. Te mostramos cuánto podrías ahorrar reuniéndolo todo en spliteat.
+    </p>
+
+    <div style="background:#fff;border:1px solid #e2ebe7;border-radius:16px;padding:1.5rem 1.35rem">
+      <div id="calc-rows" style="display:flex;flex-direction:column;gap:.5rem"></div>
+
+      <div style="margin-top:1.25rem;padding-top:1.25rem;border-top:2px dashed #d0d0c8;display:flex;flex-direction:column;gap:.85rem">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:13px;font-weight:600;color:#5A7168">Pagas hoy</span>
+          <span id="calc-today" style="font-family:'Fraunces',serif;font-size:1.5rem;font-weight:900;color:#A32D2D;letter-spacing:-.5px">0€<span style="font-size:12px;color:#9A9990;font-weight:500">/mes</span></span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:13px;font-weight:600;color:#5A7168">Con spliteat <span style="font-size:11px;color:#9A9990;font-weight:400">(desde)</span></span>
+          <span style="font-family:'Fraunces',serif;font-size:1.5rem;font-weight:900;color:#085041;letter-spacing:-.5px">39€<span style="font-size:12px;color:#9A9990;font-weight:500">/mes</span></span>
+        </div>
+        <div style="background:#085041;border-radius:12px;padding:1.1rem 1.25rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+          <div>
+            <div style="font-size:12px;color:rgba(255,255,255,.7);font-weight:600;text-transform:uppercase;letter-spacing:.05em">Tu ahorro potencial</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">Según el plan que elijas, puede variar</div>
+          </div>
+          <div style="text-align:right">
+            <div id="calc-save-month" style="font-family:'Fraunces',serif;font-size:1.9rem;font-weight:900;color:#6FE8B0;letter-spacing:-.5px;line-height:1">0€<span style="font-size:13px;color:rgba(255,255,255,.6);font-weight:500">/mes</span></div>
+            <div id="calc-save-year" style="font-size:12px;color:rgba(255,255,255,.7);margin-top:3px">0€ al año</div>
+          </div>
+        </div>
+      </div>
+
+      <details style="margin-top:1rem;background:#F3F7F5;border-radius:10px;padding:0;overflow:hidden">
+        <summary style="list-style:none;cursor:pointer;padding:.85rem 1rem;font-size:12px;font-weight:600;color:#5A7168;display:flex;align-items:center;justify-content:space-between">
+          <span>📊 Además: ingresos extra estimados</span><span style="color:#085041">+</span>
+        </summary>
+        <div style="padding:0 1rem 1rem;font-size:12px;color:#5A7168;line-height:1.6">
+          Los restaurantes que digitalizan el pedido y el pago por QR suelen rotar las mesas más rápido. <strong style="color:#0F1C17">Es una estimación orientativa, no una garantía</strong> —el resultado real depende de tu local, tu ticket medio y tu servicio. Lo vemos contigo en la demo con tus números reales.
+        </div>
+      </details>
+    </div>
+
+    <div style="text-align:center;margin-top:1.5rem">
+      <a href="https://calendly.com/pau-busquets-spliteat/30min" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:#D85A30;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:.85rem 1.75rem;border-radius:99px">
+        Calcula tu ahorro real en una demo →
+      </a>
+    </div>
+  </div>
+</section>
+
+<script>
+(function(){
+  // Calculadora de ahorro — costes punto-medio de la comparativa stack (editables).
+  var CALC_ITEMS = [
+    { k:'tpv',     label:'TPV + comandero',          def:60 },
+    { k:'res',     label:'Reservas online',          def:120 },
+    { k:'kds',     label:'KDS · Pantalla de cocina', def:35 },
+    { k:'horario', label:'Control horario',          def:80 },
+    { k:'stock',   label:'Inventario y food cost',   def:50 },
+    { k:'fiscal',  label:'Verifactu / facturación',  def:20 }
+  ];
+  var SPLITEAT_FROM = 39;
+
+  function fmt(n){ return Math.round(n).toLocaleString('es-ES') + '€'; }
+
+  function render(){
+    var host = document.getElementById('calc-rows');
+    if (!host) return;
+    host.innerHTML = CALC_ITEMS.map(function(it){
+      return '<div style="display:flex;align-items:center;gap:.6rem;padding:.55rem .7rem;background:#F8FAF9;border:1px solid #eef2f0;border-radius:10px">'
+        + '<input type="checkbox" data-k="'+it.k+'" class="calc-chk" checked style="width:18px;height:18px;accent-color:#085041;flex-shrink:0;cursor:pointer">'
+        + '<span style="flex:1;min-width:0;font-size:13px;color:#0F1C17">'+it.label+'</span>'
+        + '<input type="number" data-k="'+it.k+'" class="calc-amt" value="'+it.def+'" min="0" max="999" '
+        + 'style="width:64px;padding:5px 7px;border:1px solid #d8e0dc;border-radius:7px;font-family:inherit;font-size:13px;text-align:right;color:#0F1C17">'
+        + '<span style="font-size:12px;color:#9A9990;flex-shrink:0">€/mes</span>'
+        + '</div>';
+    }).join('');
+    host.querySelectorAll('.calc-chk, .calc-amt').forEach(function(el){
+      el.addEventListener('input', recompute);
+      el.addEventListener('change', recompute);
+    });
+    recompute();
+  }
+
+  function recompute(){
+    var today = 0;
+    CALC_ITEMS.forEach(function(it){
+      var chk = document.querySelector('.calc-chk[data-k="'+it.k+'"]');
+      var amt = document.querySelector('.calc-amt[data-k="'+it.k+'"]');
+      if (chk && chk.checked && amt) {
+        var v = parseFloat(amt.value);
+        if (!isNaN(v) && v > 0) today += v;
+      }
+    });
+    var save = Math.max(0, today - SPLITEAT_FROM);
+    var elToday = document.getElementById('calc-today');
+    var elM = document.getElementById('calc-save-month');
+    var elY = document.getElementById('calc-save-year');
+    if (elToday) elToday.innerHTML = fmt(today) + '<span style="font-size:12px;color:#9A9990;font-weight:500">/mes</span>';
+    if (elM) elM.innerHTML = fmt(save) + '<span style="font-size:13px;color:rgba(255,255,255,.6);font-weight:500">/mes</span>';
+    if (elY) elY.textContent = fmt(save * 12) + ' al año';
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', render);
+  } else {
+    render();
+  }
+})();
+</script>
+
 
 <!-- ═══════════ EL DÍA A DÍA CON EATLAB ═══════════ -->
 <section style="background:#F3F7F5;padding:3.5rem 1.5rem">
@@ -1394,10 +1507,10 @@
 
     <!-- Box de cierre / ROI -->
     <div style="background:linear-gradient(135deg, #085041 0%, #0F4D40 100%);border:1px solid rgba(111,232,176,.2);border-radius:14px;padding:1.5rem;margin-top:1.5rem;text-align:center">
-      <div style="font-size:11px;font-weight:600;color:#6FE8B0;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem">ROI primer año · Plan Pro 79€/mes</div>
-      <div style="font-family:'Fraunces',serif;font-size:2.2rem;font-weight:900;color:#fff;line-height:1;letter-spacing:-1px">+5.892€</div>
+      <div style="font-size:11px;font-weight:600;color:#6FE8B0;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem">Potencial primer año · estimación</div>
+      <div style="font-family:'Fraunces',serif;font-size:2.2rem;font-weight:900;color:#fff;line-height:1;letter-spacing:-1px">hasta +5.000€</div>
       <div style="font-size:12px;color:rgba(255,255,255,.6);margin-top:8px;line-height:1.55;max-width:480px;margin-left:auto;margin-right:auto">
-        Restaurante medio (15 mesas, 150€ ticket): 4.080€ ingresos extra por rotación + 1.800€ propinas extra + 960€ errores evitados − 948€ suscripción anual.
+        Escenario orientativo para un restaurante medio (15 mesas, 150€ de ticket): ingresos extra por rotación más rápida, menos errores de pedido y ahorro en software, frente a la suscripción. <strong style="color:rgba(255,255,255,.8)">Es una estimación, no una garantía</strong> — lo calculamos contigo con tus números reales en la demo.
       </div>
     </div>
   </div>
@@ -1646,7 +1759,7 @@
     <div style="font-size:11px;font-weight:600;color:#085041;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem">Precios</div>
     <h2 style="font-family:'Fraunces',serif;font-size:clamp(1.5rem,5vw,2.2rem);font-weight:700;color:#0F1C17;line-height:1.15;letter-spacing:-.5px;margin-bottom:.5rem">Simple y transparente</h2>
     <p style="font-size:14px;color:#5A7168;line-height:1.65;margin-bottom:2rem;max-width:520px">
-      Precio plano mensual. Sin permanencia. Sin comisiones por pedido. <strong style="color:#0F1C17">El plan Pro está al nivel de lo que cuesta solo el control horario por separado.</strong>
+      Precio plano mensual desde 39€. Sin permanencia. Sin comisiones por pedido. <strong style="color:#0F1C17">Te damos tu precio exacto en una demo de 15 minutos, según tu local.</strong>
     </p>
     <div style="display:flex;flex-direction:column;gap:.75rem">
 
@@ -1658,8 +1771,8 @@
             <div style="font-size:12px;color:#5A7168;margin-top:2px">Hasta 10 mesas · Para empezar</div>
           </div>
           <div style="text-align:right">
-            <div style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:#085041;line-height:1">39€<span style="font-size:13px;color:#5A7168;font-weight:500">/mes</span></div>
-            <div style="font-size:11px;color:#9A9990;text-decoration:line-through;margin-top:2px">vs ~120€ stack TPV+QR</div>
+            <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:#085041;line-height:1.1">Desde 39€<span style="font-size:12px;color:#5A7168;font-weight:500">/mes</span></div>
+            <div style="font-size:11px;color:#9A9990;margin-top:2px">Precio según tu local</div>
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:.75rem">
@@ -1668,7 +1781,7 @@
           <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Dashboard básico de ventas y mesas</div>
         </div>
         <div style="background:#F3F7F5;border-radius:8px;padding:.5rem .65rem;font-size:11px;color:#085041;font-weight:500;text-align:center">
-          💸 Ahorras ~80€/mes vs. stack TPV + carta QR independientes
+          💸 Aun así, menos que un TPV + carta QR por separado
         </div>
       </div>
 
@@ -1681,7 +1794,7 @@
             <div style="font-size:12px;color:#5A7168;margin-top:2px">Mesas ilimitadas · Todos los módulos</div>
           </div>
           <div style="text-align:right">
-            <div style="font-family:'Fraunces',serif;font-size:32px;font-weight:900;color:#085041;line-height:1;letter-spacing:-.5px">79€<span style="font-size:13px;color:#5A7168;font-weight:500">/mes</span></div>
+            <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:900;color:#085041;line-height:1.1;letter-spacing:-.5px">Tu precio<span style="font-size:13px;color:#5A7168;font-weight:500"> en la demo</span></div>
             <div style="font-size:11px;color:#9A9990;text-decoration:line-through;margin-top:2px">vs 260-660€ stack tradicional</div>
           </div>
         </div>
@@ -1697,7 +1810,7 @@
           <div style="font-size:12px;color:#5A7168;display:flex;align-items:center;gap:6px"><span style="color:#085041">✓</span> Soporte prioritario en español</div>
         </div>
         <div style="background:#085041;border-radius:8px;padding:.6rem .75rem;font-size:12px;color:#fff;font-weight:600;text-align:center;line-height:1.45">
-          💸 Ahorras 180-580€/mes · ROI primer año estimado: <strong style="color:#6FE8B0">+5.892€</strong>
+          💸 Reúne en una sola suscripción lo que hoy pagas en 6 software distintos
         </div>
       </div>
 
@@ -1709,8 +1822,8 @@
             <div style="font-size:12px;color:#5A7168;margin-top:2px">Vista grupo · Para grupos de 2+ locales</div>
           </div>
           <div style="text-align:right">
-            <div style="font-family:'Fraunces',serif;font-size:28px;font-weight:700;color:#085041;line-height:1">99€<span style="font-size:13px;color:#5A7168;font-weight:500">/mes</span></div>
-            <div style="font-size:11px;color:#5A7168;margin-top:2px">por local</div>
+            <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:#085041;line-height:1.1">A medida</div>
+            <div style="font-size:11px;color:#5A7168;margin-top:2px">según nº de locales</div>
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:.75rem">
@@ -1729,6 +1842,11 @@
       Gratis para el comensal · Sin permanencia · Sin comisión por transacción · Sin hardware obligatorio<br>
       Migración asistida desde tu TPV actual incluida en Pro y Business.
     </p>
+    <div style="text-align:center;margin-top:1.5rem">
+      <a href="https://calendly.com/pau-busquets-spliteat/30min" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:#D85A30;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:.85rem 1.75rem;border-radius:99px">
+        Reserva tu demo y conoce tu precio →
+      </a>
+    </div>
   </div>
 </section>
   </div>
