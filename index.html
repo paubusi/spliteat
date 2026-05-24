@@ -64,6 +64,8 @@
   /* Footer landing: solo visible cuando body tiene clase landing-mode */
   .landing-footer { display: none !important; }
   body.landing-mode .landing-footer { display: block !important; }
+  /* Landing (#s0 es .screen flex-column): evitar que las secciones se compriman */
+  #s0 > section, #s0 > footer, #s0 > nav { flex-shrink: 0; }
   /* FAQ acordeón: chevron rota y summary sin marcador nativo */
   .faq-item summary::-webkit-details-marker { display: none; }
   .faq-item[open] .faq-chevron { transform: rotate(45deg); }
@@ -872,7 +874,7 @@
 </nav>
 
 <!-- ═══════════ HERO ═══════════ -->
-<section style="background:#085041;padding:5rem 1.5rem 3.5rem;position:relative;overflow:hidden">
+<section style="background:#085041;padding:5rem 1.5rem 3.5rem;position:relative;overflow:hidden;flex-shrink:0">
   <!-- Decorative circles -->
   <div style="position:absolute;right:-80px;top:-80px;width:320px;height:320px;border-radius:50%;background:rgba(255,255,255,.04);pointer-events:none"></div>
   <div style="position:absolute;left:-60px;bottom:-100px;width:280px;height:280px;border-radius:50%;background:rgba(29,158,117,.18);pointer-events:none"></div>
@@ -880,11 +882,11 @@
 
   <div style="max-width:760px;margin:0 auto;position:relative;z-index:1">
     <h1 style="font-family:'Fraunces',serif;font-size:clamp(2.2rem,6.5vw,3.8rem);font-weight:900;color:#fff;line-height:1.06;letter-spacing:-1.2px;margin-bottom:1.25rem">
-      Una sola plataforma<br>en lugar de las<br><em style="color:#6FE8B0;font-style:italic">4 que pagas hoy.</em>
+      Da igual quién falte hoy.<br><em style="color:#6FE8B0;font-style:italic">El servicio sale igual.</em>
     </h1>
-    <p style="font-size:clamp(1rem,2.4vw,1.18rem);color:rgba(255,255,255,.78);line-height:1.65;margin-bottom:2rem;max-width:580px">
-      TPV, reservas, KDS, control horario, Verifactu, inventario y datos.<br>
-      <strong style="color:#fff;font-weight:600">Todo lo que tu restaurante necesita, en una sola suscripción.</strong>
+    <p style="font-size:clamp(1rem,2.4vw,1.18rem);color:rgba(255,255,255,.78);line-height:1.65;margin-bottom:2rem;max-width:600px">
+      split<em style="color:#FFB89A;font-style:normal">eat</em>, serv<em style="color:#FFB89A;font-style:normal">eat</em>, cook<em style="color:#FFB89A;font-style:normal">eat</em>, manag<em style="color:#FFB89A;font-style:normal">eat</em>, stock<em style="color:#FFB89A;font-style:normal">eat</em> y call<em style="color:#FFB89A;font-style:normal">eat</em> — seis apps en una sola suite que mejoran la eficiencia de tu restaurante: sirves más mesas con menos personal y todo sigue funcionando aunque vayas corto de equipo.<br>
+      <strong style="color:#fff;font-weight:600">El cliente pide y paga solo; tu equipo nuevo, operativo desde el primer turno.</strong>
     </p>
 
     <!-- Métricas de impacto operativo -->
@@ -917,11 +919,11 @@
     </div>
 
     <div style="display:flex;flex-wrap:wrap;gap:.65rem;align-items:center">
-      <a href="#comparativa" onclick="event.preventDefault();document.getElementById('s0-comparativa').scrollIntoView({behavior:'smooth'})" style="display:inline-flex;align-items:center;gap:8px;background:#D85A30;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:.85rem 1.5rem;border-radius:99px;cursor:pointer">
-        Ver cuánto te ahorras →
+      <a href="https://calendly.com/pau-busquets-spliteat/30min" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:#D85A30;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:.85rem 1.5rem;border-radius:99px;cursor:pointer">
+        Reserva tu demo →
       </a>
-      <a href="#" onclick="event.preventDefault();go('s-admin-login')" style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff;text-decoration:none;font-size:14px;font-weight:500;padding:.85rem 1.4rem;border-radius:99px;cursor:pointer">
-        Acceso al panel
+      <a href="#calc" onclick="event.preventDefault();document.getElementById('s0-calc').scrollIntoView({behavior:'smooth'})" style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#fff;text-decoration:none;font-size:14px;font-weight:500;padding:.85rem 1.4rem;border-radius:99px;cursor:pointer">
+        Ver cuánto te ahorras
       </a>
     </div>
     <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:1.25rem">
@@ -935,7 +937,7 @@
   <div style="max-width:760px;margin:0 auto">
     <div style="font-size:11px;font-weight:600;color:#D85A30;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem">El stack invisible que pagas</div>
     <h2 style="font-family:'Fraunces',serif;font-size:clamp(1.5rem,5vw,2.2rem);font-weight:700;color:#0F1C17;line-height:1.15;letter-spacing:-.5px;margin-bottom:.75rem">
-      Hoy pagas 4 aplicaciones.<br>Mañana, una sola.
+      Seis programas distintos.<br>O uno que lo haga todo.
     </h2>
     <p style="font-size:14px;color:#5A7168;line-height:1.65;margin-bottom:2rem;max-width:540px">
       La mayoría de restaurantes españoles pagan entre 300€ y 700€/mes en software fragmentado que no se habla entre sí. Esto es lo que cuesta cada pieza por separado <span style="color:#9A9990;font-size:12px">(precios públicos 2026 para un restaurante mediano de 15-25 mesas y 8-12 empleados)</span>:
@@ -1005,111 +1007,14 @@
         <div style="font-size:12px;color:rgba(255,255,255,.65);line-height:1.5">Sin hardware obligatorio · Sin permanencia · Sin comisiones por pedido</div>
       </div>
       <div style="text-align:right">
-        <div style="font-family:'Fraunces',serif;font-size:1.6rem;font-weight:900;color:#6FE8B0;letter-spacing:-.5px;line-height:1.1">Una sola suscripción</div>
-        <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:4px">Tu precio exacto, en una demo</div>
+        <div style="font-family:'Fraunces',serif;font-size:1.8rem;font-weight:900;color:#6FE8B0;letter-spacing:-.5px;line-height:1">desde 39€<span style="font-size:13px;color:rgba(255,255,255,.6);font-weight:500">/mes</span></div>
+        <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:4px">Una sola suscripción</div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══════════ CALCULADORA DE AHORRO ═══════════ -->
-<section id="s0-calc" style="background:#F3F7F5;padding:4rem 1.5rem;border-bottom:1px solid #e8e8e0">
-  <div style="max-width:680px;margin:0 auto">
-    <div style="font-size:11px;font-weight:600;color:#D85A30;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem">Calcula tu ahorro</div>
-    <h2 style="font-family:'Fraunces',serif;font-size:clamp(1.5rem,5vw,2.2rem);font-weight:700;color:#0F1C17;line-height:1.15;letter-spacing:-.5px;margin-bottom:.5rem">¿Cuánto pagas hoy de más?</h2>
-    <p style="font-size:14px;color:#5A7168;line-height:1.65;margin-bottom:2rem;max-width:540px">
-      Marca lo que pagas hoy y ajusta las cifras a tu caso. Te mostramos cuánto podrías ahorrar reuniéndolo todo en spliteat.
-    </p>
-
-    <div style="background:#fff;border:1px solid #e2ebe7;border-radius:16px;padding:1.5rem 1.35rem">
-      <div id="calc-rows" style="display:flex;flex-direction:column;gap:.5rem"></div>
-
-      <div style="margin-top:1.25rem;padding-top:1.25rem;border-top:2px dashed #d0d0c8;display:flex;flex-direction:column;gap:.85rem">
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <span style="font-size:13px;font-weight:600;color:#5A7168">Pagas hoy, repartido en varias apps</span>
-          <span id="calc-today" style="font-family:'Fraunces',serif;font-size:1.6rem;font-weight:900;color:#A32D2D;letter-spacing:-.5px">0€<span style="font-size:12px;color:#9A9990;font-weight:500">/mes</span></span>
-        </div>
-        <div style="background:#085041;border-radius:12px;padding:1.1rem 1.25rem">
-          <div style="font-size:13px;color:#fff;font-weight:600;line-height:1.5">spliteat lo reúne todo en una sola suscripción —y por menos de lo que pagas hoy.</div>
-          <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:6px;line-height:1.5">Te calculamos tu ahorro exacto y tu precio en una demo de 15 minutos, con tus números reales.</div>
-        </div>
-      </div>
-
-      <details style="margin-top:1rem;background:#F3F7F5;border-radius:10px;padding:0;overflow:hidden">
-        <summary style="list-style:none;cursor:pointer;padding:.85rem 1rem;font-size:12px;font-weight:600;color:#5A7168;display:flex;align-items:center;justify-content:space-between">
-          <span>📊 Además: ingresos extra estimados</span><span style="color:#085041">+</span>
-        </summary>
-        <div style="padding:0 1rem 1rem;font-size:12px;color:#5A7168;line-height:1.6">
-          Los restaurantes que digitalizan el pedido y el pago por QR suelen rotar las mesas más rápido. <strong style="color:#0F1C17">Es una estimación orientativa, no una garantía</strong> —el resultado real depende de tu local, tu ticket medio y tu servicio. Lo vemos contigo en la demo con tus números reales.
-        </div>
-      </details>
-    </div>
-
-    <div style="text-align:center;margin-top:1.5rem">
-      <a href="https://calendly.com/pau-busquets-spliteat/30min" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:#D85A30;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:.85rem 1.75rem;border-radius:99px">
-        Calcula tu ahorro real en una demo →
-      </a>
-    </div>
-  </div>
-</section>
-
-<script>
-(function(){
-  // Calculadora de ahorro — costes punto-medio de la comparativa stack (editables).
-  var CALC_ITEMS = [
-    { k:'tpv',     label:'TPV + comandero',          def:60 },
-    { k:'res',     label:'Reservas online',          def:120 },
-    { k:'kds',     label:'KDS · Pantalla de cocina', def:35 },
-    { k:'horario', label:'Control horario',          def:80 },
-    { k:'stock',   label:'Inventario y food cost',   def:50 },
-    { k:'fiscal',  label:'Verifactu / facturación',  def:20 }
-  ];
-
-  function fmt(n){ return Math.round(n).toLocaleString('es-ES') + '€'; }
-
-  function render(){
-    var host = document.getElementById('calc-rows');
-    if (!host) return;
-    host.innerHTML = CALC_ITEMS.map(function(it){
-      return '<div style="display:flex;align-items:center;gap:.6rem;padding:.55rem .7rem;background:#F8FAF9;border:1px solid #eef2f0;border-radius:10px">'
-        + '<input type="checkbox" data-k="'+it.k+'" class="calc-chk" checked style="width:18px;height:18px;accent-color:#085041;flex-shrink:0;cursor:pointer">'
-        + '<span style="flex:1;min-width:0;font-size:13px;color:#0F1C17">'+it.label+'</span>'
-        + '<input type="number" data-k="'+it.k+'" class="calc-amt" value="'+it.def+'" min="0" max="999" '
-        + 'style="width:64px;padding:5px 7px;border:1px solid #d8e0dc;border-radius:7px;font-family:inherit;font-size:13px;text-align:right;color:#0F1C17">'
-        + '<span style="font-size:12px;color:#9A9990;flex-shrink:0">€/mes</span>'
-        + '</div>';
-    }).join('');
-    host.querySelectorAll('.calc-chk, .calc-amt').forEach(function(el){
-      el.addEventListener('input', recompute);
-      el.addEventListener('change', recompute);
-    });
-    recompute();
-  }
-
-  function recompute(){
-    var today = 0;
-    CALC_ITEMS.forEach(function(it){
-      var chk = document.querySelector('.calc-chk[data-k="'+it.k+'"]');
-      var amt = document.querySelector('.calc-amt[data-k="'+it.k+'"]');
-      if (chk && chk.checked && amt) {
-        var v = parseFloat(amt.value);
-        if (!isNaN(v) && v > 0) today += v;
-      }
-    });
-    var elToday = document.getElementById('calc-today');
-    if (elToday) elToday.innerHTML = fmt(today) + '<span style="font-size:12px;color:#9A9990;font-weight:500">/mes</span>';
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', render);
-  } else {
-    render();
-  }
-})();
-</script>
-
-
-<!-- ═══════════ EL DÍA A DÍA CON EATLAB ═══════════ -->
+<!-- ═══════════ EL DÍA A DÍA CON SPLITEAT ═══════════ -->
 <section style="background:#F3F7F5;padding:3.5rem 1.5rem">
   <div style="max-width:760px;margin:0 auto">
     <div style="font-size:11px;font-weight:600;color:#085041;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem">El día a día</div>
@@ -1117,7 +1022,7 @@
       Lo que cambia desde el primer servicio
     </h2>
     <p style="font-size:14px;color:#5A7168;line-height:1.65;margin-bottom:1.75rem;max-width:520px">
-      Tu equipo gestiona más mesas con menos estrés. Tú dejas de improvisar con datos a mano.
+      Tu equipo gestiona más mesas con menos estrés, y tú controlas el negocio con datos reales en lugar de a ojo.
     </p>
     <div style="display:flex;flex-direction:column;gap:.6rem">
       <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:flex-start;gap:.85rem;box-shadow:0 1px 4px rgba(0,0,0,.06)">
@@ -1144,8 +1049,8 @@
         </div>
         <div>
           <div style="font-size:14px;font-weight:600;color:#0F1C17">Cobras como tú quieras — y con control total</div>
-          <div style="font-size:12px;color:#5A7168;margin-top:2px;line-height:1.55">Cada mesa puede pagar como prefiera: <strong style="color:#0F1C17">desde el móvil del comensal</strong> (Apple Pay, Bizum, tarjeta), <strong style="color:#0F1C17">desde el móvil del camarero</strong>, <strong style="color:#0F1C17">desde el TPV de barra</strong> o <strong style="color:#0F1C17">en efectivo</strong>. Tú eliges, no te obligamos a nada.</div>
-          <div style="font-size:12px;color:#5A7168;margin-top:6px;line-height:1.55"><strong style="color:#0F1C17">El jefe de sala ve en directo</strong> qué mesas están <span style="color:#085041;font-weight:600">por pagar</span>, <span style="color:#C26B0A;font-weight:600">pagando</span> y <span style="color:#3B6D11;font-weight:600">pagadas</span> — comprueba de un vistazo que la mesa entera ha cerrado antes de que se vayan. La factura sale firmada con Verifactu.</div>
+          <div style="font-size:12px;color:#5A7168;margin-top:2px;line-height:1.55">Cada mesa puede pagar como prefiera: <strong style="color:#0F1C17">desde el móvil del comensal</strong> (Apple Pay, Bizum, tarjeta… según los métodos que active cada restaurante), <strong style="color:#0F1C17">desde el móvil del camarero</strong>, <strong style="color:#0F1C17">desde el TPV de barra</strong> o <strong style="color:#0F1C17">en efectivo</strong>. Tú eliges, no te obligamos a nada.</div>
+          <div style="font-size:12px;color:#5A7168;margin-top:6px;line-height:1.55"><strong style="color:#0F1C17">El jefe de sala ve en directo</strong> qué mesas están <span style="color:#E24B4A;font-weight:600">por pagar</span>, <span style="color:#C26B0A;font-weight:600">pagando</span>, <span style="color:#3B6D11;font-weight:600">pagadas</span> o <span style="color:#854F0B;font-weight:600">por limpiar</span> — comprueba de un vistazo que la mesa entera ha cerrado antes de que se vayan. La factura sale firmada con Verifactu.</div>
         </div>
       </div>
       <div style="background:#fff;border-radius:14px;padding:1rem 1.1rem;display:flex;align-items:flex-start;gap:.85rem;box-shadow:0 1px 4px rgba(0,0,0,.06)">
@@ -1169,7 +1074,7 @@
       Seis apps. Un ecosistema.
     </h2>
     <p style="font-size:14px;color:rgba(255,255,255,.55);line-height:1.65;margin-bottom:2.5rem;max-width:540px">
-      Cada app del ecosistema <strong style="color:rgba(255,255,255,.8)">eat</strong>lab cubre un rol del restaurante, todas conectadas en tiempo real. <strong style="color:rgba(255,255,255,.85)">Empezamos por <em style="color:#D85A30;font-style:normal">split</em><em style="color:#D85A30;font-style:normal">eat</em></strong> porque es la pieza que más carga de trabajo te quita y la que más rápido te paga el plan. Toca cualquier card para ver el detalle.
+      Cada app del ecosistema spliteat cubre un rol del restaurante, todas conectadas en tiempo real. <strong style="color:rgba(255,255,255,.85)">Empezamos por <em style="color:#D85A30;font-style:normal">split</em><em style="color:#D85A30;font-style:normal">eat</em></strong> porque es la pieza que más carga de trabajo te quita y la que más rápido te paga el plan. Toca cualquier tarjeta para ver el detalle.
     </p>
 
     <div style="display:flex;flex-direction:column;gap:.75rem">
@@ -1192,7 +1097,7 @@
           <!-- Mensaje "no obligatorio + convive con serveat" -->
           <div style="background:rgba(255,255,255,.06);border-left:3px solid #6FE8B0;border-radius:6px;padding:.75rem .9rem;margin-bottom:1.1rem">
             <div style="font-size:12px;font-weight:600;color:#6FE8B0;margin-bottom:3px;letter-spacing:.04em;text-transform:uppercase">No obligas, ofreces</div>
-            <div style="font-size:12px;color:rgba(255,255,255,.7);line-height:1.55">spliteat <strong style="color:#fff">no sustituye al camarero ni obliga a nadie</strong>. Convive 100% con la toma de nota tradicional desde <strong style="color:#fff">serveat</strong>. En la misma mesa, los que quieran usar el QR lo hacen; los que prefieran que les atienda el camarero, también. Mismo pedido, misma cocina, misma cuenta.</div>
+            <div style="font-size:12px;color:rgba(255,255,255,.7);line-height:1.55">spliteat <strong style="color:#fff">no sustituye al camarero ni obliga a nadie</strong>. Ambos sistemas funcionan de forma independiente o en paralelo: en la misma mesa, el camarero puede tomar nota desde <strong style="color:#fff">serveat</strong> y, a la vez, los comensales pueden pedir más y pagar desde el QR. Mismo pedido, misma cocina, misma cuenta.</div>
           </div>
 
           <!-- Bloque ROI operativo: lo que se ahorra el camarero -->
@@ -1227,6 +1132,19 @@
                 <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.5">El comensal divide la cuenta como quiera (por persona, partes iguales, "invito yo", platos compartidos al céntimo) y cada uno paga lo suyo. <strong style="color:rgba(255,255,255,.85)">Se acabaron las discusiones de 5 minutos en la barra</strong> con el camarero esperando con el datáfono en la mano.</div>
               </div>
             </div>
+          </div>
+
+          <!-- Ejemplo visual del reparto -->
+          <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:.85rem 1rem;margin-bottom:1.1rem">
+            <div style="font-size:12px;font-weight:600;color:#fff;margin-bottom:.55rem">Un ejemplo real, una mesa de 4 (tú, Pepe, María y Juan):</div>
+            <div style="display:flex;flex-direction:column;gap:.4rem;font-size:12px;color:rgba(255,255,255,.65);line-height:1.5">
+              <div>🥘 <strong style="color:#fff">Bravas para compartir</strong> → entre los 4 · cada uno paga ¼</div>
+              <div>🧀 <strong style="color:#fff">Entrante para picar</strong> → solo tú y Juan · a medias</div>
+              <div>🍖 <strong style="color:#fff">Tu plato principal</strong> → solo tú</div>
+              <div>🍺 <strong style="color:#fff">Tu caña</strong> → solo tú</div>
+              <div>🍷 <strong style="color:#fff">Botella de vino</strong> → entre los 4 · cada uno paga ¼</div>
+            </div>
+            <div style="font-size:11px;color:#6FE8B0;font-weight:600;margin-top:.6rem;padding-top:.55rem;border-top:1px solid rgba(255,255,255,.1)">spliteat suma lo de cada uno al céntimo. Tú pagas tu parte de las bravas, tu medio entrante, tu principal, tu caña y tu parte del vino —ni un euro de más.</div>
           </div>
 
           <!-- Conclusión operativa: ahorro de personal / capacidad extra -->
@@ -1265,7 +1183,7 @@
           <span class="suite-card-chev" style="font-size:14px;color:rgba(255,255,255,.4);transition:transform .2s">▾</span>
         </div>
         <p style="font-size:13px;color:rgba(255,255,255,.62);line-height:1.6;margin:0">
-          Tu panel central de control. La carta, las mesas, el equipo, los datos y la fiscalidad — todo en una sola pantalla. <strong style="color:rgba(255,255,255,.85)">Aquí dentro vives bookeat, trendeat, fiscaleat y controleat sin pagar nada extra.</strong>
+          Tu panel central de control. La carta, las mesas, el equipo, los datos y la fiscalidad — todo en una sola pantalla. <strong style="color:rgba(255,255,255,.85)">Incluye bookeat, trendeat, fiscaleat y controleat sin pagar nada extra.</strong>
         </p>
 
         <div class="suite-card-detail" style="display:none;margin-top:1.1rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,.08)">
@@ -1286,7 +1204,7 @@
                 <div style="font-size:9px;font-weight:600;color:rgba(255,208,179,.9);background:rgba(255,208,179,.1);border-radius:99px;padding:1px 7px;letter-spacing:.06em">RESERVAS</div>
                 <div style="font-size:9px;color:rgba(255,255,255,.35);font-style:italic">incluido en manageat</div>
               </div>
-              <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.55">Calendario de reservas con confirmación automática por WhatsApp. Capacidad por turno, peticiones especiales, recordatorios anti-no-show. <strong style="color:rgba(255,255,255,.8)">Sustituye a tu plataforma de reservas actual.</strong></div>
+              <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.55">Reduce los no-shows que te dejan mesas vacías: recordatorios automáticos por WhatsApp y opción de <strong style="color:rgba(255,255,255,.8)">prepago o señal al reservar</strong>, para que quien reserva, venga. Calendario con capacidad por turno y peticiones especiales. <strong style="color:rgba(255,255,255,.8)">Sustituye a tu plataforma de reservas actual.</strong></div>
             </div>
 
             <!-- trendeat -->
@@ -1296,7 +1214,7 @@
                 <div style="font-size:9px;font-weight:600;color:#6FE8B0;background:rgba(111,232,176,.1);border-radius:99px;padding:1px 7px;letter-spacing:.06em">KPIs · DATOS</div>
                 <div style="font-size:9px;color:rgba(255,255,255,.35);font-style:italic">incluido en manageat</div>
               </div>
-              <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.55">Facturación, ticket medio, food cost real vs teórico, labor cost, EBITDA, punto de equilibrio. Margen por plato. KPIs personalizados con IA. Comparativa entre locales si tienes grupo. <strong style="color:rgba(255,255,255,.8)">Reemplaza tu Excel mensual.</strong></div>
+              <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.55">Tu mejor herramienta para fijar bien el precio de cada plato, mejorar la carta y controlar todos los costes del restaurante de un vistazo: margen por plato, food cost real vs teórico, labor cost, ticket medio, EBITDA y punto de equilibrio. KPIs personalizados con IA. <strong style="color:rgba(255,255,255,.8)">Reemplaza tu Excel mensual.</strong></div>
             </div>
 
             <!-- fiscaleat -->
@@ -1306,7 +1224,7 @@
                 <div style="font-size:9px;font-weight:600;color:#FAEEDA;background:rgba(250,238,218,.1);border-radius:99px;padding:1px 7px;letter-spacing:.06em">FACTURACIÓN</div>
                 <div style="font-size:9px;color:rgba(255,255,255,.35);font-style:italic">incluido en manageat</div>
               </div>
-              <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.55"><strong style="color:rgba(255,255,255,.85)">Verifactu integrado y certificado</strong> — obligatorio desde 1 enero 2027 (sociedades) y 1 julio 2027 (autónomos). Numeración correlativa, IVA por tipo, factura completa F1 a petición del cliente. <strong style="color:rgba(255,255,255,.8)">Cumples sin contratar un software de facturación aparte.</strong></div>
+              <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.55"><strong style="color:rgba(255,255,255,.85)">Verifactu integrado y certificado</strong> — obligatorio a partir del 1 de enero de 2027 (sociedades) y del 1 de julio de 2027 (autónomos). Numeración correlativa, IVA por tipo, factura completa F1 a petición del cliente. <strong style="color:rgba(255,255,255,.8)">Cumples sin contratar un software de facturación aparte.</strong></div>
             </div>
 
             <!-- controleat -->
@@ -1362,7 +1280,7 @@
             <li>Cobra en efectivo, marca pagado y cierra mesa en un toque.</li>
             <li>Control de sus propias propinas del turno y de su rendimiento (mesas servidas, ticket medio).</li>
             <li>Login con PIN — onboarding de un camarero nuevo en menos de 1 hora.</li>
-            <li><strong style="color:rgba(255,255,255,.85)">Convive 100% con spliteat:</strong> elige tú cuándo activar el QR del comensal y cuándo no — o ambos a la vez.</li>
+            <li><strong style="color:rgba(255,255,255,.85)">Convive 100% con spliteat:</strong> ambos sistemas se usan de forma independiente o en paralelo — el camarero toma nota desde serveat y, a la vez, los comensales pueden pedir más y pagar desde el QR.</li>
           </ul>
         </div>
       </div>
@@ -1397,11 +1315,11 @@
           </div>
           <span class="suite-card-chev" style="font-size:14px;color:rgba(255,255,255,.4);transition:transform .2s">▾</span>
         </div>
-        <p style="font-size:13px;color:rgba(255,255,255,.62);line-height:1.6;margin:0">La cola virtual. El cliente espera fuera, no en tu puerta — tu equipo no tiene que gestionarla a mano.</p>
+        <p style="font-size:13px;color:rgba(255,255,255,.62);line-height:1.6;margin:0">La cola virtual. El cliente se apunta y se va a tomar algo mientras espera — le avisamos por WhatsApp en cuanto se libera una mesa. Ni colas en tu puerta, ni una lista que gestionar a mano.</p>
         <div class="suite-card-detail" style="display:none;margin-top:1.1rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:rgba(255,255,255,.6);line-height:1.6">
           <ul style="margin:0;padding-left:1.1rem;display:flex;flex-direction:column;gap:.45rem">
             <li>El cliente se apunta desde su móvil con nombre, número de personas y teléfono.</li>
-            <li>Ve su posición en directo. Cuando le toca, recibe <strong style="color:rgba(255,255,255,.85)">WhatsApp o SMS</strong> aunque haya cerrado el navegador.</li>
+            <li>Ve su posición en directo y, mientras espera, puede irse a tomar algo cerca. Cuando se le libera una mesa, recibe un <strong style="color:rgba(255,255,255,.85)">WhatsApp o SMS</strong> aunque haya cerrado el navegador.</li>
             <li>Reduce abandonos: el cliente no se cansa esperando en la puerta.</li>
             <li>Estimación de tiempo de espera basada en la rotación real de tus mesas.</li>
             <li>Histórico para saber tus horas pico y dimensionar mejor el equipo.</li>
@@ -1421,7 +1339,7 @@
       Más rendimiento con<br>el mismo equipo.
     </h2>
     <p style="font-size:14px;color:rgba(255,255,255,.55);line-height:1.65;margin-bottom:2rem;max-width:560px">
-      En España faltan <strong style="color:rgba(255,255,255,.85)">250.000 puestos en hostelería</strong> sin cubrir y la rotación de personal media supera el 100%. La única salida realista es que el equipo que tienes haga más, sin más estrés.
+      En España quedan <strong style="color:rgba(255,255,255,.85)">250.000 puestos sin cubrir en hostelería</strong> y la rotación de personal media supera el 100%. La única salida realista es que el equipo que tienes haga más, sin más estrés.
     </p>
     <div style="display:flex;flex-direction:column;gap:.75rem">
 
@@ -1605,6 +1523,102 @@
   </div>
 </section>
 
+<!-- ═══════════ CALCULADORA DE AHORRO ═══════════ -->
+<section id="s0-calc" style="background:#F3F7F5;padding:4rem 1.5rem;border-bottom:1px solid #e8e8e0">
+  <div style="max-width:680px;margin:0 auto">
+    <div style="font-size:11px;font-weight:600;color:#D85A30;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5rem">Calcula tu ahorro</div>
+    <h2 style="font-family:'Fraunces',serif;font-size:clamp(1.5rem,5vw,2.2rem);font-weight:700;color:#0F1C17;line-height:1.15;letter-spacing:-.5px;margin-bottom:.5rem">¿Cuánto pagas hoy de más?</h2>
+    <p style="font-size:14px;color:#5A7168;line-height:1.65;margin-bottom:2rem;max-width:540px">
+      Marca lo que pagas hoy y ajusta las cifras a tu caso. Te mostramos cuánto podrías ahorrar reuniéndolo todo en spliteat.
+    </p>
+
+    <div style="background:#fff;border:1px solid #e2ebe7;border-radius:16px;padding:1.5rem 1.35rem">
+      <div id="calc-rows" style="display:flex;flex-direction:column;gap:.5rem"></div>
+
+      <div style="margin-top:1.25rem;padding-top:1.25rem;border-top:2px dashed #d0d0c8;display:flex;flex-direction:column;gap:.85rem">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:13px;font-weight:600;color:#5A7168">Pagas hoy, repartido en varias apps</span>
+          <span id="calc-today" style="font-family:'Fraunces',serif;font-size:1.6rem;font-weight:900;color:#A32D2D;letter-spacing:-.5px">0€<span style="font-size:12px;color:#9A9990;font-weight:500">/mes</span></span>
+        </div>
+        <div style="background:#085041;border-radius:12px;padding:1.1rem 1.25rem">
+          <div style="font-size:13px;color:#fff;font-weight:600;line-height:1.5">spliteat lo reúne todo en una sola suscripción —y por muchísimo menos de lo que pagas hoy.</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.6);margin-top:6px;line-height:1.5">Te calculamos tu ahorro exacto y tu precio en una demo de 15 minutos, con tus números reales.</div>
+        </div>
+      </div>
+
+      <details style="margin-top:1rem;background:#F3F7F5;border-radius:10px;padding:0;overflow:hidden">
+        <summary style="list-style:none;cursor:pointer;padding:.85rem 1rem;font-size:12px;font-weight:600;color:#5A7168;display:flex;align-items:center;justify-content:space-between">
+          <span>📊 Además: ingresos extra estimados</span><span style="color:#085041">+</span>
+        </summary>
+        <div style="padding:0 1rem 1rem;font-size:12px;color:#5A7168;line-height:1.6">
+          Los restaurantes que digitalizan el pedido y el pago por QR suelen rotar las mesas más rápido. <strong style="color:#0F1C17">Es una estimación orientativa, no una garantía</strong> —el resultado real depende de tu local, tu ticket medio y tu servicio. Lo vemos contigo en la demo con tus números reales.
+        </div>
+      </details>
+    </div>
+
+    <div style="text-align:center;margin-top:1.5rem">
+      <a href="https://calendly.com/pau-busquets-spliteat/30min" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;background:#D85A30;color:#fff;text-decoration:none;font-size:14px;font-weight:600;padding:.85rem 1.75rem;border-radius:99px">
+        Calcula tu ahorro real en una demo →
+      </a>
+    </div>
+  </div>
+</section>
+
+<script>
+(function(){
+  // Calculadora de ahorro — costes punto-medio de la comparativa stack (editables).
+  var CALC_ITEMS = [
+    { k:'tpv',     label:'TPV + comandero',          def:60 },
+    { k:'res',     label:'Reservas online',          def:120 },
+    { k:'kds',     label:'KDS · Pantalla de cocina', def:35 },
+    { k:'horario', label:'Control horario',          def:80 },
+    { k:'stock',   label:'Inventario y food cost',   def:50 },
+    { k:'fiscal',  label:'Verifactu / facturación',  def:20 }
+  ];
+
+  function fmt(n){ return Math.round(n).toLocaleString('es-ES') + '€'; }
+
+  function render(){
+    var host = document.getElementById('calc-rows');
+    if (!host) return;
+    host.innerHTML = CALC_ITEMS.map(function(it){
+      return '<div style="display:flex;align-items:center;gap:.6rem;padding:.55rem .7rem;background:#F8FAF9;border:1px solid #eef2f0;border-radius:10px">'
+        + '<input type="checkbox" data-k="'+it.k+'" class="calc-chk" checked style="width:18px;height:18px;accent-color:#085041;flex-shrink:0;cursor:pointer">'
+        + '<span style="flex:1;min-width:0;font-size:13px;color:#0F1C17">'+it.label+'</span>'
+        + '<input type="number" data-k="'+it.k+'" class="calc-amt" value="'+it.def+'" min="0" max="999" '
+        + 'style="width:64px;padding:5px 7px;border:1px solid #d8e0dc;border-radius:7px;font-family:inherit;font-size:13px;text-align:right;color:#0F1C17">'
+        + '<span style="font-size:12px;color:#9A9990;flex-shrink:0">€/mes</span>'
+        + '</div>';
+    }).join('');
+    host.querySelectorAll('.calc-chk, .calc-amt').forEach(function(el){
+      el.addEventListener('input', recompute);
+      el.addEventListener('change', recompute);
+    });
+    recompute();
+  }
+
+  function recompute(){
+    var today = 0;
+    CALC_ITEMS.forEach(function(it){
+      var chk = document.querySelector('.calc-chk[data-k="'+it.k+'"]');
+      var amt = document.querySelector('.calc-amt[data-k="'+it.k+'"]');
+      if (chk && chk.checked && amt) {
+        var v = parseFloat(amt.value);
+        if (!isNaN(v) && v > 0) today += v;
+      }
+    });
+    var elToday = document.getElementById('calc-today');
+    if (elToday) elToday.innerHTML = fmt(today) + '<span style="font-size:12px;color:#9A9990;font-weight:500">/mes</span>';
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', render);
+  } else {
+    render();
+  }
+})();
+</script>
+
 <!-- ═══════════ FAQ ═══════════ -->
 <section id="s0-faq" style="background:#fff;padding:4rem 1.5rem;border-bottom:1px solid #e8e8e0">
   <div style="max-width:760px;margin:0 auto">
@@ -1625,7 +1639,7 @@
             <li><strong style="color:#0F1C17">spliteat</strong> — todo desde el móvil del comensal: escanea el QR de la mesa, pide, sigue su pedido en tiempo real y paga su parte exacta. Sin apps ni registro.</li>
             <li><strong style="color:#0F1C17">serveat</strong> — la app del camarero: cada empleado entra con su perfil, gestiona sus mesas, recibe los pases listos, cobra en segundos y ficha su jornada al entrar y salir.</li>
             <li><strong style="color:#0F1C17">cookeat</strong> — la pantalla de cocina (KDS): los pedidos llegan agrupados por pase y mesa, repartidos por zonas de trabajo (frío, plancha, postres…), sin papel ni gritos. Cada cocinero entra con su perfil y también ficha su jornada.</li>
-            <li><strong style="color:#0F1C17">manageat</strong> — tu panel de control: carta, mesas, equipo, datos y fiscalidad en una sola pantalla. Incluye sin coste extra <strong style="color:#0F1C17">bookeat</strong> (reservas con WhatsApp), <strong style="color:#0F1C17">trendeat</strong> (KPIs y analítica), <strong style="color:#0F1C17">fiscaleat</strong> (facturación con Verifactu) y <strong style="color:#0F1C17">controleat</strong> (control horario, RD-ley 8/2019).</li>
+            <li><strong style="color:#0F1C17">manageat</strong> — tu panel de control: carta, mesas, equipo, datos y fiscalidad en una sola pantalla. Incluye sin coste extra <strong style="color:#0F1C17">bookeat</strong> (reservas), <strong style="color:#0F1C17">trendeat</strong> (KPIs y analítica), <strong style="color:#0F1C17">fiscaleat</strong> (facturación con Verifactu) y <strong style="color:#0F1C17">controleat</strong> (control horario, RD-ley 8/2019).</li>
             <li><strong style="color:#0F1C17">stockeat</strong> — inventario inteligente conectado a la carta: cada plato lleva su receta con ingredientes, así que cuando se pide en la mesa y pasa por cocina, el stock de cada ingrediente se descuenta solo. Sabes en todo momento qué te queda, sin recuentos manuales.</li>
             <li><strong style="color:#0F1C17">calleat</strong> — lista de espera virtual: el cliente se apunta desde el móvil y recibe aviso cuando su mesa está lista.</li>
           </ul>
@@ -1665,7 +1679,7 @@
           <span>¿Cómo funciona el pago dividido desde la mesa?</span><span class="faq-chevron" style="color:#085041;font-size:18px;flex-shrink:0;transition:transform .2s">+</span>
         </summary>
         <div style="padding:0 1.25rem 1.25rem;font-size:14px;color:#5A7168;line-height:1.65">
-          Cada comensal se une a la mesa escaneando el QR, con su nombre, y ve su parte al instante. Para cada plato puede elegir si participa o no: las bravas para compartir se reparten solo entre quienes las tomaron, y spliteat calcula al céntimo lo que paga cada uno. Así la mesa se divide de forma exacta y justa, y cada persona paga lo suyo con Apple Pay, Google Pay, Bizum o tarjeta.
+          Cada comensal se une a la mesa escaneando el QR, con su nombre, y ve su parte al instante. Para cada plato puede elegir si participa o no: un plato para compartir se reparte solo entre quienes lo tomaron, y spliteat calcula al céntimo lo que paga cada uno. Así la mesa se divide de forma exacta y justa, y cada persona paga lo suyo con Apple Pay, Google Pay, Bizum o tarjeta.
           <div style="margin-top:.75rem">Se acabaron las discusiones a la hora de dividir y pagar la cuenta: nadie hace cálculos en la mesa ni se queda esperando. Y el camarero deja de dar vueltas pasando el datáfono seis veces o repartiendo el total a mano —la mesa se cierra sola, más rápido y sin fricción para nadie.</div>
           <div style="margin-top:1rem;background:#fff;border:1px solid #e2ebe7;border-radius:10px;padding:.85rem 1rem">
             <div style="font-size:12px;font-weight:600;color:#0F1C17;margin-bottom:.55rem">Un ejemplo real, una mesa de 4 (tú, Pepe, María y Juan):</div>
@@ -1676,7 +1690,7 @@
               <div>🍺 <strong style="color:#0F1C17">Tu caña</strong> → solo tú</div>
               <div>🍷 <strong style="color:#0F1C17">Botella de vino</strong> → entre los 4 · cada uno paga ¼</div>
             </div>
-            <div style="font-size:11px;color:#085041;font-weight:600;margin-top:.6rem;padding-top:.55rem;border-top:1px solid #eef2f0">spliteat suma lo de cada uno al céntimo. Tú pagas tus bravas, tu medio entrante, tu principal, tu caña y tu parte del vino —ni un euro de más.</div>
+            <div style="font-size:11px;color:#085041;font-weight:600;margin-top:.6rem;padding-top:.55rem;border-top:1px solid #eef2f0">spliteat suma lo de cada uno al céntimo. Tú pagas tu parte de las bravas, tu medio entrante, tu principal, tu caña y tu parte del vino —ni un euro de más.</div>
           </div>
         </div>
       </details>
@@ -1713,7 +1727,7 @@
           <span>¿Cumple con la normativa de facturación española?</span><span class="faq-chevron" style="color:#085041;font-size:18px;flex-shrink:0;transition:transform .2s">+</span>
         </summary>
         <div style="padding:0 1.25rem 1.25rem;font-size:14px;color:#5A7168;line-height:1.65">
-          spliteat genera ticket y factura propios con la estructura que exige la normativa (numeración correlativa, IVA desglosado, factura completa con NIF a petición del cliente) y está preparado para Verifactu, obligatorio a partir de 2027. No dependes del TPV para emitir el justificante fiscal.
+          spliteat genera ticket y factura propios con la estructura que exige la normativa (numeración correlativa, IVA desglosado, factura completa con NIF a petición del cliente) y está preparado para Verifactu, obligatorio desde 2027. No dependes del TPV para emitir el justificante fiscal.
         </div>
       </details>
 
@@ -1821,8 +1835,6 @@
         Reserva tu demo y conoce tu precio →
       </a>
     </div>
-  </div>
-</section>
   </div>
 </section>
 
