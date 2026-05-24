@@ -4575,6 +4575,15 @@ const fmt = v => v.toFixed(2) + ' €';
 // "Juan" + "Julia" → "J¹" + "J²"   (misma inicial)
 // "Juan" + "Juan"  → "J¹" + "J²"   (nombre exacto duplicado)
 // El subíndice se renderiza con <sup> para mantener la inicial principal limpia.
+// Helper: ¿un plato compartido lo es con TODA la mesa? (participantes vacíos
+// = todos por defecto, o participantes = todos los comensales con >=2).
+function _isAllTableShare(parts) {
+  const guests = state.guests || [];
+  if (!parts || parts.length === 0) return true;
+  if (guests.length < 2) return false;
+  return parts.length >= guests.length && guests.every(g => parts.includes(g.id));
+}
+
 function getGuestLabel(guestId) {
   const guests = state.guests || [];
   const me = guests.find(g => g.id === guestId);
@@ -4830,6 +4839,13 @@ function s3CtaAction() {
 function go(screenId) {
   // Footer landing: solo visible cuando estamos en la landing pública (s0)
   document.body.classList.toggle('landing-mode', screenId === 's0');
+  // Botón flotante "Empezar mi turno" (owner): solo debe vivir dentro de un
+  // módulo con sesión. Al ir a landing/hub/login, eliminarlo (se recrea al entrar).
+  const noFabScreens = ['s0','s-modules-hub','s-admin-login','s-employee-select','s1-qr'];
+  if (noFabScreens.includes(screenId)) {
+    const fab = document.getElementById('owner-shift-fab');
+    if (fab) fab.remove();
+  }
   // Dark mode para pantallas del comensal
   const dinerScreens = ['s1-qr','s2-room','s3-dishes','s4-summary','s5-pay','s6-done'];
   setDinerMode(dinerScreens.includes(screenId));
@@ -5964,8 +5980,9 @@ function showCartaItemChoiceModal(itemId, item, myDishes) {
 
   const groupRows = groups.map(g => {
     const parts = state.participants[g.sample.id] || [];
+    const isAllTable = g.isShared && _isAllTableShare(parts);
     const who = g.isShared
-      ? (parts.length ? parts.map(id => state.guests.find(x => x.id === id)?.name || '?').join(', ') : 'Toda la mesa')
+      ? (isAllTable ? 'Toda la mesa' : parts.map(id => state.guests.find(x => x.id === id)?.name || '?').join(', '))
       : (state.guests.find(x => x.id === g.sample.assignee_id)?.name || '?');
     const qty = g.dishes.length;
     const qtyBadge = qty > 1
@@ -6154,7 +6171,7 @@ function openCartaDishPickModal(dishes, item, itemId) {
         const isShared = d.type === 'shared';
         const parts = state.participants[d.id] || [];
         const who = isShared
-          ? parts.map(id => state.guests.find(g=>g.id===id)?.name||'?').join(', ')
+          ? (_isAllTableShare(parts) ? 'Toda la mesa' : parts.map(id => state.guests.find(g=>g.id===id)?.name||'?').join(', '))
           : state.guests.find(g=>g.id===d.assignee_id)?.name || '?';
         return `<button onclick="document.getElementById('carta-dish-pick-modal').remove();openCartaDishEditModal(state.dishes.find(d=>d.id==='${d.id}'),null)"
           style="width:100%;text-align:left;padding:10px 14px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--bg);cursor:pointer;font-family:inherit;margin-bottom:.4rem">
@@ -6710,7 +6727,7 @@ function renderMesaDishes() {
       const COLORS = ['#D85A30','#185FA5','#7B3FA0','#C0392B','#117A65','#B7770D','#1A5276','#6E2C00'];
       if (d.type === 'shared') {
         const parts = state.participants[d.id] || [];
-        if (!parts.length) return '<span style="font-size:11px;color:var(--t3)">Toda la mesa</span>';
+        if (_isAllTableShare(parts)) return '<span style="font-size:11px;color:var(--t3)">👥 Toda la mesa</span>';
         return parts.map(gid => {
           const g = state.guests.find(x=>x.id===gid);
           if (!g) return '';
@@ -7571,7 +7588,10 @@ function buildSummary() {
     sharedAgg.forEach(({ d, share, nP, qty }) => {
       // Salvaguarda: no mostrar líneas con coste 0€
       if (!(share * qty > 0.005)) return;
-      const allParticipants = (state.participants[d.id]||[]).map(id => state.guests.find(g=>g.id===id)?.name||'?').join(', ');
+      const _allP = state.participants[d.id] || [];
+      const allParticipants = _isAllTableShare(_allP)
+        ? '👥 Toda la mesa'
+        : _allP.map(id => state.guests.find(g=>g.id===id)?.name||'?').join(', ');
       const qtyPrefix = qty > 1 ? `<span style="color:var(--blue);opacity:.7">${qty}×</span> ` : '';
       lines += `<div class="sum-line shared">
         <span style="flex:1;min-width:0">
@@ -16671,6 +16691,9 @@ async function _adminLogoutWithoutShift() {
   // Sprint Refactor Login: limpiar badge de rol y empleado activo
   const roleBadge = document.getElementById('manageat-role-badge');
   if (roleBadge) roleBadge.remove();
+  _activeEmpRole = null;
+  const ownerFab = document.getElementById('owner-shift-fab');
+  if (ownerFab) ownerFab.remove();
   document.body.classList.remove('manageat-active');
   if (typeof _activeEmployee !== 'undefined') _activeEmployee = null;
   const tabBar = document.querySelector('#s-admin .tab-bar');
