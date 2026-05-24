@@ -3622,13 +3622,21 @@
           <div style="font-size:11px;color:var(--t3);margin-top:2px">Control horario · RD-ley 8/2019</div>
         </div>
         <div style="display:flex;gap:.5rem;align-items:center">
-          <select id="equipo-period" onchange="loadEquipoDashboard()" class="stk-allow-readonly"
+          <select id="equipo-period" onchange="onEquipoPeriodChange()" class="stk-allow-readonly"
             style="padding:7px 28px 7px 12px;border-radius:var(--r-sm);border:1px solid var(--bd2);font-family:inherit;font-size:13px;background:var(--card);cursor:pointer">
             <option value="today">Hoy</option>
             <option value="week">Esta semana</option>
             <option value="month" selected>Este mes</option>
             <option value="last_month">Mes anterior</option>
+            <option value="custom">Personalizado…</option>
           </select>
+          <span id="equipo-custom-range" style="display:none;align-items:center;gap:6px;margin-left:4px">
+            <input type="date" id="equipo-from" onchange="loadEquipoDashboard()" class="stk-allow-readonly"
+              style="padding:6px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);font-family:inherit;font-size:12px;background:var(--card)">
+            <span style="font-size:12px;color:var(--t3)">→</span>
+            <input type="date" id="equipo-to" onchange="loadEquipoDashboard()" class="stk-allow-readonly"
+              style="padding:6px 8px;border-radius:var(--r-sm);border:1px solid var(--bd2);font-family:inherit;font-size:12px;background:var(--card)">
+          </span>
           <select id="equipo-export-format" class="stk-allow-readonly"
             style="padding:7px 28px 7px 12px;border-radius:var(--r-sm);border:1px solid var(--brand);background:var(--brand-l);color:var(--brand-d);cursor:pointer;font-family:inherit;font-size:12px;font-weight:600;-webkit-appearance:none;appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--brand-d) 50%),linear-gradient(135deg,var(--brand-d) 50%,transparent 50%);background-position:calc(100% - 14px) 50%,calc(100% - 9px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat"
             onchange="exportEquipoReport(this.value); this.value=''">
@@ -10356,6 +10364,11 @@ let _staffHeartbeatTimer = null;
 let _staffHeartbeatVisHandler = null;
 let _staffHeartbeatId = null;
 let _staffHeartbeatRole = null; // Sprint Refactor: cacheamos el rol para detectar owner correctamente
+// Aviso de jornada (control horario): umbral y repetición configurables por restaurante.
+let _shiftReminderMin = 480;        // umbral primer aviso (min). 480 = 8h
+let _shiftReminderRepeatMin = 30;   // repetir cada X min tras "continuar". 0 = no repetir
+let _shiftReminderNextAt = null;    // timestamp (ms) del próximo aviso a mostrar; null = aún no calculado
+let _shiftReminderModalOpen = false;
 
 async function _startStaffHeartbeat(empId, empRole) {
   if (!empId) return;
@@ -10373,6 +10386,18 @@ async function _startStaffHeartbeat(empId, empRole) {
 
   console.log('[heartbeat] start —', empId, 'role:', _staffHeartbeatRole);
 
+  // Cargar config de aviso de jornada del restaurante (no bloqueante).
+  _shiftReminderNextAt = null;
+  try {
+    const restId = state.adminRestaurantId || state.restaurantId || _waiterRestaurantId;
+    if (restId) {
+      const { data: r } = await sb.from('restaurants')
+        .select('shift_reminder_minutes,shift_reminder_repeat_minutes').eq('id', restId).maybeSingle();
+      if (r && typeof r.shift_reminder_minutes === 'number') _shiftReminderMin = r.shift_reminder_minutes;
+      if (r && typeof r.shift_reminder_repeat_minutes === 'number') _shiftReminderRepeatMin = r.shift_reminder_repeat_minutes;
+    }
+  } catch (e) { /* usa defaults */ }
+
   const tick = async () => {
     if (!_staffHeartbeatId) return;
     try {
@@ -10385,6 +10410,17 @@ async function _startStaffHeartbeat(empId, empRole) {
         if (!isOwner) {
           const { data } = await sb.rpc('get_active_shift', { p_waiter_id: _staffHeartbeatId });
           shouldBeActive = !!data?.active;
+          // Aviso de jornada: si lleva más del umbral, avisar (in-app).
+          if (data?.active && data?.clock_in_at && _shiftReminderMin > 0 && !_shiftReminderModalOpen) {
+            const elapsedMin = (Date.now() - new Date(data.clock_in_at).getTime()) / 60000;
+            if (elapsedMin >= _shiftReminderMin) {
+              // Primera vez que cruza el umbral: fijar próximo aviso a "ahora".
+              if (_shiftReminderNextAt === null) _shiftReminderNextAt = Date.now();
+              if (Date.now() >= _shiftReminderNextAt) {
+                _showShiftReminderModal(_staffHeartbeatId, elapsedMin);
+              }
+            }
+          }
         }
       } catch (e) {
         console.warn('[heartbeat] RPC error:', e);
@@ -10424,6 +10460,64 @@ function _stopStaffHeartbeat() {
   }
   _staffHeartbeatId = null;
   _staffHeartbeatRole = null;
+  _shiftReminderNextAt = null;
+  _shiftReminderModalOpen = false;
+}
+
+// Aviso de jornada (in-app): el empleado lleva más del umbral de horas.
+// Dos opciones: continuar (reprograma recordatorio) o acabar turno (clock_out).
+function _showShiftReminderModal(empId, elapsedMin) {
+  if (_shiftReminderModalOpen || document.getElementById('shift-reminder-modal')) return;
+  _shiftReminderModalOpen = true;
+  const h = Math.floor(elapsedMin / 60);
+  const m = Math.round(elapsedMin % 60);
+  const elapsedTxt = `${h}h ${m}m`;
+  const repeatTxt = _shiftReminderRepeatMin > 0
+    ? `Te volveremos a avisar en ${_shiftReminderRepeatMin} min.`
+    : '';
+  const el = document.createElement('div');
+  el.id = 'shift-reminder-modal';
+  el.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:1.25rem';
+  el.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg);max-width:360px;width:100%;padding:1.5rem 1.35rem;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+      <div style="font-size:40px;text-align:center;margin-bottom:.5rem">⏱</div>
+      <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--t1);text-align:center;margin-bottom:.4rem">Llevas ${elapsedTxt} de turno</div>
+      <div style="font-size:13px;color:var(--t2);text-align:center;line-height:1.5;margin-bottom:1.25rem">
+        Has superado tu jornada habitual. ¿Sigues trabajando o quieres fichar la salida?
+        ${repeatTxt ? `<br><span style="font-size:11px;color:var(--t3)">${repeatTxt}</span>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.5rem">
+        <button onclick="_shiftReminderContinue()" class="btn btn-secondary" style="width:100%">Continuar turno</button>
+        <button onclick="_shiftReminderEnd('${empId}')" class="btn btn-primary" style="width:100%">✓ Acabar turno ahora</button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+}
+
+function _shiftReminderContinue() {
+  document.getElementById('shift-reminder-modal')?.remove();
+  _shiftReminderModalOpen = false;
+  // Reprogramar el siguiente aviso (o desactivar si repeat=0).
+  _shiftReminderNextAt = _shiftReminderRepeatMin > 0
+    ? Date.now() + _shiftReminderRepeatMin * 60000
+    : Infinity; // no volver a avisar este turno
+}
+
+async function _shiftReminderEnd(empId) {
+  try {
+    const { data, error } = await sb.rpc('clock_out', { p_waiter_id: empId, p_notes: null });
+    if (error) { notify('Error al fichar salida: ' + error.message, 'error'); return; }
+    if (data?.error) { notify(data.error, 'error'); return; }
+    if (typeof _stopClockInBadge === 'function') _stopClockInBadge();
+    showToast('✓ Salida fichada', data?.worked_minutes ? `${data.worked_minutes} min trabajados` : 'Turno cerrado');
+  } catch (e) {
+    notify('Error al fichar salida', 'error');
+    return;
+  } finally {
+    document.getElementById('shift-reminder-modal')?.remove();
+    _shiftReminderModalOpen = false;
+    _shiftReminderNextAt = Infinity; // turno cerrado, no más avisos
+  }
 }
 
 async function setOrderStatus(dishId, status) {
@@ -11885,10 +11979,37 @@ function _equipoFmtMins(mins) {
   return `${h}h ${m}m`;
 }
 
+function onEquipoPeriodChange() {
+  const period = document.getElementById('equipo-period')?.value;
+  const customWrap = document.getElementById('equipo-custom-range');
+  if (customWrap) customWrap.style.display = (period === 'custom') ? 'inline-flex' : 'none';
+  if (period === 'custom') {
+    // Prefill por defecto: primer día del mes → hoy, si están vacíos.
+    const fromEl = document.getElementById('equipo-from');
+    const toEl = document.getElementById('equipo-to');
+    if (fromEl && !fromEl.value) {
+      const now = new Date();
+      fromEl.value = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0,10);
+    }
+    if (toEl && !toEl.value) toEl.value = new Date().toISOString().slice(0,10);
+    // No recargar aún si falta algún input
+    if (!fromEl?.value || !toEl?.value) return;
+  }
+  loadEquipoDashboard();
+}
+
 function _equipoPeriodRange() {
   const period = document.getElementById('equipo-period')?.value || 'month';
   const now = new Date();
   let from, to;
+  if (period === 'custom') {
+    const fromVal = document.getElementById('equipo-from')?.value;
+    const toVal = document.getElementById('equipo-to')?.value;
+    from = fromVal ? new Date(fromVal + 'T00:00:00') : new Date(now.getFullYear(), now.getMonth(), 1);
+    to = toVal ? new Date(toVal + 'T23:59:59') : new Date(now.getTime());
+    const fmtD = d => d.toLocaleDateString('es-ES', { day:'2-digit', month:'2-digit', year:'numeric' });
+    return { from: from.toISOString(), to: to.toISOString(), label: `${fmtD(from)} – ${fmtD(to)}` };
+  }
   if (period === 'today') {
     from = new Date(now); from.setHours(0,0,0,0);
     to = new Date(now); to.setHours(23,59,59,999);
@@ -11948,12 +12069,16 @@ async function _renderAutoCloseSection() {
   // Cargar setting actual + count de auto-cierres últimos 7 días
   let currentMinutes = 240;
   let recentCount = 0;
+  let _jrReminderMin = 480;
+  let _jrReminderRepeat = 30;
   try {
     const { data: rest } = await sb.from('restaurants')
-      .select('shift_auto_close_minutes').eq('id', state.adminRestaurantId).maybeSingle();
+      .select('shift_auto_close_minutes,shift_reminder_minutes,shift_reminder_repeat_minutes').eq('id', state.adminRestaurantId).maybeSingle();
     if (rest && typeof rest.shift_auto_close_minutes === 'number') {
       currentMinutes = rest.shift_auto_close_minutes;
     }
+    if (rest && typeof rest.shift_reminder_minutes === 'number') _jrReminderMin = rest.shift_reminder_minutes;
+    if (rest && typeof rest.shift_reminder_repeat_minutes === 'number') _jrReminderRepeat = rest.shift_reminder_repeat_minutes;
     const { data: c } = await sb.rpc('count_recent_auto_closes', {
       p_restaurant_id: state.adminRestaurantId,
       p_days: 7
@@ -11995,6 +12120,37 @@ async function _renderAutoCloseSection() {
         ` : '<div style="font-size:11px;color:var(--t3);margin-top:.5rem">Solo el propietario puede cambiar esta configuración.</div>'}
       </div>
     </details>
+    <details style="background:var(--bg);border:1px solid var(--bd);border-radius:var(--r);padding:.6rem .85rem;margin-top:.5rem">
+      <summary style="font-size:12px;color:var(--t2);cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between">
+        <span>⏱ Aviso de jornada: <strong>${(_jrReminderMin/60).toFixed(_jrReminderMin%60===0?0:1)}h</strong></span>
+        <span style="font-size:11px;color:var(--t3)">${canEdit ? 'Editar ›' : ''}</span>
+      </summary>
+      <div style="margin-top:.6rem;font-size:12px;color:var(--t2);line-height:1.5">
+        Cuando un empleado supera estas horas de turno, recibe un aviso para continuar o fichar la salida (mientras tenga la app abierta).
+        ${canEdit ? `
+          <div style="display:flex;align-items:center;gap:.5rem;margin-top:.65rem;flex-wrap:wrap">
+            <label style="font-size:12px;color:var(--t2)">Avisar tras:</label>
+            <select id="reminder-minutes-select" onchange="_saveShiftReminderMinutes(this.value)"
+              style="padding:6px 10px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:12px;background:var(--card);cursor:pointer">
+              <option value="360" ${_jrReminderMin===360?'selected':''}>6 horas</option>
+              <option value="480" ${_jrReminderMin===480?'selected':''}>8 horas (jornada estándar)</option>
+              <option value="540" ${_jrReminderMin===540?'selected':''}>9 horas</option>
+              <option value="600" ${_jrReminderMin===600?'selected':''}>10 horas</option>
+              <option value="0" ${_jrReminderMin===0?'selected':''}>Desactivado</option>
+            </select>
+            <label style="font-size:12px;color:var(--t2);margin-left:.5rem">Repetir cada:</label>
+            <select id="reminder-repeat-select" onchange="_saveShiftReminderRepeat(this.value)"
+              style="padding:6px 10px;border:1px solid var(--bd2);border-radius:var(--r-sm);font-family:inherit;font-size:12px;background:var(--card);cursor:pointer">
+              <option value="0" ${_jrReminderRepeat===0?'selected':''}>No repetir</option>
+              <option value="15" ${_jrReminderRepeat===15?'selected':''}>15 min</option>
+              <option value="30" ${_jrReminderRepeat===30?'selected':''}>30 min</option>
+              <option value="60" ${_jrReminderRepeat===60?'selected':''}>1 hora</option>
+            </select>
+          </div>
+          <div style="font-size:11px;color:var(--t3);margin-top:.45rem">💡 Distinto del auto-cierre: esto solo avisa, no cierra el turno. Útil para que el empleado no olvide fichar la salida.</div>
+        ` : '<div style="font-size:11px;color:var(--t3);margin-top:.5rem">Solo el propietario puede cambiar esta configuración.</div>'}
+      </div>
+    </details>
   `;
 }
 
@@ -12012,6 +12168,28 @@ async function _saveAutoCloseMinutes(minutes) {
     return;
   }
   notify('Tiempo de auto-cierre actualizado a ' + (min/60).toFixed(min%60===0?0:1) + 'h', 'success');
+  _renderAutoCloseSection();
+}
+
+async function _saveShiftReminderMinutes(minutes) {
+  const min = parseInt(minutes, 10);
+  if (isNaN(min) || min < 0 || min > 1440) { notify('Valor inválido', 'error'); return; }
+  const { error } = await sb.from('restaurants')
+    .update({ shift_reminder_minutes: min }).eq('id', state.adminRestaurantId);
+  if (error) { notify('Error: ' + error.message, 'error'); return; }
+  _shiftReminderMin = min; // refrescar runtime
+  notify(min === 0 ? 'Aviso de jornada desactivado' : 'Aviso de jornada a las ' + (min/60).toFixed(min%60===0?0:1) + 'h', 'success');
+  _renderAutoCloseSection();
+}
+
+async function _saveShiftReminderRepeat(minutes) {
+  const min = parseInt(minutes, 10);
+  if (isNaN(min) || min < 0 || min > 240) { notify('Valor inválido', 'error'); return; }
+  const { error } = await sb.from('restaurants')
+    .update({ shift_reminder_repeat_minutes: min }).eq('id', state.adminRestaurantId);
+  if (error) { notify('Error: ' + error.message, 'error'); return; }
+  _shiftReminderRepeatMin = min; // refrescar runtime
+  notify(min === 0 ? 'Sin repetición de aviso' : 'Aviso se repetirá cada ' + min + ' min', 'success');
   _renderAutoCloseSection();
 }
 
