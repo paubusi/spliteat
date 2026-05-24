@@ -7973,6 +7973,16 @@ function showPayForManual(guestId, guestName, amount) {
         </div>
       </button>` : ''}
 
+      <!-- Bizum — pago digital instantáneo -->
+      ${pm.bizum === true ? `
+      <button onclick="pfmPay('bizum')" style="width:100%;text-align:left;padding:.85rem 1.1rem;border-radius:var(--r);border:1px solid #D4E6FF;background:#F0F7FF;cursor:pointer;font-family:inherit;margin-bottom:.85rem;display:flex;align-items:center;gap:.85rem">
+        <div style="width:40px;height:40px;border-radius:var(--r-sm);background:#0066FF;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="color:#fff;font-size:11px;font-weight:700">bizum</span></div>
+        <div style="text-align:left">
+          <div style="font-size:14px;font-weight:700;color:var(--t1)">Bizum</div>
+          <div style="font-size:11px;color:var(--t2)">Pago instantáneo entre móviles</div>
+        </div>
+      </button>` : ''}
+
       <!-- Pagar al camarero -->
       <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:.4rem">Pagar al camarero</div>
       ${pm.card !== false ? `
@@ -8005,6 +8015,9 @@ async function pfmPay(method) {
   if (method === 'split') {
     // Pago digital — registrar inmediatamente
     await registerPayForManual(guestId, guestName, amount, 'Apple Pay');
+  } else if (method === 'bizum') {
+    // Bizum — pago digital instantáneo, se registra al momento (no requiere camarero)
+    await registerPayForManual(guestId, guestName, amount, 'Bizum');
   } else {
     // Tarjeta física / Efectivo — solo notificar al camarero, NO registrar pago
     // El pago se registra cuando el camarero confirma desde serveat
