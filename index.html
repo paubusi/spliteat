@@ -31163,7 +31163,10 @@ function renderStockInventoryList() {
         </div>
         ${isZero ? `<div style="font-size:10px;color:var(--accent);font-weight:500">Sin stock</div>` : isLow ? `<div style="font-size:10px;color:var(--amber);font-weight:500">Bajo mínimo</div>` : ''}
       </div>
-      <button onclick="openStockAdjustModal('${row.ingredient_id}')" style="margin-left:.75rem;padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0">Ajustar</button>
+      <div style="display:flex;gap:.35rem;margin-left:.75rem;flex-shrink:0">
+        <button onclick="openIngMovHistory('${row.ingredient_id}','${escHtml(row.ingredient_name)}','${row.unit}')" style="padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);font-size:11px;cursor:pointer;font-family:inherit">📋</button>
+        <button onclick="openStockAdjustModal('${row.ingredient_id}')" style="padding:6px 10px;border-radius:var(--r-sm);border:1px solid var(--bd2);background:var(--card);font-size:11px;cursor:pointer;font-family:inherit;flex-shrink:0">Ajustar</button>
+      </div>
     </div>`;
   }).join('');
 }
@@ -31383,6 +31386,58 @@ async function saveStockAdjust() {
   if (error) { notify('Error: ' + error.message); return; }
   document.getElementById('adj-modal')?.remove();
   loadStockInventory();
+}
+
+// ── HISTORIAL MOVIMIENTOS POR INGREDIENTE ───────────────────────
+async function openIngMovHistory(ingredientId, ingredientName, unit) {
+  const REASON_LABEL = {
+    purchase: '🛒 Compra', waste: '🗑 Merma', adjustment: '✏️ Ajuste',
+    return: '↩️ Devolución', consumption: '🍳 Consumo', count: '📋 Conteo'
+  };
+  document.getElementById('ing-hist-modal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'ing-hist-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;display:flex;align-items:flex-end;justify-content:center';
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:500px;max-height:85vh;display:flex;flex-direction:column">
+      <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:15px;font-weight:600;color:var(--t1)">${escHtml(ingredientName)}</div>
+          <div style="font-size:11px;color:var(--t3);margin-top:2px">Últimos 30 movimientos</div>
+        </div>
+        <button onclick="document.getElementById('ing-hist-modal')?.remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2);padding:4px">✕</button>
+      </div>
+      <div id="ing-hist-list" style="flex:1;overflow-y:auto;min-height:120px">
+        <div style="padding:2rem;text-align:center;color:var(--t2);font-size:13px">Cargando…</div>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  const { data: movs } = await sb.from('stock_movements')
+    .select('id,quantity_delta,reason,notes,created_at,created_by')
+    .eq('ingredient_id', ingredientId)
+    .order('created_at', { ascending: false })
+    .limit(30);
+
+  const el = document.getElementById('ing-hist-list');
+  if (!el) return;
+  if (!movs || !movs.length) {
+    el.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--t2);font-size:13px">Sin movimientos registrados.</div>`;
+    return;
+  }
+  el.innerHTML = movs.map(m => {
+    const isPos = m.quantity_delta >= 0;
+    const date = new Date(m.created_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
+    return `<div style="padding:.75rem 1.25rem;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;gap:.5rem">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;color:var(--t1)">${REASON_LABEL[m.reason] || m.reason}</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px">${date}${m.notes ? ' · ' + escHtml(m.notes) : ''}${m.created_by ? ' · ' + escHtml(m.created_by) : ''}</div>
+      </div>
+      <div style="font-size:14px;font-weight:600;font-family:'Fraunces',serif;color:${isPos ? 'var(--brand-d)' : 'var(--accent)'}">
+        ${isPos ? '+' : ''}${m.quantity_delta} ${unit}
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ── RECIPES ─────────────────────────────────────────────────────
@@ -32501,10 +32556,11 @@ async function loadStockPurchases() {
   const restId = state.adminRestaurantId;
   if (!restId) return;
   // En el esquema nuevo, cada compra es un stock_movement con reason='purchase'.
-  // Agrupamos por created_at (fecha) para presentar como "pedidos".
+  // stock_movements no tiene restaurant_id directo → filtramos via ingredients FK.
   const { data: movs } = await sb.from('stock_movements')
-    .select('id,ingredient_id,quantity_delta,cost_per_unit,notes,created_at,ingredients(name,unit)')
+    .select('id,ingredient_id,quantity_delta,cost_per_unit,notes,created_at,ingredients!inner(name,unit,restaurant_id)')
     .eq('reason', 'purchase')
+    .eq('ingredients.restaurant_id', restId)
     .order('created_at', { ascending: false })
     .limit(50);
 
