@@ -16649,6 +16649,14 @@ function _isOwnerSession() {
   return _manageatActiveRole === 'owner';
 }
 
+// Helper: refresca el contexto de sesión Postgres justo antes de un UPDATE/INSERT crítico.
+// Necesario porque Supabase connection pooler no garantiza el mismo GUC entre requests.
+async function _setSessionCtx() {
+  const empId = _activeEmployee?.id || state.adminEmployeeId || null;
+  const role  = _manageatActiveRole || state.adminRole || _activeEmployee?.role || '';
+  try { await sb.rpc('set_session_context', { p_emp_id: empId, p_role: role }); } catch(_) {}
+}
+
 async function applyManageatPermissions(role, customRoleId = null) {
   // Cargar permisos (async, pero los selectores se aplican abajo)
   await _loadManageatPermissions(role, customRoleId);
@@ -16682,7 +16690,7 @@ async function applyManageatPermissions(role, customRoleId = null) {
   const ajustesSectionMap = {
     ajustes_carta:           ['[data-ajustes-section="carta"]'],
     ajustes_mesas:           ['[data-ajustes-section="mesas"]'],
-    ajustes_personal:        ['[data-ajustes-section="camareros"]'],
+    ajustes_personal:        ['[data-tab="equipo"]'],
     ajustes_perfil:          ['[data-ajustes-section="perfil"]'],
     ajustes_costes:          ['[data-ajustes-section="costes-fijos"]', '[data-ajustes-section="costes-compartidos"]'],
     ajustes_pagos:           ['[data-ajustes-section="metodos-pago"]'],
@@ -21979,6 +21987,8 @@ async function saveWaiterAjustes() {
     )
   };
 
+  // Refrescar GUC de sesión justo antes del INSERT para que RLS tenga contexto real
+  await _setSessionCtx();
   const { error } = await sb.from('waiters').insert(insertPayload);
   if (error) { notify('Error al guardar: ' + error.message); return; }
   document.getElementById('add-waiter-form-ajustes').style.display = 'none';
@@ -22184,6 +22194,8 @@ async function saveMemberEdit(waiterId) {
     updates.hourly_rate = rate;
   }
 
+  // Refrescar GUC de sesión justo antes del UPDATE para que RLS tenga contexto real
+  await _setSessionCtx();
   const { error } = await sb.from('waiters').update(updates).eq('id', waiterId);
   if (error) { notify('Error al guardar: ' + error.message, 'error'); return; }
   document.getElementById('edit-member-overlay')?.remove();
