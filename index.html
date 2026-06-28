@@ -31398,27 +31398,43 @@ async function openIngMovHistory(ingredientId, ingredientName, unit) {
   document.getElementById('ing-hist-modal')?.remove();
   const modal = document.createElement('div');
   modal.id = 'ing-hist-modal';
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;display:flex;align-items:flex-end;justify-content:center';
+  // Fix scroll: overflow en el overlay, no en el inner — evita el colapso de flex en móvil
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9100;display:flex;align-items:flex-end;justify-content:center;overflow:hidden';
   modal.innerHTML = `
-    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:500px;max-height:85vh;display:flex;flex-direction:column">
-      <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between">
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:500px;height:85dvh;display:flex;flex-direction:column">
+      <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
         <div>
           <div style="font-size:15px;font-weight:600;color:var(--t1)">${escHtml(ingredientName)}</div>
           <div style="font-size:11px;color:var(--t3);margin-top:2px">Últimos 30 movimientos</div>
         </div>
         <button onclick="document.getElementById('ing-hist-modal')?.remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--t2);padding:4px">✕</button>
       </div>
-      <div id="ing-hist-list" style="flex:1;overflow-y:auto;min-height:120px">
+      <div id="ing-hist-list" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch">
         <div style="padding:2rem;text-align:center;color:var(--t2);font-size:13px">Cargando…</div>
       </div>
     </div>`;
   document.body.appendChild(modal);
 
+  // Extraer dish IDs de las notas de 'sale' para resolver nombres de plato
   const { data: movs } = await sb.from('stock_movements')
-    .select('id,quantity_delta,reason,notes,created_at,created_by')
+    .select('id,quantity_delta,reason,notes,created_at,created_by,related_dish_id')
     .eq('ingredient_id', ingredientId)
     .order('created_at', { ascending: false })
     .limit(30);
+
+  // Resolver nombres de plato para las ventas (related_dish_id → dishes → menu_items.name)
+  const dishIds = [...new Set((movs || [])
+    .filter(m => m.reason === 'sale' && m.related_dish_id)
+    .map(m => m.related_dish_id))];
+  const dishNameMap = new Map();
+  if (dishIds.length) {
+    const { data: dishes } = await sb.from('dishes')
+      .select('id,menu_item_id,menu_items(name)')
+      .in('id', dishIds);
+    (dishes || []).forEach(d => {
+      if (d.menu_items?.name) dishNameMap.set(d.id, d.menu_items.name);
+    });
+  }
 
   const el = document.getElementById('ing-hist-list');
   if (!el) return;
@@ -31429,10 +31445,18 @@ async function openIngMovHistory(ingredientId, ingredientName, unit) {
   el.innerHTML = movs.map(m => {
     const isPos = m.quantity_delta >= 0;
     const date = new Date(m.created_at).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' });
+    // Sub-label: para ventas mostrar nombre del plato; para otros, las notas
+    let sub = '';
+    if (m.reason === 'sale') {
+      const dishName = m.related_dish_id ? dishNameMap.get(m.related_dish_id) : null;
+      if (dishName) sub = ' · ' + escHtml(dishName);
+    } else if (m.notes) {
+      sub = ' · ' + escHtml(m.notes);
+    }
     return `<div style="padding:.75rem 1.25rem;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;gap:.5rem">
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;color:var(--t1)">${REASON_LABEL[m.reason] || m.reason}</div>
-        <div style="font-size:11px;color:var(--t3);margin-top:2px">${date}${m.notes && m.reason !== 'sale' ? ' · ' + escHtml(m.notes) : ''}${m.created_by ? ' · ' + escHtml(m.created_by) : ''}</div>
+        <div style="font-size:11px;color:var(--t3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${date}${sub}</div>
       </div>
       <div style="font-size:14px;font-weight:600;font-family:'Fraunces',serif;color:${isPos ? 'var(--brand-d)' : 'var(--accent)'}">
         ${isPos ? '+' : ''}${m.quantity_delta} ${unit}
