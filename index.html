@@ -8329,12 +8329,16 @@ function showPayForManual(guestId, guestName, amount) {
       <div style="font-size:13px;color:var(--t2);margin-bottom:1.25rem">${fmt(numAmt)}</div>
 
       ${(() => {
-        // Fuente única de métodos (mismo catálogo que la pantalla principal).
-        // splitMobilePay:false → "Pago con móvil" en 1 botón (sheet compacto).
         const { mobileHtml, otherHtml } = renderPaymentMethods(pm, { mode: 'forOther', splitMobilePay: false });
         const otherSection = otherHtml ? `
           <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:.4rem;margin-top:.25rem">Otras opciones</div>
           ${otherHtml}` : '';
+        if (STRIPE_ENABLED && pm.mobilePay !== false) {
+          return `<div id="stripe-prb-wrap-other" style="margin-bottom:.85rem">
+            <div id="stripe-prb-container-other" style="min-height:52px"></div>
+            <div id="stripe-prb-fallback-other" style="display:none">${mobileHtml}</div>
+          </div>${otherSection}`;
+        }
         return mobileHtml + otherSection;
       })()}
 
@@ -8342,6 +8346,105 @@ function showPayForManual(guestId, guestName, amount) {
     </div>`;
   document.body.appendChild(el);
   el.addEventListener('click', e => { if (e.target === el) el.remove(); });
+
+  // Montar PRB nativo para pagar por otro comensal (importe distinto al propio)
+  if (STRIPE_ENABLED && pm.mobilePay !== false) {
+    mountPaymentRequestButtonForOther(Math.round(numAmt * 100), 'stripe-prb-container-other', guestId, guestName).then(mounted => {
+      if (!mounted) {
+        const wrap = document.getElementById('stripe-prb-container-other');
+        const fallback = document.getElementById('stripe-prb-fallback-other');
+        if (wrap) wrap.style.display = 'none';
+        if (fallback) fallback.style.display = 'block';
+      }
+    });
+  }
+}
+
+// PRB nativo para pagar por OTRO comensal — variante de mountPaymentRequestButton
+// con guestId/amount explícitos en vez de tomarlos de state.myGuestId.
+let _prButtonOther = null;
+async function mountPaymentRequestButtonForOther(amountCents, containerId, guestId, guestName) {
+  if (!STRIPE_ENABLED || !stripeInstance) return false;
+  const container = document.getElementById(containerId);
+  if (!container) return false;
+
+  if (_prButtonOther) { try { _prButtonOther.destroy(); } catch(_) {} _prButtonOther = null; }
+  container.innerHTML = '';
+
+  const pr = stripeInstance.paymentRequest({
+    country: 'ES',
+    currency: 'eur',
+    total: { label: `Pagar por ${guestName} — spliteat`, amount: amountCents },
+    requestPayerName: false,
+    requestPayerEmail: false,
+  });
+
+  const canMake = await pr.canMakePayment();
+  if (!canMake) return false;
+
+  pr.on('paymentmethod', async (ev) => {
+    try {
+      const { data: rest } = await sb.from('restaurants')
+        .select('stripe_account_id, stripe_charges_enabled')
+        .eq('id', state.restaurantId).maybeSingle();
+      if (!rest?.stripe_account_id || !rest?.stripe_charges_enabled) {
+        ev.complete('fail');
+        notify('Pagos online no disponibles. Avisando al camarero…');
+        document.getElementById('pay-for-manual-modal')?.remove();
+        await notifyWaiterForPayment(guestId, guestName, amountCents / 100, 'Tarjeta física – datáfono');
+        return;
+      }
+
+      const { clientSecret, paymentIntentId } = await callStripeFunction('create_payment_intent', {
+        amount: amountCents / 100,
+        currency: 'eur',
+        restaurantStripeId: rest.stripe_account_id,
+        guestId, roomId: state.roomId,
+      });
+
+      const { error, paymentIntent } = await stripeInstance.confirmCardPayment(
+        clientSecret,
+        { payment_method: ev.paymentMethod.id },
+        { handleActions: false }
+      );
+
+      if (error) { ev.complete('fail'); notify('Pago rechazado: ' + error.message, 'error'); return; }
+      ev.complete('success');
+
+      if (paymentIntent.status === 'requires_action') {
+        const { error: actionErr } = await stripeInstance.confirmCardPayment(clientSecret);
+        if (actionErr) { notify('Verificación fallida: ' + actionErr.message, 'error'); return; }
+      }
+
+      document.getElementById('pay-for-manual-modal')?.remove();
+      const method = canMake.applePay ? 'Apple Pay' : 'Google Pay';
+      await sb.from('payments').insert({
+        room_id: state.roomId, guest_id: guestId, amount: amountCents / 100,
+        method, stripe_payment_intent_id: paymentIntentId,
+        stripe_status: 'succeeded', paid_at: new Date().toISOString(),
+      });
+      state.payments.push({ guest_id: guestId, amount: amountCents / 100, method, stripe_status: 'succeeded' });
+      notify(`✓ Pago de ${guestName} completado`, 'success');
+      buildPayScreen();
+      const paidIds = new Set(state.payments.filter(p => p.guest_id).map(p => p.guest_id));
+      if (state.guests.every(g => paidIds.has(g.id))) {
+        await _closeRoomWithInvoice(state.roomId);
+        setTimeout(() => showAccountClosed(), 800);
+      }
+    } catch (err) {
+      ev.complete('fail');
+      notify('Error en el pago: ' + (err.message || 'Inténtalo de nuevo'), 'error');
+    }
+  });
+
+  const elements = stripeInstance.elements();
+  _prButtonOther = elements.create('paymentRequestButton', {
+    paymentRequest: pr,
+    style: { paymentRequestButton: { type: 'default', theme: 'dark', height: '52px' } },
+  });
+  _prButtonOther.mount('#' + containerId);
+  _prButtonOther.on('click', () => pr.show());
+  return true;
 }
 
 async function pfmPay(method) {
@@ -8349,8 +8452,12 @@ async function pfmPay(method) {
   if (!guestId) return;
   document.getElementById('pay-for-manual-modal')?.remove();
   if (method === 'split') {
-    // Pago digital — registrar inmediatamente
-    await registerPayForManual(guestId, guestName, amount, 'Apple Pay');
+    // Fallback visual (sin PRB nativo) — cobrar de verdad con Stripe (tarjeta manual)
+    if (STRIPE_ENABLED) {
+      await payWithStripeForOther(guestId, guestName, amount);
+    } else {
+      await registerPayForManual(guestId, guestName, amount, 'Apple Pay');
+    }
   } else if (method === 'bizum') {
     // Bizum — pago digital instantáneo, se registra al momento (no requiere camarero)
     await registerPayForManual(guestId, guestName, amount, 'Bizum');
@@ -8362,6 +8469,54 @@ async function pfmPay(method) {
     // El pago se registra cuando el camarero confirma desde serveat
     const methodLabel = method === 'card' ? 'Tarjeta física – datáfono' : 'Efectivo';
     await notifyWaiterForPayment(guestId, guestName, amount, methodLabel);
+  }
+}
+
+// Cobro real con Stripe (tarjeta manual) cuando pagas por otro comensal
+// y el navegador no soporta Apple/Google Pay nativo.
+async function payWithStripeForOther(guestId, guestName, amount) {
+  const numAmt = parseFloat(amount);
+  const { data: rest } = await sb.from('restaurants')
+    .select('stripe_account_id, stripe_charges_enabled')
+    .eq('id', state.restaurantId).maybeSingle();
+
+  if (!rest?.stripe_account_id || !rest?.stripe_charges_enabled) {
+    notify('Pagos online no disponibles. Avisando al camarero…');
+    await notifyWaiterForPayment(guestId, guestName, numAmt, 'Tarjeta física – datáfono');
+    return;
+  }
+
+  try {
+    const { clientSecret, paymentIntentId } = await callStripeFunction('create_payment_intent', {
+      amount: numAmt, currency: 'eur',
+      restaurantStripeId: rest.stripe_account_id,
+      guestId, roomId: state.roomId,
+    });
+
+    const { error, paymentIntent } = await stripeInstance.confirmPayment({
+      clientSecret,
+      confirmParams: { return_url: window.location.href, payment_method_data: { type: 'card' } },
+      redirect: 'if_required',
+    });
+
+    if (error) { notify('Error en el pago: ' + error.message, 'error'); return; }
+
+    await sb.from('payments').insert({
+      room_id: state.roomId, guest_id: guestId, amount: numAmt,
+      method: 'Tarjeta', stripe_payment_intent_id: paymentIntentId,
+      stripe_status: 'succeeded', paid_at: new Date().toISOString(),
+    });
+    state.payments.push({ guest_id: guestId, amount: numAmt, method: 'Tarjeta', stripe_status: 'succeeded' });
+    notify(`✓ Pago de ${guestName} completado`, 'success');
+    buildPayScreen();
+    const paidIds = new Set(state.payments.filter(p => p.guest_id).map(p => p.guest_id));
+    if (state.guests.every(g => paidIds.has(g.id))) {
+      await _closeRoomWithInvoice(state.roomId);
+      setTimeout(() => showAccountClosed(), 800);
+    }
+  } catch (err) {
+    console.error('Stripe error (pay for other):', err);
+    notify('Error procesando el pago. Inténtalo de nuevo.');
   }
 }
 
