@@ -4791,13 +4791,20 @@ if (STRIPE_ENABLED && typeof Stripe !== 'undefined') {
   stripeInstance = Stripe(STRIPE_PUBLIC_KEY);
 }
 
+let _stripeAccountReady = false; // true cuando stripeInstance tiene stripeAccount configurado
+
 // Reinicializar stripeInstance con el stripeAccount de la cuenta conectada.
-// Necesario para que canMakePayment() y el PRB funcionen en modo Connect direct charges.
 function _initStripeForAccount(stripeAccountId) {
   if (!STRIPE_ENABLED || typeof Stripe === 'undefined') return;
   if (!stripeAccountId) return;
-  _canMakePaymentResult = null; // resetear cache al cambiar de cuenta
+  _canMakePaymentResult = null;
+  _stripeAccountReady = false;
   stripeInstance = Stripe(STRIPE_PUBLIC_KEY, { stripeAccount: stripeAccountId });
+  _stripeAccountReady = true;
+  // Si la pantalla de pago ya está visible, re-renderizar con la cuenta correcta
+  if (document.getElementById('pay-methods-container')) {
+    buildPayScreen();
+  }
 }
 
 // Llama a la Edge Function de Supabase
@@ -8209,14 +8216,19 @@ function buildPayScreen() {
 
     if (STRIPE_ENABLED && pm.mobilePay !== false) {
       if (_canMakePaymentResult === null) {
-        // Primera vez — comprobar soporte y re-renderizar con el resultado
-        const pr = stripeInstance.paymentRequest({ country:'ES', currency:'eur', total:{ label:'spliteat', amount:100 } });
-        pr.canMakePayment().then(result => {
-          _canMakePaymentResult = result || false;
-          buildPayScreen(); // re-render ahora que sabemos el resultado
-        });
-        // Mientras tanto mostrar solo los botones visuales (sin duplicado)
-        container.innerHTML = mobileHtml + otherSection;
+        if (!_stripeAccountReady) {
+          // stripeInstance aún no tiene la cuenta conectada — mostrar fallback visual
+          // y esperar a que enterMesa llame a _initStripeForAccount → buildPayScreen
+          container.innerHTML = mobileHtml + otherSection;
+        } else {
+          // Primera vez con cuenta conectada — comprobar soporte y re-renderizar
+          const pr = stripeInstance.paymentRequest({ country:'ES', currency:'eur', total:{ label:'spliteat', amount:100 } });
+          pr.canMakePayment().then(result => {
+            _canMakePaymentResult = result || false;
+            buildPayScreen();
+          });
+          container.innerHTML = `<div style="min-height:52px;display:flex;align-items:center;justify-content:center"><div style="font-size:12px;color:var(--t3)">Cargando método de pago…</div></div>${otherSection}`;
+        }
       } else if (_canMakePaymentResult) {
         // PRB disponible → montar botón nativo (sin fallback visual)
         container.innerHTML = `
