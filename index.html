@@ -4791,6 +4791,15 @@ if (STRIPE_ENABLED && typeof Stripe !== 'undefined') {
   stripeInstance = Stripe(STRIPE_PUBLIC_KEY);
 }
 
+// Reinicializar stripeInstance con el stripeAccount de la cuenta conectada.
+// Necesario para que canMakePayment() y el PRB funcionen en modo Connect direct charges.
+function _initStripeForAccount(stripeAccountId) {
+  if (!STRIPE_ENABLED || typeof Stripe === 'undefined') return;
+  if (!stripeAccountId) return;
+  _canMakePaymentResult = null; // resetear cache al cambiar de cuenta
+  stripeInstance = Stripe(STRIPE_PUBLIC_KEY, { stripeAccount: stripeAccountId });
+}
+
 // Llama a la Edge Function de Supabase
 async function callStripeFunction(action, params) {
   const res = await fetch(`${SUPA_URL}/functions/v1/stripe-payment`, {
@@ -27062,12 +27071,16 @@ async function enterMesa() {
           if (t) state.tableLabel = `Mesa ${t.number}${t.label ? ' — ' + t.label : ''}`;
         }).catch(() => {});
     }
-    // Load restaurant payment methods config
+    // Load restaurant payment methods config + Stripe Connect account
     if (state.restaurantId) {
-      sb.from('restaurants').select('payment_methods,google_review_url').eq('id', state.restaurantId).maybeSingle()
+      sb.from('restaurants').select('payment_methods,google_review_url,stripe_account_id,stripe_charges_enabled').eq('id', state.restaurantId).maybeSingle()
         .then(({ data: rest }) => {
           if (rest?.payment_methods) state.paymentMethods = rest.payment_methods;
           if (rest?.google_review_url) state.googleReviewUrl = rest.google_review_url;  // Sprint paridad #4
+          // Inicializar Stripe con la cuenta conectada para que PRB funcione en Apple Pay
+          if (rest?.stripe_account_id && rest?.stripe_charges_enabled) {
+            _initStripeForAccount(rest.stripe_account_id);
+          }
         }).catch(() => {});
     }
     await loadParticipants();
