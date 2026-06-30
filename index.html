@@ -4781,8 +4781,8 @@ const BASE_URL = window.location.origin + window.location.pathname;
 //   3. Pon tu clave pública de Stripe en STRIPE_PUBLIC_KEY
 //   4. Despliega la Edge Function en Supabase
 // ══════════════════════════════════════════════════════
-const STRIPE_ENABLED = false; // ← cambiar a true cuando tengas cuenta Stripe
-const STRIPE_PUBLIC_KEY = 'pk_test_XXXXXXXXXX'; // ← poner tu clave pública aquí
+const STRIPE_ENABLED = true;
+const STRIPE_PUBLIC_KEY = 'pk_test_51TDqAfGyHLyNorr8jjLVN9DzzWCmPQQbZmR9awoAfN7Ho0qDcZmaclx3OoFY9wofW3RG6UT4Jtl5rUCz5zhYBp0r00S3jCYmNA';
 const STRIPE_COMMISSION_PCT = 0.8; // % que se queda spliteat
 
 // Inicializar Stripe solo si está habilitado
@@ -8191,14 +8191,41 @@ function buildPayScreen() {
   const pm = state.paymentMethods || { mobilePay:true, card:true, cash:true };
   const container = document.getElementById('pay-methods-container');
   if (container) {
-    // Pantalla "pagar lo mío": Apple+Google separados en grid (splitMobilePay)
     const { mobileHtml, otherHtml } = renderPaymentMethods(pm, { mode: 'self', splitMobilePay: true });
     const otherSection = otherHtml ? `
       <div style="margin-top:.5rem">
         <div style="font-size:11px;color:var(--t3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">Otras opciones — llamar al camarero</div>
         ${otherHtml}
       </div>` : '';
-    container.innerHTML = mobileHtml + otherSection;
+
+    if (STRIPE_ENABLED && pm.mobilePay !== false) {
+      // Reservar un contenedor para el PRB nativo; mostrar botones visuales mientras carga
+      container.innerHTML = `
+        <div id="stripe-prb-wrap" style="margin-bottom:.75rem">
+          <div style="font-size:11px;font-weight:700;color:var(--brand-d);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">
+            Rápido y sencillo, desde spliteat
+            <span style="background:#34A853;color:#fff;font-size:9px;padding:1px 6px;border-radius:99px;margin-left:4px">RECOMENDADO</span>
+          </div>
+          <div id="stripe-prb-container" style="min-height:52px"></div>
+          <div id="stripe-prb-fallback" style="display:none">${mobileHtml}</div>
+        </div>
+        ${otherSection}`;
+
+      // Intentar montar PRB nativo (async, no bloquea render)
+      const me2 = calcTotals().find(t => t.g.id === state.myGuestId);
+      const amountCents = me2 ? Math.round((me2.total + (me2.tipAmt||0)) * 100) : 100;
+      mountPaymentRequestButton(amountCents, 'stripe-prb-container').then(mounted => {
+        if (!mounted) {
+          // Navegador no soporta Apple/Google Pay → mostrar botones visuales
+          const wrap = document.getElementById('stripe-prb-container');
+          const fallback = document.getElementById('stripe-prb-fallback');
+          if (wrap) wrap.style.display = 'none';
+          if (fallback) fallback.style.display = 'block';
+        }
+      });
+    } else {
+      container.innerHTML = mobileHtml + otherSection;
+    }
   }
   const totals = calcTotals();
   const me = totals.find(t => t.g.id === state.myGuestId);
@@ -9285,6 +9312,115 @@ async function callWaiterForRemaining() {
   notify('Camarero avisado para cobrar', 'success');
 }
 
+// ── PAYMENT REQUEST BUTTON (Apple Pay / Google Pay nativo) ───────
+// Crea o reutiliza un PaymentRequest de Stripe y monta el botón nativo.
+// Se llama desde buildPayScreen cuando STRIPE_ENABLED y el método es mobilePay.
+let _prButton = null; // instancia del PaymentRequestButton (singleton por sesión)
+
+async function mountPaymentRequestButton(amountCents, containerId) {
+  if (!STRIPE_ENABLED || !stripeInstance) return false;
+  const container = document.getElementById(containerId);
+  if (!container) return false;
+
+  // Limpiar botón previo si el importe cambió
+  if (_prButton) { try { _prButton.destroy(); } catch(_) {} _prButton = null; }
+  container.innerHTML = '';
+
+  const pr = stripeInstance.paymentRequest({
+    country: 'ES',
+    currency: 'eur',
+    total: { label: 'Tu parte — spliteat', amount: amountCents },
+    requestPayerName: false,
+    requestPayerEmail: false,
+  });
+
+  // Comprobar si el navegador soporta Apple Pay / Google Pay
+  const canMake = await pr.canMakePayment();
+  if (!canMake) return false; // navegador no soporta PRB → mostrar botones visuales
+
+  // Escuchar el evento de pago completado por el navegador
+  pr.on('paymentmethod', async (ev) => {
+    try {
+      // 1. Crear PaymentIntent en el servidor
+      const me = calcTotals().find(t => t.g.id === state.myGuestId);
+      if (!me) { ev.complete('fail'); return; }
+
+      const { clientSecret, paymentIntentId } = await callStripeFunction('create_payment_intent', {
+        amount: me.total,
+        tipAmount: me.tipAmt || 0,
+        currency: 'eur',
+        restaurantStripeId: (await sb.from('restaurants').select('stripe_account_id').eq('id', state.restaurantId).maybeSingle()).data?.stripe_account_id,
+        guestId: state.myGuestId,
+        roomId: state.roomId,
+      });
+
+      // 2. Confirmar el pago con el método del navegador
+      const { error, paymentIntent } = await stripeInstance.confirmCardPayment(
+        clientSecret,
+        { payment_method: ev.paymentMethod.id },
+        { handleActions: false }
+      );
+
+      if (error) {
+        ev.complete('fail');
+        notify('Pago rechazado: ' + error.message, 'error');
+        return;
+      }
+
+      ev.complete('success');
+
+      // 3. Si requiere acción adicional (3DS), manejarla
+      if (paymentIntent.status === 'requires_action') {
+        const { error: actionErr } = await stripeInstance.confirmCardPayment(clientSecret);
+        if (actionErr) { notify('Verificación fallida: ' + actionErr.message, 'error'); return; }
+      }
+
+      // 4. Registrar pago en BD
+      const method = canMake.applePay ? 'Apple Pay' : 'Google Pay';
+      await _registerStripePayment(me, paymentIntentId, method);
+
+    } catch (err) {
+      ev.complete('fail');
+      notify('Error en el pago: ' + (err.message || 'Inténtalo de nuevo'), 'error');
+    }
+  });
+
+  // Montar el botón nativo de Stripe
+  const elements = stripeInstance.elements();
+  _prButton = elements.create('paymentRequestButton', {
+    paymentRequest: pr,
+    style: { paymentRequestButton: { type: 'default', theme: 'dark', height: '52px' } },
+  });
+  _prButton.mount('#' + containerId);
+
+  // Listener para abrir el sheet nativo al hacer clic
+  _prButton.on('click', () => pr.show());
+
+  return true; // PRB montado correctamente
+}
+
+// Helper: registrar pago Stripe en BD y cerrar mesa si procede
+async function _registerStripePayment(me, paymentIntentId, method) {
+  track('payment_stripe', { method, amount: me.total });
+  await sb.from('payments').insert({
+    room_id: state.roomId,
+    guest_id: state.myGuestId,
+    amount: me.total,
+    tip_amount: me.tipAmt || 0,
+    method,
+    stripe_payment_intent_id: paymentIntentId,
+    stripe_status: 'succeeded',
+    paid_at: new Date().toISOString(),
+  });
+  state.payments.push({ guest_id: state.myGuestId, method, amount: me.total, stripe_status: 'succeeded' });
+  buildPayScreen();
+  const allPaid = state.guests.every(g => state.payments.find(p => p.guest_id === g.id));
+  if (allPaid) {
+    await _closeRoomWithInvoice(state.roomId);
+    setTimeout(() => showAccountClosed(), 800);
+  }
+}
+
 async function payWithStripe(me, method) {
   // Get restaurant's Stripe account
   const { data: rest } = await sb.from('restaurants')
@@ -9293,31 +9429,26 @@ async function payWithStripe(me, method) {
     .single();
 
   if (!rest?.stripe_account_id || !rest?.stripe_charges_enabled) {
-    // Restaurant not set up with Stripe — fall back to manual
     notify('Este restaurante aún no tiene pagos online activados. Paga directamente al camarero.');
     await registerManualPayment(me, method);
     return;
   }
 
   try {
-    // Show loading state
-    const payBtn = document.querySelector('.pay-main-btn, .pay-sub-btn');
+    const payBtn = document.querySelector('.pay-main-btn');
     if (payBtn) payBtn.disabled = true;
 
-    // Create PaymentIntent via Edge Function
+    // Crear PaymentIntent
     const { clientSecret, paymentIntentId } = await callStripeFunction('create_payment_intent', {
       amount: me.total,
+      tipAmount: me.tipAmt || 0,
       currency: 'eur',
       restaurantStripeId: rest.stripe_account_id,
       guestId: state.myGuestId,
-      roomId: state.roomId
+      roomId: state.roomId,
     });
 
-    // Confirm payment with Stripe.js
-    const paymentMethod = method === 'Apple Pay' ? 'apple_pay'
-      : method === 'Google Pay' ? 'google_pay'
-      : 'card';
-
+    // Confirmar con Stripe Elements (flujo tarjeta manual / redirect)
     const { error, paymentIntent } = await stripeInstance.confirmPayment({
       clientSecret,
       confirmParams: {
@@ -9328,26 +9459,12 @@ async function payWithStripe(me, method) {
     });
 
     if (error) {
-      notify('Error en el pago: ' + error.message);
+      notify('Error en el pago: ' + error.message, 'error');
       if (payBtn) payBtn.disabled = false;
       return;
     }
 
-    // Payment succeeded — register in DB
-    track('payment_started', { method, amount: me.total });
-  await sb.from('payments').insert({
-      room_id: state.roomId,
-      guest_id: state.myGuestId,
-      amount: me.total,
-      method,
-      stripe_payment_intent_id: paymentIntentId,
-      stripe_status: 'succeeded'
-    });
-
-    state.payments.push({ guest_id: state.myGuestId, method, amount: me.total });
-    buildPayScreen();
-    const allPaid = state.guests.every(g => state.payments.find(p => p.guest_id === g.id));
-    if (allPaid) setTimeout(() => showAccountClosed(), 800);
+    await _registerStripePayment(me, paymentIntentId, method);
 
   } catch (err) {
     console.error('Stripe error:', err);
