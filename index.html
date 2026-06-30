@@ -8199,34 +8199,34 @@ function buildPayScreen() {
       </div>` : '';
 
     if (STRIPE_ENABLED && pm.mobilePay !== false) {
-      // Reservar un contenedor para el PRB nativo; mostrar botones visuales como fallback
-      container.innerHTML = `
-        <div id="stripe-prb-wrap" style="margin-bottom:.75rem">
-          <div style="font-size:11px;font-weight:700;color:var(--brand-d);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">
-            Rápido y sencillo, desde spliteat
-            <span style="background:#34A853;color:#fff;font-size:9px;padding:1px 6px;border-radius:99px;margin-left:4px">RECOMENDADO</span>
+      if (_canMakePaymentResult === null) {
+        // Primera vez — comprobar soporte y re-renderizar con el resultado
+        const pr = stripeInstance.paymentRequest({ country:'ES', currency:'eur', total:{ label:'spliteat', amount:100 } });
+        pr.canMakePayment().then(result => {
+          _canMakePaymentResult = result || false;
+          buildPayScreen(); // re-render ahora que sabemos el resultado
+        });
+        // Mientras tanto mostrar solo los botones visuales (sin duplicado)
+        container.innerHTML = mobileHtml + otherSection;
+      } else if (_canMakePaymentResult) {
+        // PRB disponible → montar botón nativo (sin fallback visual)
+        container.innerHTML = `
+          <div style="margin-bottom:.75rem">
+            <div style="font-size:11px;font-weight:700;color:var(--brand-d);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">
+              Rápido y sencillo, desde spliteat
+              <span style="background:#34A853;color:#fff;font-size:9px;padding:1px 6px;border-radius:99px;margin-left:4px">RECOMENDADO</span>
+            </div>
+            <div id="stripe-prb-container"></div>
           </div>
-          <div id="stripe-prb-container" style="min-height:52px"></div>
-          <div id="stripe-prb-fallback" style="display:none">${mobileHtml}</div>
-        </div>
-        ${otherSection}`;
-
-      // Intentar montar PRB nativo (async, no bloquea render)
-      const me2 = calcTotals().find(t => t.g.id === state.myGuestId);
-      const amountCents = me2 ? Math.round((me2.total + (me2.tipAmt||0)) * 100) : 100;
-      mountPaymentRequestButton(amountCents, 'stripe-prb-container').then(mounted => {
-        if (!mounted) {
-          // Navegador no soporta Apple/Google Pay → mostrar botones visuales
-          const wrap = document.getElementById('stripe-prb-container');
-          const fallback = document.getElementById('stripe-prb-fallback');
-          if (wrap) wrap.style.display = 'none';
-          if (fallback) fallback.style.display = 'block';
-        } else {
-          // PRB montado → asegurarse de que el fallback visual está oculto
-          const fallback = document.getElementById('stripe-prb-fallback');
-          if (fallback) fallback.style.display = 'none';
-        }
-      });
+          ${otherSection}`;
+        // Montar el PRB ahora que el DOM está listo
+        const me2 = calcTotals().find(t => t.g.id === state.myGuestId);
+        const amountCents = me2 ? Math.round((me2.total + (me2.tipAmt||0)) * 100) : 100;
+        mountPaymentRequestButton(amountCents, 'stripe-prb-container');
+      } else {
+        // PRB no disponible → botones visuales (fallback limpio, sin duplicado)
+        container.innerHTML = mobileHtml + otherSection;
+      }
     } else {
       container.innerHTML = mobileHtml + otherSection;
     }
@@ -9472,6 +9472,7 @@ async function callWaiterForRemaining() {
 // Crea o reutiliza un PaymentRequest de Stripe y monta el botón nativo.
 // Se llama desde buildPayScreen cuando STRIPE_ENABLED y el método es mobilePay.
 let _prButton = null; // instancia del PaymentRequestButton (singleton por sesión)
+let _canMakePaymentResult = null; // null = no comprobado, false = no soporta, object = soporta
 
 async function mountPaymentRequestButton(amountCents, containerId) {
   if (!STRIPE_ENABLED || !stripeInstance) return false;
