@@ -8402,22 +8402,20 @@ async function mountPaymentRequestButtonForOther(amountCents, containerId, guest
         guestId, roomId: state.roomId,
       });
 
-      const { error, paymentIntent } = await stripeInstance.confirmCardPayment(
+      const { error: confirmError } = await stripeInstance.confirmCardPayment(
         clientSecret,
-        { payment_method: ev.paymentMethod.id },
-        { handleActions: false }
+        { payment_method: ev.paymentMethod.id }
       );
 
-      if (error) { ev.complete('fail'); notify('Pago rechazado: ' + error.message, 'error'); return; }
-      ev.complete('success');
-
-      if (paymentIntent.status === 'requires_action') {
-        const { error: actionErr } = await stripeInstance.confirmCardPayment(clientSecret);
-        if (actionErr) { notify('Verificación fallida: ' + actionErr.message, 'error'); return; }
+      if (confirmError) {
+        ev.complete('fail');
+        notify('Pago rechazado: ' + confirmError.message, 'error');
+        return;
       }
 
+      ev.complete('success');
       document.getElementById('pay-for-manual-modal')?.remove();
-      const method = canMake.applePay ? 'Apple Pay' : 'Google Pay';
+      const method = ev.walletName === 'applePay' ? 'Apple Pay' : ev.walletName === 'googlePay' ? 'Google Pay' : 'Tarjeta';
       await sb.from('payments').insert({
         room_id: state.roomId, guest_id: guestId, amount: amountCents / 100,
         method, stripe_payment_intent_id: paymentIntentId,
@@ -8443,7 +8441,6 @@ async function mountPaymentRequestButtonForOther(amountCents, containerId, guest
     style: { paymentRequestButton: { type: 'default', theme: 'dark', height: '52px' } },
   });
   _prButtonOther.mount('#' + containerId);
-  _prButtonOther.on('click', () => pr.show());
   return true;
 }
 
@@ -9493,45 +9490,38 @@ async function mountPaymentRequestButton(amountCents, containerId) {
   const canMake = await pr.canMakePayment();
   if (!canMake) return false; // navegador no soporta PRB → mostrar botones visuales
 
-  // Escuchar el evento de pago completado por el navegador
   pr.on('paymentmethod', async (ev) => {
     try {
-      // 1. Crear PaymentIntent en el servidor
       const me = calcTotals().find(t => t.g.id === state.myGuestId);
       if (!me) { ev.complete('fail'); return; }
+
+      const { data: rest } = await sb.from('restaurants')
+        .select('stripe_account_id')
+        .eq('id', state.restaurantId).maybeSingle();
 
       const { clientSecret, paymentIntentId } = await callStripeFunction('create_payment_intent', {
         amount: me.total,
         tipAmount: me.tipAmt || 0,
         currency: 'eur',
-        restaurantStripeId: (await sb.from('restaurants').select('stripe_account_id').eq('id', state.restaurantId).maybeSingle()).data?.stripe_account_id,
+        restaurantStripeId: rest?.stripe_account_id,
         guestId: state.myGuestId,
         roomId: state.roomId,
       });
 
-      // 2. Confirmar el pago con el método del navegador
-      const { error, paymentIntent } = await stripeInstance.confirmCardPayment(
+      // Confirmar con el paymentMethod que el navegador nos da
+      const { error: confirmError, paymentIntent } = await stripeInstance.confirmCardPayment(
         clientSecret,
-        { payment_method: ev.paymentMethod.id },
-        { handleActions: false }
+        { payment_method: ev.paymentMethod.id }
       );
 
-      if (error) {
+      if (confirmError) {
         ev.complete('fail');
-        notify('Pago rechazado: ' + error.message, 'error');
+        notify('Pago rechazado: ' + confirmError.message, 'error');
         return;
       }
 
       ev.complete('success');
-
-      // 3. Si requiere acción adicional (3DS), manejarla
-      if (paymentIntent.status === 'requires_action') {
-        const { error: actionErr } = await stripeInstance.confirmCardPayment(clientSecret);
-        if (actionErr) { notify('Verificación fallida: ' + actionErr.message, 'error'); return; }
-      }
-
-      // 4. Registrar pago en BD
-      const method = canMake.applePay ? 'Apple Pay' : 'Google Pay';
+      const method = ev.walletName === 'applePay' ? 'Apple Pay' : ev.walletName === 'googlePay' ? 'Google Pay' : 'Tarjeta';
       await _registerStripePayment(me, paymentIntentId, method);
 
     } catch (err) {
@@ -9547,10 +9537,6 @@ async function mountPaymentRequestButton(amountCents, containerId) {
     style: { paymentRequestButton: { type: 'default', theme: 'dark', height: '52px' } },
   });
   _prButton.mount('#' + containerId);
-
-  // Listener para abrir el sheet nativo al hacer clic
-  _prButton.on('click', () => pr.show());
-
   return true; // PRB montado correctamente
 }
 
