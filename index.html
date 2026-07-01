@@ -8224,6 +8224,8 @@ function buildPayScreen() {
           // Primera vez con cuenta conectada — comprobar soporte y re-renderizar
           const pr = stripeInstance.paymentRequest({ country:'ES', currency:'eur', total:{ label:'spliteat', amount:100 } });
           pr.canMakePayment().then(result => {
+            // DEBUG TEMPORAL — eliminar después
+            alert('canMakePayment: ' + JSON.stringify(result) + ' | account ready: ' + _stripeAccountReady);
             _canMakePaymentResult = result || false;
             buildPayScreen();
           });
