@@ -9182,7 +9182,14 @@ async function submitFactura() {
 
     if (updErr) throw new Error('Error guardando factura: ' + updErr.message);
 
-    // 3. Notificar al restaurante vía canal realtime (manageat lo escucha)
+    // 3. Enviar email via Edge Function (fire-and-forget — no bloqueamos el flujo)
+    fetch(`${SUPA_URL}/functions/v1/send-invoice-email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPA_KEY}` },
+      body: JSON.stringify({ invoiceId: existingInv.id }),
+    }).catch(e => console.warn('[send-invoice-email]', e));
+
+    // 4. Notificar al restaurante vía canal realtime (manageat lo escucha)
     try {
       await sb.channel('manageat-' + state.restaurantId).send({
         type: 'broadcast',
