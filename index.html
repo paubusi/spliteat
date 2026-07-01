@@ -8515,33 +8515,22 @@ async function payWithStripeForOther(guestId, guestName, amount) {
   }
 
   try {
-    const { clientSecret, paymentIntentId } = await callStripeFunction('create_payment_intent', {
+    const { clientSecret } = await callStripeFunction('create_payment_intent', {
       amount: numAmt, currency: 'eur',
       restaurantStripeId: rest.stripe_account_id,
       guestId, roomId: state.roomId,
     });
 
-    const { error, paymentIntent } = await stripeInstance.confirmPayment({
+    // Redirigir a Stripe hosted payment page
+    const { error } = await stripeInstance.confirmPayment({
       clientSecret,
-      confirmParams: { return_url: window.location.href, payment_method_data: { type: 'card' } },
-      redirect: 'if_required',
+      confirmParams: {
+        return_url: window.location.href + (window.location.href.includes('?') ? '&' : '?') + 'stripe_return=1',
+      },
     });
 
     if (error) { notify('Error en el pago: ' + error.message, 'error'); return; }
-
-    await sb.from('payments').insert({
-      room_id: state.roomId, guest_id: guestId, amount: numAmt,
-      method: 'Tarjeta', stripe_payment_intent_id: paymentIntentId,
-      stripe_status: 'succeeded', paid_at: new Date().toISOString(),
-    });
-    state.payments.push({ guest_id: guestId, amount: numAmt, method: 'Tarjeta', stripe_status: 'succeeded' });
-    notify(`✓ Pago de ${guestName} completado`, 'success');
-    buildPayScreen();
-    const paidIds = new Set(state.payments.filter(p => p.guest_id).map(p => p.guest_id));
-    if (state.guests.every(g => paidIds.has(g.id))) {
-      await _closeRoomWithInvoice(state.roomId);
-      setTimeout(() => showAccountClosed(), 800);
-    }
+    // El webhook registra el pago al retornar
   } catch (err) {
     console.error('Stripe error (pay for other):', err);
     notify('Error procesando el pago. Inténtalo de nuevo.');
@@ -9610,7 +9599,7 @@ async function payWithStripe(me, method) {
 
   try {
     const payBtn = document.querySelector('.pay-main-btn');
-    if (payBtn) payBtn.disabled = true;
+    if (payBtn) { payBtn.disabled = true; payBtn.textContent = 'Procesando…'; }
 
     // Crear PaymentIntent
     const { clientSecret, paymentIntentId } = await callStripeFunction('create_payment_intent', {
@@ -9622,23 +9611,21 @@ async function payWithStripe(me, method) {
       roomId: state.roomId,
     });
 
-    // Confirmar con Stripe Elements (flujo tarjeta manual / redirect)
-    const { error, paymentIntent } = await stripeInstance.confirmPayment({
+    // Redirigir a Stripe hosted payment page (no requiere CardElement montado)
+    // El webhook confirmará el pago cuando el usuario regrese
+    const { error } = await stripeInstance.confirmPayment({
       clientSecret,
       confirmParams: {
-        return_url: window.location.href,
-        payment_method_data: { type: 'card' }
+        return_url: window.location.href + (window.location.href.includes('?') ? '&' : '?') + 'stripe_return=1',
       },
-      redirect: 'if_required'
+      // Sin redirect:'if_required' → siempre redirige a la página de Stripe
     });
 
     if (error) {
       notify('Error en el pago: ' + error.message, 'error');
-      if (payBtn) payBtn.disabled = false;
-      return;
+      if (payBtn) { payBtn.disabled = false; payBtn.textContent = 'Pagar'; }
     }
-
-    await _registerStripePayment(me, paymentIntentId, method);
+    // Si no hay error, el navegador redirige a Stripe — el webhook registra el pago
 
   } catch (err) {
     console.error('Stripe error:', err);
