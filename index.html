@@ -9584,12 +9584,9 @@ async function _registerStripePayment(me, paymentIntentId, method) {
 }
 
 async function payWithStripe(me, method) {
-
-  // Get restaurant's Stripe account
   const { data: rest } = await sb.from('restaurants')
     .select('stripe_account_id, stripe_charges_enabled')
-    .eq('id', state.restaurantId)
-    .single();
+    .eq('id', state.restaurantId).single();
 
   if (!rest?.stripe_account_id || !rest?.stripe_charges_enabled) {
     notify('Este restaurante aún no tiene pagos online activados. Paga directamente al camarero.');
@@ -9597,48 +9594,70 @@ async function payWithStripe(me, method) {
     return;
   }
 
+  // Crear PaymentIntent primero
+  let clientSecret, paymentIntentId;
   try {
-    const payBtn = document.querySelector('.pay-main-btn');
-    if (payBtn) { payBtn.disabled = true; payBtn.textContent = 'Procesando…'; }
-
-    // Crear PaymentIntent
     const piResult = await callStripeFunction('create_payment_intent', {
-      amount: me.total,
-      tipAmount: me.tipAmt || 0,
-      currency: 'eur',
+      amount: me.total, tipAmount: me.tipAmt || 0, currency: 'eur',
       restaurantStripeId: rest.stripe_account_id,
-      guestId: state.myGuestId,
-      roomId: state.roomId,
+      guestId: state.myGuestId, roomId: state.roomId,
     });
-    console.log('[Stripe] PI result:', JSON.stringify(piResult));
     if (!piResult?.clientSecret) {
-      notify('Error al crear el pago: ' + (piResult?.error || 'Sin clientSecret'), 'error');
-      if (payBtn) { payBtn.disabled = false; payBtn.textContent = 'Pagar'; }
+      notify('Error al crear el pago: ' + (piResult?.error || 'Inténtalo de nuevo'), 'error');
       return;
     }
-    const { clientSecret, paymentIntentId } = piResult;
-
-    // Redirigir a Stripe hosted payment page (no requiere CardElement montado)
-    // El webhook confirmará el pago cuando el usuario regrese
-    const { error } = await stripeInstance.confirmPayment({
-      clientSecret,
-      confirmParams: {
-        return_url: window.location.href + (window.location.href.includes('?') ? '&' : '?') + 'stripe_return=1',
-      },
-      // Sin redirect:'if_required' → siempre redirige a la página de Stripe
-    });
-
-    if (error) {
-      notify('Error en el pago: ' + error.message, 'error');
-      if (payBtn) { payBtn.disabled = false; payBtn.textContent = 'Pagar'; }
-    }
-    // Si no hay error, el navegador redirige a Stripe — el webhook registra el pago
-
-  } catch (err) {
-    console.error('Stripe error:', err);
-    notify('Error procesando el pago. Inténtalo de nuevo o paga en efectivo.');
+    ({ clientSecret, paymentIntentId } = piResult);
+  } catch(e) {
+    notify('Error al conectar con el servidor de pagos.', 'error');
+    return;
   }
+
+  // Abrir modal con CardElement de Stripe embebido
+  document.getElementById('stripe-card-modal')?.remove();
+  const modal = document.createElement('div');
+  modal.id = 'stripe-card-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:9200;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center';
+  modal.innerHTML = `
+    <div style="background:var(--card);border-radius:var(--r-lg) var(--r-lg) 0 0;width:100%;max-width:430px;padding:1.5rem 1.25rem 2rem">
+      <div style="width:36px;height:4px;background:var(--bd2);border-radius:2px;margin:0 auto .85rem"></div>
+      <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--t1);margin-bottom:.25rem">Pagar con tarjeta</div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:1.25rem">${fmt(me.total + (me.tipAmt||0))} · Taberna El Marino</div>
+      <div id="stripe-card-element" style="padding:12px;border:1.5px solid var(--bd2);border-radius:var(--r-sm);background:var(--bg);margin-bottom:1rem"></div>
+      <div id="stripe-card-error" style="color:#e53e3e;font-size:12px;margin-bottom:.75rem;min-height:16px"></div>
+      <button id="stripe-pay-btn" style="width:100%;padding:14px;background:var(--brand-d);color:white;border:none;border-radius:var(--r-sm);font-size:15px;font-weight:600;cursor:pointer;font-family:inherit">
+        Pagar ${fmt(me.total + (me.tipAmt||0))}
+      </button>
+      <button onclick="document.getElementById('stripe-card-modal')?.remove()" style="width:100%;padding:9px;border:none;background:none;color:var(--t3);font-size:13px;cursor:pointer;font-family:inherit;margin-top:.35rem">Cancelar</button>
+    </div>`;
+  document.body.appendChild(modal);
+
+  // Montar CardElement
+  const elements = stripeInstance.elements();
+  const cardEl = elements.create('card', {
+    style: { base: { fontSize:'16px', color:'var(--t1)', fontFamily:'DM Sans, sans-serif', '::placeholder': { color:'var(--t3)' } } }
+  });
+  cardEl.mount('#stripe-card-element');
+  cardEl.on('change', e => {
+    document.getElementById('stripe-card-error').textContent = e.error ? e.error.message : '';
+  });
+
+  // Confirmar al pulsar pagar
+  document.getElementById('stripe-pay-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('stripe-pay-btn');
+    btn.disabled = true; btn.textContent = 'Procesando…';
+    const { error, paymentIntent } = await stripeInstance.confirmCardPayment(clientSecret, {
+      payment_method: { card: cardEl }
+    });
+    if (error) {
+      document.getElementById('stripe-card-error').textContent = error.message;
+      btn.disabled = false; btn.textContent = `Pagar ${fmt(me.total + (me.tipAmt||0))}`;
+      return;
+    }
+    modal.remove();
+    await _registerStripePayment(me, paymentIntent.id, 'Tarjeta');
+  });
 }
+
 
 // ══════════════════════════════════════════════════════
 // KITCHEN SCREEN
