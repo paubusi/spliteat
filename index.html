@@ -9602,7 +9602,7 @@ async function payWithStripe(me, method) {
     if (payBtn) { payBtn.disabled = true; payBtn.textContent = 'Procesando…'; }
 
     // Crear PaymentIntent
-    const { clientSecret, paymentIntentId } = await callStripeFunction('create_payment_intent', {
+    const piResult = await callStripeFunction('create_payment_intent', {
       amount: me.total,
       tipAmount: me.tipAmt || 0,
       currency: 'eur',
@@ -9610,6 +9610,13 @@ async function payWithStripe(me, method) {
       guestId: state.myGuestId,
       roomId: state.roomId,
     });
+    console.log('[Stripe] PI result:', JSON.stringify(piResult));
+    if (!piResult?.clientSecret) {
+      notify('Error al crear el pago: ' + (piResult?.error || 'Sin clientSecret'), 'error');
+      if (payBtn) { payBtn.disabled = false; payBtn.textContent = 'Pagar'; }
+      return;
+    }
+    const { clientSecret, paymentIntentId } = piResult;
 
     // Redirigir a Stripe hosted payment page (no requiere CardElement montado)
     // El webhook confirmará el pago cuando el usuario regrese
