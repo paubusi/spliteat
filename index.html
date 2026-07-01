@@ -3665,6 +3665,8 @@
       <!-- Sub-nav: only Resumen (platos + propinas embedded) -->
       <div style="display:flex;border-bottom:1px solid var(--bd);background:var(--card);padding:0 1rem;overflow-x:auto;flex-shrink:0;gap:2px">
         <button class="tab on" id="rtab-btn-kpis" onclick="showReportesTab('kpis')" style="font-size:13px;padding:.6rem .85rem;white-space:nowrap">📊 Resumen</button>
+        <button class="tab" id="rtab-btn-eficiencia" onclick="showReportesTab('eficiencia')" style="font-size:13px;padding:.6rem .85rem;white-space:nowrap">⚡ Eficiencia</button>
+        <button class="tab" id="rtab-btn-platos" onclick="showReportesTab('platos')" style="font-size:13px;padding:.6rem .85rem;white-space:nowrap">🍽 Platos</button>
       </div>
 
       <!-- ── KPIs / Resumen ── -->
@@ -3773,6 +3775,64 @@
       </div>
 
       <!-- ── Platos: tiempos reales vs estimados ── -->
+      <!-- ── EFICIENCIA ── -->
+      <div id="rtab-eficiencia" class="body" style="display:none;overflow-y:auto;padding:1rem">
+
+        <!-- Header con período -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:.5rem">
+          <div style="font-size:16px;font-weight:600;color:var(--t1)">⚡ Eficiencia operativa</div>
+          <div style="display:flex;gap:.25rem">
+            <button class="kpi-period-btn efic-btn on" data-val="7" onclick="setEficienciaPeriod(7)">7d</button>
+            <button class="kpi-period-btn efic-btn" data-val="30" onclick="setEficienciaPeriod(30)">30d</button>
+            <button class="kpi-period-btn efic-btn" data-val="all" onclick="setEficienciaPeriod('all')">Todo</button>
+          </div>
+        </div>
+
+        <!-- KPIs de rotación y tiempo -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:.85rem">
+          <div class="kpi-card highlight" style="grid-column:1/-1">
+            <div class="kpi-value" id="efic-tiempo-mesa">—</div>
+            <div class="kpi-label">⏱ Tiempo medio de mesa</div>
+            <div class="kpi-change" id="efic-tiempo-ref" style="font-size:11px;margin-top:4px"></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" id="efic-mesas-dia">—</div>
+            <div class="kpi-label">🔄 Mesas/día</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" id="efic-pax-mesa">—</div>
+            <div class="kpi-label">👥 Pax por mesa</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value" id="efic-diner-pct">—</div>
+            <div class="kpi-label">📱 Pedidos vía QR</div>
+            <div style="font-size:10px;color:var(--t3);margin-top:2px">Comensales que pidieron solos</div>
+          </div>
+          <div class="kpi-card amber">
+            <div class="kpi-value" id="efic-ahorro">—</div>
+            <div class="kpi-label">💰 Ahorro estimado/mes</div>
+            <div style="font-size:10px;color:var(--t3);margin-top:2px">vs sin spliteat</div>
+          </div>
+        </div>
+
+        <!-- Gráfico tiempo de mesa por semana -->
+        <div class="kpi-card" style="grid-column:1/-1;margin-bottom:.85rem">
+          <div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:.75rem">Tiempo de mesa por semana (min)</div>
+          <div id="efic-chart-tiempo" style="height:80px;display:flex;align-items:flex-end;gap:4px"></div>
+        </div>
+
+        <!-- Top platos con más rotación -->
+        <div class="kpi-card" style="margin-bottom:.85rem">
+          <div style="font-size:13px;font-weight:600;color:var(--t1);margin-bottom:.75rem">🏆 Top platos pedidos</div>
+          <div id="efic-top-platos"></div>
+        </div>
+
+        <!-- Nota metodológica -->
+        <div style="font-size:11px;color:var(--t3);line-height:1.6;padding:.75rem;background:var(--bg2);border-radius:var(--r-sm)">
+          💡 <strong>Ahorro estimado</strong> calculado sobre 15min/mesa ahorrados × mesas cerradas × coste hora camarero (12€). <strong>Pedidos vía QR</strong> = platos con <code>source='diner'</code> — aumenta conforme más comensales usan el QR.
+        </div>
+      </div>
+
       <div id="rtab-platos" class="body" style="display:none;overflow-y:auto">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
           <div style="font-size:16px;font-weight:600">⏱ Tiempos por plato</div>
@@ -18177,22 +18237,158 @@ async function loadAdminWaitersMobile() {
 }
 
 function showReportesTab(name) {
-  ['kpis','platos','historial','propinas','pagos'].forEach(t => {
+  ['kpis','eficiencia','platos','historial','propinas','pagos'].forEach(t => {
     const el = document.getElementById('rtab-' + t);
     if (el) el.style.display = t === name ? 'block' : 'none';
     const btn = document.getElementById('rtab-btn-' + t);
     if (btn) btn.classList.toggle('on', t === name);
   });
   if (name === 'kpis') loadKPIs();
+  if (name === 'eficiencia') loadEficiencia();
   if (name === 'platos') loadKPIPlatos();
   if (name === 'historial') loadHistorial();
   if (name === 'propinas') loadPropinas();
   if (name === 'pagos') { loadPagosRecientes(); loadStripeStatus(); }
 }
 
+let _eficienciaPeriod = 7;
+function setEficienciaPeriod(val) {
+  _eficienciaPeriod = val;
+  document.querySelectorAll('.efic-btn').forEach(b => b.classList.toggle('on', b.dataset.val == val));
+  loadEficiencia();
+}
+
+async function loadEficiencia() {
+  if (!state.adminRestaurantId) return;
+  const restId = state.adminRestaurantId;
+
+  // Rango de fechas
+  let dateFilter = null;
+  if (_eficienciaPeriod !== 'all') {
+    dateFilter = new Date(Date.now() - parseInt(_eficienciaPeriod) * 86400000).toISOString();
+  }
+
+  // 1. Rooms cerradas con duración
+  let roomsQ = sb.from('rooms')
+    .select('id,created_at,closed_at')
+    .eq('restaurant_id', restId)
+    .not('closed_at', 'is', null);
+  if (dateFilter) roomsQ = roomsQ.gte('created_at', dateFilter);
+  const { data: rooms } = await roomsQ;
+  if (!rooms?.length) {
+    ['efic-tiempo-mesa','efic-mesas-dia','efic-pax-mesa','efic-diner-pct','efic-ahorro']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.textContent = '—'; });
+    return;
+  }
+
+  const roomIds = rooms.map(r => r.id);
+
+  // 2. Guests, dishes por source
+  const [{ data: guests }, { data: dishes }] = await Promise.all([
+    sb.from('guests').select('id,room_id').in('room_id', roomIds),
+    sb.from('dishes').select('id,room_id,source,price').in('room_id', roomIds),
+  ]);
+
+  // Métricas base
+  const duraciones = rooms.map(r =>
+    (new Date(r.closed_at) - new Date(r.created_at)) / 60000
+  ).filter(d => d > 0 && d < 480); // excluir outliers >8h
+
+  const avgMin = duraciones.length ? Math.round(duraciones.reduce((a,b) => a+b,0) / duraciones.length) : 0;
+  const nMesas = rooms.length;
+  const diasRango = _eficienciaPeriod === 'all' ? 90 : parseInt(_eficienciaPeriod);
+  const mesasDia = (nMesas / diasRango).toFixed(1);
+  const nPax = (guests || []).length;
+  const paxMesa = nMesas > 0 ? (nPax / nMesas).toFixed(1) : '—';
+
+  // % pedidos vía QR
+  const totalDishes = (dishes || []).length;
+  const dinerDishes = (dishes || []).filter(d => d.source === 'diner').length;
+  const dinerPct = totalDishes > 0 ? Math.round((dinerDishes / totalDishes) * 100) : 0;
+
+  // Ahorro estimado: 15min ahorrados por mesa × nMesas × (12€/h / 4) = 3€/mesa
+  const AHORRO_POR_MESA = 3; // €
+  const ahorroMes = Math.round((nMesas / diasRango) * 30 * AHORRO_POR_MESA);
+
+  // Pintar KPIs
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('efic-tiempo-mesa', avgMin + ' min');
+  set('efic-tiempo-ref', avgMin < 90 ? '✓ Buen ritmo de rotación' : avgMin < 120 ? 'Rotación normal' : '⚠️ Mesas largas — revisar flujo de pago');
+  set('efic-mesas-dia', mesasDia);
+  set('efic-pax-mesa', paxMesa + ' pax');
+  set('efic-diner-pct', dinerPct + '%');
+  set('efic-ahorro', '~' + ahorroMes + '€');
+
+  // Gráfico semanal tiempo de mesa
+  const byWeek = {};
+  rooms.forEach(r => {
+    const dur = (new Date(r.closed_at) - new Date(r.created_at)) / 60000;
+    if (dur <= 0 || dur > 480) return;
+    const wk = new Date(r.created_at);
+    wk.setDate(wk.getDate() - wk.getDay());
+    const key = wk.toISOString().slice(0, 10);
+    if (!byWeek[key]) byWeek[key] = [];
+    byWeek[key].push(dur);
+  });
+  const weeks = Object.keys(byWeek).sort().slice(-8);
+  const avgs = weeks.map(w => Math.round(byWeek[w].reduce((a,b)=>a+b,0)/byWeek[w].length));
+  const maxAvg = Math.max(...avgs, 1);
+  const chartEl = document.getElementById('efic-chart-tiempo');
+  if (chartEl && avgs.length) {
+    chartEl.innerHTML = avgs.map((v, i) => {
+      const h = Math.round((v / maxAvg) * 72);
+      const label = weeks[i].slice(5); // MM-DD
+      const color = v < 90 ? 'var(--brand-d)' : v < 120 ? 'var(--amber)' : 'var(--accent)';
+      return `<div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:3px">
+        <div style="font-size:9px;color:var(--t3)">${v}m</div>
+        <div style="width:100%;height:${h}px;background:${color};border-radius:3px 3px 0 0;min-height:4px"></div>
+        <div style="font-size:9px;color:var(--t3);white-space:nowrap">${label}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // Top platos
+  const platoCounts = {};
+  const platoRevenue = {};
+  (dishes || []).forEach(d => {
+    if (!d.price) return;
+    platoCounts[d.price] = platoCounts[d.price] || {};
+    // Usamos name desde la query de dishes — necesitamos otro approach
+  });
+
+  // Top platos via query separada con nombre
+  const { data: topDishes } = await sb.from('dishes')
+    .select('name,price')
+    .in('room_id', roomIds)
+    .not('name', 'is', null);
+
+  const counts = {};
+  const revenue = {};
+  (topDishes || []).forEach(d => {
+    counts[d.name] = (counts[d.name] || 0) + 1;
+    revenue[d.name] = (revenue[d.name] || 0) + parseFloat(d.price || 0);
+  });
+  const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 6);
+  const maxCount = sorted[0]?.[1] || 1;
+  const topEl = document.getElementById('efic-top-platos');
+  if (topEl && sorted.length) {
+    topEl.innerHTML = sorted.map(([name, cnt]) => {
+      const pct = Math.round((cnt / maxCount) * 100);
+      const rev = (revenue[name] || 0).toFixed(0);
+      return `<div style="margin-bottom:.6rem">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+          <span style="font-size:12px;color:var(--t1);font-weight:500">${name}</span>
+          <span style="font-size:11px;color:var(--t3)">×${cnt} · ${rev}€</span>
+        </div>
+        <div style="height:6px;background:var(--bg2);border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:var(--brand-d);border-radius:3px;transition:width .3s"></div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+}
+
 function setKpiPeriod(val) {
-  // Bug fix: state.kpiPeriod nunca se seteaba — loadFoodcostKPI lee state.kpiPeriod ?? 0
-  state.kpiPeriod = val;
   const sel = document.getElementById('kpi-filter');
   if (sel) sel.value = val;
   document.querySelectorAll('.kpi-period-btn').forEach(btn => {
