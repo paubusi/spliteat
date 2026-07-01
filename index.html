@@ -4799,7 +4799,13 @@ function _initStripeForAccount(stripeAccountId) {
   if (!stripeAccountId) return;
   _canMakePaymentResult = null;
   _stripeAccountReady = false;
-  stripeInstance = Stripe(STRIPE_PUBLIC_KEY, { stripeAccount: stripeAccountId });
+  // En test mode usar la cuenta maestra (sin stripeAccount) — las cuentas
+  // conectadas de test no completan onboarding real y Apple Pay queda inactive.
+  // En producción usar la cuenta conectada para que el dinero vaya al restaurante.
+  const isTestMode = STRIPE_PUBLIC_KEY.startsWith('pk_test_');
+  stripeInstance = isTestMode
+    ? Stripe(STRIPE_PUBLIC_KEY)
+    : Stripe(STRIPE_PUBLIC_KEY, { stripeAccount: stripeAccountId });
   _stripeAccountReady = true;
   // Si la pantalla de pago ya está visible, re-renderizar con la cuenta correcta
   if (document.getElementById('pay-methods-container')) {
