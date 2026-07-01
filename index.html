@@ -8230,14 +8230,12 @@ function buildPayScreen() {
           // Primera vez con cuenta conectada — comprobar soporte y re-renderizar
           const pr = stripeInstance.paymentRequest({ country:'ES', currency:'eur', total:{ label:'spliteat', amount:100 } });
           pr.canMakePayment().then(result => {
-            // DEBUG TEMPORAL — eliminar después
-            alert('canMakePayment: ' + JSON.stringify(result) + ' | account ready: ' + _stripeAccountReady);
             _canMakePaymentResult = result || false;
             buildPayScreen();
           });
           container.innerHTML = `<div style="min-height:52px;display:flex;align-items:center;justify-content:center"><div style="font-size:12px;color:var(--t3)">Cargando método de pago…</div></div>${otherSection}`;
         }
-      } else if (_canMakePaymentResult) {
+      } else if (_canMakePaymentResult && (_canMakePaymentResult.applePay || _canMakePaymentResult.googlePay)) {
         // PRB disponible → montar botón nativo (sin fallback visual)
         container.innerHTML = `
           <div style="margin-bottom:.75rem">
@@ -8413,7 +8411,7 @@ async function mountPaymentRequestButtonForOther(amountCents, containerId, guest
   });
 
   const canMake = await pr.canMakePayment();
-  if (!canMake) return false;
+  if (!canMake || (!canMake.applePay && !canMake.googlePay)) return false;
 
   pr.on('paymentmethod', async (ev) => {
     try {
@@ -9522,7 +9520,7 @@ async function mountPaymentRequestButton(amountCents, containerId) {
 
   // Comprobar si el navegador soporta Apple Pay / Google Pay
   const canMake = await pr.canMakePayment();
-  if (!canMake) return false; // navegador no soporta PRB → mostrar botones visuales
+  if (!canMake || (!canMake.applePay && !canMake.googlePay)) return false; // sin Apple/Google Pay real → fallback visual
 
   pr.on('paymentmethod', async (ev) => {
     try {
@@ -9597,11 +9595,6 @@ async function _registerStripePayment(me, paymentIntentId, method) {
 }
 
 async function payWithStripe(me, method) {
-  // Apple Pay / Google Pay pasan por el PRB nativo — nunca por este flujo
-  if (method === 'Apple Pay' || method === 'Google Pay') {
-    notify('Usa el botón de Apple Pay / Google Pay para completar el pago.', 'info');
-    return;
-  }
 
   // Get restaurant's Stripe account
   const { data: rest } = await sb.from('restaurants')
